@@ -1,0 +1,85 @@
+/* ── Global Styles ─────────────────────────────────────────── */
+
+:root {
+  /* Campbell colour palette — industrial, oppressive, muted */
+  --bg-primary:    #0d1017;
+  --bg-secondary:  #141920;
+  --bg-tertiary:   #1c2230;
+  --bg-input:      #111620;
+
+  --text-primary:  #c4bfb4;
+  --text-secondary:#8a8478;
+  --text-dim:      #4a4840;
+  --text-thought:  #7a9abf;
+  --text-system:   #7a6a4a;
+  --text-player:   #6a8a6a;
+
+  --accent:        #8c6a3c;   /* amber — worn metal */
+  --accent-dim:    #4a3820;
+  --accent-blue:   #3a5a7a;   /* muted steel blue */
+  --accent-red:    #7a2020;   /* deep red — danger/stress */
+
+  --border:        #252d3a;
+  --border-accent: #3a4a5a;
+
+  --scrollbar-track: #0d1017;
+  --scrollbar-thumb: #252d3a;
+
+  /* Typography */
+  --font-mono: 'Courier New', 'Courier', monospace;
+  --font-ui:   system-ui, -apple-system, sans-serif;
+
+  /* Layout */
+  --status-height:    48px;
+  --input-height:     52px;
+  --thought-height:   56px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+#svelte {
+  height: 100%;
+  width: 100%;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-accent);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
