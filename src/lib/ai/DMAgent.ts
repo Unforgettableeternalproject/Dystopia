@@ -1,62 +1,66 @@
-// ── DMAgent ───────────────────────────────────────────────────
-// 負責將結構化場景資料轉為敘述文字（串流）。
-// DM 不創造世界，只傳達 Lore Vault 提供的內容。
+// DMAgent — narrates scene results via streaming.
+// The DM transmits what the lore defines; it does NOT invent world content.
 
-import type { PlayerAction, GameState, HistoryEntry } from '../types';
-import { AnthropicClient } from './AnthropicClient';
+import type { PlayerAction, HistoryEntry } from '../types';
+import type { ILLMClient } from './ILLMClient';
 
-const SYSTEM_PROMPT = `你是一個劇場式 RPG 遊戲的 DM（主持人）。
+const SYSTEM_PROMPT = `You are the narrator (DM) of a theatrical RPG set in a dark industrial world.
 
-你的職責：
-1. 以沉浸式第二人稱（「你」）描述場景與事件。
-2. 忠實傳達提供的場景資料，不自行添加資料中沒有的地點、NPC 或物品。
-3. 扮演場景中的 NPC，對話應符合其描述的性格。
-4. 敘述保持簡潔有力，通常 3-5 句話即可，特殊場景可以更長。
-5. 語調應配合場景氛圍關鍵字（ambience）。
-6. 不要在敘述中列出遊戲機制數值或旗標名稱。
+YOUR ROLE:
+- Narrate in second person ("you"), immersive, grounded tone.
+- Describe only what the provided scene data contains — no invented locations, NPCs, or items.
+- Voice NPCs based solely on their given descriptions and dialogue cues.
+- Reflect triggered events in the narration naturally; do not re-explain game mechanics.
+- Match tone to the ambience keywords in the scene.
+- Keep narration concise: 3-6 sentences for normal actions, longer only for significant events.
+- Never reveal flag names, stat numbers, or system internals.
 
-你收到的資料格式：
-- 場景上下文（地點、NPC、出口）
-- 玩家動作
-- 最近的歷史紀錄
+WHAT YOU ARE NOT ALLOWED TO DO:
+- Introduce new named characters not in the scene data.
+- Describe locations beyond what is listed in exits and scene description.
+- Grant the player items, abilities, or information not in the scene.
+- Decide the outcome of the player's action beyond narrating the attempt and immediate environment reaction.
 
-嚴格限制：只能描述場景資料中存在的事物。`;
+The structured scene data, player status, and triggered events are provided in each message.
+Respond with narration only — no OOC commentary, no markdown headers.`;
 
 export class DMAgent {
-  private client: AnthropicClient;
+  private client: ILLMClient;
 
-  constructor(client: AnthropicClient) {
+  constructor(client: ILLMClient) {
     this.client = client;
   }
 
   /**
-   * 生成敘述，以 AsyncGenerator 串流回傳文字片段。
+   * Stream narration for the current turn.
+   * sceneContext: full context string built by GameController (scene + player status + events).
+   * action: what the player did.
+   * history: recent turn log for continuity.
    */
   async *narrate(
     sceneContext: string,
     action: PlayerAction,
-    history: HistoryEntry[]
+    history: HistoryEntry[],
   ): AsyncGenerator<string> {
     const historyText = history
-      .slice(-5) // 最近 5 筆
-      .map((h) => `[Turn ${h.turn}] 玩家：${h.action.input}\nDM：${h.narrative}`)
+      .slice(-5)
+      .map((h) => {
+        const loc = h.locationId ? ` [${h.locationId}]` : '';
+        return `Turn ${h.turn}${loc}\nPlayer: ${h.action.input}\nNarrator: ${h.narrative}`;
+      })
       .join('\n\n');
 
     const userMessage = [
-      '## 場景資料',
+      '## Scene Data',
       sceneContext,
       '',
-      '## 最近歷史',
-      historyText || '（遊戲剛開始）',
+      '## Recent History',
+      historyText || '(game start)',
       '',
-      '## 玩家動作',
+      '## Player Action',
       action.input,
     ].join('\n');
 
-    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-      { role: 'user', content: userMessage },
-    ];
-
-    yield* this.client.stream(SYSTEM_PROMPT, messages);
+    yield* this.client.stream(SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
   }
 }

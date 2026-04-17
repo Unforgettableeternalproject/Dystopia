@@ -1,59 +1,54 @@
-// ── Regulator ─────────────────────────────────────────────────
-// 強制限制玩家只能執行其能力範圍內的動作。
-// 判定邏輯以玩家數值為主，LLM 只負責語意解析與原因生成。
+// Regulator — action validation and Thought generation.
+// Hard rules run first (no LLM). LLM only handles semantic edge cases.
 
 import type { PlayerAction, PlayerState, RegulatorResult, Thought } from '../types';
-import { AnthropicClient } from './AnthropicClient';
+import type { ResolvedLocation } from '../types/world';
+import type { ILLMClient } from './ILLMClient';
 
-const SYSTEM_PROMPT = `你是一個 RPG 遊戲的行動規制器。
-你的任務是判斷玩家的輸入是否在其角色能力範圍內。
+const VALIDATE_SYSTEM = `You are an action validator for a grounded RPG.
+Determine if the player's action is physically/practically possible given their current stats and conditions.
 
-規則：
-1. 根據玩家數值判斷動作可行性。
-2. 若動作不可行，給出簡短的理由（用第三人稱，以世界觀語言表達，不要說「你的數值不足」）。
-3. 若動作可行但超過能力，可以降級調整（例如：想要完美說服改為嘗試說服）。
-4. 回應格式為 JSON：{ "allowed": boolean, "reason": string | null, "modifiedInput": string | null }
-
-不要在 JSON 以外輸出任何文字。`;
+Rules:
+1. Use stats (strength, knowledge, talent, spirit, luck) and status (stamina, stress) to judge feasibility.
+2. Active conditions may restrict or modify possible actions (e.g., injured_arm limits heavy lifting).
+3. If impossible, give a short in-world reason — never say "your stat is too low".
+4. If possible but overreaching, you may downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
+5. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null }`;
 
 export class Regulator {
-  private client: AnthropicClient;
+  private client: ILLMClient;
 
-  constructor(client: AnthropicClient) {
+  constructor(client: ILLMClient) {
     this.client = client;
   }
 
-  async validate(
-    action: PlayerAction,
-    player: PlayerState
-  ): Promise<RegulatorResult> {
-    // 先做基礎數值邊界檢查（不需要 LLM）
-    const hardCheck = this.hardCheck(action, player);
-    if (hardCheck !== null) return hardCheck;
+  // ── Validation ──────────────────────────────────────────────
 
-    // 語意層判斷（LLM）
+  async validate(action: PlayerAction, player: PlayerState): Promise<RegulatorResult> {
+    const hard = this.hardCheck(action, player);
+    if (hard !== null) return hard;
+
+    const conditionSummary = player.conditions
+      .filter(c => !c.isHidden)
+      .map(c => c.id + ': ' + c.description)
+      .join('; ');
+
     const userMessage = JSON.stringify({
       action: action.input,
       actionType: action.type,
-      stats: {
-        strength: player.primaryStats.strength,
-        knowledge: player.primaryStats.knowledge,
-        talent: player.primaryStats.talent,
-        spirit: player.primaryStats.spirit,
-        luck: player.primaryStats.luck,
-      },
-      stamina: player.statusStats.stamina,
-      stress: player.statusStats.stress,
+      stats: player.primaryStats,
+      stamina: player.statusStats.stamina + '/' + player.statusStats.staminaMax,
+      stress: player.statusStats.stress + '/' + player.statusStats.stressMax,
+      conditions: conditionSummary || 'none',
     });
 
     try {
-      const raw = await this.client.complete(SYSTEM_PROMPT, userMessage, 256);
+      const raw = await this.client.complete(VALIDATE_SYSTEM, userMessage, 256);
       const parsed = JSON.parse(raw) as {
         allowed: boolean;
         reason: string | null;
         modifiedInput: string | null;
       };
-
       return {
         allowed: parsed.allowed,
         reason: parsed.reason ?? undefined,
@@ -62,36 +57,49 @@ export class Regulator {
           : undefined,
       };
     } catch {
-      // 解析失敗時預設放行，避免卡住遊戲
       return { allowed: true };
     }
   }
 
-  /** 硬邊界檢查：不需要 LLM 的明確限制 */
-  private hardCheck(
-    action: PlayerAction,
-    player: PlayerState
-  ): RegulatorResult | null {
-    // 體力耗盡時禁止戰鬥類動作
+  private hardCheck(action: PlayerAction, player: PlayerState): RegulatorResult | null {
     if (action.type === 'combat' && player.statusStats.stamina <= 0) {
-      return {
-        allowed: false,
-        reason: '精疲力竭，連站穩都費力，更別說戰鬥了。',
-      };
+      return { allowed: false, reason: '精疲力竭，連站穩都費力，更別說戰鬥了。' };
     }
     return null;
   }
 
-  /** 產生建議的 Thought 列表（根據當前位置與狀態） */
-  async generateThoughts(
-    locationContext: string,
-    player: PlayerState
-  ): Promise<Thought[]> {
-    // TODO: Sprint 1 實作 — 目前回傳預設建議
-    return [
-      { id: 'examine', text: '觀察周圍環境', actionType: 'examine' },
-      { id: 'move', text: '查看可以去的地方', actionType: 'move' },
-      { id: 'interact', text: '嘗試與人交談', actionType: 'interact' },
-    ];
+  // ── Thought processing ──────────────────────────────────────
+
+  /**
+   * Filter and optionally manipulate a pre-built thought list based on player state.
+   * Called by GameController after buildBaseThoughts().
+   */
+  processThoughts(thoughts: Thought[], player: PlayerState): Thought[] {
+    // Filter out thoughts the player cannot attempt
+    const filtered = thoughts.filter(t => {
+      if (t.actionType === 'combat' && player.statusStats.stamina <= 0) return false;
+      return true;
+    });
+
+    // Check for mind-control or manipulation conditions
+    const isMindControlled = player.conditions.some(c =>
+      c.id.includes('mind_control') || c.id.includes('possessed') || c.id.includes('manipulated')
+    );
+
+    if (isMindControlled) {
+      // Randomly mark thoughts as manipulated (player cannot fully trust their own instincts)
+      return filtered.map((t, i) => ({ ...t, isManipulated: i % 2 === 0 }));
+    }
+
+    // High stress: combat/aggressive thoughts may feel more urgent than they should
+    const stressRatio = player.statusStats.stress / Math.max(player.statusStats.stressMax, 1);
+    if (stressRatio >= 0.8) {
+      return filtered.map(t => ({
+        ...t,
+        isManipulated: t.actionType === 'combat',
+      }));
+    }
+
+    return filtered;
   }
 }

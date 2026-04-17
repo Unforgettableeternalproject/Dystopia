@@ -1,63 +1,48 @@
-// ── AnthropicClient ───────────────────────────────────────────
-// 封裝 Anthropic SDK，提供串流與單次呼叫介面。
-// API key 從環境變數讀取，不硬編碼。
+// AnthropicClient — Anthropic SDK backend.
+// Used when VITE_ANTHROPIC_API_KEY is set.
 
 import Anthropic from '@anthropic-ai/sdk';
+import type { ILLMClient, ChatMessage } from './ILLMClient';
 
-const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 1024;
+const DEFAULT_MODEL  = 'claude-sonnet-4-6';
+const DEFAULT_TOKENS = 1024;
 
-export class AnthropicClient {
+export class AnthropicClient implements ILLMClient {
   private client: Anthropic;
+  private model: string;
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, model = DEFAULT_MODEL) {
     this.client = new Anthropic({
       apiKey: apiKey ?? import.meta.env.VITE_ANTHROPIC_API_KEY,
     });
+    this.model = model;
   }
 
-  /**
-   * 單次呼叫，回傳完整文字。
-   * 用於規制器（需要快速判斷，不需串流）。
-   */
-  async complete(
-    systemPrompt: string,
-    userMessage: string,
-    maxTokens = MAX_TOKENS
-  ): Promise<string> {
+  async complete(system: string, user: string, maxTokens = DEFAULT_TOKENS): Promise<string> {
     const response = await this.client.messages.create({
-      model: MODEL,
+      model: this.model,
       max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      system,
+      messages: [{ role: 'user', content: user }],
     });
-
-    const content = response.content[0];
-    if (content.type !== 'text') throw new Error('Unexpected response type');
-    return content.text;
+    const block = response.content[0];
+    if (block.type !== 'text') throw new Error('Unexpected Anthropic response type');
+    return block.text;
   }
 
-  /**
-   * 串流呼叫，逐字元回傳。
-   * 用於 DM（打字機效果）。
-   */
   async *stream(
-    systemPrompt: string,
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    maxTokens = MAX_TOKENS
+    system: string,
+    messages: ChatMessage[],
+    maxTokens = DEFAULT_TOKENS,
   ): AsyncGenerator<string> {
     const stream = await this.client.messages.stream({
-      model: MODEL,
+      model: this.model,
       max_tokens: maxTokens,
-      system: systemPrompt,
+      system,
       messages,
     });
-
     for await (const chunk of stream) {
-      if (
-        chunk.type === 'content_block_delta' &&
-        chunk.delta.type === 'text_delta'
-      ) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
         yield chunk.delta.text;
       }
     }
