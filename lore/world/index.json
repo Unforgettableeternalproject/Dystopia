@@ -1,0 +1,66 @@
+{
+  "version": "0.1",
+  "name": "Undocumented Story — Area Divided Era",
+  "regions": [
+    {
+      "id": "crambell",
+      "name": "克蘭貝爾",
+      "path": "regions/crambell"
+    },
+    {
+      "id": "ellendil",
+      "name": "艾倫狄爾",
+      "path": "regions/ellendil"
+    },
+    {
+      "id": "kernaya",
+      "name": "克爾納亞",
+      "path": "regions/kernaya"
+    },
+    {
+      "id": "matchulo",
+      "name": "瑪屈洛",
+      "path": "regions/matchulo"
+    },
+    {
+      "id": "serestia",
+      "name": "瑟雷斯提亞",
+      "path": "regions/serestia"
+    },
+    {
+      "id": "valonnes",
+      "name": "瓦洛內斯",
+      "path": "regions/valonnes"
+    },
+    {
+      "id": "lumina",
+      "name": "盧米納",
+      "path": "regions/lumina"
+    },
+    {
+      "id": "murilius",
+      "name": "穆爾伊琉斯",
+      "path": "regions/murilius"
+    },
+    {
+      "id": "lienxu",
+      "name": "廉許之地",
+      "path": "regions/lienxu"
+    },
+    {
+      "id": "mgzt",
+      "name": "Magna Zona Temporis",
+      "path": "regions/mgzt"
+    },
+    {
+      "id": "noname",
+      "name": "無名之地",
+      "path": "regions/noname"
+    },
+    {
+      "id": "zone_12",
+      "name": "十二區",
+      "path": "regions/zone_12"
+    }
+  ]
+}

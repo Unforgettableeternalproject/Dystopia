@@ -1,0 +1,43 @@
+{
+  "_schema": "LocationNode — one file per location",
+  "id": "region_location_name",
+  "name": "地點顯示名稱",
+  "regionId": "crambell",
+  "tags": [
+    "outdoor",
+    "public",
+    "military_zone"
+  ],
+  "base": {
+    "description": "DM scene description — what this place looks like and feels like.",
+    "ambience": [
+      "keyword1",
+      "keyword2"
+    ],
+    "connections": [
+      {
+        "targetLocationId": "other_location_id",
+        "description": "Player-facing exit label",
+        "condition": "optional_flag_expression",
+        "travelNote": "DM narration hint for the travel"
+      }
+    ],
+    "npcIds": [
+      "npc_id"
+    ],
+    "eventIds": [
+      "event_id"
+    ],
+    "isAccessible": true
+  },
+  "localVariants": [
+    {
+      "id": "variant_id",
+      "label": "Human-readable label",
+      "condition": "local_flag_only",
+      "priority": 10,
+      "description": "Changed description after local event.",
+      "transitionNote": "What changed and why (DM context)."
+    }
+  ]
+}

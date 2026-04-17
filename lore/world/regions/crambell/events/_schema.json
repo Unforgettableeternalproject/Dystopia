@@ -1,0 +1,28 @@
+{
+  "_schema": "GameEvent — one file per event",
+  "id": "region_event_name",
+  "locationId": "optional_location_id",
+  "condition": {
+    "flags": [
+      "required_flag"
+    ],
+    "anyFlags": [
+      "any_of_these"
+    ]
+  },
+  "description": "DM-facing event description.",
+  "outcomes": [
+    {
+      "id": "outcome_1",
+      "condition": "player_choice_flag",
+      "description": "DM outcome description.",
+      "flagsSet": [
+        "event_outcome_1_done"
+      ],
+      "statChanges": {
+        "statusStats.stress": 2
+      }
+    }
+  ],
+  "isRepeatable": false
+}

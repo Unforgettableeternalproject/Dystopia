@@ -1,172 +1,212 @@
-// -- LoreVault ---
-// Lore database access layer. Loads from JSON, provides indexed queries.
-// The DM should only obtain world data through this layer.
+// LoreVault — lore database access layer.
+// Loads authored content from JSON; the DM only reads world data through here.
 
 import type {
-  LocationNode,
-  ResolvedLocation,
-  NPCNode,
-  GameEvent,
-  Faction,
-} from "../types";
-import type { FlagSystem } from "../engine/FlagSystem";
+  LocationNode, ResolvedLocation,
+  NPCNode, NPCOverride,
+  GameEvent, Faction, RegionIndex,
+} from '../types';
+import type { DialogueTree } from '../types/dialogue';
+import type { QuestDefinition } from '../types/quest';
+import type { WorldPhase, WorldPhaseId, PhaseEffect } from '../types/phase';
+import type { FlagSystem } from '../engine/FlagSystem';
+import type { NPCMemoryEntry } from '../types/game';
 
 interface LoreData {
-  locations: Record<string, LocationNode>;
-  npcs: Record<string, NPCNode>;
-  events: Record<string, GameEvent>;
-  factions: Record<string, Faction>;
+  locations:  Record<string, LocationNode>;
+  npcs:       Record<string, NPCNode>;
+  events:     Record<string, GameEvent>;
+  factions:   Record<string, Faction>;
+  dialogues:  Record<string, DialogueTree>;
+  quests:     Record<string, QuestDefinition>;
+  phases:     WorldPhase[];
+  regions:    Record<string, RegionIndex>;
 }
 
 export class LoreVault {
   private data: LoreData = {
-    locations: {},
-    npcs: {},
-    events: {},
-    factions: {},
+    locations: {}, npcs: {}, events: {}, factions: {},
+    dialogues: {}, quests: {}, phases: [], regions: {},
   };
 
   load(data: Partial<LoreData>): void {
     if (data.locations) Object.assign(this.data.locations, data.locations);
-    if (data.npcs) Object.assign(this.data.npcs, data.npcs);
-    if (data.events) Object.assign(this.data.events, data.events);
-    if (data.factions) Object.assign(this.data.factions, data.factions);
+    if (data.npcs)       Object.assign(this.data.npcs,      data.npcs);
+    if (data.events)     Object.assign(this.data.events,    data.events);
+    if (data.factions)   Object.assign(this.data.factions,  data.factions);
+    if (data.dialogues)  Object.assign(this.data.dialogues, data.dialogues);
+    if (data.quests)     Object.assign(this.data.quests,    data.quests);
+    if (data.regions)    Object.assign(this.data.regions,   data.regions);
+    if (data.phases)     this.data.phases.push(...data.phases);
   }
 
-  // -- Locations ---
+  // -- Locations -------------------------------------------------------
 
   getLocation(id: string): LocationNode | undefined {
     return this.data.locations[id];
   }
 
-  // Compute the effective state of a location given current flags.
-  // All active variants (sorted ascending by priority) are merged onto base.
-  // connections: full replacement; npcIds/eventIds: additive/subtractive.
+  // Resolve a location to its current effective state given active flags.
+  // localVariants handle location-scoped changes only.
+  // Phase-level changes are applied separately via applyPhaseEffects().
   resolveLocation(id: string, flags: FlagSystem): ResolvedLocation | undefined {
     const node = this.data.locations[id];
     if (!node) return undefined;
 
-    let description = node.base.description;
-    let ambience = [...node.base.ambience];
-    let connections = [...node.base.connections];
-    const npcIds = new Set<string>(node.base.npcIds);
-    const eventIds = new Set<string>(node.base.eventIds);
-    let isAccessible = node.base.isAccessible;
+    let { description, ambience, connections, npcIds, eventIds, isAccessible } = node.base;
+    ambience    = [...ambience];
+    connections = [...connections];
+    const npcSet   = new Set(npcIds);
+    const evtSet   = new Set(eventIds);
 
     const activeVariants: string[] = [];
     const transitionNotes: string[] = [];
 
-    const sorted = [...node.variants].sort((a, b) => a.priority - b.priority);
-
+    const sorted = [...node.localVariants].sort((a, b) => a.priority - b.priority);
     for (const v of sorted) {
       if (!flags.evaluate(v.condition)) continue;
-
       activeVariants.push(v.id);
-
-      if (v.description !== undefined) description = v.description;
-      if (v.ambience !== undefined) ambience = [...v.ambience];
-      if (v.connections !== undefined) connections = [...v.connections];
-      if (v.isAccessible !== undefined) isAccessible = v.isAccessible;
-
-      v.addNpcIds?.forEach((nid) => npcIds.add(nid));
-      v.removeNpcIds?.forEach((nid) => npcIds.delete(nid));
-      v.addEventIds?.forEach((eid) => eventIds.add(eid));
-      v.removeEventIds?.forEach((eid) => eventIds.delete(eid));
-
+      if (v.description  !== undefined) description  = v.description;
+      if (v.ambience     !== undefined) ambience      = [...v.ambience];
+      if (v.connections  !== undefined) connections   = [...v.connections];
+      if (v.isAccessible !== undefined) isAccessible  = v.isAccessible;
+      v.addNpcIds?.forEach(n => npcSet.add(n));
+      v.removeNpcIds?.forEach(n => npcSet.delete(n));
+      v.addEventIds?.forEach(e => evtSet.add(e));
+      v.removeEventIds?.forEach(e => evtSet.delete(e));
       if (v.transitionNote) transitionNotes.push(v.transitionNote);
     }
 
     return {
-      id: node.id,
-      name: node.name,
-      regionId: node.regionId,
-      tags: node.tags,
-      description,
-      ambience,
-      connections,
-      npcIds: Array.from(npcIds),
-      eventIds: Array.from(eventIds),
-      isAccessible,
-      activeVariants,
-      transitionNotes,
+      id: node.id, name: node.name, regionId: node.regionId, tags: node.tags,
+      description, ambience, connections,
+      npcIds: Array.from(npcSet), eventIds: Array.from(evtSet),
+      isAccessible, activeVariants, transitionNotes,
     };
   }
 
   getLocationsByRegion(regionId: string): LocationNode[] {
-    return Object.values(this.data.locations).filter(
-      (loc) => loc.regionId === regionId
-    );
+    return Object.values(this.data.locations).filter(l => l.regionId === regionId);
   }
 
-  // -- NPCs ---
+  // -- NPCs ------------------------------------------------------------
 
   getNPC(id: string): NPCNode | undefined {
     return this.data.npcs[id];
   }
 
-  getNPCsByIds(ids: string[]): NPCNode[] {
-    return ids
-      .map((id) => this.data.npcs[id])
-      .filter((npc): npc is NPCNode => !!npc && npc.isVisible);
+  // Resolve NPC with phase overrides applied.
+  resolveNPC(id: string, flags: FlagSystem): NPCNode | undefined {
+    const npc = this.data.npcs[id];
+    if (!npc || !npc.isVisible) return undefined;
+    if (!npc.phaseOverrides) return npc;
+
+    let patch: NPCOverride = {};
+    for (const [condition, override] of Object.entries(npc.phaseOverrides)) {
+      if (flags.evaluate(condition)) {
+        patch = { ...patch, ...override };
+      }
+    }
+    return { ...npc, ...patch };
   }
 
-  // -- Events ---
+  getNPCsByIds(ids: string[], flags: FlagSystem): NPCNode[] {
+    return ids
+      .map(id => this.resolveNPC(id, flags))
+      .filter((n): n is NPCNode => !!n);
+  }
+
+  // -- Dialogues -------------------------------------------------------
+
+  getDialogue(id: string): DialogueTree | undefined {
+    return this.data.dialogues[id];
+  }
+
+  // -- Events ----------------------------------------------------------
 
   getEvent(id: string): GameEvent | undefined {
     return this.data.events[id];
   }
 
   getEventsByIds(ids: string[]): GameEvent[] {
-    return ids
-      .map((id) => this.data.events[id])
-      .filter((evt): evt is GameEvent => !!evt);
+    return ids.map(id => this.data.events[id]).filter((e): e is GameEvent => !!e);
   }
 
-  // -- Factions ---
+  // -- Quests ----------------------------------------------------------
+
+  getQuest(id: string): QuestDefinition | undefined {
+    return this.data.quests[id];
+  }
+
+  // -- Factions --------------------------------------------------------
 
   getFaction(id: string): Faction | undefined {
     return this.data.factions[id];
   }
 
-  // -- Scene context for DM ---
-  // Builds a lore subset string for the DM for the current location.
-  // Always passes flags so the DM sees the world as it currently is.
-  buildSceneContext(locationId: string, flags: FlagSystem): string {
+  // -- World phases ----------------------------------------------------
+
+  getPhase(id: WorldPhaseId): WorldPhase | undefined {
+    return this.data.phases.find(p => p.id === id);
+  }
+
+  // Returns the effects that should be applied for a given phase.
+  // Caller (GameController / PhaseManager) is responsible for executing them.
+  getPhaseEffects(phaseId: WorldPhaseId): PhaseEffect[] {
+    return this.getPhase(phaseId)?.effects ?? [];
+  }
+
+  // -- DM scene context ------------------------------------------------
+
+  /**
+   * Build a structured scene context string for the DM system prompt.
+   * npcMemory is optional; when provided, NPC lines include relationship history.
+   */
+  buildSceneContext(
+    locationId: string,
+    flags: FlagSystem,
+    npcMemory?: Record<string, NPCMemoryEntry>,
+  ): string {
     const resolved = this.resolveLocation(locationId, flags);
-    if (!resolved) return "[Unknown location]";
+    if (!resolved) return '[Unknown location]';
 
-    const npcs = this.getNPCsByIds(resolved.npcIds);
+    const npcs = this.getNPCsByIds(resolved.npcIds, flags);
 
-    const connectionLines = resolved.connections
-      .map((c) => {
-        const lock = c.condition ? ` [requires: ${c.condition}]` : "";
-        return `- ${c.description}${lock}`;
+    const exits = resolved.connections
+      .map(c => {
+        const lock = c.condition ? ' [requires: ' + c.condition + ']' : '';
+        return '- ' + c.description + lock;
       })
-      .join("\n");
+      .join('\n');
 
     const npcLines = npcs
-      .map((n) => `- ${n.name} (${n.type}): ${n.description}`)
-      .join("\n");
+      .map(n => {
+        const base = '- ' + n.name + ' (' + n.type + '): ' + n.description;
+        if (!npcMemory) return base;
+        const mem = npcMemory[n.id];
+        if (!mem) return base + ' [初次相遇]';
+        const rel = '[已見過 ' + mem.interactionCount + ' 次, 上次於第 ' + mem.lastInteractedTurn + ' 回合]';
+        return base + ' ' + rel;
+      })
+      .join('\n');
 
-    const worldStateSection =
-      resolved.transitionNotes.length > 0
-        ? "\n### World State\n" +
-          resolved.transitionNotes.map((note) => `- ${note}`).join("\n")
-        : "";
+    const worldState = resolved.transitionNotes.length > 0
+      ? '\n### World State\n' + resolved.transitionNotes.map(t => '- ' + t).join('\n')
+      : '';
 
     return [
-      `## Location: ${resolved.name}`,
-      `Tags: ${resolved.tags.join(", ")}`,
-      `Ambience: ${resolved.ambience.join(", ")}`,
-      "",
+      '## Location: ' + resolved.name,
+      'Tags: ' + resolved.tags.join(', '),
+      'Ambience: ' + resolved.ambience.join(', '),
+      '',
       resolved.description,
-      worldStateSection,
-      "",
-      "### Exits",
-      connectionLines || "(none)",
-      "",
-      "### Present NPCs",
-      npcLines || "(none)",
-    ].join("\n");
+      worldState,
+      '',
+      '### Exits',
+      exits || '(none)',
+      '',
+      '### Present NPCs',
+      npcLines || '(none)',
+    ].join('\n');
   }
 }

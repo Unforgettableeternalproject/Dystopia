@@ -1,8 +1,10 @@
-// ── StateManager ──────────────────────────────────────────────
-// 持有並管理 GameState，提供讀取與更新介面。
-// 所有狀態變更都應透過此類進行，確保一致性。
+// StateManager — holds and mutates GameState.
+// All state changes go through here for consistency and event emission.
 
-import type { GameState, PlayerAction, Thought } from '../types';
+import type { GameState, PlayerAction, Thought, NPCMemoryEntry, ActiveDialogueState } from '../types';
+import type { PlayerCondition } from '../types/player';
+import type { WorldPhaseId } from '../types/phase';
+import type { QuestInstance } from '../types/quest';
 import { EventBus, GameEvents } from './EventBus';
 import { FlagSystem } from './FlagSystem';
 
@@ -21,17 +23,27 @@ export class StateManager {
     return this.state;
   }
 
-  /** 更新玩家位置 */
+  // ── Movement & discovery ─────────────────────────────────────
+
   movePlayer(locationId: string): void {
     const prev = this.state.player.currentLocationId;
     this.state.player.currentLocationId = locationId;
+    this.discoverLocation(locationId);
     this.bus.emit(GameEvents.LOCATION_CHANGED, { from: prev, to: locationId });
     this.notifyUpdate();
   }
 
-  /** 更新單一數值 */
+  discoverLocation(locationId: string): void {
+    if (!this.state.discoveredLocationIds.includes(locationId)) {
+      this.state.discoveredLocationIds.push(locationId);
+      this.notifyUpdate();
+    }
+  }
+
+  // ── Stats ────────────────────────────────────────────────────
+
+  /** Update a stat by dot-path, e.g. "primaryStats.strength" */
   modifyStat(key: string, delta: number): void {
-    // 支援 primaryStats.strength 這樣的路徑
     const [group, stat] = key.split('.');
     const stats = (this.state.player as unknown as Record<string, Record<string, number>>)[group];
     if (stats && stat in stats) {
@@ -40,20 +52,206 @@ export class StateManager {
     }
   }
 
-  /** 設定 Thought 列表 */
+  // ── Conditions ───────────────────────────────────────────────
+
+  /** Add or replace a player condition by id. */
+  addCondition(condition: PlayerCondition): void {
+    const idx = this.state.player.conditions.findIndex(c => c.id === condition.id);
+    if (idx >= 0) {
+      this.state.player.conditions[idx] = condition;
+    } else {
+      this.state.player.conditions.push(condition);
+    }
+    this.notifyUpdate();
+  }
+
+  removeCondition(conditionId: string): void {
+    this.state.player.conditions = this.state.player.conditions.filter(c => c.id !== conditionId);
+    this.notifyUpdate();
+  }
+
+  /** Expire any conditions whose expiresOnTurn <= current turn. Call once per turn. */
+  tickConditions(): void {
+    const before = this.state.player.conditions.length;
+    this.state.player.conditions = this.state.player.conditions.filter(
+      c => c.expiresOnTurn === undefined || c.expiresOnTurn > this.state.turn
+    );
+    if (this.state.player.conditions.length !== before) this.notifyUpdate();
+  }
+
+  // ── Intel ────────────────────────────────────────────────────
+
+  addKnownIntel(intelId: string): void {
+    if (!this.state.player.knownIntelIds.includes(intelId)) {
+      this.state.player.knownIntelIds.push(intelId);
+      this.notifyUpdate();
+    }
+  }
+
+  // ── NPC Memory ───────────────────────────────────────────────
+
+  /**
+   * Record an NPC interaction. Creates entry on first contact.
+   * dialogueId: the dialogue tree that was completed (if any).
+   * choiceId: a significant player choice made during this interaction.
+   */
+  recordNPCInteraction(npcId: string, dialogueId?: string, choiceId?: string): void {
+    const existing = this.state.npcMemory[npcId];
+    if (!existing) {
+      this.state.npcMemory[npcId] = {
+        npcId,
+        firstMetTurn: this.state.turn,
+        lastInteractedTurn: this.state.turn,
+        interactionCount: 1,
+        completedDialogueIds: dialogueId ? [dialogueId] : [],
+        keyChoiceIds: choiceId ? [choiceId] : [],
+      };
+    } else {
+      existing.lastInteractedTurn = this.state.turn;
+      existing.interactionCount += 1;
+      if (dialogueId && !existing.completedDialogueIds.includes(dialogueId)) {
+        existing.completedDialogueIds.push(dialogueId);
+      }
+      if (choiceId && !existing.keyChoiceIds.includes(choiceId)) {
+        existing.keyChoiceIds.push(choiceId);
+      }
+    }
+    this.notifyUpdate();
+  }
+
+  setNPCDialogueResume(npcId: string, nodeId: string): void {
+    const mem = this.state.npcMemory[npcId];
+    if (mem) {
+      mem.lastDialogueNodeId = nodeId;
+      this.notifyUpdate();
+    }
+  }
+
+  // ── Dialogue ─────────────────────────────────────────────────
+
+  startDialogue(npcId: string, dialogueId: string, entryNodeId: string): void {
+    this.state.activeDialogue = { npcId, dialogueId, currentNodeId: entryNodeId };
+    this.state.phase = 'dialogue';
+    this.notifyUpdate();
+  }
+
+  advanceDialogue(nodeId: string): void {
+    if (this.state.activeDialogue) {
+      this.state.activeDialogue.currentNodeId = nodeId;
+      this.notifyUpdate();
+    }
+  }
+
+  endDialogue(completed = true): void {
+    if (this.state.activeDialogue) {
+      if (completed) {
+        this.recordNPCInteraction(
+          this.state.activeDialogue.npcId,
+          this.state.activeDialogue.dialogueId
+        );
+      }
+      this.state.activeDialogue = undefined;
+    }
+    this.state.phase = 'exploring';
+    this.notifyUpdate();
+  }
+
+  // ── Quests ───────────────────────────────────────────────────
+
+  startQuest(questId: string, entryStageId: string): void {
+    this.state.activeQuests[questId] = {
+      questId,
+      currentStageId: entryStageId,
+      completedObjectiveIds: [],
+      isCompleted: false,
+      isFailed: false,
+    };
+    this.bus.emit(GameEvents.QUEST_STARTED, { questId });
+    this.notifyUpdate();
+  }
+
+  completeObjective(questId: string, objectiveId: string): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance && !instance.completedObjectiveIds.includes(objectiveId)) {
+      instance.completedObjectiveIds.push(objectiveId);
+      this.notifyUpdate();
+    }
+  }
+
+  advanceQuestStage(questId: string, nextStageId: string): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance) {
+      instance.currentStageId = nextStageId;
+      this.bus.emit(GameEvents.QUEST_STAGE_ADVANCED, { questId, nextStageId });
+      this.notifyUpdate();
+    }
+  }
+
+  completeQuest(questId: string): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance) {
+      instance.isCompleted = true;
+      instance.currentStageId = null;
+      if (!this.state.completedQuestIds.includes(questId)) {
+        this.state.completedQuestIds.push(questId);
+      }
+      this.bus.emit(GameEvents.QUEST_COMPLETED, { questId });
+      this.notifyUpdate();
+    }
+  }
+
+  failQuest(questId: string): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance) {
+      instance.isFailed = true;
+      instance.currentStageId = null;
+      if (!this.state.completedQuestIds.includes(questId)) {
+        this.state.completedQuestIds.push(questId);
+      }
+      this.notifyUpdate();
+    }
+  }
+
+  // ── World phase ──────────────────────────────────────────────
+
+  advancePhase(phaseId: WorldPhaseId): void {
+    if (!this.state.worldPhase.appliedPhaseIds.includes(phaseId)) {
+      this.state.worldPhase.currentPhase = phaseId;
+      this.state.worldPhase.appliedPhaseIds.push(phaseId);
+      this.bus.emit(GameEvents.PHASE_ADVANCED, { phaseId });
+      this.notifyUpdate();
+    }
+  }
+
+  // ── Narrative & thoughts ─────────────────────────────────────
+
   setThoughts(thoughts: Thought[]): void {
     this.state.pendingThoughts = thoughts;
     this.notifyUpdate();
   }
 
-  /** 追加歷史紀錄 */
-  appendHistory(action: PlayerAction, narrative: string): void {
+  setLastNarrative(text: string): void {
+    this.state.lastNarrative = text;
+  }
+
+  /**
+   * Append a history entry for the current turn, then increment turn counter.
+   * flagsChanged format: '+flag_id' for set, '-flag_id' for unset.
+   */
+  appendHistory(
+    action: PlayerAction,
+    narrative: string,
+    npcIds?: string[],
+    flagsChanged?: string[],
+  ): void {
     this.state.history.push({
       turn: this.state.turn,
       action,
       narrative,
+      locationId: this.state.player.currentLocationId,
+      npcIds,
+      flagsChanged,
     });
-    // 只保留最近 20 筆，避免 context 過長
     if (this.state.history.length > 20) {
       this.state.history.shift();
     }
@@ -61,9 +259,11 @@ export class StateManager {
     this.notifyUpdate();
   }
 
-  /** 更新最後敘述 */
-  setLastNarrative(text: string): void {
-    this.state.lastNarrative = text;
+  // ── Internal ─────────────────────────────────────────────────
+
+  /** Forward an arbitrary event to the bus (for use by sub-engines). */
+  emit(event: string, payload: unknown): void {
+    this.bus.emit(event, payload);
   }
 
   private notifyUpdate(): void {

@@ -1,0 +1,20 @@
+{
+  "_schema": "NPCNode — one file per NPC",
+  "id": "region_npc_name",
+  "name": "NPC顯示名稱",
+  "type": "stationed",
+  "baseLocationId": "region_location_id",
+  "factionId": "faction_id",
+  "description": "DM-facing character context. Not shown directly to player.",
+  "dialogueId": "region_npc_name",
+  "questIds": [],
+  "isVisible": true,
+  "phaseOverrides": {
+    "world_phase_1": {
+      "dialogueId": "region_npc_name_phase1"
+    },
+    "local_event_flag": {
+      "isVisible": false
+    }
+  }
+}

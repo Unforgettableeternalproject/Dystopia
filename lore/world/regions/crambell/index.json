@@ -1,0 +1,14 @@
+{
+  "id": "crambell",
+  "name": "克蘭貝爾",
+  "altNames": [
+    "灰寂工場",
+    "Crambell"
+  ],
+  "theme": "industrial_military",
+  "startingLocationId": "",
+  "locationIds": [],
+  "npcIds": [],
+  "questIds": [],
+  "factionIds": []
+}

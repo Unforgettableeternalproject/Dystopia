@@ -1,0 +1,35 @@
+{
+  "_schema": "QuestDefinition — one file per quest",
+  "id": "region_quest_name",
+  "name": "任務顯示名稱",
+  "type": "side",
+  "giverNpcId": "npc_id",
+  "regionId": "crambell",
+  "entryStageId": "stage_1",
+  "stages": {
+    "stage_1": {
+      "id": "stage_1",
+      "description": "Player-visible stage description.",
+      "objectives": [
+        {
+          "id": "obj_1",
+          "type": "flag_check",
+          "description": "Player-visible objective text.",
+          "flag": "required_flag"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": [
+          "quest_stage1_done"
+        ],
+        "nextStageId": null
+      }
+    }
+  },
+  "rewards": {
+    "experience": 50,
+    "flags": [
+      "completed_quest_id"
+    ]
+  }
+}

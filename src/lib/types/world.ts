@@ -1,54 +1,60 @@
-// -- World / Lore Types ---
+// World / Lore entity types.
+// Dialogue is a separate type (see dialogue.ts).
+// Quest definitions are in quest.ts.
+// World phase effects are in phase.ts.
 
-export type NPCType = "stationed" | "quest" | "wandering";
+// ── NPC ──────────────────────────────────────────────────────────
+
+export type NPCType = 'stationed' | 'quest' | 'wandering';
+
+// phaseOverrides: keyed by a flag expression string.
+// When the flag is active, the matching patch is applied on top of the base NPC fields.
+// Intended for NPC-specific personal arc changes only.
+// World-wide phase changes are handled by phases.json cascade instead.
+export interface NPCOverride {
+  dialogueId?: string;
+  isVisible?: boolean;
+  baseLocationId?: string;
+  description?: string;
+}
 
 export interface NPCNode {
   id: string;
   name: string;
   type: NPCType;
-  locationId: string;
+  baseLocationId: string;        // primary location (wandering type may change at runtime)
   factionId?: string;
-  description: string;
-  dialogue: DialogueLine[];
+  description: string;           // DM-facing character context
+  dialogueId: string;            // points to dialogues/<id>.json
   questIds?: string[];
   isVisible: boolean;
+  phaseOverrides?: Record<string, NPCOverride>;  // flag expression -> patch
 }
 
-export interface DialogueLine {
-  id: string;
-  condition?: string;
-  text: string;
-  triggers?: string[];
-  nextDialogueId?: string;
-}
+// ── Location ─────────────────────────────────────────────────────
 
 export interface LocationConnection {
   targetLocationId: string;
-  condition?: string;
-  description: string;
-  travelNote?: string;
+  condition?: string;            // flag expression; omit = always open
+  description: string;           // player-facing exit label
+  travelNote?: string;           // DM narration hint for the journey
 }
 
 export interface LocationBase {
-  description: string;
-  ambience: string[];
+  description: string;           // DM scene description
+  ambience: string[];            // mood keywords for DM tone
   connections: LocationConnection[];
   npcIds: string[];
   eventIds: string[];
   isAccessible: boolean;
 }
 
-// LocationVariant: applied on top of base when condition (flag expression) is true.
-// Rules:
-//   - All active variants are sorted by priority (ascending) and applied in order
-//   - Higher priority overwrites lower priority
-//   - connections: full replacement (not merged)
-//   - npcIds / eventIds: additive/subtractive via addNpcIds / removeNpcIds
-//   - Other fields: only replace if defined (undefined = keep current value)
-export interface LocationVariant {
+// LocalVariant: for changes scoped to this location only (e.g. mine collapse).
+// Cross-location changes (e.g. region-wide lockdown) belong in phases.json.
+export interface LocalVariant {
   id: string;
   label: string;
-  condition: string;
+  condition: string;             // flag expression
   priority: number;
   description?: string;
   ambience?: string[];
@@ -67,10 +73,9 @@ export interface LocationNode {
   regionId: string;
   tags: string[];
   base: LocationBase;
-  variants: LocationVariant[];
+  localVariants: LocalVariant[];  // local-only changes; renamed from 'variants'
 }
 
-// ResolvedLocation: computed by LoreVault.resolveLocation() from LocationNode + active flags
 export interface ResolvedLocation {
   id: string;
   name: string;
@@ -86,19 +91,12 @@ export interface ResolvedLocation {
   transitionNotes: string[];
 }
 
+// ── Event ────────────────────────────────────────────────────────
+
 export interface EventCondition {
   flags?: string[];
   anyFlags?: string[];
   minStats?: Partial<Record<string, number>>;
-}
-
-export interface GameEvent {
-  id: string;
-  locationId?: string;
-  condition: EventCondition;
-  description: string;
-  outcomes: EventOutcome[];
-  isRepeatable: boolean;
 }
 
 export interface EventOutcome {
@@ -110,10 +108,35 @@ export interface EventOutcome {
   statChanges?: Partial<Record<string, number>>;
 }
 
+export interface GameEvent {
+  id: string;
+  locationId?: string;
+  condition: EventCondition;
+  description: string;
+  outcomes: EventOutcome[];
+  isRepeatable: boolean;
+}
+
+// ── Faction ──────────────────────────────────────────────────────
+
 export interface Faction {
   id: string;
   name: string;
-  regionId: string;
+  regionId: string | null;    // null = cross-region (global) faction
   description: string;
   defaultReputation: number;
+}
+
+// ── Region index ─────────────────────────────────────────────────
+
+export interface RegionIndex {
+  id: string;
+  name: string;
+  altNames?: string[];
+  theme: string;
+  startingLocationId?: string;
+  locationIds: string[];
+  npcIds: string[];
+  questIds: string[];
+  factionIds: string[];
 }

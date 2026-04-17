@@ -1,0 +1,41 @@
+{
+  "_schema": "DialogueTree — one file per NPC (or per conversation context)",
+  "id": "dialogue_id",
+  "entryNode": "root",
+  "nodes": {
+    "root": {
+      "id": "root",
+      "type": "npc_line",
+      "speakerId": "npc_id",
+      "text": "NPC dialogue text here.",
+      "choices": [
+        {
+          "text": "Player option A",
+          "condition": "optional_flag",
+          "next": "node_a"
+        },
+        {
+          "text": "Player option B",
+          "next": "node_b"
+        }
+      ]
+    },
+    "node_a": {
+      "id": "node_a",
+      "type": "npc_line",
+      "speakerId": "npc_id",
+      "text": "Response to option A.",
+      "effects": [
+        {
+          "type": "flag_set",
+          "flag": "talked_about_x"
+        }
+      ],
+      "next": null
+    },
+    "node_b": {
+      "id": "node_b",
+      "type": "end"
+    }
+  }
+}

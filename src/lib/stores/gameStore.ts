@@ -1,5 +1,4 @@
-// ── Game Store ────────────────────────────────────────────────
-// Svelte 響應式狀態，UI 層直接訂閱這些 store。
+// Game Store — Svelte reactive state. UI layer subscribes directly.
 
 import { writable, derived, get } from 'svelte/store';
 import type { Thought, ActionType } from '../types';
@@ -16,12 +15,8 @@ export interface NarrativeLine {
 export const narrativeLines = writable<NarrativeLine[]>([]);
 export const isStreaming = writable(false);
 
-/** 追加一行新敘述（串流前呼叫） */
-export function pushLine(
-  text: string,
-  type: NarrativeLine['type'] = 'narrative'
-): string {
-  const id = `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+export function pushLine(text: string, type: NarrativeLine['type'] = 'narrative'): string {
+  const id = 'line-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   narrativeLines.update((lines) => [
     ...lines,
     { id, text, type, isStreaming: type === 'narrative' },
@@ -29,19 +24,14 @@ export function pushLine(
   return id;
 }
 
-/** 更新最後一行的文字（串流中逐字追加） */
 export function appendToLastLine(chunk: string): void {
   narrativeLines.update((lines) => {
     if (lines.length === 0) return lines;
     const last = lines[lines.length - 1];
-    return [
-      ...lines.slice(0, -1),
-      { ...last, text: last.text + chunk },
-    ];
+    return [...lines.slice(0, -1), { ...last, text: last.text + chunk }];
   });
 }
 
-/** 標記最後一行串流完成 */
 export function finishLastLine(): void {
   narrativeLines.update((lines) => {
     if (lines.length === 0) return lines;
@@ -65,6 +55,9 @@ export interface PlayerUIState {
   stress: number;
   stressMax: number;
   turn: number;
+  worldPhase?: string;
+  activeQuestCount?: number;
+  conditionCount?: number;
 }
 
 export const playerUI = writable<PlayerUIState>({

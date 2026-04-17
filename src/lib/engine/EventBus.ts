@@ -1,5 +1,4 @@
-// ── EventBus ──────────────────────────────────────────────────
-// 簡單的發布/訂閱系統，用於引擎內各模組的解耦通訊。
+// EventBus — simple pub/sub for decoupled engine communication.
 
 type Listener<T = unknown> = (payload: T) => void;
 
@@ -11,8 +10,6 @@ export class EventBus {
       this.listeners.set(event, []);
     }
     this.listeners.get(event)!.push(listener as Listener);
-
-    // 回傳取消訂閱函式
     return () => this.off(event, listener as Listener);
   }
 
@@ -28,15 +25,18 @@ export class EventBus {
   }
 }
 
-// 遊戲系統事件常數
 export const GameEvents = {
-  STATE_UPDATED: 'state:updated',
-  FLAG_SET: 'flag:set',
-  FLAG_UNSET: 'flag:unset',
-  LOCATION_CHANGED: 'location:changed',
-  NPC_INTERACTED: 'npc:interacted',
-  EVENT_TRIGGERED: 'event:triggered',
-  ACTION_REJECTED: 'action:rejected',
-  NARRATIVE_STREAM: 'narrative:stream',
-  NARRATIVE_COMPLETE: 'narrative:complete',
+  STATE_UPDATED:        'state:updated',
+  FLAG_SET:             'flag:set',
+  FLAG_UNSET:           'flag:unset',
+  LOCATION_CHANGED:     'location:changed',
+  NPC_INTERACTED:       'npc:interacted',
+  GAME_EVENT_TRIGGERED: 'gameevent:triggered',
+  ACTION_REJECTED:      'action:rejected',
+  NARRATIVE_STREAM:     'narrative:stream',
+  NARRATIVE_COMPLETE:   'narrative:complete',
+  PHASE_ADVANCED:       'phase:advanced',
+  QUEST_STARTED:        'quest:started',
+  QUEST_STAGE_ADVANCED: 'quest:stage_advanced',
+  QUEST_COMPLETED:      'quest:completed',
 } as const;
