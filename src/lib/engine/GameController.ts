@@ -55,7 +55,10 @@ export class GameController {
       return;
     }
 
-    const sceneCtx = this.lore.buildSceneContext(gs.player.currentLocationId);
+    const sceneCtx = this.lore.buildSceneContext(
+      gs.player.currentLocationId,
+      this.state.flags
+    );
     await this.runDM(
       { type: 'examine', input: '（遊戲開始）' },
       sceneCtx
@@ -92,7 +95,8 @@ export class GameController {
 
     const finalAction = result.modifiedAction ?? action;
     const sceneCtx = this.lore.buildSceneContext(
-      this.state.getState().player.currentLocationId
+      this.state.getState().player.currentLocationId,
+      this.state.flags
     );
 
     await this.runDM(finalAction, sceneCtx);
@@ -128,7 +132,8 @@ export class GameController {
 
   private async refreshThoughts(): Promise<void> {
     const sceneCtx = this.lore.buildSceneContext(
-      this.state.getState().player.currentLocationId
+      this.state.getState().player.currentLocationId,
+      this.state.flags
     );
     const newThoughts = await this.regulator.generateThoughts(
       sceneCtx,
@@ -139,10 +144,13 @@ export class GameController {
   }
 
   private syncUIState(gs: Readonly<GameState>): void {
-    const loc = this.lore.getLocation(gs.player.currentLocationId);
+    const resolved = this.lore.resolveLocation(
+      gs.player.currentLocationId,
+      this.state.flags
+    );
     playerUI.set({
       name: gs.player.name,
-      location: loc?.name ?? gs.player.currentLocationId,
+      location: resolved?.name ?? gs.player.currentLocationId,
       stamina: gs.player.statusStats.stamina,
       staminaMax: gs.player.statusStats.staminaMax,
       stress: gs.player.statusStats.stress,
@@ -217,6 +225,7 @@ export class GameController {
       pendingThoughts: [],
       lastNarrative: '',
       history: [],
+      discoveredLocationIds: [],
     };
   }
 }

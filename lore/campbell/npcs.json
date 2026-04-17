@@ -1,0 +1,338 @@
+{
+  "gate_guard_marcus": {
+    "id": "gate_guard_marcus",
+    "name": "馬可斯",
+    "type": "stationed",
+    "locationId": "campbell_gate",
+    "factionId": "campbell_military",
+    "description": "三十多歲的入城門衛，做這份工作超過八年了。他不壞，只是從來不想多想。查驗的動作流暢而機械，像是某種已經磨光了邊角的習慣。他不會多為難人，但也不會為任何人開後門。偶爾他會在換班前點一根菸，對著遠處發呆——但只有一下下。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "marcus_default",
+        "text": "配額卡和身份徽章。沒有的話在外面等。",
+        "nextDialogueId": "marcus_check"
+      },
+      {
+        "id": "marcus_check",
+        "condition": "has_id_badge",
+        "text": "（掃了一眼）……過去吧。下一個。",
+        "triggers": ["passed_gate"]
+      },
+      {
+        "id": "marcus_no_id",
+        "condition": "!has_id_badge",
+        "text": "沒有徽章的去左邊的臨時申請窗口。今天的受理時間是下午三點前。"
+      },
+      {
+        "id": "marcus_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "今天要多查一份。把你近三天的作業紀錄給我看。——這是命令，不是在問你。",
+        "nextDialogueId": "marcus_crisis_check"
+      },
+      {
+        "id": "marcus_crisis_check",
+        "condition": "campbell_quota_shortage & has_work_record",
+        "text": "（仔細看了很久）……好。進去。別惹麻煩。",
+        "triggers": ["passed_gate"]
+      },
+      {
+        "id": "marcus_after_hours",
+        "condition": "passed_gate & player_reputation_campbell_military >= 10",
+        "text": "（壓低聲音）我只說一次。今晚B區有東西在動。不是我說的。"
+      }
+    ]
+  },
+
+  "gate_guard_second": {
+    "id": "gate_guard_second",
+    "name": "增援門衛",
+    "type": "stationed",
+    "locationId": "campbell_gate",
+    "factionId": "campbell_military",
+    "description": "配額危機期間被調來支援的年輕士兵，明顯是剛訓練完的。他比馬可斯緊張多了，手總是放在腰邊。他按照手冊做事，沒有任何彈性，但這反而讓他更難以打點。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "second_guard_default",
+        "text": "第二站查驗。請出示所有持有的許可文件，一份都不能少。",
+        "triggers": ["second_gate_check"]
+      },
+      {
+        "id": "second_guard_suspicious",
+        "condition": "second_gate_check & !has_all_permits",
+        "text": "文件不齊全。你需要等我的上級來確認。（他舉起手示意你原地站著）"
+      }
+    ]
+  },
+
+  "worker_lena": {
+    "id": "worker_lena",
+    "name": "蕾娜",
+    "type": "quest",
+    "locationId": "campbell_workers_district",
+    "description": "三十歲出頭的女礦工，在坎貝爾礦坑工作了九年。她比一般人多了解礦坑的結構，也比一般人多知道一些事。她不是抵抗者，也不是告密者，她只是一個試著繼續活下去的人。但她見過太多事，這讓她同時擁有一種沉靜和一種即將決堤的東西。她不主動找人說話，但如果有人問對了問題，她會說。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "lena_default",
+        "text": "（她只是看了你一眼，繼續修補手邊的安全繩）",
+        "nextDialogueId": "lena_opening"
+      },
+      {
+        "id": "lena_opening",
+        "condition": "player_affinity_worker_lena >= 0",
+        "text": "你不是本區的人。這裡的人我都認識。"
+      },
+      {
+        "id": "lena_on_quota",
+        "condition": "player_asked_about_quota",
+        "text": "配額。（停頓）你知道數字是誰設的嗎？不是這裡。是更高的地方。我們只是在完成一個我們沒有參與決定的數字。"
+      },
+      {
+        "id": "lena_on_mine",
+        "condition": "player_affinity_worker_lena >= 20",
+        "text": "B3層以前有條側道，現在被列為危險區域封起來了。但我知道那條路通到哪。（她沒有繼續說下去）",
+        "triggers": ["knows_b3_shaft_rumor"]
+      },
+      {
+        "id": "lena_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "（她把安全繩放下了，看著你）你有地方去嗎？真的有地方去的那種。"
+      },
+      {
+        "id": "lena_after_collapse",
+        "condition": "campbell_mine_collapse",
+        "text": "（沉默了很長時間）我那天請假了。（她沒有再說話）"
+      }
+    ],
+    "questIds": ["quest_b3_passage", "quest_lena_escape"]
+  },
+
+  "resident_old_man_tok": {
+    "id": "resident_old_man_tok",
+    "name": "托克老人",
+    "type": "quest",
+    "locationId": "campbell_workers_district",
+    "description": "在坎貝爾居住區住了快四十年的老人。他記得這個地方以前不是這樣的，但他說不清楚以前是什麼樣子，只說「不一樣」。他每天早上坐在同一個地方，看著街道上的人來人往。他知道很多，但大多數時候他只是說一些沒頭沒尾的話。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "tok_default",
+        "text": "（他抬頭看了你一眼，然後繼續看著街道）你在找什麼？"
+      },
+      {
+        "id": "tok_on_history",
+        "condition": "player_asked_about_history",
+        "text": "以前這條路再往西走，有一個廣場，種了樹的那種。現在不見了。你說能去哪？樹也要有配額的話，早晚也是不見。"
+      },
+      {
+        "id": "tok_on_underground",
+        "condition": "player_affinity_resident_old_man_tok >= 15 & player_asked_about_underground",
+        "text": "（很長的停頓）廣場南邊的那個排水口。以前下大雨的時候，我們小孩會去那裡躲雨。現在鏽掉了，但那個蓋子是能開的，你要知道往哪個方向旋。",
+        "triggers": ["knows_underground_entrance"]
+      },
+      {
+        "id": "tok_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "上次數字變成那個顏色，是十三年前。（他沒有說十三年前發生了什麼）"
+      }
+    ]
+  },
+
+  "plaza_overseer_kang": {
+    "id": "plaza_overseer_kang",
+    "name": "康督察",
+    "type": "stationed",
+    "locationId": "campbell_quota_plaza",
+    "factionId": "campbell_military",
+    "description": "廣場的日常管理督察，四十多歲，制服永遠整齊。他不殘忍，但他相信規則存在是有原因的，而且他從來不去想那個原因是什麼。他會對你客氣，但客氣和友善是完全不同的東西。他的眼睛很厲害，能在一大群人裡很快找到那個「不對勁」的人。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "kang_default",
+        "text": "廣場是公共區域，不得聚集超過五人。有事去行政大廳。"
+      },
+      {
+        "id": "kang_on_quota",
+        "condition": "player_asked_about_quota",
+        "text": "今天的數字已經公告了。有疑問去行政大廳提交書面申請，受理時間周一到周五。",
+        "nextDialogueId": "kang_on_quota_2"
+      },
+      {
+        "id": "kang_on_quota_2",
+        "text": "（他頓了一下）我說的是書面申請。"
+      },
+      {
+        "id": "kang_suspicious",
+        "condition": "player_looks_suspicious",
+        "text": "（他走近了一步）你的身份徽章。讓我看。",
+        "triggers": ["kang_checks_player"]
+      },
+      {
+        "id": "kang_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "（他看著廣場上比平常多的人群）今天沒有緊急廣播。有廣播的話你會聽到的。請不要在廣場停留超過必要時間。"
+      }
+    ]
+  },
+
+  "supply_vendor_mei": {
+    "id": "supply_vendor_mei",
+    "name": "阿梅",
+    "type": "quest",
+    "locationId": "campbell_quota_plaza",
+    "description": "在廣場南側配給商店工作的中年女性，偷偷在正規配給之外做一些「私下安排」。她不是什麼義士，只是在夾縫裡活著，順便讓別人也能活得稍微寬裕一點。她很謹慎，不會隨便對人說這些，但一旦她決定信任你，她能提供的東西比你想像的多。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "mei_default",
+        "text": "（她正在整理貨架，頭也沒回）今天的配給已經發完了。"
+      },
+      {
+        "id": "mei_second_visit",
+        "condition": "talked_to_mei_before",
+        "text": "（她回頭看了你一眼）又來了。（停頓）你有沒有什麼特別需要的東西？"
+      },
+      {
+        "id": "mei_trade",
+        "condition": "player_affinity_supply_vendor_mei >= 10",
+        "text": "我這裡有一些東西不在配給清單上。你懂我的意思吧？但這不是免費的，也不是用正規幣。"
+      },
+      {
+        "id": "mei_on_underground",
+        "condition": "player_affinity_supply_vendor_mei >= 25 & player_asked_about_underground",
+        "text": "（壓低聲音）你找的那個地方，廣場南邊。那個排水口不只是排水用的。但我沒跟你說過這句話。",
+        "triggers": ["knows_underground_entrance"]
+      }
+    ],
+    "questIds": ["quest_black_market_contact"]
+  },
+
+  "mine_overseer_drak": {
+    "id": "mine_overseer_drak",
+    "name": "德拉克監工",
+    "type": "stationed",
+    "locationId": "campbell_mine_entrance",
+    "factionId": "campbell_military",
+    "description": "礦坑的班組監工，對工作非常認真，但他認真的方式讓人分不清他是真的關心效率還是只是怕被上面究責。他有時候會幫礦工爭取一點點休息時間，有時候又會親眼看著一個筋疲力竭的礦工繼續下去挖礦。他自己好像也分不清楚。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "drak_default",
+        "text": "工作證。班次號碼。（他在本子上記了什麼）B班今天進坑，A班在外等。"
+      },
+      {
+        "id": "drak_on_b3",
+        "condition": "player_affinity_mine_overseer_drak >= 20",
+        "text": "B3? 那段封了三年了。工程部說結構不穩。（他停頓了一下）官方說法是這樣。",
+        "triggers": ["knows_b3_shaft_official"]
+      },
+      {
+        "id": "drak_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "（他的眼睛下面有黑眼圈）上面說本週要把缺口補回來。（他沒有說這意味著什麼，但你都知道）"
+      },
+      {
+        "id": "drak_on_collapse_risk",
+        "condition": "player_affinity_mine_overseer_drak >= 30 & campbell_quota_shortage",
+        "text": "（非常小聲）B2區的支撐柱上週出現了裂縫。我回報了。他們說繼續開採。",
+        "triggers": ["knows_mine_structural_risk"]
+      }
+    ]
+  },
+
+  "admin_clerk_yuna": {
+    "id": "admin_clerk_yuna",
+    "name": "尤娜",
+    "type": "quest",
+    "locationId": "campbell_admin_hall",
+    "description": "行政大廳的受理職員，二十多歲，有點過於熟悉官方用語。她不壞，甚至有時候在她能做到的範圍內偷偷幫人一把。但她非常清楚那個範圍在哪裡，從來不會越界。她的桌上總是整齊的，連筆的位置都是固定的。她有一種讓人說不上來的疏離感，好像她把自己的大部分放在了某個遙遠的地方。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "yuna_default",
+        "text": "您好，請問您要辦理哪項業務？",
+        "nextDialogueId": "yuna_menu"
+      },
+      {
+        "id": "yuna_menu",
+        "text": "我們目前受理：工作許可申請、身份異動登記、配給申訴（需附原始憑證）。其他事項請確認是否屬於本大廳業務範圍。"
+      },
+      {
+        "id": "yuna_work_permit",
+        "condition": "player_asked_work_permit",
+        "text": "工作許可申請需要：居住區登記證明、健康狀況評估書、推薦函一份。審核時間為五到七個工作天。（她遞過來一張表格）",
+        "triggers": ["started_permit_application"]
+      },
+      {
+        "id": "yuna_informal",
+        "condition": "player_affinity_admin_clerk_yuna >= 15",
+        "text": "（她確認了一下四周沒有人）你要找的那個人的資料，我查過了。（停頓）表面上他已經離開坎貝爾了。但他的住所通報表上最後一次更新是十天前，就在這裡。"
+      },
+      {
+        "id": "yuna_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "（她壓低了聲音）申訴業務我沒辦法幫你受理，這是上面的指令。但你手上那份文件——（她停頓）——你可以自己留著。說不定之後用得到。"
+      }
+    ],
+    "questIds": ["quest_identity_search", "quest_admin_clearance"]
+  },
+
+  "resistance_contact_ash": {
+    "id": "resistance_contact_ash",
+    "name": "阿什",
+    "type": "quest",
+    "locationId": "campbell_underground_passage",
+    "description": "沒有人知道阿什的全名，也沒有人問。他是地下通道裡的一個固定存在，做聯絡、傳話、有時候幫人移動一些東西或者移動人本身。他說話很少，但說的每一句話都是有意義的，只是你需要花一點時間理解。他不是英雄，也不自稱是。他只是在做他認為需要做的事。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "ash_default",
+        "text": "你是誰帶來的？"
+      },
+      {
+        "id": "ash_referred",
+        "condition": "knows_underground_entrance & (resistance_contact_lena | resistance_contact_mei)",
+        "text": "（沉默了一會兒）好。你可以在這裡待一會兒。但別問我太多問題。"
+      },
+      {
+        "id": "ash_on_situation",
+        "condition": "player_affinity_resistance_contact_ash >= 10",
+        "text": "坎貝爾出得去的路只有兩條：合法的那條，和我們走的這條。合法的那條，你現在應該也知道是什麼狀況了。"
+      },
+      {
+        "id": "ash_on_resistance",
+        "condition": "player_affinity_resistance_contact_ash >= 20",
+        "text": "我們沒有名字。沒有旗幟。沒有宣言。（停頓）宣言是給被記錄的人寫的。"
+      },
+      {
+        "id": "ash_quota_crisis",
+        "condition": "campbell_quota_shortage",
+        "text": "（他看了你很久）你願意做什麼？這不是在威脅你。只是現在的情況，中間路線很快就要消失了。"
+      }
+    ],
+    "questIds": ["quest_underground_contact", "quest_escape_campbell"]
+  },
+
+  "lockdown_patrol_alpha": {
+    "id": "lockdown_patrol_alpha",
+    "name": "封城巡邏隊（關卡）",
+    "type": "stationed",
+    "locationId": "campbell_gate",
+    "factionId": "campbell_military",
+    "description": "封城令下達後接管關卡的武裝巡邏隊。他們不查驗也不受理，只是阻止任何人接近閘門。他們的指令很簡單，也正因為如此，他們沒有任何可以打點或協商的空間。",
+    "isVisible": true,
+    "dialogue": [
+      {
+        "id": "patrol_alpha_default",
+        "text": "封城令已生效。所有人返回住所。現在。"
+      },
+      {
+        "id": "patrol_alpha_persist",
+        "condition": "tried_to_pass_lockdown_gate",
+        "text": "（他的手移向了腰邊）我說了。返回住所。"
+      }
+    ]
+  }
+}

@@ -33,7 +33,7 @@ export class StateManager {
   modifyStat(key: string, delta: number): void {
     // 支援 primaryStats.strength 這樣的路徑
     const [group, stat] = key.split('.');
-    const stats = (this.state.player as Record<string, Record<string, number>>)[group];
+    const stats = (this.state.player as unknown as Record<string, Record<string, number>>)[group];
     if (stats && stat in stats) {
       stats[stat] = Math.max(0, stats[stat] + delta);
       this.notifyUpdate();

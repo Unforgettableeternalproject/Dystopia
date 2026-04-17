@@ -1,8 +1,15 @@
-// ── LoreVault ─────────────────────────────────────────────────
-// 設定資料庫存取層。從 JSON 檔案載入，提供快速索引查詢。
-// DM 只應透過此層取得世界資料，不應自行創造。
+// -- LoreVault ---
+// Lore database access layer. Loads from JSON, provides indexed queries.
+// The DM should only obtain world data through this layer.
 
-import type { LocationNode, NPCNode, GameEvent, Faction } from '../types';
+import type {
+  LocationNode,
+  ResolvedLocation,
+  NPCNode,
+  GameEvent,
+  Faction,
+} from "../types";
+import type { FlagSystem } from "../engine/FlagSystem";
 
 interface LoreData {
   locations: Record<string, LocationNode>;
@@ -19,7 +26,6 @@ export class LoreVault {
     factions: {},
   };
 
-  /** 載入設定資料（傳入 JSON 物件） */
   load(data: Partial<LoreData>): void {
     if (data.locations) Object.assign(this.data.locations, data.locations);
     if (data.npcs) Object.assign(this.data.npcs, data.npcs);
@@ -27,10 +33,63 @@ export class LoreVault {
     if (data.factions) Object.assign(this.data.factions, data.factions);
   }
 
-  // ── 地點 ───────────────────────────────────────────────────
+  // -- Locations ---
 
   getLocation(id: string): LocationNode | undefined {
     return this.data.locations[id];
+  }
+
+  // Compute the effective state of a location given current flags.
+  // All active variants (sorted ascending by priority) are merged onto base.
+  // connections: full replacement; npcIds/eventIds: additive/subtractive.
+  resolveLocation(id: string, flags: FlagSystem): ResolvedLocation | undefined {
+    const node = this.data.locations[id];
+    if (!node) return undefined;
+
+    let description = node.base.description;
+    let ambience = [...node.base.ambience];
+    let connections = [...node.base.connections];
+    const npcIds = new Set<string>(node.base.npcIds);
+    const eventIds = new Set<string>(node.base.eventIds);
+    let isAccessible = node.base.isAccessible;
+
+    const activeVariants: string[] = [];
+    const transitionNotes: string[] = [];
+
+    const sorted = [...node.variants].sort((a, b) => a.priority - b.priority);
+
+    for (const v of sorted) {
+      if (!flags.evaluate(v.condition)) continue;
+
+      activeVariants.push(v.id);
+
+      if (v.description !== undefined) description = v.description;
+      if (v.ambience !== undefined) ambience = [...v.ambience];
+      if (v.connections !== undefined) connections = [...v.connections];
+      if (v.isAccessible !== undefined) isAccessible = v.isAccessible;
+
+      v.addNpcIds?.forEach((nid) => npcIds.add(nid));
+      v.removeNpcIds?.forEach((nid) => npcIds.delete(nid));
+      v.addEventIds?.forEach((eid) => eventIds.add(eid));
+      v.removeEventIds?.forEach((eid) => eventIds.delete(eid));
+
+      if (v.transitionNote) transitionNotes.push(v.transitionNote);
+    }
+
+    return {
+      id: node.id,
+      name: node.name,
+      regionId: node.regionId,
+      tags: node.tags,
+      description,
+      ambience,
+      connections,
+      npcIds: Array.from(npcIds),
+      eventIds: Array.from(eventIds),
+      isAccessible,
+      activeVariants,
+      transitionNotes,
+    };
   }
 
   getLocationsByRegion(regionId: string): LocationNode[] {
@@ -39,65 +98,75 @@ export class LoreVault {
     );
   }
 
-  // ── NPC ────────────────────────────────────────────────────
+  // -- NPCs ---
 
   getNPC(id: string): NPCNode | undefined {
     return this.data.npcs[id];
   }
 
-  getNPCsAtLocation(locationId: string): NPCNode[] {
-    return Object.values(this.data.npcs).filter(
-      (npc) => npc.locationId === locationId && npc.isVisible
-    );
+  getNPCsByIds(ids: string[]): NPCNode[] {
+    return ids
+      .map((id) => this.data.npcs[id])
+      .filter((npc): npc is NPCNode => !!npc && npc.isVisible);
   }
 
-  // ── 事件 ───────────────────────────────────────────────────
+  // -- Events ---
 
   getEvent(id: string): GameEvent | undefined {
     return this.data.events[id];
   }
 
-  getEventsAtLocation(locationId: string): GameEvent[] {
-    return Object.values(this.data.events).filter(
-      (evt) => !evt.locationId || evt.locationId === locationId
-    );
+  getEventsByIds(ids: string[]): GameEvent[] {
+    return ids
+      .map((id) => this.data.events[id])
+      .filter((evt): evt is GameEvent => !!evt);
   }
 
-  // ── 派系 ───────────────────────────────────────────────────
+  // -- Factions ---
 
   getFaction(id: string): Faction | undefined {
     return this.data.factions[id];
   }
 
-  // ── 給 DM 的場景上下文摘要 ─────────────────────────────────
+  // -- Scene context for DM ---
+  // Builds a lore subset string for the DM for the current location.
+  // Always passes flags so the DM sees the world as it currently is.
+  buildSceneContext(locationId: string, flags: FlagSystem): string {
+    const resolved = this.resolveLocation(locationId, flags);
+    if (!resolved) return "[Unknown location]";
 
-  /**
-   * 為 DM 組合當前場景的 lore 子集。
-   * 只包含當前地點相關的資料，避免傳入整個 vault。
-   */
-  buildSceneContext(locationId: string): string {
-    const location = this.getLocation(locationId);
-    if (!location) return '[Unknown location]';
+    const npcs = this.getNPCsByIds(resolved.npcIds);
 
-    const npcs = this.getNPCsAtLocation(locationId);
-    const connections = location.connections
-      .map((c) => `- ${c.description} → ${c.targetLocationId}`)
-      .join('\n');
+    const connectionLines = resolved.connections
+      .map((c) => {
+        const lock = c.condition ? ` [requires: ${c.condition}]` : "";
+        return `- ${c.description}${lock}`;
+      })
+      .join("\n");
 
-    const npcSummary = npcs
+    const npcLines = npcs
       .map((n) => `- ${n.name} (${n.type}): ${n.description}`)
-      .join('\n');
+      .join("\n");
+
+    const worldStateSection =
+      resolved.transitionNotes.length > 0
+        ? "\n### World State\n" +
+          resolved.transitionNotes.map((note) => `- ${note}`).join("\n")
+        : "";
 
     return [
-      `## Location: ${location.name}`,
-      location.description,
-      `Ambience: ${location.ambience}`,
-      '',
-      '### Exits',
-      connections || '(none)',
-      '',
-      '### Present NPCs',
-      npcSummary || '(none)',
-    ].join('\n');
+      `## Location: ${resolved.name}`,
+      `Tags: ${resolved.tags.join(", ")}`,
+      `Ambience: ${resolved.ambience.join(", ")}`,
+      "",
+      resolved.description,
+      worldStateSection,
+      "",
+      "### Exits",
+      connectionLines || "(none)",
+      "",
+      "### Present NPCs",
+      npcLines || "(none)",
+    ].join("\n");
   }
 }
