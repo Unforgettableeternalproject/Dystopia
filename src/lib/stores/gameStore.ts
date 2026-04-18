@@ -1,7 +1,7 @@
 // Game Store — Svelte reactive state. UI layer subscribes directly.
 
-import { writable, derived, get } from 'svelte/store';
-import type { Thought, ActionType } from '../types';
+import { writable, derived } from 'svelte/store';
+import type { Thought } from '../types';
 
 // ── Narrative Lines ────────────────────────────────────────────
 
@@ -48,31 +48,67 @@ export const inputDisabled = writable(false);
 // ── Player UI State ────────────────────────────────────────────
 
 export interface PlayerUIState {
-  name: string;
-  location: string;
-  stamina: number;
-  staminaMax: number;
-  stress: number;
-  stressMax: number;
-  turn: number;
-  worldPhase?: string;
+  name:             string;
+  location:         string;
+  regionName:       string;
+  stamina:          number;
+  staminaMax:       number;
+  stress:           number;
+  stressMax:        number;
+  mana:             number;
+  manaMax:          number;
+  turn:             number;
+  worldPhase?:      string;
   activeQuestCount?: number;
-  conditionCount?: number;
-  /** Formatted in-game time, e.g. "AD 1498-06-12 21:23" */
-  time?: string;
-  /** Current time period label, e.g. "休息時段" */
-  timePeriod?: string;
+  conditionCount?:  number;
+  time?:            string;   // "AD 1498-06-12 21:23"
+  timePeriod?:      string;   // "休息時段"
+  topFactions?:     Array<{ id: string; name: string; rep: number }>;
 }
 
 export const playerUI = writable<PlayerUIState>({
-  name: '???',
-  location: '???',
-  stamina: 10,
-  staminaMax: 10,
-  stress: 0,
-  stressMax: 10,
-  turn: 0,
+  name:       '???',
+  location:   '???',
+  regionName: '???',
+  stamina: 10, staminaMax: 10,
+  stress:  0,  stressMax:  10,
+  mana:    0,  manaMax:    0,
+  turn:    0,
 });
+
+// ── Detailed player state (for Self-check modal) ───────────────
+
+export interface DetailedPlayerState {
+  primaryStats:   Record<string, number>;
+  secondaryStats: Record<string, number>;
+  statusStats:    Record<string, number>;
+  conditions:     Array<{ label: string }>;
+  titles:         string[];
+  inventory:      string[];
+  reputation:     Record<string, number>;
+  affinity:       Record<string, number>;
+}
+
+export const detailedPlayer = writable<DetailedPlayerState | null>(null);
+
+// ── Active NPC (during dialogue) ───────────────────────────────
+
+export interface ActiveNpcUIState {
+  npcId:            string;
+  name:             string;
+  type:             string;
+  publicDescription: string;
+  affinity:         number;
+  attitude:         string;
+  interactionCount: number;
+}
+
+export const activeNpcUI = writable<ActiveNpcUIState | null>(null);
+
+// ── Modal state ────────────────────────────────────────────────
+
+export const selfCheckOpen = writable(false);
+export const inventoryOpen = writable(false);
 
 // ── Derived ────────────────────────────────────────────────────
 

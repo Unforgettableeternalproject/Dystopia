@@ -42,6 +42,7 @@ import { createLogger } from '../utils/Logger';
 import { warmUpModel }  from '../utils/ModelWarmup';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
+import { activeNpcUI, detailedPlayer } from '../stores/gameStore';
 
 const log = createLogger('GameCtrl');
 
@@ -138,6 +139,13 @@ export class GameController {
     }
 
     const finalAction = result.modifiedAction ?? action;
+
+    // Track active NPC panel
+    if (finalAction.type === 'move') {
+      activeNpcUI.set(null);
+    } else if (finalAction.type === 'interact' && finalAction.targetId) {
+      this.updateActiveNpcUI(finalAction.targetId);
+    }
 
     // 2. Tick conditions
     this.state.tickConditions();
@@ -505,24 +513,74 @@ export class GameController {
   // -- UI sync ----------------------------------------------------------
 
   private syncUIState(gs: Readonly<GameState>): void {
-    const resolved        = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved         = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const region           = this.lore.getRegion(this.currentRegionId);
     const activeQuestCount = Object.values(gs.activeQuests).filter(
       q => !q.isCompleted && !q.isFailed
     ).length;
 
+    // Top 2 factions by absolute reputation (non-zero only)
+    const topFactions = Object.entries(gs.player.externalStats.reputation)
+      .filter(([, v]) => v !== 0)
+      .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
+      .slice(0, 2)
+      .map(([fid, rep]) => {
+        const f = this.lore.getFaction(fid);
+        return { id: fid, name: f?.name ?? fid, rep };
+      });
+
     playerUI.set({
       name:            gs.player.name,
       location:        resolved?.name ?? gs.player.currentLocationId,
+      regionName:      region?.name   ?? this.currentRegionId,
       stamina:         gs.player.statusStats.stamina,
       staminaMax:      gs.player.statusStats.staminaMax,
       stress:          gs.player.statusStats.stress,
       stressMax:       gs.player.statusStats.stressMax,
+      mana:            gs.player.statusStats.mana,
+      manaMax:         gs.player.statusStats.manaMax,
       turn:            gs.turn,
       worldPhase:      gs.worldPhase.currentPhase,
       activeQuestCount,
       conditionCount:  gs.player.conditions.filter(c => !c.isHidden).length,
       time:            this.timeMgr.formatTime(gs.time),
       timePeriod:      this.timeMgr.formatPeriod(gs.timePeriod),
+      topFactions:     topFactions.length > 0 ? topFactions : undefined,
+    });
+
+    detailedPlayer.set({
+      primaryStats:   { ...gs.player.primaryStats },
+      secondaryStats: { ...gs.player.secondaryStats },
+      statusStats: {
+        stamina:    gs.player.statusStats.stamina,
+        staminaMax: gs.player.statusStats.staminaMax,
+        stress:     gs.player.statusStats.stress,
+        stressMax:  gs.player.statusStats.stressMax,
+        mana:       gs.player.statusStats.mana,
+        manaMax:    gs.player.statusStats.manaMax,
+        experience: gs.player.statusStats.experience,
+      },
+      conditions:  gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label })),
+      titles:      gs.player.titles,
+      inventory:   gs.player.inventory,
+      reputation:  { ...gs.player.externalStats.reputation },
+      affinity:    { ...gs.player.externalStats.affinity },
+    });
+  }
+
+  private updateActiveNpcUI(npcId: string): void {
+    const npc = this.lore.getNPC(npcId);
+    if (!npc) { activeNpcUI.set(null); return; }
+    const gs  = this.state.getState();
+    const mem = gs.npcMemory[npcId];
+    activeNpcUI.set({
+      npcId,
+      name:             npc.name,
+      type:             npc.type,
+      publicDescription: npc.publicDescription,
+      affinity:         gs.player.externalStats.affinity[npcId] ?? 0,
+      attitude:         mem?.playerAttitude ?? 'neutral',
+      interactionCount: mem?.interactionCount ?? 0,
     });
   }
 

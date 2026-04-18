@@ -7,7 +7,8 @@
       "Bash(node -e ':*)",
       "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); const t=d.dependencies||{}; const dt=d.devDependencies||{}; Object.keys\\({...t,...dt}\\).filter\\(k=>k.includes\\('tauri'\\)\\).forEach\\(k=>console.log\\(k\\)\\)\")",
       "Bash(node -e \"const d=require\\('./package.json'\\); const all={...d.dependencies,...d.devDependencies}; Object.keys\\(all\\).filter\\(k=>k.includes\\('tauri'\\)\\).forEach\\(k=>console.log\\(k,'->',all[k]\\)\\)\")",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(cargo build:*)"
     ]
   }
 }

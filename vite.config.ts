@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    fs: {
+      // Allow serving lore data files (import.meta.glob targets)
+      allow: ['src', 'lore'],
+    },
   },
   // 防止 Vite 遮蔽 Tauri 的 OS-specific API
   envPrefix: ['VITE_', 'TAURI_'],

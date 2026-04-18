@@ -30,8 +30,15 @@
   --font-ui:   system-ui, -apple-system, sans-serif;
 
   /* Layout */
+  --top-bar-h:        36px;
+  --bottom-bar-h:     50px;
+  --left-sidebar-w:   175px;
+  --right-outer-w:    152px;
+  --right-inner-w:    148px;
+
+  /* Legacy (kept for any remaining references) */
   --status-height:    48px;
-  --input-height:     52px;
+  --input-height:     50px;
   --thought-height:   56px;
 }
 
