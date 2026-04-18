@@ -1,10 +1,11 @@
 // StateManager — holds and mutates GameState.
 // All state changes go through here for consistency and event emission.
 
-import type { GameState, PlayerAction, Thought, NPCMemoryEntry, ActiveDialogueState } from '../types';
+import type { GameState, PlayerAction, Thought, NPCMemoryEntry, ActiveDialogueState, GameTime } from '../types';
 import type { PlayerCondition } from '../types/player';
 import type { WorldPhaseId } from '../types/phase';
 import type { QuestInstance } from '../types/quest';
+import type { TimePeriod } from '../types/world';
 import { EventBus, GameEvents } from './EventBus';
 import { FlagSystem } from './FlagSystem';
 
@@ -210,6 +211,20 @@ export class StateManager {
       }
       this.notifyUpdate();
     }
+  }
+
+  // ── Time ─────────────────────────────────────────────────────
+
+  advanceTime(newTime: GameTime, newPeriod: TimePeriod): boolean {
+    const periodChanged = newPeriod !== this.state.timePeriod;
+    this.state.time       = newTime;
+    this.state.timePeriod = newPeriod;
+    this.notifyUpdate();
+    return periodChanged;
+  }
+
+  setEventCooldown(eventId: string, totalMinutes: number): void {
+    this.state.eventCooldowns[eventId] = totalMinutes;
   }
 
   // ── World phase ──────────────────────────────────────────────

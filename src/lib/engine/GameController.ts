@@ -21,6 +21,7 @@ import { StateManager }   from './StateManager';
 import { EventEngine }    from './EventEngine';
 import { PhaseManager }   from './PhaseManager';
 import { QuestEngine }    from './QuestEngine';
+import { TimeManager }    from './TimeManager';
 import type { PlayerAction, GameState } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
 import type { Thought }                 from '../types';
@@ -48,7 +49,11 @@ export class GameController {
   private events:    EventEngine;
   private phases:    PhaseManager;
   private quests:    QuestEngine;
+  private timeMgr:   TimeManager;
   private mockMode:  boolean;
+
+  /** ID of the region the player is currently in. Updated on region change. */
+  private currentRegionId = 'crambell';
 
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
     const auto = autoClients();
@@ -61,10 +66,11 @@ export class GameController {
     this.regulator = new Regulator(regulatorClient);
     this.lore      = new LoreVault();
     this.bus       = new EventBus();
+    this.timeMgr   = new TimeManager();
 
     const initialState = this.buildInitialState();
     this.state  = new StateManager(initialState, this.bus);
-    this.events = new EventEngine(this.lore, this.state);
+    this.events = new EventEngine(this.lore, this.state, this.timeMgr);
     this.phases = new PhaseManager(this.lore, this.state);
     this.quests = new QuestEngine(this.lore, this.state);
   }
@@ -73,6 +79,8 @@ export class GameController {
 
   loadLore(data: Parameters<LoreVault['load']>[0]): void {
     this.lore.load(data);
+    // Refresh schedule for current region after lore load
+    this.events.setSchedule(this.lore.getSchedule(this.currentRegionId) ?? null);
   }
 
   async start(): Promise<void> {
@@ -123,11 +131,24 @@ export class GameController {
     // 2. Tick conditions
     this.state.tickConditions();
 
-    // 3. Check location events
-    const triggered = this.events.checkAndApply(this.state.getState().player.currentLocationId);
+    // 2.5. Advance in-game time
+    const gs0       = this.state.getState();
+    const schedule  = this.lore.getSchedule(this.currentRegionId) ?? null;
+    const newTime   = this.timeMgr.advanceByAction(gs0.time, finalAction.type);
+    const newPeriod = schedule
+      ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs0.player.activeFlags)
+      : gs0.timePeriod;
+    const periodChanged = this.state.advanceTime(newTime, newPeriod);
+
+    // 3. Check global events (period transitions, broadcasts, etc.)
+    const globalTriggered = this.events.checkGlobalEvents(this.currentRegionId);
+
+    // 3.5. Check location events
+    const locationTriggered = this.events.checkAndApply(this.state.getState().player.currentLocationId);
+    const triggered = [...globalTriggered, ...locationTriggered];
 
     // 4. DM narration
-    const sceneCtx = this.buildSceneCtx(triggered);
+    const sceneCtx = this.buildSceneCtx(triggered, periodChanged);
     await this.runDM(finalAction, sceneCtx);
 
     // 5-7. Post-narration systems
@@ -156,7 +177,8 @@ export class GameController {
     // Rebuild StateManager with the restored state
     (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
     flags.forEach(f => this.state.flags.set(f));
-    this.events = new EventEngine(this.lore, this.state);
+    const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
+    this.events = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
     this.phases = new PhaseManager(this.lore, this.state);
     this.quests = new QuestEngine(this.lore, this.state);
     this.syncUIState(gs);
@@ -165,7 +187,7 @@ export class GameController {
 
   // -- Context builder --------------------------------------------------
 
-  private buildSceneCtx(triggered: TriggeredEvent[]): string {
+  private buildSceneCtx(triggered: TriggeredEvent[], periodChanged = false): string {
     const gs    = this.state.getState();
     const parts: string[] = [];
 
@@ -182,9 +204,14 @@ export class GameController {
       .map(c => c.label)
       .join(', ');
 
+    const timeStr   = this.timeMgr.formatTime(gs.time);
+    const periodStr = this.timeMgr.formatPeriod(gs.timePeriod);
+    const periodNote = periodChanged ? ' ← 時段轉換' : '';
+
     parts.push([
       '',
       '## Player Status',
+      'Time: ' + timeStr + ' | ' + periodStr + periodNote,
       'Stamina: ' + gs.player.statusStats.stamina + '/' + gs.player.statusStats.staminaMax +
         ' | Stress: ' + gs.player.statusStats.stress + '/' + gs.player.statusStats.stressMax,
       'World Phase: ' + gs.worldPhase.currentPhase.replace(/_/g, ' '),
@@ -310,6 +337,8 @@ export class GameController {
       worldPhase:      gs.worldPhase.currentPhase,
       activeQuestCount,
       conditionCount:  gs.player.conditions.filter(c => !c.isHidden).length,
+      time:            this.timeMgr.formatTime(gs.time),
+      timePeriod:      this.timeMgr.formatPeriod(gs.timePeriod),
     });
   }
 
@@ -388,6 +417,14 @@ export class GameController {
         currentPhase:    'grace_period',
         appliedPhaseIds: ['grace_period'],
       },
+      // Game begins: AD 1498-06-12 21:23 (rest period — after work shift)
+      time: {
+        year: 1498, month: 6, day: 12,
+        hour: 21, minute: 23,
+        totalMinutes: 0,
+      },
+      timePeriod:     'rest',
+      eventCooldowns: {},
     };
   }
 }

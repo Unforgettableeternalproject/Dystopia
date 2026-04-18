@@ -1,0 +1,21 @@
+{
+  "id": "crambell_public_punishment",
+  "locationId": "delth_plaza",
+  "_comment": "地點事件：戴司廣場，需掛載到 delth_plaza.eventIds。需旗標 crambell_punishment_scheduled 觸發，由其他事件或 NPC 互動設置。",
+  "condition": {
+    "flags": ["crambell_punishment_scheduled"],
+    "timePeriod": ["work"],
+    "cooldownMinutes": 0
+  },
+  "description": "象限廣場中央設有一個臨時高台。一名礦工被押上去，罪名是連續三日未達配額。士兵站在台兩側，強制要求廣場內所有人停下觀看，廣播同步播報罪行細節，語氣平靜如播報天氣預報。",
+  "outcomes": [
+    {
+      "id": "punishment_witness",
+      "description": "你不得不停在人群外圍，目擊整個過程直到結束。沒有人說話，只有廣播聲和偶爾的金屬碰撞。",
+      "flagsSet": ["crambell_public_punishment_witnessed"],
+      "flagsUnset": ["crambell_punishment_scheduled"],
+      "statChanges": { "statusStats.stress": 2 }
+    }
+  ],
+  "isRepeatable": true
+}

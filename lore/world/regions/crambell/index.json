@@ -35,5 +35,10 @@
     "crambell_pestilens",
     "crambell_wyar",
     "crambell_konquer"
+  ],
+  "globalEventIds": [
+    "crambell_work_period_start",
+    "crambell_rest_period_start",
+    "crambell_broadcast"
   ]
 }

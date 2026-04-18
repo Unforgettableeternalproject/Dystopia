@@ -3,6 +3,22 @@
 import type { PlayerState } from "./player";
 import type { QuestInstance } from "./quest";
 import type { WorldPhaseState } from "./phase";
+import type { TimePeriod } from "./world";
+
+/**
+ * 遊戲內時間。
+ * 遊戲從 AD 1498-06-12 21:23 開始，所有動作推進時間。
+ * totalMinutes 是自遊戲開始的累計分鐘數，用於冷卻計算。
+ */
+export interface GameTime {
+  year: number;
+  month: number;    // 1–12
+  day: number;      // 1–31
+  hour: number;     // 0–23
+  minute: number;   // 0–59
+  /** 自遊戲開始的累計分鐘數（不隨存檔重置，用於事件冷卻） */
+  totalMinutes: number;
+}
 
 export interface GameState {
   player: PlayerState;
@@ -21,6 +37,16 @@ export interface GameState {
   npcMemory: Record<string, NPCMemoryEntry>;
   /** 當前進行中的對話；undefined 表示非對話狀態 */
   activeDialogue?: ActiveDialogueState;
+  /** 當前遊戲內時間 */
+  time: GameTime;
+  /** 當前時段（作業/休息/特殊） */
+  timePeriod: TimePeriod;
+  /**
+   * 可重複事件的冷卻記錄。
+   * key = eventId，value = 上次觸發時的 totalMinutes。
+   * EventEngine 用此判斷冷卻是否結束。
+   */
+  eventCooldowns: Record<string, number>;
 }
 
 export type GamePhase =

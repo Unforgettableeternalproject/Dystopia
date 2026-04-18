@@ -26,7 +26,7 @@
       }
     ],
     "npcIds": ["crambell_mildore"],
-    "eventIds": [],
+    "eventIds": ["crambell_patrol_delth", "crambell_public_punishment"],
     "isAccessible": true
   },
   "localVariants": [

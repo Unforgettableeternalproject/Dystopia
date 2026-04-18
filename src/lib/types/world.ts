@@ -135,12 +135,53 @@ export interface ResolvedLocation {
   locationType?: LocationType;
 }
 
+// ── Time ─────────────────────────────────────────────────────────
+
+/**
+ * 遊戲內時段。
+ * 'work'    = 作業時段（如礦工換班期間）
+ * 'rest'    = 休息時段（下班後至次日開工前）
+ * 'special' = 特殊時段（由旗標觸發，如公開處罰、緊急廣播）
+ */
+export type TimePeriod = 'work' | 'rest' | 'special';
+
+/** 單一時段的起止定義 */
+export interface PeriodDefinition {
+  id: TimePeriod;
+  label: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+}
+
+/**
+ * 區域時間表。
+ * 定義該區域的作業/休息時段邊界，以及觸發特殊時段的旗標。
+ * 儲存於 lore/world/regions/<region>/schedule.json。
+ */
+export interface RegionSchedule {
+  regionId: string;
+  periods: PeriodDefinition[];
+  /** 若此旗標存在，強制將當前時段設為 'special' */
+  specialPeriodFlag?: string;
+}
+
 // ── Event ────────────────────────────────────────────────────────
 
 export interface EventCondition {
   flags?: string[];
   anyFlags?: string[];
+  notFlags?: string[];                // 這些旗標全部不存在時才觸發
   minStats?: Partial<Record<string, number>>;
+  /** 事件只在這些時段觸發 */
+  timePeriod?: TimePeriod[];
+  /**
+   * 可重複事件的冷卻（遊戲內分鐘數）。
+   * 上次觸發後需等待至少這麼多分鐘才能再次觸發。
+   * 0 或未設定 = 每回合都可觸發（若其他條件滿足）。
+   */
+  cooldownMinutes?: number;
 }
 
 export interface EventOutcome {
@@ -185,6 +226,12 @@ export interface RegionIndex {
   factionIds: string[];
   /** 此區域內所有象限/區塊的 ID 列表 */
   districtIds?: string[];
+  /**
+   * 全域事件 ID 列表（不綁定地點）。
+   * 每回合由 EventEngine.checkGlobalEvents() 統一檢查。
+   * 通常用於時段轉換、廣播、天氣等跨地點事件。
+   */
+  globalEventIds?: string[];
 }
 
 // ── District ──────────────────────────────────────────────────────

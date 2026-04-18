@@ -58,6 +58,10 @@ export interface PlayerUIState {
   worldPhase?: string;
   activeQuestCount?: number;
   conditionCount?: number;
+  /** Formatted in-game time, e.g. "AD 1498-06-12 21:23" */
+  time?: string;
+  /** Current time period label, e.g. "休息時段" */
+  timePeriod?: string;
 }
 
 export const playerUI = writable<PlayerUIState>({

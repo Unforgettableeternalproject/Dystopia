@@ -1,0 +1,18 @@
+{
+  "id": "crambell_work_period_start",
+  "_comment": "全域事件。作業時段開始時觸發一次（自我標記設計：設旗標後，同一時段內不再觸發）。",
+  "condition": {
+    "timePeriod": ["work"],
+    "notFlags": ["crambell_work_period_active"]
+  },
+  "description": "報時鐘鳴響，作業時段開始。警報聲徹響各象限走廊，礦工們必須在五分鐘內到達配額站完成點名，否則計入曠工記錄。",
+  "outcomes": [
+    {
+      "id": "work_start_normal",
+      "description": "作業時段開始。警報聲急促，走廊燈全部亮起，人群開始向配額站方向湧去。",
+      "flagsSet": ["crambell_work_period_active"],
+      "flagsUnset": ["crambell_rest_period_active"]
+    }
+  ],
+  "isRepeatable": true
+}

@@ -5,7 +5,7 @@ import type {
   LocationNode, ResolvedLocation,
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
-  DistrictIndex,
+  DistrictIndex, RegionSchedule,
 } from '../types';
 import type { DialogueTree } from '../types/dialogue';
 import type { QuestDefinition } from '../types/quest';
@@ -23,12 +23,13 @@ interface LoreData {
   phases:     WorldPhase[];
   regions:    Record<string, RegionIndex>;
   districts:  Record<string, DistrictIndex>;
+  schedules:  Record<string, RegionSchedule>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
-    dialogues: {}, quests: {}, phases: [], regions: {}, districts: {},
+    dialogues: {}, quests: {}, phases: [], regions: {}, districts: {}, schedules: {},
   };
 
   load(data: Partial<LoreData>): void {
@@ -40,6 +41,7 @@ export class LoreVault {
     if (data.quests)     Object.assign(this.data.quests,    data.quests);
     if (data.regions)    Object.assign(this.data.regions,   data.regions);
     if (data.districts)  Object.assign(this.data.districts, data.districts);
+    if (data.schedules)  Object.assign(this.data.schedules, data.schedules);
     if (data.phases)     this.data.phases.push(...data.phases);
   }
 
@@ -103,6 +105,18 @@ export class LoreVault {
 
   getDistrict(id: string): DistrictIndex | undefined {
     return this.data.districts[id];
+  }
+
+  // -- Regions ---------------------------------------------------------
+
+  getRegion(id: string): RegionIndex | undefined {
+    return this.data.regions[id];
+  }
+
+  // -- Schedules -------------------------------------------------------
+
+  getSchedule(regionId: string): RegionSchedule | undefined {
+    return this.data.schedules[regionId];
   }
 
   // -- NPCs ------------------------------------------------------------

@@ -1,0 +1,23 @@
+{
+  "id": "crambell_broadcast",
+  "_comment": "全域事件。政府廣播，每 240 分鐘觸發一次，無視時段。outccome 依目前時段旗標決定內容。",
+  "condition": {
+    "cooldownMinutes": 240
+  },
+  "description": "三區廣播系統啟動，刺耳的提示音後是一段預錄的男聲公告。",
+  "outcomes": [
+    {
+      "id": "broadcast_quota_reminder",
+      "condition": "crambell_work_period_active",
+      "description": "「本月配額完成率：73%。低於標準的象限將在月底進行稽核。各位礦工請把握時間。」廣播完畢。人群沒有任何反應。",
+      "flagsSet": ["crambell_broadcast_quota_heard"]
+    },
+    {
+      "id": "broadcast_curfew_warning",
+      "description": "「本日宵禁時間提前至午夜零時，違反者將接受處置。理由：第一象限近日有不明人員移動記錄。」廣播完畢。走廊裡幾個礦工互相交換了眼神，沒有人說話。",
+      "flagsSet": ["crambell_broadcast_curfew_heard"],
+      "statChanges": { "statusStats.stress": 1 }
+    }
+  ],
+  "isRepeatable": true
+}

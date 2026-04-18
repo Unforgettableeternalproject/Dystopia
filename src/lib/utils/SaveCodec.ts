@@ -9,12 +9,12 @@
 //   const code = await SaveCodec.encode(gameState, flagArray);
 //   const { state, flags } = await SaveCodec.decode(code);
 
-import type { GameState, HistoryEntry, PlayerAction } from '../types';
-import type { PlayerState, PlayerCondition }           from '../types/player';
-import type { QuestInstance }                          from '../types/quest';
-import type { NPCMemoryEntry, ActiveDialogueState }    from '../types/game';
-import type { WorldPhaseState }                        from '../types/phase';
-import type { GamePhase }                              from '../types/game';
+import type { GameState, HistoryEntry, PlayerAction, GameTime, GamePhase } from '../types';
+import type { PlayerState, PlayerCondition }                               from '../types/player';
+import type { QuestInstance }                                              from '../types/quest';
+import type { NPCMemoryEntry, ActiveDialogueState }                        from '../types/game';
+import type { WorldPhaseState }                                            from '../types/phase';
+import type { TimePeriod }                                                 from '../types/world';
 
 const SAVE_PREFIX  = 'DYS1:';
 const SAVE_VERSION = 1;
@@ -35,6 +35,9 @@ export interface SaveSnapshot {
   worldPhase:           WorldPhaseState;
   player:               SerializedPlayer;
   flags:                string[];       // FlagSystem.toArray()
+  time:                 GameTime;
+  timePeriod:           TimePeriod;
+  eventCooldowns:       Record<string, number>;
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -62,6 +65,9 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
       activeFlags: Array.from(gs.player.activeFlags),
     },
     flags,
+    time:           gs.time,
+    timePeriod:     gs.timePeriod,
+    eventCooldowns: gs.eventCooldowns,
   };
 
   const json       = JSON.stringify(snapshot);
@@ -112,6 +118,10 @@ export async function decode(code: string): Promise<DecodeResult> {
     worldPhase:            snapshot.worldPhase,
     pendingThoughts:       [],     // transient -- reset on load
     activeDialogue:        undefined,
+    // Fallbacks for saves from before time system was added
+    time:           snapshot.time           ?? { year: 1498, month: 6, day: 12, hour: 21, minute: 23, totalMinutes: 0 },
+    timePeriod:     snapshot.timePeriod     ?? 'rest',
+    eventCooldowns: snapshot.eventCooldowns ?? {},
   };
 
   return { snapshot, state, flags: snapshot.flags };
