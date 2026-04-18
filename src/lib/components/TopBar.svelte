@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { playerUI } from '$lib/stores/gameStore';
+  import { playerUI, isStreaming } from '$lib/stores/gameStore';
+
+  export let onSave: (() => void) | undefined = undefined;
+  export let onLoadMenu: (() => void) | undefined = undefined;
 </script>
 
 <header class="top-bar">
   <div class="region">{$playerUI.regionName}</div>
+
   <div class="center-info">
     {#if $playerUI.time}
       <span class="time">{$playerUI.time}</span>
@@ -13,7 +17,22 @@
       {/if}
     {/if}
   </div>
-  <div class="turn">T{$playerUI.turn}</div>
+
+  <div class="right-bar">
+    <div class="turn">T{$playerUI.turn}</div>
+    <button
+      class="topbar-btn"
+      on:click={onSave}
+      disabled={$isStreaming || !onSave}
+      title="快速存檔 (存檔槽1)"
+    >存</button>
+    <button
+      class="topbar-btn"
+      on:click={onLoadMenu}
+      disabled={!onLoadMenu}
+      title="讀取存檔"
+    >讀</button>
+  </div>
 </header>
 
 <style>
@@ -66,13 +85,44 @@
     letter-spacing: 0.04em;
   }
 
+  .right-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
   .turn {
     font-size: 10px;
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.05em;
-    min-width: 32px;
+    min-width: 28px;
     text-align: right;
+  }
+
+  .topbar-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.1s, color 0.1s;
+    height: 22px;
     flex-shrink: 0;
+  }
+
+  .topbar-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .topbar-btn:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
   }
 </style>

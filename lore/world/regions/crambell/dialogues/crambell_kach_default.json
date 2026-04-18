@@ -1,16 +1,103 @@
 {
   "id": "crambell_kach_default",
   "npcId": "crambell_kach",
-  "initialContext": "TODO: 凱奇在第一次遇到玩家時的態度與行為傾向。他是玩家的室友，應該顯得熟悉但保持某種距離感。",
-  "defaultContext": "TODO: 凱奇的說話方式、當前身份（表面上的普通工人）、互動傾向。",
+
+  "defaultContext": "TODO: 凱奇的說話模式。例如：惜字如金、習慣以反問代替直答、對工作話題保持中立語氣、偶爾流露對過去的模糊懷念。他不主動透露情報，但也不會主動欺騙。",
+
+  "nodes": {
+    "first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "他抬起頭，打量了你一眼，像是在確認你是不是新來的。" },
+        { "speaker": "npc", "text": "啊...又該開始工作了，對吧，{user}? *整理著地板上的幾件雜物* 最近想去附近的森林走走，不然每天悶在這裡挺難受的...哈哈。" }
+      ],
+      "choices": [
+        {
+          "id": "friendly_agree",
+          "text": "「我也這麼覺得。我叫你呢？」",
+          "nextNodeId": "kach_intro_response",
+          "effects": { "affinity": 1 }
+        },
+        {
+          "id": "practical",
+          "text": "「配額的事你熟嗎？我剛來，還不清楚。」",
+          "nextNodeId": "kach_quota_info"
+        },
+        {
+          "id": "cold",
+          "text": "（點點頭，沒有回應）",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "kach_intro_response": {
+      "lines": [
+        { "speaker": "npc", "text": "凱奇。*頓了一下* 別期待我多話，不是我的風格。" }
+      ],
+      "choices": [
+        {
+          "id": "understood",
+          "text": "「沒事，我也不是話多的人。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1 }
+        },
+        {
+          "id": "push_forest",
+          "text": "「森林？那邊可以去嗎？」",
+          "nextNodeId": "kach_forest_comment"
+        }
+      ]
+    },
+    "kach_forest_comment": {
+      "lines": [
+        { "speaker": "npc", "text": "理論上不行。*聳聳肩* 但偶爾有空窗期。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「瞭解了。」", "nextNodeId": null }
+      ]
+    },
+    "kach_quota_info": {
+      "lines": [
+        { "speaker": "npc", "text": "報到點在廣場旁邊的配額站。記得帶工籍牌，不然他們當場開罰。*低下頭繼續整理東西*" }
+      ],
+      "choices": [
+        {
+          "id": "thanks",
+          "text": "「謝了。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1 }
+        },
+        {
+          "id": "more_questions",
+          "text": "「還有什麼要注意的嗎？」",
+          "nextNodeId": "kach_warning"
+        }
+      ]
+    },
+    "kach_warning": {
+      "lines": [
+        { "speaker": "npc", "text": "別跟巡邏隊多話。*短暫的沉默* 就這樣。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「明白了。」", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "first_meeting",
+      "firstMeetingOnly": true
+    }
+  ],
+
   "milestones": [
     {
       "id": "kach_revealed_old_council",
       "label": "玩家得知凱奇是舊會議成員",
       "condition": "crambell_kach_old_council_revealed",
-      "context": "TODO: 凱奇身份揭露後，他對玩家的態度與溝通方式如何改變。",
+      "context": "TODO: 凱奇身份揭露後，他對玩家的態度與溝通方式如何改變。他是否更信任玩家，還是更加警惕？",
       "isPermanent": true,
-      "permanentSummary": "TODO: 一句話摘要，例如「凱奇已向玩家揭露他是舊會議成員」"
+      "permanentSummary": "TODO: 例：「凱奇已向玩家揭露他曾是舊會議成員，雙方關係出現新的張力」"
     }
   ]
 }

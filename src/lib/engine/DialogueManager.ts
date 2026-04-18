@@ -1,26 +1,35 @@
-// DialogueManager — builds NPC dialogue context for DM injection and processes DM signals.
+// DialogueManager — scripted dialogue tree + DM context builder.
 //
-// DM signal formats (appended at end of narrative, stripped before display):
+// Two modes:
+//   Scripted  — checkScriptedTrigger() fires when trigger conditions pass.
+//               Lines displayed directly; DM is bypassed.
+//               Choice effects applied via applyChoiceEffects().
+//   LLM       — buildNPCDialogueContext() injects profile into DM prompt.
+//               Fires when no scripted trigger matches.
+//
+// DM signal formats stripped after LLM narration:
 //   <<FLAGS: +flag_a, -flag_b>>        (handled by FlagRegistry)
 //   <<NPC: npc_id | topic: ... | attitude: neutral>>
 //   <<MILESTONE: milestone_id>>
-//
-// Signals are independent lines; multiple can appear in one response.
 
-import type { LoreVault }          from '../lore/LoreVault';
-import type { StateManager }       from './StateManager';
-import type { GameState }          from '../types';
-import type { PlayerAttitude }     from '../types/dialogue';
-import type { FlagSystem }         from './FlagSystem';
+import type { LoreVault }         from '../lore/LoreVault';
+import type { StateManager }      from './StateManager';
+import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from '../types/dialogue';
+import type { FlagSystem }        from './FlagSystem';
 
-const NPC_SIGNAL_PATTERN      = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
+const NPC_SIGNAL_PATTERN       = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
 const MILESTONE_SIGNAL_PATTERN = /<<MILESTONE:\s*([^>>]+)>>/gi;
 
 export interface ParsedDialogueSignals {
-  npcUpdates:  Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
-  milestones:  Array<{ milestoneId: string }>;
-  /** Narrative with all dialogue signals stripped. */
+  npcUpdates: Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
+  milestones: Array<{ milestoneId: string }>;
   cleanNarrative: string;
+}
+
+/** Result of a scripted trigger check. */
+export interface ScriptedTriggerResult {
+  nodeId: string;
+  node:   ScriptedNode;
 }
 
 export class DialogueManager {
@@ -29,11 +38,93 @@ export class DialogueManager {
     private state: StateManager,
   ) {}
 
-  // ── Context Builder ───────────────────────────────────────────
+  // ── Scripted Dialogue ─────────────────────────────────────────
 
   /**
-   * Build the full dialogue context block for an NPC interaction.
-   * Injected into the DM scene context when the player is interacting with this NPC.
+   * Check whether any scripted trigger fires for this NPC interaction.
+   * Returns the matched node, or null to fall through to LLM dialogue.
+   * Triggers are evaluated in array order; first match wins.
+   */
+  checkScriptedTrigger(
+    npcId:            string,
+    dialogueId:       string,
+    flags:            FlagSystem,
+    interactionCount: number,
+  ): ScriptedTriggerResult | null {
+    const profile = this.lore.getDialogueProfile(npcId, dialogueId);
+    if (!profile || !profile.triggers?.length) return null;
+
+    for (const trigger of profile.triggers) {
+      // firstMeetingOnly check
+      if (trigger.firstMeetingOnly && interactionCount !== 0) continue;
+
+      // Flag condition check
+      if (trigger.condition && !flags.evaluate(trigger.condition)) continue;
+
+      // Probability roll (0–100, default 100 = always)
+      const prob = trigger.probability ?? 100;
+      if (prob < 100 && Math.random() * 100 > prob) continue;
+
+      // All conditions passed — find the node
+      const node = profile.nodes?.[trigger.nodeId];
+      if (!node) continue;
+
+      return { nodeId: trigger.nodeId, node };
+    }
+    return null;
+  }
+
+  /**
+   * Filter a node's choices by their optional flag conditions.
+   * Hidden choices (condition false) are excluded.
+   */
+  filterChoices(choices: ScriptedChoice[], flags: FlagSystem): ScriptedChoice[] {
+    return choices.filter(c => !c.condition || flags.evaluate(c.condition));
+  }
+
+  /**
+   * Retrieve a scripted node by ID from a dialogue profile.
+   * Returns null if the profile or node doesn't exist.
+   */
+  getNode(npcId: string, dialogueId: string, nodeId: string): ScriptedNode | null {
+    const profile = this.lore.getDialogueProfile(npcId, dialogueId);
+    return profile?.nodes?.[nodeId] ?? null;
+  }
+
+  /**
+   * Apply the effects of a chosen scripted choice to game state.
+   * Handles: affinity, faction reputation, flag mutations, attitude override.
+   */
+  applyChoiceEffects(npcId: string, effects: ChoiceEffects | undefined): void {
+    if (!effects) return;
+
+    if (effects.affinity !== undefined) {
+      this.state.modifyAffinity(npcId, effects.affinity);
+    }
+
+    if (effects.reputation) {
+      for (const [factionId, delta] of Object.entries(effects.reputation)) {
+        this.state.modifyReputation(factionId, delta);
+      }
+    }
+
+    if (effects.flagsSet) {
+      for (const flag of effects.flagsSet) this.state.flags.set(flag);
+    }
+    if (effects.flagsUnset) {
+      for (const flag of effects.flagsUnset) this.state.flags.unset(flag);
+    }
+
+    if (effects.attitude) {
+      this.state.updateNPCDialogueState(npcId, undefined, effects.attitude);
+    }
+  }
+
+  // ── LLM Context Builder ───────────────────────────────────────
+
+  /**
+   * Build the DM context block for LLM-mode NPC dialogue.
+   * Injected into the scene context when no scripted trigger fires.
    */
   buildNPCDialogueContext(npcId: string, dialogueId: string, flags: FlagSystem): string {
     const profile = this.lore.getDialogueProfile(npcId, dialogueId);
@@ -41,17 +132,14 @@ export class DialogueManager {
 
     const memory = this.state.getState().npcMemory[npcId];
     const gs     = this.state.getState();
-
     const parts: string[] = [`### Dialogue: ${npcId}`];
 
     // ── Relationship status ───────────────────────────────────
     if (!memory || memory.interactionCount === 0) {
-      parts.push('**First meeting** — use initialContext below.');
+      parts.push('**First meeting.**');
     } else {
       parts.push(`Interactions: ${memory.interactionCount} | Attitude: ${memory.playerAttitude}`);
-      if (memory.lastTopic) {
-        parts.push(`Last topic: ${memory.lastTopic}`);
-      }
+      if (memory.lastTopic) parts.push(`Last topic: ${memory.lastTopic}`);
     }
 
     // ── Reputation and affinity ───────────────────────────────
@@ -69,14 +157,14 @@ export class DialogueManager {
     if (memory && memory.permanentMilestoneIds.length > 0) {
       parts.push('**NPC permanent memory** (always remembered):');
       for (const msId of memory.permanentMilestoneIds) {
-        const ms = profile.milestones.find(m => m.id === msId);
+        const ms = profile.milestones?.find(m => m.id === msId);
         if (ms?.permanentSummary) parts.push(`  - ${ms.permanentSummary}`);
       }
     }
 
     // ── Active milestone contexts ─────────────────────────────
-    const activeMilestones = profile.milestones.filter(ms => {
-      if (memory?.permanentMilestoneIds.includes(ms.id)) return false; // already permanent
+    const activeMilestones = (profile.milestones ?? []).filter(ms => {
+      if (memory?.permanentMilestoneIds.includes(ms.id)) return false;
       return flags.evaluate(ms.condition);
     });
     if (activeMilestones.length > 0) {
@@ -89,12 +177,8 @@ export class DialogueManager {
       }
     }
 
-    // ── Base contexts ─────────────────────────────────────────
-    if (!memory || memory.interactionCount === 0) {
-      parts.push('**Initial context:**');
-      parts.push(profile.initialContext);
-    }
-    parts.push('**General character context:**');
+    // ── Speech style context ──────────────────────────────────
+    parts.push('**Speech style / dialogue context:**');
     parts.push(profile.defaultContext);
 
     // ── Signal reminder ───────────────────────────────────────
@@ -107,34 +191,27 @@ export class DialogueManager {
   }
 
   /**
-   * Build brief NPC status for all NPCs present in scene
-   * (shown even without explicit interaction, for DM awareness).
+   * Build brief NPC relationship status for all NPCs in the current scene.
+   * Always injected into the DM scene context for ambient awareness.
    */
   buildSceneNPCStatus(npcIds: string[]): string {
     if (npcIds.length === 0) return '';
     const gs = this.state.getState();
-    const lines = npcIds
-      .map(id => {
-        const mem = gs.npcMemory[id];
-        if (!mem) return `  ${id}: [首次相遇]`;
-        return `  ${id}: ${mem.interactionCount}次互動 | 態度: ${mem.playerAttitude}${mem.lastTopic ? ` | 上次: ${mem.lastTopic}` : ''}`;
-      });
-    if (lines.length === 0) return '';
+    const lines = npcIds.map(id => {
+      const mem = gs.npcMemory[id];
+      if (!mem) return `  ${id}: [首次相遇]`;
+      return `  ${id}: ${mem.interactionCount}次互動 | 態度: ${mem.playerAttitude}${mem.lastTopic ? ` | 上次: ${mem.lastTopic}` : ''}`;
+    });
     return '### NPC Relationship Status\n' + lines.join('\n');
   }
 
-  // ── Signal Parsing ────────────────────────────────────────────
+  // ── Signal Parsing (LLM mode) ─────────────────────────────────
 
-  /**
-   * Parse NPC and milestone signals from DM narrative.
-   * Called after DM streaming completes.
-   */
   parseSignals(narrative: string): ParsedDialogueSignals {
-    const npcUpdates: ParsedDialogueSignals['npcUpdates']   = [];
-    const milestones: ParsedDialogueSignals['milestones']   = [];
+    const npcUpdates: ParsedDialogueSignals['npcUpdates'] = [];
+    const milestones: ParsedDialogueSignals['milestones'] = [];
     let   clean = narrative;
 
-    // <<NPC: npc_id | topic: xxx | attitude: yyy>>
     for (const match of narrative.matchAll(NPC_SIGNAL_PATTERN)) {
       const npcId    = match[1].trim();
       const kvString = match[2];
@@ -145,7 +222,6 @@ export class DialogueManager {
     }
     clean = clean.replace(NPC_SIGNAL_PATTERN, '');
 
-    // <<MILESTONE: milestone_id>>
     for (const match of narrative.matchAll(MILESTONE_SIGNAL_PATTERN)) {
       milestones.push({ milestoneId: match[1].trim() });
     }
@@ -155,26 +231,15 @@ export class DialogueManager {
     return { npcUpdates, milestones, cleanNarrative: clean };
   }
 
-  // ── Apply Signals ─────────────────────────────────────────────
-
-  /**
-   * Apply parsed dialogue signals to StateManager.
-   * Called by GameController after parsing DM output.
-   */
   applySignals(signals: ParsedDialogueSignals, activeNpcIds: string[]): void {
     for (const { npcId, topic, attitude } of signals.npcUpdates) {
-      // Only apply updates for NPCs actually in the scene
       if (!activeNpcIds.includes(npcId)) continue;
       this.state.recordNPCInteraction(npcId);
       this.state.updateNPCDialogueState(npcId, topic, attitude);
     }
-
     for (const { milestoneId } of signals.milestones) {
-      // Find which NPC owns this milestone
       const npcId = this.findMilestoneOwner(milestoneId);
-      if (npcId) {
-        this.state.recordPermanentMilestone(npcId, milestoneId);
-      }
+      if (npcId) this.state.recordPermanentMilestone(npcId, milestoneId);
     }
   }
 
@@ -194,12 +259,11 @@ export class DialogueManager {
 
   private findMilestoneOwner(milestoneId: string): string | null {
     const gs = this.state.getState();
-    // Check NPCs the player has interacted with — search their profiles
     for (const npcId of Object.keys(gs.npcMemory)) {
       const npc = this.lore.getNPC(npcId);
       if (!npc) continue;
       const profile = this.lore.getDialogueProfile(npcId, npc.dialogueId);
-      if (profile?.milestones.some(m => m.id === milestoneId)) return npcId;
+      if (profile?.milestones?.some(m => m.id === milestoneId)) return npcId;
     }
     return null;
   }

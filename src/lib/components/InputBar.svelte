@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue } from '$lib/stores/gameStore';
+
+  $: inScriptedDialogue = $activeScriptedDialogue !== null;
 
   export let onSubmit: (input: string) => void;
 
@@ -38,8 +40,8 @@
     <input
       bind:value={inputValue}
       on:keydown={handleKeydown}
-      disabled={$inputDisabled || $isStreaming}
-      placeholder={$isStreaming ? '' : '輸入行動...'}
+      disabled={$inputDisabled || $isStreaming || inScriptedDialogue}
+      placeholder={inScriptedDialogue ? '對話進行中...' : $isStreaming ? '' : '輸入行動...'}
       class="text-input"
       autocomplete="off"
       spellcheck="false"
@@ -47,7 +49,7 @@
     <button
       class="submit-btn"
       on:click={handleSubmit}
-      disabled={$inputDisabled || $isStreaming || !inputValue.trim()}
+      disabled={$inputDisabled || $isStreaming || inScriptedDialogue || !inputValue.trim()}
       aria-label="送出"
     >
       ↵

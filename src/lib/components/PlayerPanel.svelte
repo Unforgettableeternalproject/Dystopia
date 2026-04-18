@@ -14,7 +14,12 @@
 </script>
 
 <aside class="player-panel">
-  <div class="player-name">{$playerUI.name}</div>
+  <div class="player-identity">
+    <div class="player-name">{$playerUI.name}</div>
+    {#if $playerUI.titles && $playerUI.titles.length > 0}
+      <div class="player-title">{$playerUI.titles[0]}</div>
+    {/if}
+  </div>
 
   <!-- Stat bars -->
   <div class="stats">
@@ -67,6 +72,19 @@
       <div class="phase-val">{$playerUI.worldPhase.replace(/_/g, ' ')}</div>
     </div>
   {/if}
+
+  <!-- Active quests -->
+  {#if $playerUI.activeQuestSummaries && $playerUI.activeQuestSummaries.length > 0}
+    <div class="section">
+      <div class="section-label">任務</div>
+      {#each $playerUI.activeQuestSummaries as q}
+        <div class="quest-row">
+          <div class="quest-name">{q.name}</div>
+          <div class="quest-stage">{q.stageSummary}</div>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </aside>
 
 <style>
@@ -80,17 +98,31 @@
     padding: 12px 10px;
   }
 
+  .player-identity {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+
   .player-name {
     font-size: 13px;
     color: var(--text-primary);
     font-weight: 500;
     letter-spacing: 0.03em;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 10px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .player-title {
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.8;
   }
 
   /* Stats */
@@ -191,5 +223,28 @@
     color: var(--text-dim);
     font-style: italic;
     letter-spacing: 0.03em;
+  }
+
+  /* Quests */
+  .quest-row {
+    margin-bottom: 7px;
+  }
+
+  .quest-name {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .quest-stage {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>

@@ -1,18 +1,79 @@
 {
-  "_schema": "DialogueProfile — one file per NPC dialogue context (id matches NPCNode.dialogueId).",
-  "_note": "DM generates all dialogue dynamically; this file is context, not scripted lines.",
+  "_schema": "DialogueProfile v2 — scripted nodes + LLM fallback. One file per NPC (id = NPCNode.dialogueId).",
+
+  "_modes": {
+    "scripted": "Triggered by firstMeetingOnly, flag condition, or probability roll. Lines display directly; DM is bypassed. Choices are shown as buttons.",
+    "llm": "Fires when no trigger matches. DM generates freely using defaultContext + relationship history."
+  },
+
   "id": "dialogue_id",
   "npcId": "npc_id",
-  "initialContext": "Injected only on first meeting (interactionCount === 0). Describe how this NPC behaves when encountering a stranger for the first time — default caution level, opening disposition, and any immediately observable traits.",
-  "defaultContext": "Injected every dialogue turn. Describe the NPC's speaking style, current role, general disposition toward the player, and any persistent quirks the DM must always maintain.",
+
+  "_template_variables": {
+    "{user}":     "玩家名字",
+    "{time}":     "完整時間，如 'AD 1498-06-12 21:23'",
+    "{date}":     "日期，如 'AD 1498-06-12'",
+    "{hour}":     "時間，如 '21:23'",
+    "{period}":   "時段名稱，如 '休息時段'",
+    "{location}": "當前地點名稱",
+    "{region}":   "地區名稱",
+    "_note":      "可用於 lines[].text、choices[].text、defaultContext、milestone context"
+  },
+
+  "defaultContext": "Speech style for LLM-mode dialogue: vocabulary, tone, speaking rhythm, topics this NPC will/won't discuss, typical reaction to repeat visitors. Do NOT describe personality (already in NPC publicDescription/secretLayers). Template variables like {user} are supported.",
+
+  "nodes": {
+    "example_first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "Narrator line — sets the scene before NPC speaks." },
+        { "speaker": "npc",      "text": "NPC line — shown as 「NPC名：「text」」" },
+        { "speaker": "player",   "text": "Player action descriptor — shown as > text" }
+      ],
+      "choices": [
+        {
+          "id": "unique_choice_id",
+          "text": "What the player says or does (shown on button)",
+          "nextNodeId": "another_node_id_or_null",
+          "condition": "optional_flag_expression_to_hide_this_choice",
+          "effects": {
+            "affinity": 1,
+            "reputation": { "faction_id": 1 },
+            "flagsSet": ["flag_to_set"],
+            "flagsUnset": ["flag_to_remove"],
+            "attitude": "friendly"
+          }
+        },
+        {
+          "id": "end_choice",
+          "text": "（離開）",
+          "nextNodeId": null
+        }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "example_first_meeting",
+      "firstMeetingOnly": true,
+      "_comment_condition": "Optional: flag expression that must be true",
+      "_comment_probability": "Optional: 0-100 roll chance (default 100). Evaluated after condition."
+    },
+    {
+      "nodeId": "another_node",
+      "condition": "some_flag & !other_flag",
+      "probability": 40
+    }
+  ],
+
   "milestones": [
     {
       "id": "unique_milestone_id",
-      "label": "Design note: what event does this milestone represent (not in prompt)",
-      "condition": "flag_expression_that_activates_this_milestone",
-      "context": "DM-facing context. What does the NPC know, feel, and intend in this situation?",
+      "label": "Design note: what this milestone represents (not injected into prompt)",
+      "condition": "flag_expression_that_activates_milestone",
+      "context": "Injected into DM prompt for LLM-mode dialogue when condition is true. Describe what the NPC knows/feels/plans in this situation.",
       "isPermanent": false,
-      "permanentSummary": "One-sentence summary for NPC long-term memory (required when isPermanent is true)"
+      "permanentSummary": "One sentence for NPC long-term memory. Required if isPermanent is true."
     }
   ]
 }

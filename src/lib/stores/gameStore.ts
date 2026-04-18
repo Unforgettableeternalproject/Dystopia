@@ -2,6 +2,7 @@
 
 import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
+import type { ScriptedChoice } from '../types/dialogue';
 
 // ── Narrative Lines ────────────────────────────────────────────
 
@@ -45,6 +46,11 @@ export function finishLastLine(): void {
 export const thoughts = writable<Thought[]>([]);
 export const inputDisabled = writable(false);
 
+// ── Game phase ─────────────────────────────────────────────────
+
+export type GamePhase = 'title' | 'naming' | 'loading' | 'playing';
+export const gamePhase = writable<GamePhase>('title');
+
 // ── Player UI State ────────────────────────────────────────────
 
 export interface PlayerUIState {
@@ -64,6 +70,8 @@ export interface PlayerUIState {
   time?:            string;   // "AD 1498-06-12 21:23"
   timePeriod?:      string;   // "休息時段"
   topFactions?:     Array<{ id: string; name: string; rep: number }>;
+  titles?:          string[];
+  activeQuestSummaries?: Array<{ name: string; stageSummary: string }>;
 }
 
 export const playerUI = writable<PlayerUIState>({
@@ -104,6 +112,19 @@ export interface ActiveNpcUIState {
 }
 
 export const activeNpcUI = writable<ActiveNpcUIState | null>(null);
+
+// ── Active scripted dialogue ───────────────────────────────────
+
+export interface ActiveScriptedDialogue {
+  npcId:              string;
+  npcName:            string;
+  dialogueId:         string;
+  currentNodeId:      string;
+  currentChoices:     ScriptedChoice[];  // filtered by flag conditions
+  collectedNarrative: string;            // accumulated for history
+}
+
+export const activeScriptedDialogue = writable<ActiveScriptedDialogue | null>(null);
 
 // ── Modal state ────────────────────────────────────────────────
 

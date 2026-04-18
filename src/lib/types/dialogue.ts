@@ -1,81 +1,134 @@
-// Dialogue profile types.
-// Dialogue is DM-generated, NOT scripted line by line.
-// A DialogueProfile provides the context the DM needs to conduct an NPC conversation.
+// Dialogue types.
 //
-// Structure:
-//   initialContext  → injected on first meeting (interactionCount === 0)
-//   defaultContext  → always injected (NPC personality, speech style, current disposition)
-//   milestones      → flag-triggered context blocks; permanent ones enter NPC long-term memory
+// Two dialogue modes:
+//   Scripted  — fixed nodes with player choices; bypasses DM entirely.
+//               Triggered by first meeting, flag conditions, or probability rolls.
+//   LLM       — DM generates freely using defaultContext + relationship history.
+//               Fires when no scripted trigger matches.
 
-// ── Attitude ─────────────────────────────────────────────────────
+// ── Attitude ──────────────────────────────────────────────────
 
-/**
- * 玩家對某 NPC 的態度，從 DM 的 <<NPC>> 信號更新。
- * 影響 DM 在生成對話時對玩家行為的詮釋方式。
- */
+/** Player attitude toward a specific NPC, updated by DM <<NPC>> signals. */
 export type PlayerAttitude = 'friendly' | 'neutral' | 'cautious' | 'hostile';
 
-// ── Milestone ─────────────────────────────────────────────────────
+// ── Scripted Dialogue ─────────────────────────────────────────
+
+export interface ScriptedLine {
+  /** Who speaks this line. */
+  speaker: 'npc' | 'narrator' | 'player';
+  text: string;
+}
+
+export interface ChoiceEffects {
+  /** Delta applied to NPC affinity. */
+  affinity?: number;
+  /** Faction id → reputation delta. */
+  reputation?: Record<string, number>;
+  flagsSet?: string[];
+  flagsUnset?: string[];
+  /** Immediately override the stored player attitude for this NPC. */
+  attitude?: PlayerAttitude;
+}
+
+export interface ScriptedChoice {
+  id: string;
+  /** Text shown on the choice button (what the player says / does). */
+  text: string;
+  /** ID of the next node, or null to end the scripted dialogue. */
+  nextNodeId: string | null;
+  /** Flag expression — choice is hidden (not offered) if this evaluates false. */
+  condition?: string;
+  effects?: ChoiceEffects;
+}
+
+export interface ScriptedNode {
+  lines: ScriptedLine[];
+  /**
+   * Choices offered after lines play.
+   * Empty array = auto-end the scripted dialogue after lines are displayed.
+   */
+  choices: ScriptedChoice[];
+}
+
+// ── Triggers ──────────────────────────────────────────────────
 
 /**
- * 對話里程碑。
- * 當 condition 旗標表達式為 true 時，context 被注入 DM 的對話 context。
- * isPermanent = true 時，一旦觸發就永久進入 NPC 記憶（NPC 不會忘記）。
+ * A trigger defines when a scripted node fires instead of LLM dialogue.
+ * All specified conditions must pass for the trigger to activate.
+ * Triggers are evaluated in array order; the first match wins.
+ */
+export interface DialogueTrigger {
+  /** Node to start when this trigger fires. */
+  nodeId: string;
+  /** Only fires on the very first interaction (interactionCount === 0). */
+  firstMeetingOnly?: boolean;
+  /** Flag expression — must evaluate true. */
+  condition?: string;
+  /**
+   * Probability roll (0–100). Default: 100 (always fires if other conditions pass).
+   * Rolled after flag conditions are confirmed.
+   */
+  probability?: number;
+}
+
+// ── Milestones ────────────────────────────────────────────────
+
+/**
+ * A milestone injects extra context into the DM when its condition is met.
+ * Permanent milestones enter NPC long-term memory after a DM signal confirms them.
  */
 export interface DialogueMilestone {
   id: string;
-  /** 設計備注：這個里程碑代表什麼事件（不進 prompt） */
+  /** Design note (not injected into prompts). */
   label: string;
-  /** 旗標運算式；為 true 時此 milestone 被啟動 */
+  /** Flag expression; milestone is active when true. */
   condition: string;
   /**
-   * DM-facing context。
-   * 描述在此里程碑條件下 NPC 知道什麼、感受什麼、打算怎麼應對玩家。
+   * Context injected into DM prompt when active.
+   * Should describe what the NPC knows/feels/plans in this situation.
    */
   context: string;
-  /**
-   * 是否為永久里程碑。
-   * true = 一旦觸發，DM 信號 <<MILESTONE: id>> 確認後，此 context 的摘要
-   * 永久記錄在 NPCMemoryEntry.permanentMilestoneIds，未來對話始終包含。
-   */
   isPermanent: boolean;
   /**
-   * 永久記憶摘要。
-   * isPermanent = true 時使用，是比完整 context 更簡短的一句話摘要，
-   * 用於未來對話的「NPC 永久記憶」區塊。
+   * Short summary for permanent memory. Used after the milestone is confirmed.
+   * One sentence max. Only relevant when isPermanent = true.
    */
   permanentSummary?: string;
 }
 
-// ── Profile ────────────────────────────────────────────────────────
+// ── Profile ───────────────────────────────────────────────────
 
 /**
- * NPC 的對話 context 提供者。
- * 每個 NPC 一份，存於 lore/.../dialogues/<dialogueId>.json。
- * dialogueId 對應 NPCNode.dialogueId（也可有 phaseOverride 版本）。
+ * Full dialogue profile for one NPC.
+ * Stored at lore/.../dialogues/<dialogueId>.json.
  */
 export interface DialogueProfile {
-  /** 對應 NPCNode.dialogueId 的 profile ID */
   id: string;
   npcId: string;
 
   /**
-   * 初始對話 context。
-   * 只在 NPCMemoryEntry.interactionCount === 0 時注入。
-   * 描述 NPC 第一次遇到陌生人的態度與行為傾向。
-   */
-  initialContext: string;
-
-  /**
-   * 預設 context。
-   * 每次對話都注入。描述 NPC 的說話方式、當前角色身份與一般互動傾向。
+   * LLM context for free-form dialogue (injected when no scripted trigger fires).
+   * Focus on: speech patterns, tone, vocabulary, topics the NPC will/won't discuss,
+   * and typical disposition toward repeat visitors.
+   * Do NOT repeat personality — that is in the NPC's publicDescription / secretLayers.
    */
   defaultContext: string;
 
   /**
-   * 里程碑列表。
-   * 每次對話時，系統過濾出 condition 為 true 的里程碑並注入其 context。
-   * 已成為永久記憶的里程碑改用 permanentSummary 注入。
+   * Scripted dialogue nodes keyed by node ID.
+   * Each node contains lines (displayed directly) and choices (shown as buttons).
+   */
+  nodes: Record<string, ScriptedNode>;
+
+  /**
+   * Ordered list of scripted triggers.
+   * First trigger whose conditions all pass fires; remaining triggers are skipped.
+   */
+  triggers: DialogueTrigger[];
+
+  /**
+   * Milestones that provide extra context to the DM for LLM-mode dialogue.
+   * Permanent milestones enter NPC long-term memory once confirmed by DM signal.
    */
   milestones: DialogueMilestone[];
 }

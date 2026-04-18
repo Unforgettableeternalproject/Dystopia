@@ -40,9 +40,10 @@ import {
 } from '../stores/gameStore';
 import { createLogger } from '../utils/Logger';
 import { warmUpModel }  from '../utils/ModelWarmup';
+import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue } from '../stores/gameStore';
 
 const log = createLogger('GameCtrl');
 
@@ -92,7 +93,10 @@ export class GameController {
     this.events.setSchedule(this.lore.getSchedule(this.currentRegionId) ?? null);
   }
 
-  async start(): Promise<void> {
+  async start(playerName?: string): Promise<void> {
+    if (playerName?.trim()) {
+      this.state.setPlayerName(playerName.trim());
+    }
     const gs = this.state.getState();
     this.state.discoverLocation(gs.player.currentLocationId);
     this.syncUIState(gs);
@@ -145,6 +149,26 @@ export class GameController {
       activeNpcUI.set(null);
     } else if (finalAction.type === 'interact' && finalAction.targetId) {
       this.updateActiveNpcUI(finalAction.targetId);
+    }
+
+    // 1.5. Check for scripted dialogue trigger on interact
+    if (finalAction.type === 'interact' && finalAction.targetId) {
+      const npc = this.lore.getNPC(finalAction.targetId);
+      if (npc) {
+        const interactionCount =
+          this.state.getState().npcMemory[finalAction.targetId]?.interactionCount ?? 0;
+        const scripted = this.dialogueMgr.checkScriptedTrigger(
+          finalAction.targetId, npc.dialogueId, this.state.flags, interactionCount,
+        );
+        if (scripted) {
+          this.activateScriptedNode(
+            finalAction.targetId, npc.dialogueId, npc.name,
+            scripted.nodeId, scripted.node,
+          );
+          inputDisabled.set(false);
+          return; // Skip normal turn pipeline — scripted dialogue takes over
+        }
+      }
     }
 
     // 2. Tick conditions
@@ -269,6 +293,59 @@ export class GameController {
     log.info('Save deleted', { slotId });
   }
 
+  // -- Scripted dialogue ------------------------------------------------
+
+  /**
+   * Called by UI when the player selects a choice in a scripted dialogue node.
+   * Applies effects, advances to the next node (or ends the dialogue).
+   */
+  async selectDialogueChoice(choiceId: string): Promise<void> {
+    const current = get(activeScriptedDialogue);
+    if (!current) return;
+
+    const choice = current.currentChoices.find(c => c.id === choiceId);
+    if (!choice) return;
+
+    // Show the player's choice in the narrative
+    pushLine('> ' + choice.text, 'player');
+
+    // Apply any side effects
+    this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
+
+    const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
+
+    if (choice.nextNodeId === null) {
+      // End of scripted dialogue
+      activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
+      this.endScriptedDialogue();
+      return;
+    }
+
+    const nextNode = this.dialogueMgr.getNode(current.npcId, current.dialogueId, choice.nextNodeId);
+    if (!nextNode) {
+      activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
+      this.endScriptedDialogue();
+      return;
+    }
+
+    // Display next node's lines
+    const ctx = this.buildInterpolationCtx();
+    const nextLines = this.renderNodeLines(nextNode.lines, current.npcName, ctx);
+    const filteredChoices = this.dialogueMgr.filterChoices(nextNode.choices, this.state.flags);
+
+    activeScriptedDialogue.set({
+      ...current,
+      currentNodeId:      choice.nextNodeId,
+      currentChoices:     filteredChoices,
+      collectedNarrative: updatedNarrative + '\n' + nextLines.join('\n'),
+    });
+
+    // Auto-end if the node has no choices
+    if (filteredChoices.length === 0) {
+      setTimeout(() => this.endScriptedDialogue(), 600);
+    }
+  }
+
   /** Expose state for save/load. */
   getState(): Readonly<GameState> {
     return this.state.getState();
@@ -381,12 +458,15 @@ export class GameController {
     if (action?.type === 'interact' && action.targetId) {
       const npc = this.lore.getNPC(action.targetId);
       if (npc && sceneNpcIds.includes(action.targetId)) {
-        const dialogueCtx = this.dialogueMgr.buildNPCDialogueContext(
+        const rawDialogueCtx = this.dialogueMgr.buildNPCDialogueContext(
           action.targetId,
           npc.dialogueId,
           this.state.flags,
         );
-        if (dialogueCtx) parts.push('\n' + dialogueCtx);
+        if (rawDialogueCtx) {
+          const dialogueCtx = interpolate(rawDialogueCtx, this.buildInterpolationCtx());
+          parts.push('\n' + dialogueCtx);
+        }
       }
     }
 
@@ -529,6 +609,15 @@ export class GameController {
         return { id: fid, name: f?.name ?? fid, rep };
       });
 
+    const activeQuestSummaries = Object.values(gs.activeQuests)
+      .filter(q => !q.isCompleted && !q.isFailed && q.currentStageId)
+      .slice(0, 3)
+      .flatMap(q => {
+        const def   = this.lore.getQuest(q.questId);
+        const stage = def?.stages[q.currentStageId!];
+        return stage ? [{ name: def!.name, stageSummary: stage.description }] : [];
+      });
+
     playerUI.set({
       name:            gs.player.name,
       location:        resolved?.name ?? gs.player.currentLocationId,
@@ -546,6 +635,8 @@ export class GameController {
       time:            this.timeMgr.formatTime(gs.time),
       timePeriod:      this.timeMgr.formatPeriod(gs.timePeriod),
       topFactions:     topFactions.length > 0 ? topFactions : undefined,
+      titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
+      activeQuestSummaries: activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
     });
 
     detailedPlayer.set({
@@ -566,6 +657,90 @@ export class GameController {
       reputation:  { ...gs.player.externalStats.reputation },
       affinity:    { ...gs.player.externalStats.affinity },
     });
+  }
+
+  // -- Scripted dialogue (private) ------------------------------------
+
+  /** Build the current interpolation context from live game state. */
+  private buildInterpolationCtx(): InterpolationContext {
+    const gs       = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const region   = this.lore.getRegion(this.currentRegionId);
+    const timeStr  = this.timeMgr.formatTime(gs.time);
+    // Split "AD 1498-06-12 21:23" into date / hour parts
+    const spaceIdx = timeStr.lastIndexOf(' ');
+    const datePart = spaceIdx > 0 ? timeStr.slice(0, spaceIdx) : timeStr;
+    const hourPart = spaceIdx > 0 ? timeStr.slice(spaceIdx + 1) : '';
+    return {
+      playerName:    gs.player.name,
+      formattedTime: timeStr,
+      formattedDate: datePart,
+      formattedHour: hourPart,
+      periodLabel:   this.timeMgr.formatPeriod(gs.timePeriod),
+      locationName:  resolved?.name ?? gs.player.currentLocationId,
+      regionName:    region?.name   ?? this.currentRegionId,
+    };
+  }
+
+  private renderNodeLines(
+    lines:   import('../types/dialogue').ScriptedLine[],
+    npcName: string,
+    ctx:     InterpolationContext,
+  ): string[] {
+    return lines.map(line => {
+      const text = interpolate(line.text, ctx);
+      if (line.speaker === 'npc')    return `${npcName}：「${text}」`;
+      if (line.speaker === 'player') return `> ${text}`;
+      return text;
+    });
+  }
+
+  private activateScriptedNode(
+    npcId:      string,
+    dialogueId: string,
+    npcName:    string,
+    nodeId:     string,
+    node:       import('../types/dialogue').ScriptedNode,
+  ): void {
+    const ctx      = this.buildInterpolationCtx();
+    const rendered = this.renderNodeLines(node.lines, npcName, ctx);
+    for (let i = 0; i < rendered.length; i++) {
+      const line = node.lines[i];
+      pushLine(rendered[i], line.speaker === 'player' ? 'player' : 'narrative');
+    }
+
+    const filteredChoices = this.dialogueMgr.filterChoices(node.choices, this.state.flags);
+
+    activeScriptedDialogue.set({
+      npcId, npcName, dialogueId,
+      currentNodeId:      nodeId,
+      currentChoices:     filteredChoices,
+      collectedNarrative: rendered.join('\n'),
+    });
+
+    if (filteredChoices.length === 0) {
+      setTimeout(() => this.endScriptedDialogue(), 600);
+    }
+  }
+
+  private endScriptedDialogue(): void {
+    const current = get(activeScriptedDialogue);
+    if (!current) return;
+
+    // Increment NPC interaction count
+    this.state.recordNPCInteraction(current.npcId);
+
+    // Record to history for DM context in future turns
+    this.state.appendHistory(
+      { type: 'interact', input: `與 ${current.npcName} 交談`, targetId: current.npcId },
+      current.collectedNarrative.slice(0, 400),
+    );
+
+    activeScriptedDialogue.set(null);
+
+    this.syncUIState(this.state.getState());
+    this.refreshThoughts();
+    this.autoSave().catch(err => log.warn('Auto-save after scripted dialogue failed', err));
   }
 
   private updateActiveNpcUI(npcId: string): void {

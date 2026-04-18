@@ -4,7 +4,9 @@
 import type { PlayerAction, HistoryEntry } from '../types';
 import type { ILLMClient } from './ILLMClient';
 
-const SYSTEM_PROMPT = `You are the narrator (DM) of a theatrical RPG set in a dark industrial world.
+const SYSTEM_PROMPT = `請以繁體中文輸出所有敘述與對話。
+
+You are the narrator (DM) of a theatrical RPG set in a dark industrial world.
 
 YOUR ROLE:
 - Narrate in second person ("you"), immersive, grounded tone.

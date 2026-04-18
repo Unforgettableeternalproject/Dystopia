@@ -25,6 +25,11 @@ export class StateManager {
     return this.state;
   }
 
+  setPlayerName(name: string): void {
+    this.state.player.name = name;
+    this.notifyUpdate();
+  }
+
   // ── Movement & discovery ─────────────────────────────────────
 
   movePlayer(locationId: string): void {

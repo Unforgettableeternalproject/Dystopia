@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { GameController }    from '$lib/engine/GameController';
-  import { loadCrambellLore }  from '$lib/utils/LoreLoader';
-  import { pushLine }          from '$lib/stores/gameStore';
-  import { activeNpcUI, selfCheckOpen, inventoryOpen } from '$lib/stores/gameStore';
+  import { GameController }   from '$lib/engine/GameController';
+  import { loadCrambellLore } from '$lib/utils/LoreLoader';
+  import { pushLine }         from '$lib/stores/gameStore';
+  import { gamePhase, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue } from '$lib/stores/gameStore';
+  import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
   import LeftSidebar     from '$lib/components/LeftSidebar.svelte';
@@ -14,21 +15,54 @@
   import InputBar        from '$lib/components/InputBar.svelte';
   import SelfCheckModal  from '$lib/components/SelfCheckModal.svelte';
   import InventoryModal  from '$lib/components/InventoryModal.svelte';
+  import TitleScreen          from '$lib/components/TitleScreen.svelte';
+  import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
+  import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
 
   import type { Thought } from '$lib/types';
 
   let controller: GameController;
+  let saveSlots: (SlotMeta | null)[] = Array(6).fill(null);
+  let loadMenuOpen = false;
 
   onMount(async () => {
     controller = new GameController();
     loadCrambellLore(controller);
+    // Load save slot metadata for the title screen continue menu
     try {
-      await controller.start();
+      saveSlots = await controller.listSaves();
+    } catch { /* no saves yet */ }
+  });
+
+  // ── New game ─────────────────────────────────────────────────
+
+  async function handleNewGame(playerName: string) {
+    gamePhase.set('loading');
+    try {
+      await controller.start(playerName);
+      gamePhase.set('playing');
     } catch (err) {
       pushLine('系統錯誤：無法啟動遊戲引擎。', 'system');
       console.error(err);
+      gamePhase.set('title');
     }
-  });
+  }
+
+  // ── Load game ─────────────────────────────────────────────────
+
+  async function handleLoadSlot(slotId: number) {
+    gamePhase.set('loading');
+    try {
+      await controller.load(slotId);
+      gamePhase.set('playing');
+    } catch (err) {
+      pushLine('讀取存檔失敗。', 'system');
+      console.error(err);
+      gamePhase.set('title');
+    }
+  }
+
+  // ── In-game actions ───────────────────────────────────────────
 
   async function handleSubmit(input: string) {
     if (!controller) return;
@@ -43,17 +77,67 @@
   function handleThoughtSelect(thought: Thought) {
     handleSubmit(thought.text);
   }
+
+  async function handleDialogueChoice(choiceId: string) {
+    if (!controller) return;
+    await controller.selectDialogueChoice(choiceId);
+  }
+
+  // ── Save ──────────────────────────────────────────────────────
+
+  async function handleQuickSave() {
+    if (!controller) return;
+    const { allowed, reason } = controller.canSave();
+    if (!allowed) { pushLine('無法存檔：' + reason, 'system'); return; }
+    try {
+      await controller.save(1, '快速存檔');
+      pushLine('（已存檔至存檔槽1）', 'system');
+      saveSlots = await controller.listSaves();
+    } catch (err) {
+      pushLine('存檔失敗。', 'system');
+      console.error(err);
+    }
+  }
+
+  function openLoadMenu() {
+    controller.listSaves().then(s => { saveSlots = s; loadMenuOpen = true; });
+  }
+
+  async function handleLoadFromMenu(slotId: number) {
+    loadMenuOpen = false;
+    await handleLoadSlot(slotId);
+  }
 </script>
 
+<!-- Title screen -->
+{#if $gamePhase === 'title'}
+  <TitleScreen
+    {saveSlots}
+    onNewGame={handleNewGame}
+    onLoadSlot={handleLoadSlot}
+  />
+{/if}
+
+<!-- Loading screen -->
+{#if $gamePhase === 'loading'}
+  <LoadingScreen />
+{/if}
+
+<!-- Game layout (always rendered once playing, hidden before) -->
+{#if $gamePhase === 'playing'}
 <div class="game-layout">
-  <TopBar />
+  <TopBar onSave={handleQuickSave} onLoadMenu={openLoadMenu} />
 
   <div class="main-area" class:npc-active={$activeNpcUI !== null}>
     <LeftSidebar />
 
     <div class="center-column">
       <NarrativePanel />
-      <ThoughtsPanel onSelect={handleThoughtSelect} />
+      {#if $activeScriptedDialogue}
+        <ScriptedChoicePanel onSelect={handleDialogueChoice} />
+      {:else}
+        <ThoughtsPanel onSelect={handleThoughtSelect} />
+      {/if}
     </div>
 
     {#if $activeNpcUI}
@@ -74,6 +158,34 @@
   <InventoryModal />
 {/if}
 
+<!-- In-game load menu overlay -->
+{#if loadMenuOpen}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="load-backdrop" on:click={() => loadMenuOpen = false}>
+    <div class="load-panel" on:click|stopPropagation>
+      <div class="load-header">
+        <span class="load-title">讀取存檔</span>
+        <button class="load-close" on:click={() => loadMenuOpen = false}>✕</button>
+      </div>
+      {#each saveSlots as slot, i}
+        {#if slot}
+          <button class="load-slot" on:click={() => handleLoadFromMenu(i)}>
+            <span class="ls-label">{i === 0 ? '自動存檔' : slot.label ?? '存檔 ' + i}</span>
+            <span class="ls-loc">{slot.locationName}</span>
+            <span class="ls-time">{slot.worldTime}</span>
+          </button>
+        {:else}
+          <div class="load-slot empty">
+            <span class="ls-label">{i === 0 ? '自動存檔' : '存檔 ' + i} — 空</span>
+          </div>
+        {/if}
+      {/each}
+    </div>
+  </div>
+{/if}
+{/if}
+
 <style>
   .game-layout {
     display: grid;
@@ -82,7 +194,6 @@
     overflow: hidden;
   }
 
-  /* Main area: left-sidebar | center | (optional NPC panel) | player panel */
   .main-area {
     display: grid;
     grid-template-columns: var(--left-sidebar-w) 1fr var(--right-outer-w);
@@ -93,12 +204,101 @@
     grid-template-columns: var(--left-sidebar-w) 1fr var(--right-inner-w) var(--right-outer-w);
   }
 
-  /* Center column: narrative grows, thoughts at bottom */
   .center-column {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
+  }
+
+  /* In-game load menu */
+  .load-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .load-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-accent);
+    border-radius: 2px;
+    width: 360px;
+    max-height: 480px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .load-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    flex-shrink: 0;
+  }
+
+  .load-title {
+    font-size: 12px;
+    color: var(--text-primary);
+    letter-spacing: 0.05em;
+  }
+
+  .load-close {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+
+  .load-close:hover { color: var(--text-primary); }
+
+  .load-slot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .load-slot:hover:not(.empty) { background: var(--bg-tertiary); }
+
+  .load-slot.empty {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .ls-label {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    flex: 1;
+  }
+
+  .ls-loc {
+    font-size: 10px;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .ls-time {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
   }
 </style>
