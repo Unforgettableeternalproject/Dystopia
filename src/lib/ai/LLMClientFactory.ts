@@ -1,9 +1,9 @@
 // LLMClientFactory — convenience helpers for configuring AI clients.
 
-import { AnthropicClient }                   from './AnthropicClient';
-import { LocalModelClient }                  from './LocalModelClient';
-import { createHuggingFaceClient, hfGemma3_4B } from './HuggingFaceClient';
-import type { ILLMClient }                   from './ILLMClient';
+import { AnthropicClient }              from './AnthropicClient';
+import { LocalModelClient }             from './LocalModelClient';
+import { createHuggingFaceClient }      from './HuggingFaceClient';
+import type { ILLMClient }              from './ILLMClient';
 
 export interface ClientPair {
   /** Large/quality model for narration (DM). */
@@ -19,7 +19,7 @@ export function anthropicClients(apiKey?: string): ClientPair {
 }
 
 /**
- * Ollama / LM Studio — OpenAI-compatible local server.
+ * Ollama / LM Studio -- OpenAI-compatible local server.
  * dmModel:        large model for narration (e.g. 'gemma4:e4b-it-q4_K_M')
  * regulatorModel: fast model for validation (default: same as dmModel)
  */
@@ -59,16 +59,28 @@ export function hfClients(
 }
 
 /**
- * Auto-detect the best available backend from environment variables.
- * Priority: Anthropic API > HuggingFace API > mock (undefined = mock mode)
+ * Ollama preset for MVP -- Gemma 4 E4B-IT Q4 for both DM and Regulator.
+ * Single model keeps VRAM usage low; regulator calls are short so latency is fine.
+ */
+export function gemma4Clients(): ClientPair {
+  return ollamaClients('gemma4:e4b-it-q4_K_M');
+}
+
+/**
+ * Auto-detect the best available backend.
+ * Priority: Anthropic > Ollama (VITE_OLLAMA_MODEL) > HuggingFace > mock
+ *
+ * Set VITE_OLLAMA_MODEL=gemma4:e4b-it-q4_K_M in .env to enable Ollama.
  */
 export function autoClients(): ClientPair | undefined {
   if (import.meta.env.VITE_ANTHROPIC_API_KEY) {
     return anthropicClients();
   }
+  if (import.meta.env.VITE_OLLAMA_MODEL) {
+    return ollamaClients(import.meta.env.VITE_OLLAMA_MODEL);
+  }
   if (import.meta.env.VITE_HF_TOKEN) {
-    // Use gemma-3-4b-it as DM, gemma-3-1b-it as regulator (faster validation)
     return hfClients('google/gemma-3-4b-it', 'google/gemma-3-1b-it');
   }
-  return undefined; // falls back to mock mode
+  return undefined; // mock mode
 }

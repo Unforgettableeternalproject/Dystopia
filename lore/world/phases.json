@@ -38,7 +38,7 @@
     "effects": [
       {
         "type": "faction_activate",
-        "factionId": "title_bearers"
+        "factionId": "entitled"
       }
     ]
   },

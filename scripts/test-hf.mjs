@@ -13,19 +13,19 @@ const BASE_URL = 'http://localhost:11434';   // Ollama default
 const MODEL    = 'gemma4:e4b-it-q4_K_M';   // Gemma 4 E4B-Instruct Q4
 
 // ── Helper ────────────────────────────────────────────────────────────────
-async function chat(systemPrompt, userMessage, stream = false) {
+async function chat(systemPrompt, userMessage, stream = false, maxTokens = 600) {
   const url = `${BASE_URL}/v1/chat/completions`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: MODEL,
+      model:      MODEL,
+      max_tokens: maxTokens,
+      stream,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userMessage },
       ],
-      max_tokens: 150,
-      stream,
     }),
   });
 
@@ -52,14 +52,20 @@ async function chat(systemPrompt, userMessage, stream = false) {
       const data = line.slice(6).trim();
       if (data === '[DONE]') break;
       try {
-        const delta = JSON.parse(data).choices?.[0]?.delta?.content ?? '';
-        process.stdout.write(delta);
-        full += delta;
+        const delta = JSON.parse(data).choices?.[0]?.delta ?? {};
+        // Gemma 4 is a thinking model — reasoning phase first, content phase second.
+        // Only output content; skip reasoning (internal chain-of-thought).
+        const text = delta.content ?? '';
+        if (text) {
+          process.stdout.write(text);
+          full += text;
+        }
       } catch { /* skip */ }
     }
   }
   process.stdout.write('\n');
   return full;
+
 }
 
 // ── Check Ollama is up ────────────────────────────────────────────────────
@@ -100,6 +106,7 @@ Respond ONLY with valid JSON — no markdown, no explanation:
       conditions: 'none',
     }),
     false,
+    400,  // Regulator: small budget, JSON only
   );
   console.log('Raw response:');
   console.log(' ', raw.trim());

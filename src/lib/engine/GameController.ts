@@ -1,9 +1,9 @@
-// GameController — top-level coordinator. UI only talks to this class.
+// GameController -- top-level coordinator. UI only talks to this class.
 //
 // Turn pipeline (submitAction):
 //   1. Regulator validates the action
-//   2. tickConditions — expire temporary player conditions
-//   3. EventEngine.checkAndApply — trigger lore events at current location
+//   2. tickConditions -- expire temporary player conditions
+//   3. EventEngine.checkAndApply -- trigger lore events at current location
 //   4. DM narrates (enriched scene context)
 //   5. appendHistory
 //   6. QuestEngine.checkObjectives
@@ -11,19 +11,19 @@
 //   8. syncUIState
 //   9. refreshThoughts
 
-import { DMAgent } from '../ai/DMAgent';
-import { Regulator } from '../ai/Regulator';
-import { autoClients } from '../ai/LLMClientFactory';
+import { DMAgent }        from '../ai/DMAgent';
+import { Regulator }      from '../ai/Regulator';
+import { autoClients }    from '../ai/LLMClientFactory';
 import type { ILLMClient } from '../ai/ILLMClient';
-import { LoreVault } from '../lore/LoreVault';
-import { EventBus } from './EventBus';
-import { StateManager } from './StateManager';
-import { EventEngine } from './EventEngine';
-import { PhaseManager } from './PhaseManager';
-import { QuestEngine } from './QuestEngine';
+import { LoreVault }      from '../lore/LoreVault';
+import { EventBus }       from './EventBus';
+import { StateManager }   from './StateManager';
+import { EventEngine }    from './EventEngine';
+import { PhaseManager }   from './PhaseManager';
+import { QuestEngine }    from './QuestEngine';
 import type { PlayerAction, GameState } from '../types';
-import type { TriggeredEvent } from './EventEngine';
-import type { Thought } from '../types';
+import type { TriggeredEvent }          from './EventEngine';
+import type { Thought }                 from '../types';
 import {
   pushLine,
   appendToLastLine,
@@ -33,37 +33,43 @@ import {
   thoughts,
   playerUI,
 } from '../stores/gameStore';
+import { createLogger } from '../utils/Logger';
+import { warmUpModel }  from '../utils/ModelWarmup';
+
+const log = createLogger('GameCtrl');
 
 export class GameController {
-  private dm: DMAgent;
+  private dm:        DMAgent;
   private regulator: Regulator;
-  private lore: LoreVault;
-  private bus: EventBus;
-  private state: StateManager;
-  private events: EventEngine;
-  private phases: PhaseManager;
-  private quests: QuestEngine;
-  private mockMode: boolean;
+  private dmClient:  ILLMClient | null;  // kept for warmup
+  private lore:      LoreVault;
+  private bus:       EventBus;
+  private state:     StateManager;
+  private events:    EventEngine;
+  private phases:    PhaseManager;
+  private quests:    QuestEngine;
+  private mockMode:  boolean;
 
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
     const auto = autoClients();
     this.mockMode = !config?.dm && !config?.regulator && !auto;
-    // In mock mode, dm/regulator are never called — null! casts are safe.
+    // In mock mode dm/regulator are never called -- null! casts are safe.
     const dmClient        = config?.dm        ?? auto?.dm        ?? null!;
     const regulatorClient = config?.regulator ?? auto?.regulator ?? null!;
+    this.dmClient  = dmClient  ?? null;
     this.dm        = new DMAgent(dmClient);
     this.regulator = new Regulator(regulatorClient);
-    this.lore = new LoreVault();
-    this.bus = new EventBus();
+    this.lore      = new LoreVault();
+    this.bus       = new EventBus();
 
     const initialState = this.buildInitialState();
-    this.state = new StateManager(initialState, this.bus);
+    this.state  = new StateManager(initialState, this.bus);
     this.events = new EventEngine(this.lore, this.state);
     this.phases = new PhaseManager(this.lore, this.state);
     this.quests = new QuestEngine(this.lore, this.state);
   }
 
-  // ── Public API ───────────────────────────────────────────────
+  // -- Public API -------------------------------------------------------
 
   loadLore(data: Parameters<LoreVault['load']>[0]): void {
     this.lore.load(data);
@@ -73,14 +79,19 @@ export class GameController {
     const gs = this.state.getState();
     this.state.discoverLocation(gs.player.currentLocationId);
     this.syncUIState(gs);
+    log.info('Game started', { turn: gs.turn, location: gs.player.currentLocationId });
 
     if (this.mockMode) {
+      log.warn('Running in mock mode -- no LLM client configured');
       this.runMockIntro();
       return;
     }
 
+    // Pre-warm model in background; first DM call benefits from it
+    if (this.dmClient) warmUpModel(this.dmClient).catch(() => { /* non-fatal */ });
+
     const sceneCtx = this.buildSceneCtx([]);
-    await this.runDM({ type: 'examine', input: '（遊戲開始）' }, sceneCtx);
+    await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
     await this.refreshThoughts();
   }
 
@@ -98,9 +109,11 @@ export class GameController {
     }
 
     // 1. Regulator validation
+    log.debug('Action submitted', { input });
     const result = await this.regulator.validate(action, this.state.getState().player);
     if (!result.allowed) {
-      pushLine(result.reason ?? '那樣做是不可能的。', 'rejected');
+      log.info('Action rejected', { input, reason: result.reason });
+      pushLine(result.reason ?? 'That is not possible.', 'rejected');
       inputDisabled.set(false);
       return;
     }
@@ -117,7 +130,7 @@ export class GameController {
     const sceneCtx = this.buildSceneCtx(triggered);
     await this.runDM(finalAction, sceneCtx);
 
-    // 5–7. Post-narration systems
+    // 5-7. Post-narration systems
     this.quests.checkObjectives();
     this.phases.checkAdvance();
     this.syncUIState(this.state.getState());
@@ -129,17 +142,33 @@ export class GameController {
     return this.quests.acceptQuest(questId);
   }
 
-  // ── Context builder ──────────────────────────────────────────
+  /** Expose state for save/load. */
+  getState(): Readonly<GameState> {
+    return this.state.getState();
+  }
 
-  /**
-   * Build the full DM context string:
-   * scene data + player status summary + world phase + active quests + triggered events.
-   */
+  getFlags(): string[] {
+    return this.state.flags.toArray();
+  }
+
+  /** Restore from a decoded SaveSnapshot. */
+  loadState(gs: GameState, flags: string[]): void {
+    // Rebuild StateManager with the restored state
+    (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
+    flags.forEach(f => this.state.flags.set(f));
+    this.events = new EventEngine(this.lore, this.state);
+    this.phases = new PhaseManager(this.lore, this.state);
+    this.quests = new QuestEngine(this.lore, this.state);
+    this.syncUIState(gs);
+    log.info('State loaded from save', { turn: gs.turn });
+  }
+
+  // -- Context builder --------------------------------------------------
+
   private buildSceneCtx(triggered: TriggeredEvent[]): string {
-    const gs = this.state.getState();
+    const gs    = this.state.getState();
     const parts: string[] = [];
 
-    // Scene (location, NPCs, exits — with npcMemory)
     parts.push(
       this.lore.buildSceneContext(
         gs.player.currentLocationId,
@@ -148,7 +177,6 @@ export class GameController {
       )
     );
 
-    // Player status
     const visibleConditions = gs.player.conditions
       .filter(c => !c.isHidden)
       .map(c => c.label)
@@ -159,15 +187,14 @@ export class GameController {
       '## Player Status',
       'Stamina: ' + gs.player.statusStats.stamina + '/' + gs.player.statusStats.staminaMax +
         ' | Stress: ' + gs.player.statusStats.stress + '/' + gs.player.statusStats.stressMax,
-      'World Phase: ' + gs.worldPhase.currentPhase.replace('_', ' '),
+      'World Phase: ' + gs.worldPhase.currentPhase.replace(/_/g, ' '),
       visibleConditions ? 'Conditions: ' + visibleConditions : '',
     ].filter(Boolean).join('\n'));
 
-    // Active quests — current stage only (no spoilers)
     const activeQuestLines = Object.values(gs.activeQuests)
       .filter(q => !q.isCompleted && !q.isFailed && q.currentStageId)
       .map(q => {
-        const def = this.lore.getQuest(q.questId);
+        const def   = this.lore.getQuest(q.questId);
         const stage = def?.stages[q.currentStageId!];
         return stage ? '- [Quest] ' + def!.name + ': ' + stage.description : '';
       })
@@ -177,10 +204,9 @@ export class GameController {
       parts.push('\n### Active Quests\n' + activeQuestLines.join('\n'));
     }
 
-    // Triggered events this turn
     if (triggered.length > 0) {
       const evLines = triggered.map(
-        ({ event, outcome }) => '- ' + event.description + ' → ' + outcome.description
+        ({ event, outcome }) => '- ' + event.description + ' -> ' + outcome.description
       );
       parts.push('\n### Events This Turn\n' + evLines.join('\n'));
     }
@@ -188,7 +214,7 @@ export class GameController {
     return parts.join('\n');
   }
 
-  // ── DM narration ─────────────────────────────────────────────
+  // -- DM narration -----------------------------------------------------
 
   private async runDM(action: PlayerAction, sceneCtx: string): Promise<void> {
     isStreaming.set(true);
@@ -200,6 +226,9 @@ export class GameController {
         appendToLastLine(chunk);
         fullText += chunk;
       }
+    } catch (err) {
+      log.error('DM narration failed', err);
+      appendToLastLine('\n[narration error -- please retry]');
     } finally {
       finishLastLine();
       isStreaming.set(false);
@@ -209,104 +238,95 @@ export class GameController {
     this.state.setLastNarrative(fullText);
   }
 
-  // ── Thought generation ───────────────────────────────────────
+  // -- Thought generation -----------------------------------------------
 
   private async refreshThoughts(): Promise<void> {
-    const gs = this.state.getState();
-    const base = this.buildBaseThoughts(gs);
+    const gs    = this.state.getState();
+    const base  = this.buildBaseThoughts(gs);
     const final = this.regulator.processThoughts(base, gs.player);
     thoughts.set(final);
     this.state.setThoughts(final);
   }
 
-  /**
-   * Derive action suggestions directly from scene data.
-   * No LLM involved — deterministic and grounded.
-   */
   private buildBaseThoughts(gs: Readonly<GameState>): Thought[] {
     const result: Thought[] = [];
-    let n = 0;
+    let   n = 0;
     const id = (prefix: string) => prefix + '_' + (n++);
 
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
 
-    // Always: examine surroundings
-    result.push({ id: id('examine'), text: '觀察周圍環境', actionType: 'examine' });
+    result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine' });
 
     if (resolved) {
-      // Accessible exits → move thoughts (max 3)
       const exits = resolved.connections
         .filter(c => !c.condition || this.state.flags.evaluate(c.condition))
         .slice(0, 3);
       for (const exit of exits) {
-        result.push({ id: id('move'), text: '前往' + exit.description, actionType: 'move' });
+        result.push({ id: id('move'), text: 'Go to ' + exit.description, actionType: 'move' });
       }
 
-      // Present NPCs → interact thoughts (max 2)
       const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags).slice(0, 2);
       for (const npc of npcs) {
-        result.push({ id: id('talk'), text: '與' + npc.name + '交談', actionType: 'interact' });
+        result.push({ id: id('talk'), text: 'Talk to ' + npc.name, actionType: 'interact' });
       }
     }
 
-    // Quest-driven thought: remind player of current objective
     const urgentQuest = Object.values(gs.activeQuests).find(
       q => !q.isCompleted && !q.isFailed && q.currentStageId
     );
     if (urgentQuest && urgentQuest.currentStageId) {
-      const def = this.lore.getQuest(urgentQuest.questId);
+      const def   = this.lore.getQuest(urgentQuest.questId);
       const stage = def?.stages[urgentQuest.currentStageId];
       if (stage) {
-        result.push({ id: id('quest'), text: '任務：' + stage.description, actionType: 'examine' });
+        result.push({ id: id('quest'), text: 'Quest: ' + stage.description, actionType: 'examine' });
       }
     }
 
-    // Rest suggestion if status is critical
-    const staminaLow = gs.player.statusStats.stamina < gs.player.statusStats.staminaMax * 0.4;
-    const stressHigh = gs.player.statusStats.stress > gs.player.statusStats.stressMax * 0.75;
+    const staminaLow  = gs.player.statusStats.stamina < gs.player.statusStats.staminaMax * 0.4;
+    const stressHigh  = gs.player.statusStats.stress  > gs.player.statusStats.stressMax  * 0.75;
     if (staminaLow || stressHigh) {
-      result.push({ id: id('rest'), text: '找個地方休息一下', actionType: 'rest' });
+      result.push({ id: id('rest'), text: 'Find somewhere to rest', actionType: 'rest' });
     }
 
     return result;
   }
 
-  // ── UI sync ──────────────────────────────────────────────────
+  // -- UI sync ----------------------------------------------------------
 
   private syncUIState(gs: Readonly<GameState>): void {
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved        = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
     const activeQuestCount = Object.values(gs.activeQuests).filter(
       q => !q.isCompleted && !q.isFailed
     ).length;
 
     playerUI.set({
-      name: gs.player.name,
-      location: resolved?.name ?? gs.player.currentLocationId,
-      stamina: gs.player.statusStats.stamina,
-      staminaMax: gs.player.statusStats.staminaMax,
-      stress: gs.player.statusStats.stress,
-      stressMax: gs.player.statusStats.stressMax,
-      turn: gs.turn,
-      worldPhase: gs.worldPhase.currentPhase,
+      name:            gs.player.name,
+      location:        resolved?.name ?? gs.player.currentLocationId,
+      stamina:         gs.player.statusStats.stamina,
+      staminaMax:      gs.player.statusStats.staminaMax,
+      stress:          gs.player.statusStats.stress,
+      stressMax:       gs.player.statusStats.stressMax,
+      turn:            gs.turn,
+      worldPhase:      gs.worldPhase.currentPhase,
       activeQuestCount,
-      conditionCount: gs.player.conditions.filter(c => !c.isHidden).length,
+      conditionCount:  gs.player.conditions.filter(c => !c.isHidden).length,
     });
   }
 
-  // ── Mock mode ────────────────────────────────────────────────
+  // -- Mock mode --------------------------------------------------------
 
   private async runMockIntro(): Promise<void> {
     thoughts.set([
-      { id: 'look',  text: '觀察周圍',         actionType: 'examine'  },
-      { id: 'move',  text: '查看可以去的地方',  actionType: 'move'     },
-      { id: 'talk',  text: '嘗試與人交談',      actionType: 'interact' },
+      { id: 'look',  text: 'Observe surroundings', actionType: 'examine'  },
+      { id: 'move',  text: 'Look for an exit',      actionType: 'move'     },
+      { id: 'talk',  text: 'Try talking to someone', actionType: 'interact' },
     ]);
 
     const lines = [
-      '鬧鐘聲把你從淺眠中拽出來。',
-      '公有宿舍的燈光在五點半準時亮起——不是為了讓你好過，是為了讓你準時到達第四象限的配額站。',
-      '上方鋪位的人已經起身，金屬床架發出的聲音在沉默的走廊裡格外清脆。',
-      '你有十五分鐘。',
+      'The alarm tears you out of shallow sleep.',
+      'Dormitory lights snap on at exactly five-thirty -- not for your comfort, but to make sure you reach the quota station in District Four on time.',
+      'The person on the bunk above is already up. The metal frame groans in the silence of the corridor.',
+      'You have fifteen minutes.',
     ];
 
     isStreaming.set(true);
@@ -321,13 +341,13 @@ export class GameController {
     }
     finishLastLine();
     isStreaming.set(false);
-    playerUI.update((p) => ({ ...p, name: '???', location: '戴司 — 公有宿舍' }));
+    playerUI.update((p) => ({ ...p, name: '???', location: 'Delth -- Dormitory' }));
   }
 
   private async runMockResponse(input: string): Promise<void> {
     isStreaming.set(true);
     pushLine('', 'narrative');
-    const response = '（Mock 模式）你嘗試：' + input + '。\n請在 .env 中設定 VITE_ANTHROPIC_API_KEY 以啟用 DM。';
+    const response = '[Mock mode] You attempt: ' + input + '.\nSet VITE_OLLAMA_MODEL or VITE_ANTHROPIC_API_KEY in .env to enable the DM.';
     for (const char of response) {
       appendToLastLine(char);
       await sleep(12);
@@ -336,14 +356,14 @@ export class GameController {
     isStreaming.set(false);
   }
 
-  // ── Initial state ────────────────────────────────────────────
+  // -- Initial state ----------------------------------------------------
 
   private buildInitialState(): GameState {
     return {
       player: {
-        id: 'player-1',
-        name: '???',
-        origin: 'worker',
+        id:               'player-1',
+        name:             '???',
+        origin:           'worker',
         currentLocationId: 'delth_bunkhouse',
         primaryStats:    { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
         secondaryStats:  { consciousness: 2, arcane: 0, technology: 3 },
@@ -374,6 +394,4 @@ export class GameController {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
-}
-));
 }

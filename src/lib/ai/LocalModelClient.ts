@@ -1,12 +1,15 @@
-// LocalModelClient — OpenAI-compatible backend.
+// LocalModelClient -- OpenAI-compatible backend.
 // Works with Ollama (port 11434), LM Studio (port 1234), or any
 // server that implements the /v1/chat/completions endpoint.
 // Optional headers allow auth tokens for remote APIs (e.g. HuggingFace).
+//
+// Gemma 4 note: thinking models output reasoning first (delta.reasoning),
+// then content (delta.content). We only yield content -- reasoning is skipped.
 
 import type { ILLMClient, ChatMessage } from './ILLMClient';
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
-const DEFAULT_TOKENS   = 1024;
+const DEFAULT_TOKENS   = 1200; // thinking models need extra budget for reasoning phase
 
 export class LocalModelClient implements ILLMClient {
   private headers: Record<string, string>;
@@ -81,11 +84,12 @@ export class LocalModelClient implements ILLMClient {
           if (payload === '[DONE]') return;
           try {
             const chunk = JSON.parse(payload) as {
-              choices: Array<{ delta: { content?: string } }>;
+              choices: Array<{ delta: { content?: string; reasoning?: string } }>;
             };
+            // Skip reasoning phase (chain-of-thought); only yield actual content.
             const text = chunk.choices?.[0]?.delta?.content;
             if (text) yield text;
-          } catch { /* malformed chunk — skip */ }
+          } catch { /* malformed chunk -- skip */ }
         }
       }
     } finally {
