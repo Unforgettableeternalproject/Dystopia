@@ -1,0 +1,23 @@
+{
+  "id": "delth_dormitory_room",
+  "name": "宿舍寢室",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "locationType": "sublocation",
+  "parentId": "delth_dormitory",
+  "tags": ["indoor", "residential", "cramped"],
+  "base": {
+    "description": "一個狹小的房間，四面牆壁貼著木板雙層床，幾乎沒有走動的空間。每張床配有一個上鎖的儲物格，是工人的全部私人空間。窗戶極小，透進的光線微弱，氣味混雜著汗水與礦石的粉塵。報時鐘的廣播聲從外頭穿透薄牆傳進來，無處可逃。",
+    "ambience": ["昏暗", "窒息", "木板床", "礦粉氣味", "低語"],
+    "connections": [
+      {
+        "targetLocationId": "delth_dormitory_common",
+        "description": "走到公共區"
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

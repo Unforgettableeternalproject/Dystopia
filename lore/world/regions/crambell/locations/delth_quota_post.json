@@ -1,0 +1,21 @@
+{
+  "id": "delth_quota_post",
+  "name": "工作額度申報站",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["indoor", "government_controlled", "bureaucratic"],
+  "base": {
+    "description": "一排低矮的窗口，工人排著隊等待登記當日的工作量。窗口後面是面無表情的登記員，用機械式的動作核對配額板、蓋章、遞還。未達標的工人會被叫到旁邊的小房間，門關上後傳來的聲音各有不同。等待隊伍通常很長，沒有座位，牆上貼著各種條例與懲罰說明，黑字印在泛黃的紙張上。",
+    "ambience": ["官僚", "等待", "壓力", "排隊", "無聲"],
+    "connections": [
+      {
+        "targetLocationId": "delth_plaza",
+        "description": "返回廣場"
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

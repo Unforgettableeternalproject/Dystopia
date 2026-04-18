@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__fff__find_files",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

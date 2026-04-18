@@ -7,15 +7,35 @@
 
 export type NPCType = 'stationed' | 'quest' | 'wandering';
 
-// phaseOverrides: keyed by a flag expression string.
-// When the flag is active, the matching patch is applied on top of the base NPC fields.
-// Intended for NPC-specific personal arc changes only.
-// World-wide phase changes are handled by phases.json cascade instead.
+/**
+ * NPC 的單層知識。每層有自己的解鎖條件，只有在 flags 滿足時
+ * 該層的 context 才會被加入 DM 的場景 prompt。
+ *
+ * 設計原則：
+ * - 每層描述「玩家在這個知識深度所能感知到的資訊」
+ * - 層與層之間可以獨立解鎖（知道 A 不代表知道 B）
+ * - 不要在同一層混入需要不同路線才能得到的資訊
+ */
+export interface NPCSecretLayer {
+  id: string;
+  /** 設計備注：這層代表什麼資訊（不出現在 prompt 中） */
+  label: string;
+  /** 旗標運算式；為 true 時此層 context 被加入 DM prompt */
+  condition: string;
+  /** 此層解鎖後 DM 額外獲得的角色 context */
+  context: string;
+  /** 此層解鎖後切換的對話樹 ID（選填） */
+  dialogueId?: string;
+}
+
+/**
+ * phaseOverrides：只處理狀態/行為變化（位置、可見性、對話樹）。
+ * 描述層的知識變化請用 NPCNode.secretLayers，不要在這裡加 description。
+ */
 export interface NPCOverride {
   dialogueId?: string;
   isVisible?: boolean;
   baseLocationId?: string;
-  description?: string;
 }
 
 export interface NPCNode {
@@ -24,7 +44,10 @@ export interface NPCNode {
   type: NPCType;
   baseLocationId: string;        // primary location (wandering type may change at runtime)
   factionId?: string;
-  description: string;           // DM-facing character context
+  /** DM 永遠可見的表面資訊，只寫公開人設，不含任何秘密 */
+  publicDescription: string;
+  /** 知識層：依旗標條件分層揭露給 DM 的角色深度資訊 */
+  secretLayers?: NPCSecretLayer[];
   dialogueId: string;            // points to dialogues/<id>.json
   questIds?: string[];
   isVisible: boolean;
@@ -67,6 +90,17 @@ export interface LocalVariant {
   transitionNote?: string;
 }
 
+/**
+ * 地點層級類型。
+ * undefined = 區域內的頂層地點（如一條街、一棟建築）
+ * 'area'        = 建築／街區級別的中層地點
+ * 'sublocation' = 房間／角落等最小粒度地點
+ *
+ * 導航仍由 connections 決定；此欄位僅提供層級語意，
+ * 讓 DM 能在場景 context 中正確表達「身處某建築內部」。
+ */
+export type LocationType = 'area' | 'sublocation';
+
 export interface LocationNode {
   id: string;
   name: string;
@@ -74,6 +108,12 @@ export interface LocationNode {
   tags: string[];
   base: LocationBase;
   localVariants: LocalVariant[];  // local-only changes; renamed from 'variants'
+  /** 所屬象限/區塊 ID，對應 DistrictIndex.id */
+  districtId?: string;
+  /** 上層地點 ID；指向包含此地點的建築或街區 */
+  parentId?: string;
+  /** 地點層級；頂層地點不設此欄位 */
+  locationType?: LocationType;
 }
 
 export interface ResolvedLocation {
@@ -89,6 +129,10 @@ export interface ResolvedLocation {
   isAccessible: boolean;
   activeVariants: string[];
   transitionNotes: string[];
+  /** 對應 LocationNode 的層級欄位，解析後直接透傳 */
+  districtId?: string;
+  parentId?: string;
+  locationType?: LocationType;
 }
 
 // ── Event ────────────────────────────────────────────────────────
@@ -139,4 +183,32 @@ export interface RegionIndex {
   npcIds: string[];
   questIds: string[];
   factionIds: string[];
+  /** 此區域內所有象限/區塊的 ID 列表 */
+  districtIds?: string[];
+}
+
+// ── District ──────────────────────────────────────────────────────
+
+/**
+ * 象限/區塊索引。
+ * 位於 Region（國家）與 Location（地點）之間的中間層。
+ * 用於：DM 場景 context 的地理定位、進出區塊的關卡邏輯。
+ *
+ * 導航仍由 LocationConnection 決定；
+ * 此層提供「玩家身處哪個象限」的語意，不替代圖結構。
+ */
+export interface DistrictIndex {
+  id: string;
+  name: string;
+  regionId: string;
+  description: string;           // DM-facing 象限概述
+  ambience: string[];            // 氛圍關鍵字
+  /**
+   * 此象限的進出是否需要通過關卡。
+   * true 時，跨象限的 LocationConnection 應設定 condition 指向對應旗標。
+   */
+  hasCheckpoint: boolean;
+  /** 進出關卡的旗標 ID，hasCheckpoint 為 true 時使用 */
+  checkpointFlag?: string;
+  locationIds: string[];
 }

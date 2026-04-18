@@ -5,6 +5,7 @@ import type {
   LocationNode, ResolvedLocation,
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
+  DistrictIndex,
 } from '../types';
 import type { DialogueTree } from '../types/dialogue';
 import type { QuestDefinition } from '../types/quest';
@@ -21,12 +22,13 @@ interface LoreData {
   quests:     Record<string, QuestDefinition>;
   phases:     WorldPhase[];
   regions:    Record<string, RegionIndex>;
+  districts:  Record<string, DistrictIndex>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
-    dialogues: {}, quests: {}, phases: [], regions: {},
+    dialogues: {}, quests: {}, phases: [], regions: {}, districts: {},
   };
 
   load(data: Partial<LoreData>): void {
@@ -37,6 +39,7 @@ export class LoreVault {
     if (data.dialogues)  Object.assign(this.data.dialogues, data.dialogues);
     if (data.quests)     Object.assign(this.data.quests,    data.quests);
     if (data.regions)    Object.assign(this.data.regions,   data.regions);
+    if (data.districts)  Object.assign(this.data.districts, data.districts);
     if (data.phases)     this.data.phases.push(...data.phases);
   }
 
@@ -82,11 +85,24 @@ export class LoreVault {
       description, ambience, connections,
       npcIds: Array.from(npcSet), eventIds: Array.from(evtSet),
       isAccessible, activeVariants, transitionNotes,
+      districtId:   node.districtId,
+      parentId:     node.parentId,
+      locationType: node.locationType,
     };
   }
 
   getLocationsByRegion(regionId: string): LocationNode[] {
     return Object.values(this.data.locations).filter(l => l.regionId === regionId);
+  }
+
+  getLocationsByDistrict(districtId: string): LocationNode[] {
+    return Object.values(this.data.locations).filter(l => l.districtId === districtId);
+  }
+
+  // -- Districts -------------------------------------------------------
+
+  getDistrict(id: string): DistrictIndex | undefined {
+    return this.data.districts[id];
   }
 
   // -- NPCs ------------------------------------------------------------
@@ -181,7 +197,14 @@ export class LoreVault {
 
     const npcLines = npcs
       .map(n => {
-        const base = '- ' + n.name + ' (' + n.type + '): ' + n.description;
+        // 公開描述永遠包含，秘密層依旗標條件追加
+        const revealedSecrets = (n.secretLayers ?? [])
+          .filter(s => flags.evaluate(s.condition))
+          .map(s => s.context)
+          .join(' ');
+        const desc = n.publicDescription + (revealedSecrets ? ' | ' + revealedSecrets : '');
+        const base = '- ' + n.name + ' (' + n.type + '): ' + desc;
+
         if (!npcMemory) return base;
         const mem = npcMemory[n.id];
         if (!mem) return base + ' [初次相遇]';
@@ -194,8 +217,30 @@ export class LoreVault {
       ? '\n### World State\n' + resolved.transitionNotes.map(t => '- ' + t).join('\n')
       : '';
 
+    // 象限 context：讓 DM 知道玩家身處哪個象限
+    let districtLine = '';
+    if (resolved.districtId) {
+      const district = this.data.districts[resolved.districtId];
+      if (district) {
+        districtLine = 'District: ' + district.name +
+          (district.ambience.length > 0 ? ' — ' + district.ambience.join(', ') : '');
+      }
+    }
+
+    // 上層地點 context：讓 DM 知道玩家身處某建築/街區內部
+    let parentLine = '';
+    if (resolved.parentId) {
+      const parent = this.resolveLocation(resolved.parentId, flags);
+      if (parent) {
+        parentLine = 'Inside: ' + parent.name +
+          (parent.ambience.length > 0 ? ' (' + parent.ambience.join(', ') + ')' : '');
+      }
+    }
+
     return [
       '## Location: ' + resolved.name,
+      districtLine ? districtLine : '',
+      parentLine ? 'Inside: ' + parentLine : '',
       'Tags: ' + resolved.tags.join(', '),
       'Ambience: ' + resolved.ambience.join(', '),
       '',
@@ -207,6 +252,6 @@ export class LoreVault {
       '',
       '### Present NPCs',
       npcLines || '(none)',
-    ].join('\n');
+    ].filter(line => line !== '').join('\n');
   }
 }

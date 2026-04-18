@@ -1,0 +1,41 @@
+{
+  "id": "delth_plaza",
+  "name": "戴司廣場",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "public", "surveillance"],
+  "base": {
+    "description": "戴司象限的中央開放區域，四周被宿舍樓棟、配額申報站與通往礦區的通道圍繞。廣場中央有一根高聳的廣播柱，定時播放今日工作指令與政府通告。柱子旁邊設有一個鐵製的禁閉架，用於公開懲戒違規者。監控設施安裝在四個角落，指示燈常亮。天空被周圍的建築物切割成一個小方塊，灰濛濛的。",
+    "ambience": ["開放", "監控", "廣播聲", "灰暗天空", "人來人往"],
+    "connections": [
+      {
+        "targetLocationId": "delth_dormitory_common",
+        "description": "進入公有宿舍"
+      },
+      {
+        "targetLocationId": "delth_mining_shafts",
+        "description": "前往採礦坑道區"
+      },
+      {
+        "targetLocationId": "delth_quota_post",
+        "description": "前往工作額度申報站"
+      },
+      {
+        "targetLocationId": "delth_transit_hub",
+        "description": "前往象限傳點"
+      }
+    ],
+    "npcIds": ["crambell_mildore"],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": [
+    {
+      "id": "delth_plaza_mildore_freed",
+      "label": "米爾多雷被釋放後",
+      "condition": "crambell_quest_mildore_freed",
+      "priority": 10,
+      "transitionNote": "禁閉架已空，廣場角落多了一些低聲議論，人們似乎在談論那個消失的女人。"
+    }
+  ]
+}

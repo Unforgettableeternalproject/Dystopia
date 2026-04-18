@@ -8,6 +8,13 @@
     "public",
     "military_zone"
   ],
+  "_comment_hierarchy": [
+    "parentId (選填): 指向上層地點 ID，例如宿舍大樓。未設定表示本地點為頂層地點。",
+    "locationType (選填): 'area' = 建築/街區級別; 'sublocation' = 房間/角落等最小粒度。頂層地點不設此欄位。",
+    "範例: 宿舍大樓 (area) → 公共室 (sublocation, parentId: 宿舍大樓 id)"
+  ],
+  "parentId": "parent_location_id",
+  "locationType": "sublocation",
   "base": {
     "description": "DM scene description — what this place looks like and feels like.",
     "ambience": [

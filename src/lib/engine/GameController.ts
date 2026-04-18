@@ -341,7 +341,7 @@ export class GameController {
     }
     finishLastLine();
     isStreaming.set(false);
-    playerUI.update((p) => ({ ...p, name: '???', location: 'Delth -- Dormitory' }));
+    playerUI.update((p) => ({ ...p, name: '???', location: '戴司 — 宿舍寢室' }));
   }
 
   private async runMockResponse(input: string): Promise<void> {
@@ -364,7 +364,7 @@ export class GameController {
         id:               'player-1',
         name:             '???',
         origin:           'worker',
-        currentLocationId: 'delth_bunkhouse',
+        currentLocationId: 'delth_dormitory_room',
         primaryStats:    { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
         secondaryStats:  { consciousness: 2, arcane: 0, technology: 3 },
         statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, mana: 0, manaMax: 0, experience: 0 },

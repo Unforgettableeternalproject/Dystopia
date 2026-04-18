@@ -1,0 +1,25 @@
+{
+  "id": "delth_mining_shafts",
+  "name": "採礦坑道區",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
+  "base": {
+    "description": "成排的礦坑入口向地下延伸，坑口架著鐵製提升機，不停地將礦石與工人輸送往來。空氣中漂浮著白色的礦粉，久待之後喉嚨會開始乾澀。機械轟鳴聲從各個坑口傳出，蓋過了人聲。工人們戴著布口罩彎腰工作，監察官員在坑口外圍巡邏，手中握著配額板，仔細核對每個人的進出時間與產量。意外在這裡是常態，但沒有人提。",
+    "ambience": ["礦粉瀰漫", "機器轟鳴", "黑暗坑口", "危險", "強制勞動"],
+    "connections": [
+      {
+        "targetLocationId": "delth_plaza",
+        "description": "返回廣場"
+      },
+      {
+        "targetLocationId": "delth_warehouse",
+        "description": "前往倉儲區"
+      }
+    ],
+    "npcIds": ["crambell_kane"],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

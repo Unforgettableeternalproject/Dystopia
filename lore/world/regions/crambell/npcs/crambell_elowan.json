@@ -1,0 +1,26 @@
+{
+  "id": "crambell_elowan",
+  "name": "艾洛安·赫羅",
+  "type": "wandering",
+  "baseLocationId": "delth_transit_hub",
+  "publicDescription": "出沒於各象限的小商人，永遠帶著一個鼓鼓的背包。賣的東西很雜，從日用品到政府配給沒有的稀罕物。政府認定他處於灰色地帶，出現的時間與地點不固定。",
+  "secretLayers": [
+    {
+      "id": "elowan_intel_dealer",
+      "label": "情報販子本質",
+      "condition": "crambell_elowan_bought_once",
+      "context": "艾洛安不只賣物品，他賣情報：哪個監察官今天心情差、哪個通道下週會有核查、誰最近在找誰。他的情報通常準確，但價格取決於你對他有多少用處。"
+    },
+    {
+      "id": "elowan_network_depth",
+      "label": "廣泛的消息網絡",
+      "condition": "crambell_elowan_trusted",
+      "context": "艾洛安的消息來源比任何人想像的都廣，跨越各象限甚至觸及中央。他為什麼選擇保持中立而非加入任何一方，是個沒人問過、他也沒主動解釋過的問題。",
+      "dialogueId": "crambell_elowan_network"
+    }
+  ],
+  "dialogueId": "crambell_elowan_default",
+  "questIds": [],
+  "isVisible": true,
+  "phaseOverrides": {}
+}

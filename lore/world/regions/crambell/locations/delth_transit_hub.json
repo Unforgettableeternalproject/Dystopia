@@ -1,0 +1,39 @@
+{
+  "id": "delth_transit_hub",
+  "name": "象限傳點",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "transit", "checkpoint"],
+  "base": {
+    "description": "連接各象限的中繼站，是工人與物資在坎貝爾內部移動的主要節點。設施簡單，幾條寬闊的通道匯集於此，通道口各有指示牌標明目的地象限。站內常駐有身穿制服的身分核查人員，所有進出者都需出示工作分配令或通行憑證。牆面掛著坎貝爾的象限地圖，某些通道的出口被鐵閘封鎖，標示著「限制區域」。",
+    "ambience": ["人流", "管制", "等待", "廣播聲", "身分核查"],
+    "connections": [
+      {
+        "targetLocationId": "delth_plaza",
+        "description": "返回廣場"
+      },
+      {
+        "targetLocationId": "famein_transit_hub",
+        "description": "前往費敏象限（第一象限）",
+        "condition": "crambell_transit_famein_permitted",
+        "travelNote": "通道口的核查人員仔細核對你的通行憑證，然後放行。"
+      },
+      {
+        "targetLocationId": "wyar_transit_hub",
+        "description": "前往瓦爾象限（第三象限）",
+        "condition": "crambell_transit_wyar_permitted",
+        "travelNote": "通道口的核查人員核對你的工作分配令，確認與瓦爾的工作調配相符後放行。"
+      },
+      {
+        "targetLocationId": "konquer_outer_gate",
+        "description": "前往康庫爾（中央政府）",
+        "condition": "crambell_konquer_access_granted",
+        "travelNote": "前往中央需要高層許可，守衛格外嚴格地核查你的身分鎖資料。"
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

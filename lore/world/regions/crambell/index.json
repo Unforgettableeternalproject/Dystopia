@@ -1,14 +1,39 @@
 {
   "id": "crambell",
-  "name": "克蘭貝爾",
-  "altNames": [
-    "灰寂工場",
-    "Crambell"
+  "name": "坎貝爾",
+  "altNames": ["灰寂工場", "Crambell", "三區"],
+  "theme": "工業軍閥，礦業與製造業，每日工作額度制",
+  "startingLocationId": "delth_dormitory_room",
+  "locationIds": [
+    "delth_dormitory",
+    "delth_dormitory_room",
+    "delth_dormitory_common",
+    "delth_plaza",
+    "delth_mining_shafts",
+    "delth_quota_post",
+    "delth_warehouse",
+    "delth_transit_hub"
   ],
-  "theme": "industrial_military",
-  "startingLocationId": "",
-  "locationIds": [],
-  "npcIds": [],
+  "npcIds": [
+    "crambell_kach",
+    "crambell_mildore",
+    "crambell_kane",
+    "crambell_elowan",
+    "crambell_karin",
+    "crambell_orland"
+  ],
   "questIds": [],
-  "factionIds": []
+  "factionIds": [
+    "crambell_government",
+    "crambell_treffen",
+    "crambell_peoples_alliance",
+    "crambell_general_corps"
+  ],
+  "districtIds": [
+    "crambell_delth",
+    "crambell_famein",
+    "crambell_pestilens",
+    "crambell_wyar",
+    "crambell_konquer"
+  ]
 }

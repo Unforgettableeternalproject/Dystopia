@@ -1,0 +1,40 @@
+{
+  "id": "crambell_kach",
+  "name": "凱奇·巴頓",
+  "type": "quest",
+  "baseLocationId": "delth_dormitory_common",
+  "factionId": "crambell_treffen",
+  "publicDescription": "玩家的室友兼工班夥伴，表面上是個普通的礦工，做事沉穩，話不多但可靠。他有一種讓待在他周圍的人莫名安心的氣質，這種特質並非刻意營造。他對整個坎貝爾的地理格局和高層動向的了解似乎超出一個普通工人應有的程度，但從不主動展示這些知識。",
+  "secretLayers": [
+    {
+      "id": "kach_observant",
+      "label": "異常的觀察力與沉默",
+      "condition": "crambell_kach_met_twice",
+      "context": "凱奇注意到很多別人忽略的細節：哪個監察官今天繞了不同的巡邏路線，哪個宿舍的燈在不該亮的時候亮著。他不解釋這些觀察，也不邀請別人討論。"
+    },
+    {
+      "id": "kach_treffen_member",
+      "label": "舊會議成員",
+      "condition": "crambell_treffen_trust_gained",
+      "context": "凱奇是舊會議成員，對三區的地下通道網路瞭若指掌。他一直在評估玩家的可靠性，他說的每一句話都比表面上更有目的。",
+      "dialogueId": "crambell_kach_treffen"
+    },
+    {
+      "id": "kach_true_identity",
+      "label": "本名凱爾斯·斯洛，前任領主之子",
+      "condition": "crambell_treffen_trust_high",
+      "context": "凱奇本名凱爾斯·斯洛，前任領主厄羅·斯洛之子。他隱藏身份是為了等待時機，他的所有行動都圍繞著一個核心目標：找到父親，推翻現任政府。"
+    }
+  ],
+  "dialogueId": "crambell_kach_default",
+  "questIds": [],
+  "isVisible": true,
+  "phaseOverrides": {
+    "crambell_treffen_trust_gained": {
+      "dialogueId": "crambell_kach_treffen"
+    },
+    "crambell_treffen_trust_high": {
+      "dialogueId": "crambell_kach_deep"
+    }
+  }
+}

@@ -5,16 +5,35 @@
   "type": "stationed",
   "baseLocationId": "region_location_id",
   "factionId": "faction_id",
-  "description": "DM-facing character context. Not shown directly to player.",
+
+  "_comment_description": [
+    "publicDescription: DM 永遠可見的表面資訊，只寫公開人設，絕對不含任何秘密或隱藏身份。",
+    "secretLayers: 依旗標條件分層揭露。每層獨立解鎖，知道 A 不代表知道 B。",
+    "  condition: 旗標運算式，為 true 時此層 context 被加入 DM prompt。",
+    "  context: 此層揭露的角色深度資訊，只給 DM，不直接顯示給玩家。",
+    "  dialogueId: 選填，此層解鎖後切換的對話樹。",
+    "phaseOverrides: 只處理狀態/行為變化（位置、可見性、對話樹），不放描述內容。"
+  ],
+
+  "publicDescription": "DM-facing 表面人設。只寫公開可見的資訊，不含任何秘密。",
+  "secretLayers": [
+    {
+      "id": "layer_id",
+      "label": "這層代表什麼資訊（設計備注，不進 prompt）",
+      "condition": "flag_expression",
+      "context": "此層解鎖後 DM 額外獲得的角色 context。",
+      "dialogueId": "optional_new_dialogue_id"
+    }
+  ],
+
   "dialogueId": "region_npc_name",
   "questIds": [],
   "isVisible": true,
   "phaseOverrides": {
-    "world_phase_1": {
-      "dialogueId": "region_npc_name_phase1"
-    },
-    "local_event_flag": {
-      "isVisible": false
+    "flag_expression": {
+      "dialogueId": "region_npc_name_variant",
+      "isVisible": true,
+      "baseLocationId": "new_location_id"
     }
   }
 }
