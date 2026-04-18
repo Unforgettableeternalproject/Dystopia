@@ -5,44 +5,56 @@ import type {
   LocationNode, ResolvedLocation,
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
-  DistrictIndex, RegionSchedule,
+  DistrictIndex, RegionSchedule, FlagManifestEntry,
 } from '../types';
-import type { DialogueTree } from '../types/dialogue';
+import { FlagRegistry } from '../engine/FlagRegistry';
+import type { ProximityContext } from '../engine/FlagRegistry';
+import type { DialogueProfile } from '../types/dialogue';
 import type { QuestDefinition } from '../types/quest';
 import type { WorldPhase, WorldPhaseId, PhaseEffect } from '../types/phase';
 import type { FlagSystem } from '../engine/FlagSystem';
 import type { NPCMemoryEntry } from '../types/game';
 
 interface LoreData {
-  locations:  Record<string, LocationNode>;
-  npcs:       Record<string, NPCNode>;
-  events:     Record<string, GameEvent>;
-  factions:   Record<string, Faction>;
-  dialogues:  Record<string, DialogueTree>;
-  quests:     Record<string, QuestDefinition>;
-  phases:     WorldPhase[];
-  regions:    Record<string, RegionIndex>;
-  districts:  Record<string, DistrictIndex>;
-  schedules:  Record<string, RegionSchedule>;
+  locations:    Record<string, LocationNode>;
+  npcs:         Record<string, NPCNode>;
+  events:       Record<string, GameEvent>;
+  factions:     Record<string, Faction>;
+  dialogues:    Record<string, DialogueProfile>;
+  quests:       Record<string, QuestDefinition>;
+  phases:       WorldPhase[];
+  regions:      Record<string, RegionIndex>;
+  districts:    Record<string, DistrictIndex>;
+  schedules:    Record<string, RegionSchedule>;
+  flagManifest: FlagManifestEntry[];
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
     dialogues: {}, quests: {}, phases: [], regions: {}, districts: {}, schedules: {},
+    flagManifest: [],
   };
 
+  /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
+  readonly flagRegistry = new FlagRegistry();
+
   load(data: Partial<LoreData>): void {
-    if (data.locations) Object.assign(this.data.locations, data.locations);
-    if (data.npcs)       Object.assign(this.data.npcs,      data.npcs);
-    if (data.events)     Object.assign(this.data.events,    data.events);
-    if (data.factions)   Object.assign(this.data.factions,  data.factions);
-    if (data.dialogues)  Object.assign(this.data.dialogues, data.dialogues);
-    if (data.quests)     Object.assign(this.data.quests,    data.quests);
-    if (data.regions)    Object.assign(this.data.regions,   data.regions);
-    if (data.districts)  Object.assign(this.data.districts, data.districts);
-    if (data.schedules)  Object.assign(this.data.schedules, data.schedules);
-    if (data.phases)     this.data.phases.push(...data.phases);
+    if (data.locations)    Object.assign(this.data.locations,  data.locations);
+    if (data.npcs)         Object.assign(this.data.npcs,       data.npcs);
+    if (data.events)       Object.assign(this.data.events,     data.events);
+    if (data.factions)     Object.assign(this.data.factions,   data.factions);
+    if (data.dialogues)    Object.assign(this.data.dialogues,  data.dialogues);
+    if (data.quests)       Object.assign(this.data.quests,     data.quests);
+    if (data.regions)      Object.assign(this.data.regions,    data.regions);
+    if (data.districts)    Object.assign(this.data.districts,  data.districts);
+    if (data.schedules)    Object.assign(this.data.schedules,  data.schedules);
+    if (data.flagManifest) {
+      this.data.flagManifest.push(...data.flagManifest);
+      this.flagRegistry.clear();
+      this.flagRegistry.load(this.data.flagManifest);
+    }
+    if (data.phases)       this.data.phases.push(...data.phases);
   }
 
   // -- Locations -------------------------------------------------------
@@ -146,10 +158,14 @@ export class LoreVault {
       .filter((n): n is NPCNode => !!n);
   }
 
-  // -- Dialogues -------------------------------------------------------
+  // -- Dialogue Profiles -----------------------------------------------
 
-  getDialogue(id: string): DialogueTree | undefined {
+  getDialogue(id: string): DialogueProfile | undefined {
     return this.data.dialogues[id];
+  }
+
+  getDialogueProfile(npcId: string, dialogueId: string): DialogueProfile | undefined {
+    return this.data.dialogues[dialogueId] ?? this.data.dialogues[npcId];
   }
 
   // -- Events ----------------------------------------------------------
@@ -166,6 +182,10 @@ export class LoreVault {
 
   getQuest(id: string): QuestDefinition | undefined {
     return this.data.quests[id];
+  }
+
+  getAllQuests(): QuestDefinition[] {
+    return Object.values(this.data.quests);
   }
 
   // -- Factions --------------------------------------------------------

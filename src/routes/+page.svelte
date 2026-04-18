@@ -4,15 +4,14 @@
   import NarrativeBox from '$lib/components/NarrativeBox.svelte';
   import ChoicePanel from '$lib/components/ChoicePanel.svelte';
   import { GameController } from '$lib/engine/GameController';
+  import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine } from '$lib/stores/gameStore';
 
   let controller: GameController;
 
   onMount(async () => {
     controller = new GameController();
-
-    // Lore 資料將在這裡動態載入
-    // controller.loadLore(await import('../../lore/campbell/locations.json'));
+    loadCrambellLore(controller);
 
     try {
       await controller.start();

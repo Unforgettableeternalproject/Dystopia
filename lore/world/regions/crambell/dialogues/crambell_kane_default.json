@@ -1,0 +1,16 @@
+{
+  "id": "crambell_kane_default",
+  "npcId": "crambell_kane",
+  "initialContext": "TODO: 凱恩在第一次接觸玩家時的態度。他是Q3-Q4的腐敗警監，對陌生人應表現出職業性的審視。",
+  "defaultContext": "TODO: 凱恩的說話方式（官僚腔調但帶有交易意味）、他的利益敏感度、對玩家身份的評估方式。",
+  "milestones": [
+    {
+      "id": "kane_bribed",
+      "label": "玩家曾賄賂凱恩",
+      "condition": "crambell_kane_bribed",
+      "context": "TODO: 被賄賂後凱恩與玩家的默契關係，以及他預期的持續利益。",
+      "isPermanent": true,
+      "permanentSummary": "TODO: 例如「玩家曾向凱恩行賄，雙方建立了非正式協議」"
+    }
+  ]
+}

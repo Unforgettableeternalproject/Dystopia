@@ -11,19 +11,21 @@
 //   8. syncUIState
 //   9. refreshThoughts
 
-import { DMAgent }        from '../ai/DMAgent';
-import { Regulator }      from '../ai/Regulator';
-import { autoClients }    from '../ai/LLMClientFactory';
-import type { ILLMClient } from '../ai/ILLMClient';
-import { LoreVault }      from '../lore/LoreVault';
-import { EventBus }       from './EventBus';
-import { StateManager }   from './StateManager';
-import { EventEngine }    from './EventEngine';
-import { PhaseManager }   from './PhaseManager';
-import { QuestEngine }    from './QuestEngine';
-import { TimeManager }    from './TimeManager';
+import { DMAgent }          from '../ai/DMAgent';
+import { Regulator }        from '../ai/Regulator';
+import { autoClients }      from '../ai/LLMClientFactory';
+import type { ILLMClient }  from '../ai/ILLMClient';
+import { LoreVault }        from '../lore/LoreVault';
+import { EventBus }         from './EventBus';
+import { StateManager }     from './StateManager';
+import { EventEngine }      from './EventEngine';
+import { PhaseManager }     from './PhaseManager';
+import { QuestEngine }      from './QuestEngine';
+import { TimeManager }      from './TimeManager';
+import { DialogueManager }  from './DialogueManager';
 import type { PlayerAction, GameState } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
+import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
 import {
   pushLine,
@@ -33,6 +35,7 @@ import {
   inputDisabled,
   thoughts,
   playerUI,
+  narrativeLines,
 } from '../stores/gameStore';
 import { createLogger } from '../utils/Logger';
 import { warmUpModel }  from '../utils/ModelWarmup';
@@ -40,17 +43,18 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 const log = createLogger('GameCtrl');
 
 export class GameController {
-  private dm:        DMAgent;
-  private regulator: Regulator;
-  private dmClient:  ILLMClient | null;  // kept for warmup
-  private lore:      LoreVault;
-  private bus:       EventBus;
-  private state:     StateManager;
-  private events:    EventEngine;
-  private phases:    PhaseManager;
-  private quests:    QuestEngine;
-  private timeMgr:   TimeManager;
-  private mockMode:  boolean;
+  private dm:          DMAgent;
+  private regulator:   Regulator;
+  private dmClient:    ILLMClient | null;  // kept for warmup
+  private lore:        LoreVault;
+  private bus:         EventBus;
+  private state:       StateManager;
+  private events:      EventEngine;
+  private phases:      PhaseManager;
+  private quests:      QuestEngine;
+  private timeMgr:     TimeManager;
+  private dialogueMgr: DialogueManager;
+  private mockMode:    boolean;
 
   /** ID of the region the player is currently in. Updated on region change. */
   private currentRegionId = 'crambell';
@@ -70,9 +74,10 @@ export class GameController {
 
     const initialState = this.buildInitialState();
     this.state  = new StateManager(initialState, this.bus);
-    this.events = new EventEngine(this.lore, this.state, this.timeMgr);
-    this.phases = new PhaseManager(this.lore, this.state);
-    this.quests = new QuestEngine(this.lore, this.state);
+    this.events      = new EventEngine(this.lore, this.state, this.timeMgr);
+    this.phases      = new PhaseManager(this.lore, this.state);
+    this.quests      = new QuestEngine(this.lore, this.state);
+    this.dialogueMgr = new DialogueManager(this.lore, this.state);
   }
 
   // -- Public API -------------------------------------------------------
@@ -88,6 +93,9 @@ export class GameController {
     this.state.discoverLocation(gs.player.currentLocationId);
     this.syncUIState(gs);
     log.info('Game started', { turn: gs.turn, location: gs.player.currentLocationId });
+
+    // Grant origin quests based on player's starting background
+    this.quests.autoGrantOriginQuests(gs.player.origin);
 
     if (this.mockMode) {
       log.warn('Running in mock mode -- no LLM client configured');
@@ -148,10 +156,11 @@ export class GameController {
     const triggered = [...globalTriggered, ...locationTriggered];
 
     // 4. DM narration
-    const sceneCtx = this.buildSceneCtx(triggered, periodChanged);
+    const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
     await this.runDM(finalAction, sceneCtx);
 
     // 5-7. Post-narration systems
+    this.quests.checkTimeLimits(this.state.getState().time.totalMinutes);
     this.quests.checkObjectives();
     this.phases.checkAdvance();
     this.syncUIState(this.state.getState());
@@ -161,6 +170,10 @@ export class GameController {
 
   acceptQuest(questId: string): boolean {
     return this.quests.acceptQuest(questId);
+  }
+
+  ditchQuest(questId: string): boolean {
+    return this.quests.ditchQuest(questId);
   }
 
   /** Expose state for save/load. */
@@ -178,16 +191,36 @@ export class GameController {
     (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
     flags.forEach(f => this.state.flags.set(f));
     const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
-    this.events = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
-    this.phases = new PhaseManager(this.lore, this.state);
-    this.quests = new QuestEngine(this.lore, this.state);
+    this.events      = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
+    this.phases      = new PhaseManager(this.lore, this.state);
+    this.quests      = new QuestEngine(this.lore, this.state);
+    this.dialogueMgr = new DialogueManager(this.lore, this.state);
     this.syncUIState(gs);
     log.info('State loaded from save', { turn: gs.turn });
   }
 
   // -- Context builder --------------------------------------------------
 
-  private buildSceneCtx(triggered: TriggeredEvent[], periodChanged = false): string {
+  private buildProximityContext(gs: Readonly<GameState>): ProximityContext {
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    return {
+      locationId:     gs.player.currentLocationId,
+      districtId:     resolved?.districtId,
+      regionId:       this.currentRegionId,
+      activeQuestIds: Object.keys(gs.activeQuests).filter(id => {
+        const q = gs.activeQuests[id];
+        return !q.isCompleted && !q.isFailed;
+      }),
+      flags:      this.state.flags,
+      timePeriod: gs.timePeriod,
+    };
+  }
+
+  private buildSceneCtx(
+    triggered: TriggeredEvent[],
+    periodChanged = false,
+    action?: PlayerAction,
+  ): string {
     const gs    = this.state.getState();
     const parts: string[] = [];
 
@@ -204,8 +237,8 @@ export class GameController {
       .map(c => c.label)
       .join(', ');
 
-    const timeStr   = this.timeMgr.formatTime(gs.time);
-    const periodStr = this.timeMgr.formatPeriod(gs.timePeriod);
+    const timeStr    = this.timeMgr.formatTime(gs.time);
+    const periodStr  = this.timeMgr.formatPeriod(gs.timePeriod);
     const periodNote = periodChanged ? ' ← 時段轉換' : '';
 
     parts.push([
@@ -238,6 +271,32 @@ export class GameController {
       parts.push('\n### Events This Turn\n' + evLines.join('\n'));
     }
 
+    // Proximity-filtered flag manifest
+    const proxCtx  = this.buildProximityContext(gs);
+    const flagCtx  = this.lore.flagRegistry.buildDMContext(proxCtx);
+    if (flagCtx) parts.push('\n' + flagCtx);
+
+    // NPC relationship status for all NPCs in scene
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const sceneNpcIds = resolved?.npcIds ?? [];
+    if (sceneNpcIds.length > 0) {
+      const npcStatus = this.dialogueMgr.buildSceneNPCStatus(sceneNpcIds);
+      if (npcStatus) parts.push('\n' + npcStatus);
+    }
+
+    // Full dialogue context when interacting with a specific NPC
+    if (action?.type === 'interact' && action.targetId) {
+      const npc = this.lore.getNPC(action.targetId);
+      if (npc && sceneNpcIds.includes(action.targetId)) {
+        const dialogueCtx = this.dialogueMgr.buildNPCDialogueContext(
+          action.targetId,
+          npc.dialogueId,
+          this.state.flags,
+        );
+        if (dialogueCtx) parts.push('\n' + dialogueCtx);
+      }
+    }
+
     return parts.join('\n');
   }
 
@@ -257,12 +316,52 @@ export class GameController {
       log.error('DM narration failed', err);
       appendToLastLine('\n[narration error -- please retry]');
     } finally {
-      finishLastLine();
       isStreaming.set(false);
     }
 
-    this.state.appendHistory(action, fullText.slice(0, 200));
-    this.state.setLastNarrative(fullText);
+    // 1. Parse and apply DM flag signals
+    const proxCtx = this.buildProximityContext(this.state.getState());
+    const { signals, cleanNarrative: afterFlags } = this.lore.flagRegistry.parseSignals(fullText);
+    const validSignals = this.lore.flagRegistry.validateSignals(signals, proxCtx);
+
+    if (validSignals.length > 0) {
+      log.debug('DM flag signals', { signals: validSignals });
+      for (const sig of validSignals) {
+        if (sig.action === 'set')   this.state.flags.set(sig.flagId);
+        if (sig.action === 'unset') this.state.flags.unset(sig.flagId);
+      }
+    }
+
+    // 2. Parse and apply DM dialogue signals (<<NPC: ...>> and <<MILESTONE: ...>>)
+    const dialogueSignals = this.dialogueMgr.parseSignals(afterFlags);
+    const resolvedScene   = this.lore.resolveLocation(
+      this.state.getState().player.currentLocationId,
+      this.state.flags,
+    );
+    const sceneNpcIds = resolvedScene?.npcIds ?? [];
+    if (dialogueSignals.npcUpdates.length > 0 || dialogueSignals.milestones.length > 0) {
+      log.debug('DM dialogue signals', {
+        npcUpdates: dialogueSignals.npcUpdates,
+        milestones: dialogueSignals.milestones,
+      });
+      this.dialogueMgr.applySignals(dialogueSignals, sceneNpcIds);
+    }
+
+    const cleanNarrative = dialogueSignals.cleanNarrative;
+
+    // 3. Patch displayed narrative line if any signals were stripped
+    if (cleanNarrative !== fullText) {
+      narrativeLines.update(lines => {
+        if (lines.length === 0) return lines;
+        const last = lines[lines.length - 1];
+        return [...lines.slice(0, -1), { ...last, text: cleanNarrative, isStreaming: false }];
+      });
+    } else {
+      finishLastLine();
+    }
+
+    this.state.appendHistory(action, cleanNarrative.slice(0, 200));
+    this.state.setLastNarrative(cleanNarrative);
   }
 
   // -- Thought generation -----------------------------------------------

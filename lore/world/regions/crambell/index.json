@@ -22,7 +22,11 @@
     "crambell_karin",
     "crambell_orland"
   ],
-  "questIds": [],
+  "questIds": [
+    "crambell_worker_daily_quota",
+    "crambell_treffen_contact",
+    "crambell_mildore_rescue"
+  ],
   "factionIds": [
     "crambell_government",
     "crambell_treffen",

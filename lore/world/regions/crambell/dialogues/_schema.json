@@ -1,41 +1,18 @@
 {
-  "_schema": "DialogueTree — one file per NPC (or per conversation context)",
+  "_schema": "DialogueProfile — one file per NPC dialogue context (id matches NPCNode.dialogueId).",
+  "_note": "DM generates all dialogue dynamically; this file is context, not scripted lines.",
   "id": "dialogue_id",
-  "entryNode": "root",
-  "nodes": {
-    "root": {
-      "id": "root",
-      "type": "npc_line",
-      "speakerId": "npc_id",
-      "text": "NPC dialogue text here.",
-      "choices": [
-        {
-          "text": "Player option A",
-          "condition": "optional_flag",
-          "next": "node_a"
-        },
-        {
-          "text": "Player option B",
-          "next": "node_b"
-        }
-      ]
-    },
-    "node_a": {
-      "id": "node_a",
-      "type": "npc_line",
-      "speakerId": "npc_id",
-      "text": "Response to option A.",
-      "effects": [
-        {
-          "type": "flag_set",
-          "flag": "talked_about_x"
-        }
-      ],
-      "next": null
-    },
-    "node_b": {
-      "id": "node_b",
-      "type": "end"
+  "npcId": "npc_id",
+  "initialContext": "Injected only on first meeting (interactionCount === 0). Describe how this NPC behaves when encountering a stranger for the first time — default caution level, opening disposition, and any immediately observable traits.",
+  "defaultContext": "Injected every dialogue turn. Describe the NPC's speaking style, current role, general disposition toward the player, and any persistent quirks the DM must always maintain.",
+  "milestones": [
+    {
+      "id": "unique_milestone_id",
+      "label": "Design note: what event does this milestone represent (not in prompt)",
+      "condition": "flag_expression_that_activates_this_milestone",
+      "context": "DM-facing context. What does the NPC know, feel, and intend in this situation?",
+      "isPermanent": false,
+      "permanentSummary": "One-sentence summary for NPC long-term memory (required when isPermanent is true)"
     }
-  }
+  ]
 }

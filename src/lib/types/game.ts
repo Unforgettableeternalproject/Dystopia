@@ -4,6 +4,7 @@ import type { PlayerState } from "./player";
 import type { QuestInstance } from "./quest";
 import type { WorldPhaseState } from "./phase";
 import type { TimePeriod } from "./world";
+import type { PlayerAttitude } from "./dialogue";
 
 /**
  * 遊戲內時間。
@@ -18,6 +19,12 @@ export interface GameTime {
   minute: number;   // 0–59
   /** 自遊戲開始的累計分鐘數（不隨存檔重置，用於事件冷卻） */
   totalMinutes: number;
+}
+
+export interface ActiveDialogueState {
+  npcId:         string;
+  dialogueId:    string;
+  currentNodeId: string;
 }
 
 export interface GameState {
@@ -107,30 +114,34 @@ export interface HistoryEntry {
 
 /**
  * 單一 NPC 的互動記憶。
- * 讓 DM 知道玩家與這個角色的關係歷史，避免對話重複或矛盾。
+ * DM 透過此結構了解玩家與該角色的關係狀態，確保對話的連貫性與真實感。
+ *
+ * 更新時機：
+ *   - 每次 NPC 互動後由 DialogueManager 根據 DM 信號更新
+ *   - 永久里程碑由 <<MILESTONE: id>> 信號確認後寫入
  */
 export interface NPCMemoryEntry {
   npcId: string;
   firstMetTurn: number;
   lastInteractedTurn: number;
   interactionCount: number;
-  /** 已完整跑完的對話樹 ID */
-  completedDialogueIds: string[];
-  /**
-   * 玩家做過的重要選擇 ID（對應 DialogueTree 中的 PlayerChoiceOption.id）。
-   * DM 建構場景時可參考這些選擇，讓 NPC 對過去的行為有記憶。
-   */
-  keyChoiceIds: string[];
-  /** 可續接的對話節點；undefined = 從頭開始 */
-  lastDialogueNodeId?: string;
-}
 
-/**
- * 當前進行中的對話狀態。
- * 存在於 GameState 當 phase === "dialogue" 時。
- */
-export interface ActiveDialogueState {
-  npcId: string;
-  dialogueId: string;
-  currentNodeId: string;
+  /**
+   * 玩家對此 NPC 的態度（由 DM <<NPC: ...>> 信號更新）。
+   * DM 在對話生成時參考此欄位判斷玩家的言行傾向。
+   */
+  playerAttitude: PlayerAttitude;
+
+  /**
+   * 上次對話的核心主題（DM <<NPC: ...>> 信號更新，1 句話）。
+   * DM 用於避免重複相同的對話內容。
+   */
+  lastTopic?: string;
+
+  /**
+   * 永久里程碑 ID 列表。
+   * 一旦記錄，對應里程碑的 permanentSummary 在未來所有對話中始終可見。
+   * 由 DM <<MILESTONE: id>> 信號觸發，DialogueManager 寫入。
+   */
+  permanentMilestoneIds: string[];
 }

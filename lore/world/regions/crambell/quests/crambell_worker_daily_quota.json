@@ -1,0 +1,39 @@
+{
+  "id": "crambell_worker_daily_quota",
+  "name": "每日配額",
+  "type": "main",
+  "source": "origin",
+  "regionId": "crambell",
+  "originFilter": ["worker"],
+  "autoAccept": true,
+  "isRepeatable": true,
+  "canDitch": false,
+
+  "_comment": [
+    "出身任務：所有礦工出身的玩家自動獲得。",
+    "每日作業時段必須到達配額站完成點名，否則累積違規記錄。",
+    "任務不可完成（循環），直到玩家脫離礦工身份（主線帶過）。",
+    "兩條路線都可完成配額：正常點名或者找到免責方法（凱恩賄賂等）。"
+  ],
+
+  "entryStageId": "check_in",
+  "stages": {
+    "check_in": {
+      "id": "check_in",
+      "description": "在作業時段前往配額申報站完成今日點名",
+      "objectives": [
+        {
+          "id": "visit_quota_post",
+          "type": "flag_expression",
+          "description": "前往配額申報站點名，或取得豁免",
+          "flagExpression": "crambell_player_quota_checked_today OR crambell_player_quota_exempted"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_player_quota_met"],
+        "flagsUnset": ["crambell_player_quota_checked_today", "crambell_player_quota_exempted"],
+        "nextStageId": "check_in"
+      }
+    }
+  }
+}

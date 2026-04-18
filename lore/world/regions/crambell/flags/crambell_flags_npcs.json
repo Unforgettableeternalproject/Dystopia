@@ -1,0 +1,63 @@
+[
+  {
+    "flagId": "crambell_mildore_charge_known",
+    "description": "玩家已知道米爾多雷被拘禁的原因（拒絕超時工作命令，累計三日未達配額）",
+    "setCondition": "玩家與米爾多雷正式交談，且問到她為什麼在這裡或聽她解釋自己的情況",
+    "proximity": {
+      "locationIds": ["delth_plaza"],
+      "questIds": ["crambell_mildore_rescue"],
+      "flags": ["crambell_mildore_situation_understood"],
+      "notFlags": ["crambell_mildore_charge_known"]
+    }
+  },
+  {
+    "flagId": "crambell_mildore_bribe_ready",
+    "description": "玩家準備好用來賄賂凱恩以釋放米爾多雷的籌碼（物資或情報）",
+    "setCondition": "玩家表示要用手中的資源或情報去找凱恩換取米爾多雷的釋放授權",
+    "proximity": {
+      "questIds": ["crambell_mildore_rescue"],
+      "flags": ["crambell_mildore_situation_understood"],
+      "notFlags": ["crambell_mildore_bribe_ready", "crambell_quest_mildore_freed"]
+    }
+  },
+  {
+    "flagId": "crambell_elowan_bought_once",
+    "description": "玩家首次向艾洛安購買情報或物品，打開了更深層的交易",
+    "setCondition": "玩家與艾洛安完成第一次交易（購買任何物品或情報），且交易金額或換取條件達成",
+    "proximity": {
+      "locationIds": ["delth_transit_hub", "delth_plaza"],
+      "notFlags": ["crambell_elowan_bought_once"]
+    }
+  },
+  {
+    "flagId": "crambell_kane_observed_twice",
+    "description": "玩家已觀察到凱恩的選擇性執法行為兩次以上",
+    "setCondition": "玩家第二次目擊凱恩在處理案件時明顯放行了某些人而嚴格追查另一些人，且玩家有察覺到差異",
+    "unsetCondition": "（永久，一旦設置不回收）",
+    "proximity": {
+      "locationIds": ["delth_mining_shafts", "delth_quota_post", "delth_plaza"],
+      "flags": ["crambell_player_patrol_checked"],
+      "notFlags": ["crambell_kane_observed_twice"]
+    }
+  },
+  {
+    "flagId": "crambell_kane_corruption_suspected",
+    "description": "玩家已懷疑凱恩存在腐敗行為並開始尋找利用方式",
+    "setCondition": "玩家主動詢問凱恩的選擇性執法原因，或者向其他 NPC 提到自己的懷疑，並表現出要加以利用的意圖",
+    "proximity": {
+      "flags": ["crambell_kane_observed_twice"],
+      "notFlags": ["crambell_kane_corruption_suspected"]
+    }
+  },
+  {
+    "flagId": "crambell_kach_treffen_hinted",
+    "description": "凱奇在不明說的情況下給了玩家一個關於舊會議存在的暗示，玩家感受到了",
+    "setCondition": "玩家再次找凱奇談話，且話題方向涉及對政府的懷疑、對奧蘭的觀察或對更大秘密的興趣，凱奇選擇給出暗示",
+    "proximity": {
+      "locationIds": ["delth_dormitory_common", "delth_dormitory_room"],
+      "questIds": ["crambell_treffen_contact"],
+      "flags": ["crambell_orland_observed"],
+      "notFlags": ["crambell_kach_treffen_hinted"]
+    }
+  }
+]

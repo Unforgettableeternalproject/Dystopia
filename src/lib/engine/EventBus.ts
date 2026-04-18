@@ -39,4 +39,7 @@ export const GameEvents = {
   QUEST_STARTED:        'quest:started',
   QUEST_STAGE_ADVANCED: 'quest:stage_advanced',
   QUEST_COMPLETED:      'quest:completed',
+  QUEST_GRANTED:        'quest:granted',    // 任務被授予（系統/NPC/事件）
+  QUEST_DITCHED:        'quest:ditched',    // 玩家主動放棄
+  QUEST_FAILED:         'quest:failed',     // 逾時或條件不符失敗
 } as const;

@@ -234,6 +234,50 @@ export interface RegionIndex {
   globalEventIds?: string[];
 }
 
+// ── Flag Manifest ────────────────────────────────────────────────
+
+/**
+ * 旗標的近接條件。
+ * 只有在滿足這些條件時，此旗標的 manifest entry 才會被注入 DM 的 context。
+ * 條件之間為 AND 關係；每個陣列內部亦為 AND（anyFlags 除外為 OR）。
+ */
+export interface FlagProximity {
+  /** 玩家身處這些地點時才顯示 */
+  locationIds?: string[];
+  /** 玩家身處這些象限時才顯示 */
+  districtIds?: string[];
+  /** 玩家持有這些進行中任務時才顯示 */
+  questIds?: string[];
+  /** 這些旗標全部存在時才顯示 */
+  flags?: string[];
+  /** 這些旗標至少一個存在時才顯示 */
+  anyFlags?: string[];
+  /** 這些旗標全部不存在時才顯示（例如：旗標尚未設置才需要顯示） */
+  notFlags?: string[];
+  /** 只在這些時段顯示 */
+  timePeriod?: TimePeriod[];
+}
+
+/**
+ * 單一旗標的 DM 操作說明。
+ * 儲存於 lore/world/regions/<region>/flags/*.json。
+ *
+ * DM 看到的格式（過濾後）：
+ *   FLAG [flagId]: description
+ *   → Set when:   setCondition
+ *   → Unset when: unsetCondition (若有)
+ */
+export interface FlagManifestEntry {
+  flagId: string;
+  /** DM-facing：此旗標代表什麼狀態，用一句話描述 */
+  description: string;
+  /** DM-facing：玩家做了什麼事才應設置此旗標 */
+  setCondition: string;
+  /** DM-facing：在什麼情況下應清除此旗標（省略 = 永久，不回收） */
+  unsetCondition?: string;
+  proximity: FlagProximity;
+}
+
 // ── District ──────────────────────────────────────────────────────
 
 /**

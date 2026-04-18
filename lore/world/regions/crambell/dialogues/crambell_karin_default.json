@@ -1,0 +1,16 @@
+{
+  "id": "crambell_karin_default",
+  "npcId": "crambell_karin",
+  "initialContext": "TODO: 卡林第一次出現在玩家視野時的態度。她是領主的親信，冷靜且具有評估威脅的本能。",
+  "defaultContext": "TODO: 卡林的說話方式（克制、專業）、她對玩家的持續評估，以及她對自身行為（刺殺前任領主）所背負的複雜情緒。",
+  "milestones": [
+    {
+      "id": "karin_assassination_known",
+      "label": "玩家得知卡林曾刺殺前任領主",
+      "condition": "crambell_karin_assassination_revealed",
+      "context": "TODO: 玩家知道此事後，卡林如何處理這個威脅——是否試圖解釋、警告或沉默以對？",
+      "isPermanent": true,
+      "permanentSummary": "TODO: 例如「玩家知道卡林刺殺前任領主的事實」"
+    }
+  ]
+}

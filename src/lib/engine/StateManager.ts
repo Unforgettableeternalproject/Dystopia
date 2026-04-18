@@ -1,11 +1,12 @@
 // StateManager — holds and mutates GameState.
 // All state changes go through here for consistency and event emission.
 
-import type { GameState, PlayerAction, Thought, NPCMemoryEntry, ActiveDialogueState, GameTime } from '../types';
+import type { GameState, PlayerAction, Thought, NPCMemoryEntry, GameTime } from '../types';
 import type { PlayerCondition } from '../types/player';
 import type { WorldPhaseId } from '../types/phase';
-import type { QuestInstance } from '../types/quest';
+import type { QuestInstance, QuestSource, QuestDitchConsequences, QuestReward } from '../types/quest';
 import type { TimePeriod } from '../types/world';
+import type { PlayerAttitude } from '../types/dialogue';
 import { EventBus, GameEvents } from './EventBus';
 import { FlagSystem } from './FlagSystem';
 
@@ -53,6 +54,27 @@ export class StateManager {
     }
   }
 
+  // ── External stats ───────────────────────────────────────────
+
+  modifyReputation(factionId: string, delta: number): void {
+    const current = this.state.player.externalStats.reputation[factionId] ?? 0;
+    this.state.player.externalStats.reputation[factionId] = current + delta;
+    this.notifyUpdate();
+  }
+
+  modifyAffinity(npcId: string, delta: number): void {
+    const current = this.state.player.externalStats.affinity[npcId] ?? 0;
+    this.state.player.externalStats.affinity[npcId] = current + delta;
+    this.notifyUpdate();
+  }
+
+  addItem(itemId: string): void {
+    if (!this.state.player.inventory.includes(itemId)) {
+      this.state.player.inventory.push(itemId);
+      this.notifyUpdate();
+    }
+  }
+
   // ── Conditions ───────────────────────────────────────────────
 
   /** Add or replace a player condition by id. */
@@ -92,38 +114,48 @@ export class StateManager {
   // ── NPC Memory ───────────────────────────────────────────────
 
   /**
-   * Record an NPC interaction. Creates entry on first contact.
-   * dialogueId: the dialogue tree that was completed (if any).
-   * choiceId: a significant player choice made during this interaction.
+   * Record that the player interacted with an NPC this turn.
+   * Creates entry on first contact with neutral attitude.
    */
-  recordNPCInteraction(npcId: string, dialogueId?: string, choiceId?: string): void {
+  recordNPCInteraction(npcId: string): void {
     const existing = this.state.npcMemory[npcId];
     if (!existing) {
       this.state.npcMemory[npcId] = {
         npcId,
-        firstMetTurn: this.state.turn,
-        lastInteractedTurn: this.state.turn,
-        interactionCount: 1,
-        completedDialogueIds: dialogueId ? [dialogueId] : [],
-        keyChoiceIds: choiceId ? [choiceId] : [],
+        firstMetTurn:         this.state.turn,
+        lastInteractedTurn:   this.state.turn,
+        interactionCount:     1,
+        playerAttitude:       'neutral',
+        permanentMilestoneIds: [],
       };
     } else {
       existing.lastInteractedTurn = this.state.turn;
-      existing.interactionCount += 1;
-      if (dialogueId && !existing.completedDialogueIds.includes(dialogueId)) {
-        existing.completedDialogueIds.push(dialogueId);
-      }
-      if (choiceId && !existing.keyChoiceIds.includes(choiceId)) {
-        existing.keyChoiceIds.push(choiceId);
-      }
+      existing.interactionCount  += 1;
     }
     this.notifyUpdate();
   }
 
-  setNPCDialogueResume(npcId: string, nodeId: string): void {
+  /**
+   * Update NPC dialogue state after an interaction.
+   * Called by DialogueManager when a DM <<NPC: ...>> signal is parsed.
+   */
+  updateNPCDialogueState(npcId: string, topic?: string, attitude?: PlayerAttitude): void {
     const mem = this.state.npcMemory[npcId];
-    if (mem) {
-      mem.lastDialogueNodeId = nodeId;
+    if (!mem) return;
+    if (topic)    mem.lastTopic       = topic;
+    if (attitude) mem.playerAttitude  = attitude;
+    this.notifyUpdate();
+  }
+
+  /**
+   * Record a permanent dialogue milestone for an NPC.
+   * Called by DialogueManager when a DM <<MILESTONE: id>> signal is parsed.
+   */
+  recordPermanentMilestone(npcId: string, milestoneId: string): void {
+    const mem = this.state.npcMemory[npcId];
+    if (!mem) return;
+    if (!mem.permanentMilestoneIds.includes(milestoneId)) {
+      mem.permanentMilestoneIds.push(milestoneId);
       this.notifyUpdate();
     }
   }
@@ -143,14 +175,9 @@ export class StateManager {
     }
   }
 
-  endDialogue(completed = true): void {
+  endDialogue(): void {
     if (this.state.activeDialogue) {
-      if (completed) {
-        this.recordNPCInteraction(
-          this.state.activeDialogue.npcId,
-          this.state.activeDialogue.dialogueId
-        );
-      }
+      this.recordNPCInteraction(this.state.activeDialogue.npcId);
       this.state.activeDialogue = undefined;
     }
     this.state.phase = 'exploring';
@@ -159,13 +186,29 @@ export class StateManager {
 
   // ── Quests ───────────────────────────────────────────────────
 
-  startQuest(questId: string, entryStageId: string): void {
+  /**
+   * 低階任務啟動（QuestEngine 呼叫）。
+   * 外部請使用 QuestEngine.grantQuest() 或 QuestEngine.acceptQuest()。
+   */
+  startQuest(questId: string, entryStageId: string, options?: {
+    source?: QuestSource;
+    giverNpcId?: string;
+    sourceEventId?: string;
+    acceptedAtMinutes?: number;
+    expiresAtMinutes?: number;
+  }): void {
     this.state.activeQuests[questId] = {
       questId,
-      currentStageId: entryStageId,
-      completedObjectiveIds: [],
-      isCompleted: false,
-      isFailed: false,
+      source:                 options?.source        ?? 'npc',
+      currentStageId:         entryStageId,
+      completedObjectiveIds:  [],
+      isCompleted:            false,
+      isFailed:               false,
+      isDitched:              false,
+      giverNpcId:             options?.giverNpcId,
+      sourceEventId:          options?.sourceEventId,
+      acceptedAtMinutes:      options?.acceptedAtMinutes,
+      expiresAtMinutes:       options?.expiresAtMinutes,
     };
     this.bus.emit(GameEvents.QUEST_STARTED, { questId });
     this.notifyUpdate();
@@ -183,32 +226,125 @@ export class StateManager {
     const instance = this.state.activeQuests[questId];
     if (instance) {
       instance.currentStageId = nextStageId;
+      instance.completedObjectiveIds = [];   // reset objectives for new stage
       this.bus.emit(GameEvents.QUEST_STAGE_ADVANCED, { questId, nextStageId });
       this.notifyUpdate();
     }
   }
 
-  completeQuest(questId: string): void {
+  /**
+   * 循環任務用重置（而非標記為 completed）。
+   * 回到 entryStageId 並清除 objectives，保持 activeQuests 中繼續存在。
+   */
+  resetQuest(questId: string, entryStageId: string): void {
     const instance = this.state.activeQuests[questId];
     if (instance) {
-      instance.isCompleted = true;
+      instance.currentStageId        = entryStageId;
+      instance.completedObjectiveIds = [];
+      this.notifyUpdate();
+    }
+  }
+
+  completeQuest(questId: string, reward?: QuestReward): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance) {
+      instance.isCompleted    = true;
       instance.currentStageId = null;
       if (!this.state.completedQuestIds.includes(questId)) {
         this.state.completedQuestIds.push(questId);
+      }
+      // Apply rewards
+      if (reward) {
+        reward.flagsSet?.forEach(f => this.flags.set(f));
+        if (reward.reputationChanges) {
+          for (const [fid, delta] of Object.entries(reward.reputationChanges)) {
+            const current = this.state.player.externalStats.reputation[fid] ?? 0;
+            this.state.player.externalStats.reputation[fid] = current + delta;
+          }
+        }
+        if (reward.affinityChanges) {
+          for (const [nid, delta] of Object.entries(reward.affinityChanges)) {
+            const current = this.state.player.externalStats.affinity[nid] ?? 0;
+            this.state.player.externalStats.affinity[nid] = current + delta;
+          }
+        }
+        if (reward.experience) {
+          this.state.player.statusStats.experience += reward.experience;
+        }
+        if (reward.items) {
+          reward.items.forEach(itemId => {
+            if (!this.state.player.inventory.includes(itemId)) {
+              this.state.player.inventory.push(itemId);
+            }
+          });
+        }
       }
       this.bus.emit(GameEvents.QUEST_COMPLETED, { questId });
       this.notifyUpdate();
     }
   }
 
+  /** 玩家主動放棄任務。套用當前階段的 ditchConsequences 後移出 activeQuests。 */
+  ditchQuest(questId: string, consequences?: QuestDitchConsequences): void {
+    const instance = this.state.activeQuests[questId];
+    if (!instance) return;
+
+    instance.isDitched      = true;
+    instance.isFailed       = true;
+    instance.currentStageId = null;
+
+    if (consequences) {
+      consequences.flagsSet?.forEach(f => this.flags.set(f));
+      consequences.flagsUnset?.forEach(f => this.flags.unset(f));
+      // Direct override (set to exact value, used for forcing faction to hostile)
+      if (consequences.reputationOverrides) {
+        for (const [fid, value] of Object.entries(consequences.reputationOverrides)) {
+          this.state.player.externalStats.reputation[fid] = value;
+        }
+      }
+      // Delta changes (on top of any override)
+      if (consequences.reputationChanges) {
+        for (const [fid, delta] of Object.entries(consequences.reputationChanges)) {
+          const current = this.state.player.externalStats.reputation[fid] ?? 0;
+          this.state.player.externalStats.reputation[fid] = current + delta;
+        }
+      }
+      if (consequences.affinityChanges) {
+        for (const [nid, delta] of Object.entries(consequences.affinityChanges)) {
+          const current = this.state.player.externalStats.affinity[nid] ?? 0;
+          this.state.player.externalStats.affinity[nid] = current + delta;
+        }
+      }
+      if (consequences.statChanges) {
+        for (const [key, delta] of Object.entries(consequences.statChanges)) {
+          if (delta !== undefined) this.modifyStat(key, delta);
+        }
+      }
+    }
+
+    // 出賣行為（有 beneficiaryFactionId）→ 進 completedQuestIds，不可再接
+    // 普通放棄 → 不進 completedQuestIds，允許再次接受
+    if (consequences?.beneficiaryFactionId && !this.state.completedQuestIds.includes(questId)) {
+      this.state.completedQuestIds.push(questId);
+    }
+    delete this.state.activeQuests[questId];
+    this.bus.emit(GameEvents.QUEST_DITCHED, {
+      questId,
+      isBetrayalDitch: !!consequences?.beneficiaryFactionId,
+      beneficiaryFactionId: consequences?.beneficiaryFactionId,
+    });
+    this.notifyUpdate();
+  }
+
   failQuest(questId: string): void {
     const instance = this.state.activeQuests[questId];
     if (instance) {
-      instance.isFailed = true;
+      instance.isFailed       = true;
       instance.currentStageId = null;
       if (!this.state.completedQuestIds.includes(questId)) {
         this.state.completedQuestIds.push(questId);
       }
+      this.bus.emit(GameEvents.QUEST_FAILED, { questId });
       this.notifyUpdate();
     }
   }

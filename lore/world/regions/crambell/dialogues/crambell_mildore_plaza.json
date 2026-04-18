@@ -1,0 +1,24 @@
+{
+  "id": "crambell_mildore_plaza",
+  "npcId": "crambell_mildore",
+  "initialContext": "TODO: 米爾多雷第一次遇見玩家時的反應。她是廣場上的常見面孔，以逃避工時出名。",
+  "defaultContext": "TODO: 米爾多雷的說話方式、個性（屢次挑戰政府規則）、對陌生人的一般態度。",
+  "milestones": [
+    {
+      "id": "mildore_arrested",
+      "label": "米爾多雷被逮捕/帶走",
+      "condition": "crambell_mildore_arrested",
+      "context": "TODO: 米爾多雷被捕後，若玩家再次接觸她，她的心態與處境。",
+      "isPermanent": true,
+      "permanentSummary": "TODO: 例如「米爾多雷曾被捕，玩家知道此事」"
+    },
+    {
+      "id": "mildore_rescued",
+      "label": "玩家協助救出米爾多雷",
+      "condition": "crambell_mildore_rescued",
+      "context": "TODO: 被救後米爾多雷對玩家的感激或複雜情緒。",
+      "isPermanent": true,
+      "permanentSummary": "TODO: 例如「玩家曾冒險救出米爾多雷」"
+    }
+  ]
+}

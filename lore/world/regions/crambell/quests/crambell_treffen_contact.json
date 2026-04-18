@@ -1,0 +1,120 @@
+{
+  "id": "crambell_treffen_contact",
+  "name": "舊會議的影子",
+  "type": "main",
+  "source": "npc",
+  "giverNpcId": "crambell_kach",
+  "regionId": "crambell",
+  "factionId": "crambell_treffen",
+  "isFactionQuest": true,
+  "canDitch": true,
+  "autoAccept": false,
+
+  "_comment": [
+    "派系長線任務：舊會議（Treffen）入會路線。",
+    "起點：玩家與凱奇的接觸。凱奇不會直接透露自己的身份，",
+    "  只是給予一系列的「測試」，直到玩家被認定值得信任。",
+    "完成此任務 = 正式加入舊會議，factionId 旗標 player_joined_crambell_treffen 被設置。",
+    "Ditch：玩家可選擇將目前掌握的舊會議資訊交給凱恩，",
+    "  換取政府聲望與個人便利，但舊會議從此成為死敵。"
+  ],
+
+  "ditchConsequences": {
+    "beneficiaryFactionId": "crambell_government",
+    "reputationOverrides": { "crambell_treffen": -50 },
+    "reputationChanges": { "crambell_government": 30 },
+    "affinityChanges": { "crambell_kane": 15 },
+    "flagsSet": ["crambell_treffen_betrayed"],
+    "flagsUnset": ["crambell_treffen_trust_gained", "crambell_treffen_trust_high"]
+  },
+
+  "entryStageId": "observe_orland",
+  "stages": {
+    "observe_orland": {
+      "id": "observe_orland",
+      "description": "注意那個物流司機的行為，或許不只是碰巧",
+      "objectives": [
+        {
+          "id": "orland_observed",
+          "type": "flag_check",
+          "description": "觀察奧蘭的行動規律",
+          "flag": "crambell_orland_observed"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": [],
+        "nextStageId": "confirm_with_kach"
+      },
+      "onDitch": {
+        "reputationChanges": { "crambell_government": 10 },
+        "flagsSet": ["crambell_treffen_betrayed_early"]
+      }
+    },
+    "confirm_with_kach": {
+      "id": "confirm_with_kach",
+      "description": "凱奇知道你在觀察，他在等你來問",
+      "objectives": [
+        {
+          "id": "talk_kach_after_observe",
+          "type": "flag_check",
+          "description": "再次與凱奇交談",
+          "flag": "crambell_kach_treffen_hinted"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_treffen_trust_gained"],
+        "reputationChanges": { "crambell_treffen": 5 },
+        "nextStageId": "earn_trust"
+      },
+      "onDitch": {
+        "reputationChanges": { "crambell_government": 20 },
+        "flagsSet": ["crambell_treffen_betrayed_midway"]
+      }
+    },
+    "earn_trust": {
+      "id": "earn_trust",
+      "description": "他們需要確認你的立場——行動比語言更有說服力",
+      "objectives": [
+        {
+          "id": "trust_threshold",
+          "type": "reputation",
+          "description": "在舊會議建立足夠的信任",
+          "factionId": "crambell_treffen",
+          "minReputation": 15
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_treffen_trust_high"],
+        "nextStageId": "final_confirmation"
+      },
+      "onDitch": {
+        "reputationChanges": { "crambell_government": 30 },
+        "flagsSet": ["crambell_treffen_betrayed_late"]
+      }
+    },
+    "final_confirmation": {
+      "id": "final_confirmation",
+      "description": "奧蘭已經主動找上你——他完全知道你知道他的身份",
+      "objectives": [
+        {
+          "id": "orland_revealed",
+          "type": "flag_check",
+          "description": "聽奧蘭說完他想說的話",
+          "flag": "crambell_orland_treffen_confirmed"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_treffen_ally"],
+        "reputationChanges": { "crambell_treffen": 10 },
+        "nextStageId": null
+      }
+    }
+  },
+
+  "rewards": {
+    "experience": 200,
+    "reputationChanges": { "crambell_treffen": 5 },
+    "affinityChanges": { "crambell_kach": 10, "crambell_orland": 10 },
+    "flagsSet": ["player_joined_crambell_treffen"]
+  }
+}

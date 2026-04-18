@@ -1,0 +1,16 @@
+{
+  "id": "crambell_kach_default",
+  "npcId": "crambell_kach",
+  "initialContext": "TODO: 凱奇在第一次遇到玩家時的態度與行為傾向。他是玩家的室友，應該顯得熟悉但保持某種距離感。",
+  "defaultContext": "TODO: 凱奇的說話方式、當前身份（表面上的普通工人）、互動傾向。",
+  "milestones": [
+    {
+      "id": "kach_revealed_old_council",
+      "label": "玩家得知凱奇是舊會議成員",
+      "condition": "crambell_kach_old_council_revealed",
+      "context": "TODO: 凱奇身份揭露後，他對玩家的態度與溝通方式如何改變。",
+      "isPermanent": true,
+      "permanentSummary": "TODO: 一句話摘要，例如「凱奇已向玩家揭露他是舊會議成員」"
+    }
+  ]
+}

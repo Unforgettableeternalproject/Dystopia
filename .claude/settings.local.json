@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "mcp__fff__find_files",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const fs=require\\('fs'\\); fs.readdirSync\\('.'\\).filter\\(f=>f.endsWith\\('.json'\\)&&!f.startsWith\\('_'\\)\\).forEach\\(f=>{ try{const d=JSON.parse\\(fs.readFileSync\\(f,'utf8'\\)\\); console.log\\(d.id||'?', '->', d.dialogueId||'NO_DIALOGUE_ID'\\)}catch\\(e\\){console.log\\(f,'error'\\)} }\\)\")",
+      "Bash(node -e ':*)"
     ]
   }
 }

@@ -1,0 +1,16 @@
+{
+  "id": "crambell_elowan_default",
+  "npcId": "crambell_elowan",
+  "initialContext": "TODO: 艾洛安第一次遇見玩家時的態度。她是各象限流動的商人，對新顧客應顯得好奇但謹慎。",
+  "defaultContext": "TODO: 艾洛安的說話風格（商業性、消息靈通）、她提供商品與情報的方式、對政府保持的微妙距離。",
+  "milestones": [
+    {
+      "id": "elowan_trusted_with_secret",
+      "label": "玩家向艾洛安透露了重要秘密",
+      "condition": "crambell_elowan_trusted",
+      "context": "TODO: 知道玩家秘密後艾洛安的態度——這增加了她對玩家的籌碼，也可能加深她的協助意願。",
+      "isPermanent": true,
+      "permanentSummary": "TODO: 例如「艾洛安持有玩家的秘密，雙方關係更複雜」"
+    }
+  ]
+}
