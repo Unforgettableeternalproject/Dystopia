@@ -4,7 +4,10 @@
       "mcp__fff__find_files",
       "Bash(npx tsc:*)",
       "Bash(node -e \"const fs=require\\('fs'\\); fs.readdirSync\\('.'\\).filter\\(f=>f.endsWith\\('.json'\\)&&!f.startsWith\\('_'\\)\\).forEach\\(f=>{ try{const d=JSON.parse\\(fs.readFileSync\\(f,'utf8'\\)\\); console.log\\(d.id||'?', '->', d.dialogueId||'NO_DIALOGUE_ID'\\)}catch\\(e\\){console.log\\(f,'error'\\)} }\\)\")",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); const t=d.dependencies||{}; const dt=d.devDependencies||{}; Object.keys\\({...t,...dt}\\).filter\\(k=>k.includes\\('tauri'\\)\\).forEach\\(k=>console.log\\(k\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./package.json'\\); const all={...d.dependencies,...d.devDependencies}; Object.keys\\(all\\).filter\\(k=>k.includes\\('tauri'\\)\\).forEach\\(k=>console.log\\(k,'->',all[k]\\)\\)\")",
+      "Bash(npm install:*)"
     ]
   }
 }

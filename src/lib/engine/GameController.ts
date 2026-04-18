@@ -27,6 +27,7 @@ import type { PlayerAction, GameState } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
+import { get } from 'svelte/store';
 import {
   pushLine,
   appendToLastLine,
@@ -39,6 +40,8 @@ import {
 } from '../stores/gameStore';
 import { createLogger } from '../utils/Logger';
 import { warmUpModel }  from '../utils/ModelWarmup';
+import * as SaveManager from '../utils/SaveManager';
+import type { SlotMeta } from '../utils/SaveManager';
 
 const log = createLogger('GameCtrl');
 
@@ -165,6 +168,10 @@ export class GameController {
     this.phases.checkAdvance();
     this.syncUIState(this.state.getState());
     await this.refreshThoughts();
+
+    // Auto-save after each turn (silently skips if blocked)
+    this.autoSave().catch(err => log.warn('Auto-save failed', err));
+
     inputDisabled.set(false);
   }
 
@@ -174,6 +181,84 @@ export class GameController {
 
   ditchQuest(questId: string): boolean {
     return this.quests.ditchQuest(questId);
+  }
+
+  // -- Save / load -------------------------------------------------------
+
+  /**
+   * Check whether saving is currently allowed.
+   * Blocks: DM is streaming, non-exploring phase, or save_locked flag is active.
+   */
+  canSave(): { allowed: boolean; reason?: string } {
+    if (get(isStreaming)) {
+      return { allowed: false, reason: '敘述進行中，無法存檔' };
+    }
+    const gs = this.state.getState();
+    if (gs.phase !== 'exploring') {
+      return { allowed: false, reason: '此階段無法存檔' };
+    }
+    if (this.state.flags.evaluate('save_locked')) {
+      return { allowed: false, reason: '此刻無法存檔' };
+    }
+    return { allowed: true };
+  }
+
+  /** Manual save to a numbered slot (1–5). */
+  async save(slotId: number, label?: string): Promise<void> {
+    const gs       = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    await SaveManager.saveSlot(
+      slotId,
+      gs,
+      this.state.flags.toArray(),
+      resolved?.name ?? gs.player.currentLocationId,
+      this.timeMgr.formatTime(gs.time),
+      label,
+    );
+    log.info('Game saved', { slotId });
+  }
+
+  /** Auto-save to slot 0. Silently skips if canSave() is false. */
+  async autoSave(): Promise<void> {
+    if (!this.canSave().allowed) return;
+    await this.save(SaveManager.AUTO_SLOT);
+    log.debug('Auto-saved to slot 0');
+  }
+
+  /** Load from a slot. Rebuilds all engine sub-systems and refreshes thoughts. */
+  async load(slotId: number): Promise<void> {
+    const { state, flags } = await SaveManager.loadSlot(slotId);
+    this.loadState(state, flags);
+    await this.refreshThoughts();
+    log.info('Game loaded', { slotId, turn: state.turn });
+  }
+
+  /** List all save slots (index 0 = auto-save, 1–5 = manual; null = empty). */
+  async listSaves(): Promise<(SlotMeta | null)[]> {
+    return SaveManager.listSlots();
+  }
+
+  /**
+   * Export a slot as a JSON string for the user to save to disk.
+   * The Svelte layer is responsible for writing it to the chosen path.
+   */
+  async exportSave(slotId: number): Promise<string> {
+    return SaveManager.exportSlot(slotId);
+  }
+
+  /**
+   * Import a save from a JSON string (read from disk by the Svelte layer).
+   * Validates the codec before overwriting the target slot.
+   */
+  async importSave(fileContent: string, slotId: number): Promise<void> {
+    await SaveManager.importSlot(fileContent, slotId);
+    log.info('Save imported', { slotId });
+  }
+
+  /** Delete a save slot. */
+  async deleteSave(slotId: number): Promise<void> {
+    await SaveManager.deleteSlot(slotId);
+    log.info('Save deleted', { slotId });
   }
 
   /** Expose state for save/load. */
