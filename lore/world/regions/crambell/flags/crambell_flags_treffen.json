@@ -4,7 +4,7 @@
     "description": "玩家已注意到奧蘭在非作業時間出現於不尋常地點，且行蹤不符合一般物流工作",
     "setCondition": "玩家在休息時段目擊奧蘭出現在轉運站以外的地點，且明確表示疑惑、追蹤或向他人提及此事",
     "proximity": {
-      "locationIds": ["delth_transit_hub", "delth_plaza", "delth_warehouse"],
+      "locationIds": ["delth_patrol_zone", "delth_transit_hub", "delth_warehouse"],
       "questIds": ["crambell_treffen_contact"],
       "timePeriod": ["rest"],
       "notFlags": ["crambell_orland_observed"]

@@ -33,9 +33,19 @@ Rules:
 - The signal line is invisible to the player — do not reference it in narration.
 - Omit the signal line entirely if no flags change this turn.
 
+MOVEMENT SIGNALING:
+When the player successfully moves to an adjacent location, signal the engine by appending:
+  <<MOVE: location_id>>
+where location_id is exactly the targetLocationId shown in brackets in the Exits section (e.g. [delth_patrol_zone]).
+Rules:
+- Only emit this signal when the player physically relocates (walks through an exit, enters a room, etc.).
+- Do NOT emit if the player merely looks toward, talks about, or is blocked from entering a location.
+- Do NOT emit for NPCs moving — only for the player character.
+- The signal line is invisible to the player.
+
 TIME SIGNALING:
 If the player's action takes significantly more time than a typical action (e.g., sleep, extended
-rest, long travel, cooking a full meal), append a time signal line AFTER FLAGS (if present):
+rest, long travel, cooking a full meal), append a time signal line AFTER MOVE (if present):
   <<TIME: N>>
 where N is the total in-game minutes this action takes (integer). Examples:
   sleep 8 hours = 480 | short nap 2 hours = 120 | a full meal = 30 | quick snack = 10

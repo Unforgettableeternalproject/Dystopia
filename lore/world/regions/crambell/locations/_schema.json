@@ -1,50 +1,106 @@
 {
-  "_schema": "LocationNode — one file per location",
+  "_schema": "LocationNode — one file per location (area or sublocation)",
+  "_version": 2,
+
+  "_comment_hierarchy": [
+    "地點層級（由上到下）：",
+    "  Region（區域/國家）→ District（象限/區塊）→ Area（地點/建築）→ Sublocation（子地點/房間）",
+    "",
+    "locationType 欄位：",
+    "  省略         = 頂層地點（直接隸屬於 district，如一條街、一個廣場）",
+    "  'area'       = 建築/街區級別的中層地點（有多個子地點，如宿舍棟）",
+    "  'sublocation'= 房間/角落等最小粒度地點",
+    "",
+    "子地點嵌入方式（推薦）：",
+    "  在 area 節點的 JSON 中加入 'sublocations' 陣列，直接嵌入子地點資料。",
+    "  LoreVault 載入時會自動展開，並繼承 parentId / regionId / districtId / locationType。",
+    "  子地點 JSON 只需填寫 id / name / tags / base / localVariants，無需重複層級欄位。",
+    "  已嵌入的子地點不需要在 district.locationIds 或 region.locationIds 中額外列出。",
+    "",
+    "完整圖範例（delth_dormitory.json）：",
+    "  delth_dormitory（area）",
+    "    sublocations: [",
+    "      delth_dormitory_common（sublocation，自動繼承 parentId）",
+    "        → delth_dormitory_room（sublocation）",
+    "    ]",
+    "",
+    "parentId 欄位：由 LoreVault 自動填入，子地點 JSON 無需手動設定。",
+    "",
+    "原則：每個節點都必須有可到達的進出通道（連通圖），不可有孤立節點。",
+    "子地點的出口通常指回上層 area 節點；area 節點指回頂層地點。"
+  ],
+
   "id": "region_location_name",
   "name": "地點顯示名稱",
   "regionId": "crambell",
-  "tags": [
-    "outdoor",
-    "public",
-    "military_zone"
-  ],
-  "_comment_hierarchy": [
-    "parentId (選填): 指向上層地點 ID，例如宿舍大樓。未設定表示本地點為頂層地點。",
-    "locationType (選填): 'area' = 建築/街區級別; 'sublocation' = 房間/角落等最小粒度。頂層地點不設此欄位。",
-    "範例: 宿舍大樓 (area) → 公共室 (sublocation, parentId: 宿舍大樓 id)"
-  ],
-  "parentId": "parent_location_id",
+  "districtId": "crambell_delth",
   "locationType": "sublocation",
+  "parentId": "parent_area_location_id",
+  "tags": ["outdoor", "public", "military_zone"],
+
   "base": {
     "description": "DM scene description — what this place looks like and feels like.",
-    "ambience": [
-      "keyword1",
-      "keyword2"
-    ],
+    "ambience": ["keyword1", "keyword2"],
     "connections": [
       {
         "targetLocationId": "other_location_id",
-        "description": "Player-facing exit label",
-        "condition": "optional_flag_expression",
-        "travelNote": "DM narration hint for the travel"
+        "description": "玩家看到的出口標籤",
+        "travelNote": "（選填）DM 在描述移動過程時的提示語",
+        "access": {
+          "_comment": "access 整個欄位省略 = 永遠開放。所有設定的子欄位同時滿足才能通行（AND 關係）。",
+          "flag": "optional_flag_expression",
+          "timePeriods": ["work"],
+          "knowledgeIds": ["intel_id_player_must_have"],
+          "lockedMessage": "玩家試圖通行時看到的說明（如「礦坑在休息時段關閉」）"
+        }
+      },
+      {
+        "_comment": "無 access 欄位 = 永遠開放的出口",
+        "targetLocationId": "always_open_destination",
+        "description": "離開"
       }
     ],
-    "npcIds": [
-      "npc_id"
-    ],
-    "eventIds": [
-      "event_id"
-    ],
+    "npcIds": ["npc_id"],
+    "eventIds": ["event_id"],
     "isAccessible": true
   },
+
+  "_comment_sublocations": "area 節點專用：將子地點直接嵌入此陣列。LoreVault 載入時自動展開並繼承層級欄位。",
+  "sublocations": [
+    {
+      "id": "child_location_id",
+      "name": "子地點名稱",
+      "tags": ["indoor"],
+      "base": {
+        "description": "子地點場景描述",
+        "ambience": ["keyword"],
+        "connections": [
+          { "targetLocationId": "parent_area_id", "description": "返回上層" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    }
+  ],
+
   "localVariants": [
     {
+      "_comment": "localVariants：僅影響本地點的狀態變化（跨地點的全局變化請用 phases.json）",
       "id": "variant_id",
-      "label": "Human-readable label",
+      "label": "設計備注，不出現在遊戲中",
       "condition": "local_flag_only",
       "priority": 10,
-      "description": "Changed description after local event.",
-      "transitionNote": "What changed and why (DM context)."
+      "description": "（選填）替換 base.description",
+      "ambience": ["（選填）替換 base.ambience"],
+      "connections": ["（選填）完全替換 base.connections"],
+      "isAccessible": false,
+      "addNpcIds": ["新增的 NPC"],
+      "removeNpcIds": ["移除的 NPC"],
+      "addEventIds": ["新增的事件"],
+      "removeEventIds": ["移除的事件"],
+      "transitionNote": "（選填）DM context：這個地點發生了什麼改變"
     }
   ]
 }

@@ -479,6 +479,7 @@ export class GameController {
         gs.player.currentLocationId,
         this.state.flags,
         gs.npcMemory,
+        { timePeriod: gs.timePeriod, knownIntelIds: gs.player.knownIntelIds },
       )
     );
 
@@ -638,6 +639,17 @@ export class GameController {
       this.quests.applyQuestSignal(qs.questId, qs.type, qs.value);
     }
 
+    // Apply DM move signal (player relocated to adjacent location)
+    if (dialogueSignals.moveSignal) {
+      const newLocId = dialogueSignals.moveSignal;
+      if (this.lore.resolveLocation(newLocId, this.state.flags)) {
+        this.state.movePlayer(newLocId);
+        log.info('Player moved', { to: newLocId });
+      } else {
+        log.warn('DM MOVE signal references unknown location', { locationId: newLocId });
+      }
+    }
+
     const cleanNarrative = dialogueSignals.cleanNarrative;
 
     // 3. Patch displayed narrative line if any signals were stripped
@@ -688,7 +700,9 @@ export class GameController {
 
     if (resolved) {
       const exits = resolved.connections
-        .filter(c => !c.condition || this.state.flags.evaluate(c.condition))
+        .filter(c => this.lore.canAccessConnection(
+          c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+        ))
         .slice(0, 3);
       for (const exit of exits) {
         result.push({ id: id('move'), text: 'Go to ' + exit.description, actionType: 'move' });
@@ -743,13 +757,13 @@ export class GameController {
     if (resolved) {
       mapNodes.push({ id: gs.player.currentLocationId, label: resolved.name, isCurrent: true, isDiscovered: true });
       for (const conn of resolved.connections.slice(0, 6)) {
-        if (conn.condition && !this.state.flags.evaluate(conn.condition)) continue;
-        const adj = this.lore.resolveLocation(conn.toLocationId, this.state.flags);
+        if (!this.lore.canAccessConnection(conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds)) continue;
+        const adj = this.lore.resolveLocation(conn.targetLocationId, this.state.flags);
         mapNodes.push({
-          id:           conn.toLocationId,
+          id:           conn.targetLocationId,
           label:        adj?.name ?? conn.description,
           isCurrent:    false,
-          isDiscovered: gs.discoveredLocationIds.includes(conn.toLocationId),
+          isDiscovered: gs.discoveredLocationIds.includes(conn.targetLocationId),
         });
       }
     }

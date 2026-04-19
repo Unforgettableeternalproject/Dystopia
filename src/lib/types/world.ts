@@ -56,11 +56,30 @@ export interface NPCNode {
 
 // ── Location ─────────────────────────────────────────────────────
 
+/**
+ * 通道進入條件。所有設定的欄位同時滿足才能通行（AND 關係）。
+ * 省略整個 access 物件 = 永遠開放。
+ */
+export interface ConnectionAccess {
+  /** 旗標表達式；evaluate 為 true 時開放 */
+  flag?: string;
+  /** 僅在這些時段開放；省略 = 任何時段皆可 */
+  timePeriods?: TimePeriod[];
+  /** 玩家需擁有的情報 ID（knownIntelIds）；省略 = 無知識門檻 */
+  knowledgeIds?: string[];
+  /**
+   * 條件不滿足時顯示給玩家的說明（由 DM 或 Regulator 傳遞）。
+   * 例：「礦坑入口在休息時段關閉」、「此通道需要通行憑證」
+   */
+  lockedMessage?: string;
+}
+
 export interface LocationConnection {
   targetLocationId: string;
-  condition?: string;            // flag expression; omit = always open
   description: string;           // player-facing exit label
   travelNote?: string;           // DM narration hint for the journey
+  /** 進入條件；省略 = 永遠開放 */
+  access?: ConnectionAccess;
 }
 
 export interface LocationBase {
@@ -107,13 +126,19 @@ export interface LocationNode {
   regionId: string;
   tags: string[];
   base: LocationBase;
-  localVariants: LocalVariant[];  // local-only changes; renamed from 'variants'
+  localVariants: LocalVariant[];
   /** 所屬象限/區塊 ID，對應 DistrictIndex.id */
   districtId?: string;
-  /** 上層地點 ID；指向包含此地點的建築或街區 */
+  /** 上層地點 ID；指向包含此地點的建築或街區（由 LoreVault 自動填入，無需手動設定） */
   parentId?: string;
-  /** 地點層級；頂層地點不設此欄位 */
+  /** 地點層級；頂層地點不設此欄位（由 LoreVault 自動填入子地點） */
   locationType?: LocationType;
+  /**
+   * 此地點內嵌的子地點。LoreVault 載入時會自動展開，
+   * 以各自的 id 平攤進 locations dict，並繼承 parentId / regionId / districtId。
+   * 子地點 JSON 不需要重複填寫這些欄位。
+   */
+  sublocations?: LocationNode[];
 }
 
 export interface ResolvedLocation {

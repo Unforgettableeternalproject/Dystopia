@@ -1,7 +1,7 @@
 {
   "id": "crambell_patrol_delth",
-  "locationId": "delth_plaza",
-  "_comment": "地點事件：戴司廣場，需掛載到 delth_plaza.eventIds。作業時段巡邏，每 120 分鐘一次。",
+  "locationId": "delth_patrol_zone",
+  "_comment": "地點事件：巡邏管制區，需掛載到 delth_patrol_zone.eventIds。作業時段巡邏，每 120 分鐘一次。",
   "condition": {
     "timePeriod": ["work"],
     "cooldownMinutes": 120

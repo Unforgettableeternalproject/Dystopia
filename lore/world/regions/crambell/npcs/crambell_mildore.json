@@ -2,7 +2,7 @@
   "id": "crambell_mildore",
   "name": "米爾多雷·艾米爾",
   "type": "quest",
-  "baseLocationId": "delth_plaza",
+  "baseLocationId": "delth_patrol_zone",
   "factionId": "crambell_peoples_alliance",
   "publicDescription": "在廣場禁閉架上被公開懲戒的女人，身材不高但眼神銳利。她是個逃離工時的慣犯，屢次試圖抵制工作額度制，屢次被抓回來示眾。大多數人離她遠一點，怕惹麻煩。",
   "secretLayers": [

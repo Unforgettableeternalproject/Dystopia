@@ -10,7 +10,11 @@
     "connections": [
       {
         "targetLocationId": "delth_mining_shafts",
-        "description": "返回採礦區"
+        "description": "返回礦區"
+      },
+      {
+        "targetLocationId": "delth_south_ground",
+        "description": "從倉庫後門前往南方空地"
       }
     ],
     "npcIds": [],

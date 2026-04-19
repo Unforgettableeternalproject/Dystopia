@@ -1,7 +1,7 @@
 {
   "id": "crambell_public_punishment",
-  "locationId": "delth_plaza",
-  "_comment": "地點事件：戴司廣場，需掛載到 delth_plaza.eventIds。需旗標 crambell_punishment_scheduled 觸發，由其他事件或 NPC 互動設置。",
+  "locationId": "delth_patrol_zone",
+  "_comment": "地點事件：巡邏管制區，需掛載到 delth_patrol_zone.eventIds。需旗標 crambell_punishment_scheduled 觸發，由其他事件或 NPC 互動設置。",
   "condition": {
     "flags": ["crambell_punishment_scheduled"],
     "timePeriod": ["work"],

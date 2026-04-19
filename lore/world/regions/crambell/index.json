@@ -6,13 +6,14 @@
   "startingLocationId": "delth_dormitory_room",
   "locationIds": [
     "delth_dormitory",
-    "delth_dormitory_room",
-    "delth_dormitory_common",
-    "delth_plaza",
+    "delth_forest",
+    "delth_mine_path",
     "delth_mining_shafts",
-    "delth_quota_post",
     "delth_warehouse",
-    "delth_transit_hub"
+    "delth_patrol_zone",
+    "delth_quota_post",
+    "delth_transit_hub",
+    "delth_south_ground"
   ],
   "npcIds": [
     "crambell_kach",

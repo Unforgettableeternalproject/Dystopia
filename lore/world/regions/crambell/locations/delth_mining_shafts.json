@@ -1,6 +1,6 @@
 {
   "id": "delth_mining_shafts",
-  "name": "採礦坑道區",
+  "name": "礦區",
   "regionId": "crambell",
   "districtId": "crambell_delth",
   "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
@@ -9,8 +9,8 @@
     "ambience": ["礦粉瀰漫", "機器轟鳴", "黑暗坑口", "危險", "強制勞動"],
     "connections": [
       {
-        "targetLocationId": "delth_plaza",
-        "description": "返回廣場"
+        "targetLocationId": "delth_mine_path",
+        "description": "返回礦場通路"
       },
       {
         "targetLocationId": "delth_warehouse",

@@ -2,10 +2,11 @@
 // Loads authored content from JSON; the DM only reads world data through here.
 
 import type {
-  LocationNode, ResolvedLocation,
+  LocationNode, ResolvedLocation, LocationConnection,
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
   DistrictIndex, RegionSchedule, FlagManifestEntry,
+  TimePeriod,
 } from '../types';
 import { FlagRegistry } from '../engine/FlagRegistry';
 import type { ProximityContext } from '../engine/FlagRegistry';
@@ -40,7 +41,11 @@ export class LoreVault {
   readonly flagRegistry = new FlagRegistry();
 
   load(data: Partial<LoreData>): void {
-    if (data.locations)    Object.assign(this.data.locations,  data.locations);
+    if (data.locations) {
+      for (const loc of Object.values(data.locations) as LocationNode[]) {
+        this.registerLocation(loc);
+      }
+    }
     if (data.npcs)         Object.assign(this.data.npcs,       data.npcs);
     if (data.events)       Object.assign(this.data.events,     data.events);
     if (data.factions)     Object.assign(this.data.factions,   data.factions);
@@ -55,6 +60,29 @@ export class LoreVault {
       this.flagRegistry.load(this.data.flagManifest);
     }
     if (data.phases)       this.data.phases.push(...data.phases);
+  }
+
+  /**
+   * Register a LocationNode and recursively expand its sublocations.
+   * Children inherit parentId, regionId, districtId, and locationType automatically.
+   */
+  private registerLocation(
+    node: LocationNode,
+    parentId?: string,
+    inheritedRegionId?: string,
+    inheritedDistrictId?: string,
+  ): void {
+    const patched: LocationNode = {
+      ...node,
+      regionId:     node.regionId     || inheritedRegionId  || '',
+      districtId:   node.districtId   ?? inheritedDistrictId,
+      parentId:     parentId          ?? node.parentId,
+      locationType: node.locationType ?? (parentId !== undefined ? 'sublocation' : undefined),
+    };
+    this.data.locations[node.id] = patched;
+    for (const sub of node.sublocations ?? []) {
+      this.registerLocation(sub, node.id, patched.regionId, patched.districtId);
+    }
   }
 
   // -- Locations -------------------------------------------------------
@@ -111,6 +139,24 @@ export class LoreVault {
 
   getLocationsByDistrict(districtId: string): LocationNode[] {
     return Object.values(this.data.locations).filter(l => l.districtId === districtId);
+  }
+
+  /**
+   * Returns true if the player can currently use this connection.
+   * Checks all access conditions: flag, timePeriods, knowledgeIds.
+   */
+  canAccessConnection(
+    conn: LocationConnection,
+    flags: FlagSystem,
+    timePeriod: TimePeriod,
+    knownIntelIds: string[],
+  ): boolean {
+    const a = conn.access;
+    if (!a) return true;
+    if (a.flag && !flags.evaluate(a.flag)) return false;
+    if (a.timePeriods?.length && !a.timePeriods.includes(timePeriod)) return false;
+    if (a.knowledgeIds?.length && a.knowledgeIds.some(id => !knownIntelIds.includes(id))) return false;
+    return true;
   }
 
   // -- Districts -------------------------------------------------------
@@ -211,11 +257,13 @@ export class LoreVault {
   /**
    * Build a structured scene context string for the DM system prompt.
    * npcMemory is optional; when provided, NPC lines include relationship history.
+   * accessCtx is optional; when provided, locked connections are labeled as such.
    */
   buildSceneContext(
     locationId: string,
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
+    accessCtx?: { timePeriod: TimePeriod; knownIntelIds: string[] },
   ): string {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved) return '[Unknown location]';
@@ -224,8 +272,27 @@ export class LoreVault {
 
     const exits = resolved.connections
       .map(c => {
-        const lock = c.condition ? ' [requires: ' + c.condition + ']' : '';
-        return '- ' + c.description + lock;
+        const parts: string[] = ['- [' + c.targetLocationId + '] ' + c.description];
+        if (c.travelNote) parts.push('travel: ' + c.travelNote);
+
+        if (c.access) {
+          const reqs: string[] = [];
+          if (c.access.timePeriods?.length) reqs.push('time: ' + c.access.timePeriods.join('/'));
+          if (c.access.flag)                reqs.push('flag: ' + c.access.flag);
+          if (c.access.knowledgeIds?.length) reqs.push('knowledge: ' + c.access.knowledgeIds.join(', '));
+          if (reqs.length) parts.push('[requires ' + reqs.join(' | ') + ']');
+
+          // Show lock status when access context is provided
+          if (accessCtx) {
+            const open = this.canAccessConnection(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds);
+            if (!open) {
+              const msg = c.access.lockedMessage ?? '此通道目前無法通行';
+              parts.push('[LOCKED: ' + msg + ']');
+            }
+          }
+        }
+
+        return parts.join(' | ');
       })
       .join('\n');
 

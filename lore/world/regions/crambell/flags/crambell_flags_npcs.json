@@ -4,7 +4,7 @@
     "description": "玩家已知道米爾多雷被拘禁的原因（拒絕超時工作命令，累計三日未達配額）",
     "setCondition": "玩家與米爾多雷正式交談，且問到她為什麼在這裡或聽她解釋自己的情況",
     "proximity": {
-      "locationIds": ["delth_plaza"],
+      "locationIds": ["delth_patrol_zone"],
       "questIds": ["crambell_mildore_rescue"],
       "flags": ["crambell_mildore_situation_understood"],
       "notFlags": ["crambell_mildore_charge_known"]
@@ -25,7 +25,7 @@
     "description": "玩家首次向艾洛安購買情報或物品，打開了更深層的交易",
     "setCondition": "玩家與艾洛安完成第一次交易（購買任何物品或情報），且交易金額或換取條件達成",
     "proximity": {
-      "locationIds": ["delth_transit_hub", "delth_plaza"],
+      "locationIds": ["delth_patrol_zone", "delth_transit_hub"],
       "notFlags": ["crambell_elowan_bought_once"]
     }
   },
@@ -35,7 +35,7 @@
     "setCondition": "玩家第二次目擊凱恩在處理案件時明顯放行了某些人而嚴格追查另一些人，且玩家有察覺到差異",
     "unsetCondition": "（永久，一旦設置不回收）",
     "proximity": {
-      "locationIds": ["delth_mining_shafts", "delth_quota_post", "delth_plaza"],
+      "locationIds": ["delth_mining_shafts", "delth_quota_post", "delth_patrol_zone"],
       "flags": ["crambell_player_patrol_checked"],
       "notFlags": ["crambell_kane_observed_twice"]
     }
