@@ -16,7 +16,7 @@ import { Regulator }        from '../ai/Regulator';
 import { autoClients }      from '../ai/LLMClientFactory';
 import type { ILLMClient }  from '../ai/ILLMClient';
 import { LoreVault }        from '../lore/LoreVault';
-import { EventBus }         from './EventBus';
+import { EventBus, GameEvents } from './EventBus';
 import { StateManager }     from './StateManager';
 import { EventEngine }      from './EventEngine';
 import { PhaseManager }     from './PhaseManager';
@@ -43,7 +43,8 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, isSaving } from '../stores/gameStore';
+import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
 
@@ -83,6 +84,11 @@ export class GameController {
     this.phases      = new PhaseManager(this.lore, this.state);
     this.quests      = new QuestEngine(this.lore, this.state);
     this.dialogueMgr = new DialogueManager(this.lore, this.state);
+
+    // Auto-save triggers: quest completion and game event start
+    const doAutoSave = () => this.autoSave().catch(err => log.warn('Auto-save failed', err));
+    this.bus.on(GameEvents.QUEST_COMPLETED,      doAutoSave);
+    this.bus.on(GameEvents.GAME_EVENT_TRIGGERED, doAutoSave);
   }
 
   // -- Public API -------------------------------------------------------
@@ -99,11 +105,13 @@ export class GameController {
     }
     const gs = this.state.getState();
     this.state.discoverLocation(gs.player.currentLocationId);
-    this.syncUIState(gs);
     log.info('Game started', { turn: gs.turn, location: gs.player.currentLocationId });
 
     // Grant origin quests based on player's starting background
     this.quests.autoGrantOriginQuests(gs.player.origin);
+
+    // Sync UI after quests are granted so the quest block renders on first load
+    this.syncUIState(this.state.getState());
 
     if (this.mockMode) {
       log.warn('Running in mock mode -- no LLM client configured');
@@ -115,8 +123,8 @@ export class GameController {
     if (this.dmClient) warmUpModel(this.dmClient).catch(() => { /* non-fatal */ });
 
     const sceneCtx = this.buildSceneCtx([]);
-    await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
-    await this.refreshThoughts();
+    const { suggestions } = await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
+    await this.refreshThoughts(suggestions);
   }
 
   async submitAction(input: string): Promise<void> {
@@ -174,10 +182,11 @@ export class GameController {
     // 2. Tick conditions
     this.state.tickConditions();
 
-    // 2.5. Advance in-game time
-    const gs0       = this.state.getState();
-    const schedule  = this.lore.getSchedule(this.currentRegionId) ?? null;
-    const newTime   = this.timeMgr.advanceByAction(gs0.time, finalAction.type);
+    // 2.5. Advance in-game time (default amount for event/period detection)
+    const gs0            = this.state.getState();
+    const schedule       = this.lore.getSchedule(this.currentRegionId) ?? null;
+    const defaultMinutes = ACTION_MINUTES[finalAction.type] ?? 10;
+    const newTime   = this.timeMgr.advance(gs0.time, defaultMinutes);
     const newPeriod = schedule
       ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs0.player.activeFlags)
       : gs0.timePeriod;
@@ -192,17 +201,31 @@ export class GameController {
 
     // 4. DM narration
     const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
-    await this.runDM(finalAction, sceneCtx);
+    const { signaledMinutes, suggestions } = await this.runDM(finalAction, sceneCtx);
+
+    // 4.5. Apply extra time if DM signaled more than default (e.g., sleeping 8 h)
+    if (signaledMinutes !== null && signaledMinutes > defaultMinutes) {
+      const extra     = signaledMinutes - defaultMinutes;
+      const gs1       = this.state.getState();
+      const laterTime = this.timeMgr.advance(gs1.time, extra);
+      const laterPeriod = schedule
+        ? this.timeMgr.getCurrentPeriod(laterTime, schedule, gs1.player.activeFlags)
+        : gs1.timePeriod;
+      this.state.advanceTime(laterTime, laterPeriod);
+    }
 
     // 5-7. Post-narration systems
     this.quests.checkTimeLimits(this.state.getState().time.totalMinutes);
     this.quests.checkObjectives();
+    this.quests.checkPendingRepeats();
     this.phases.checkAdvance();
     this.syncUIState(this.state.getState());
-    await this.refreshThoughts();
+    await this.refreshThoughts(suggestions);
 
-    // Auto-save after each turn (silently skips if blocked)
-    this.autoSave().catch(err => log.warn('Auto-save failed', err));
+    // Auto-save on day change
+    if (this.state.getState().time.day !== gs0.time.day) {
+      this.autoSave().catch(err => log.warn('Auto-save (day change) failed', err));
+    }
 
     inputDisabled.set(false);
   }
@@ -253,15 +276,33 @@ export class GameController {
   /** Auto-save to slot 0. Silently skips if canSave() is false. */
   async autoSave(): Promise<void> {
     if (!this.canSave().allowed) return;
-    await this.save(SaveManager.AUTO_SLOT);
-    log.debug('Auto-saved to slot 0');
+    isSaving.set(true);
+    try {
+      await this.save(SaveManager.AUTO_SLOT);
+      log.debug('Auto-saved to slot 0');
+    } finally {
+      isSaving.set(false);
+    }
   }
 
   /** Load from a slot. Rebuilds all engine sub-systems and refreshes thoughts. */
   async load(slotId: number): Promise<void> {
     const { state, flags } = await SaveManager.loadSlot(slotId);
     this.loadState(state, flags);
-    await this.refreshThoughts();
+
+    // Clear any stale narrative lines from previous session
+    narrativeLines.set([]);
+
+    let loadSuggestions: string[] = [];
+    if (this.mockMode) {
+      pushLine('（存檔讀取完成）', 'system');
+    } else {
+      const sceneCtx = this.buildSceneCtx([]);
+      const { suggestions } = await this.runDM({ type: 'examine', input: '(game loaded)' }, sceneCtx);
+      loadSuggestions = suggestions;
+    }
+
+    await this.refreshThoughts(loadSuggestions);
     log.info('Game loaded', { slotId, turn: state.turn });
   }
 
@@ -514,15 +555,30 @@ export class GameController {
 
   // -- DM narration -----------------------------------------------------
 
-  private async runDM(action: PlayerAction, sceneCtx: string): Promise<void> {
+  private async runDM(
+    action: PlayerAction,
+    sceneCtx: string,
+  ): Promise<{ signaledMinutes: number | null; suggestions: string[] }> {
     isStreaming.set(true);
     pushLine('', 'narrative');
 
     let fullText = '';
+    let signalCutoff = -1;  // index in fullText where first << starts; nothing after is displayed
     try {
       for await (const chunk of this.dm.narrate(sceneCtx, action, this.state.getState().history)) {
-        appendToLastLine(chunk);
+        const prevLen = fullText.length;
         fullText += chunk;
+        if (signalCutoff === -1) {
+          const idx = fullText.indexOf('<<');
+          if (idx !== -1) {
+            // Display only what came before the signal
+            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            signalCutoff = idx;
+          } else {
+            appendToLastLine(chunk);
+          }
+        }
+        // signalCutoff set → swallow remaining chunks silently
       }
     } catch (err) {
       log.error('DM narration failed', err);
@@ -531,9 +587,27 @@ export class GameController {
       isStreaming.set(false);
     }
 
+    // 0. Extract TIME and THOUGHTS signals first, strip from text
+    let signaledMinutes: number | null = null;
+    const timeMatch = /<<TIME:\s*(\d+)>>/i.exec(fullText);
+    if (timeMatch) {
+      signaledMinutes = Math.max(1, parseInt(timeMatch[1], 10));
+    }
+
+    let suggestions: string[] = [];
+    const thoughtsMatch = /<<THOUGHTS:\s*([^>]+?)>>/i.exec(fullText);
+    if (thoughtsMatch) {
+      suggestions = thoughtsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3);
+    }
+
+    const preParsed = fullText
+      .replace(/<<TIME:\s*\d+>>\s*\n?/gi, '')
+      .replace(/<<THOUGHTS:[^>]+?>>\s*\n?/gi, '')
+      .trimEnd();
+
     // 1. Parse and apply DM flag signals
     const proxCtx = this.buildProximityContext(this.state.getState());
-    const { signals, cleanNarrative: afterFlags } = this.lore.flagRegistry.parseSignals(fullText);
+    const { signals, cleanNarrative: afterFlags } = this.lore.flagRegistry.parseSignals(preParsed);
     const validSignals = this.lore.flagRegistry.validateSignals(signals, proxCtx);
 
     if (validSignals.length > 0) {
@@ -559,6 +633,11 @@ export class GameController {
       this.dialogueMgr.applySignals(dialogueSignals, sceneNpcIds);
     }
 
+    // Apply DM quest signals (flag or objective completion)
+    for (const qs of dialogueSignals.questSignals) {
+      this.quests.applyQuestSignal(qs.questId, qs.type, qs.value);
+    }
+
     const cleanNarrative = dialogueSignals.cleanNarrative;
 
     // 3. Patch displayed narrative line if any signals were stripped
@@ -574,13 +653,25 @@ export class GameController {
 
     this.state.appendHistory(action, cleanNarrative.slice(0, 200));
     this.state.setLastNarrative(cleanNarrative);
+
+    return { signaledMinutes, suggestions };
   }
 
   // -- Thought generation -----------------------------------------------
 
-  private async refreshThoughts(): Promise<void> {
-    const gs    = this.state.getState();
-    const base  = this.buildBaseThoughts(gs);
+  private async refreshThoughts(dmSuggestions: string[] = []): Promise<void> {
+    const gs = this.state.getState();
+    let base: Thought[];
+    if (dmSuggestions.length > 0) {
+      let n = 0;
+      base = dmSuggestions.map(text => ({
+        id: 'dm_' + (n++),
+        text,
+        actionType: 'free' as const,
+      }));
+    } else {
+      base = this.buildBaseThoughts(gs);
+    }
     const final = this.regulator.processThoughts(base, gs.player);
     thoughts.set(final);
     this.state.setThoughts(final);
@@ -606,17 +697,6 @@ export class GameController {
       const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags).slice(0, 2);
       for (const npc of npcs) {
         result.push({ id: id('talk'), text: 'Talk to ' + npc.name, actionType: 'interact' });
-      }
-    }
-
-    const urgentQuest = Object.values(gs.activeQuests).find(
-      q => !q.isCompleted && !q.isFailed && q.currentStageId
-    );
-    if (urgentQuest && urgentQuest.currentStageId) {
-      const def   = this.lore.getQuest(urgentQuest.questId);
-      const stage = def?.stages[urgentQuest.currentStageId];
-      if (stage) {
-        result.push({ id: id('quest'), text: 'Quest: ' + stage.description, actionType: 'examine' });
       }
     }
 
@@ -656,6 +736,7 @@ export class GameController {
         const stage = def?.stages[q.currentStageId!];
         return stage ? [{ name: def!.name, stageSummary: stage.description }] : [];
       });
+    log.debug('syncUIState quests', { count: activeQuestSummaries.length, summaries: activeQuestSummaries });
 
     // Build mini-map nodes: current location + visible adjacent locations
     const mapNodes: Array<{ id: string; label: string; isCurrent: boolean; isDiscovered: boolean }> = [];
@@ -840,10 +921,10 @@ export class GameController {
     for (const line of lines) {
       for (const char of line) {
         appendToLastLine(char);
-        await sleep(18);
+        await sleep(32);
       }
       appendToLastLine('\n');
-      await sleep(120);
+      await sleep(220);
     }
     finishLastLine();
     isStreaming.set(false);
@@ -856,7 +937,7 @@ export class GameController {
     const response = '[Mock mode] You attempt: ' + input + '.\nSet VITE_OLLAMA_MODEL or VITE_ANTHROPIC_API_KEY in .env to enable the DM.';
     for (const char of response) {
       appendToLastLine(char);
-      await sleep(12);
+      await sleep(22);
     }
     finishLastLine();
     isStreaming.set(false);

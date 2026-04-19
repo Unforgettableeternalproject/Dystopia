@@ -1,5 +1,6 @@
 <script lang="ts">
   import { gamePhase } from '$lib/stores/gameStore';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
 
   // mode: 'menu' | 'naming' | 'continue'
   let mode: 'menu' | 'naming' | 'continue' = 'menu';
@@ -35,6 +36,7 @@
         <button class="menu-btn primary" on:click={() => mode = 'naming'}>新遊戲</button>
         <button class="menu-btn" on:click={() => mode = 'continue'}>繼續遊戲</button>
         <button class="menu-btn dim" disabled>設定</button>
+        <button class="menu-btn exit" on:click={() => getCurrentWindow().close()}>離開遊戲</button>
       </div>
     </div>
 
@@ -195,6 +197,20 @@
   .menu-btn.dim {
     opacity: 0.3;
     cursor: not-allowed;
+  }
+
+  .menu-btn.exit {
+    margin-top: 8px;
+    opacity: 0.5;
+    border-color: var(--border);
+    font-size: 12px;
+  }
+
+  .menu-btn.exit:hover {
+    opacity: 1;
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+    background: transparent;
   }
 
   /* Name input */

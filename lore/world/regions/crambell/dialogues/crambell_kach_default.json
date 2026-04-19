@@ -123,9 +123,9 @@
 
   "milestones": [
     {
-      "id": "kach_revealed_old_council",
+      "id": "kach_revealed_treffen",
       "label": "玩家得知凱奇是舊會議成員",
-      "condition": "crambell_kach_old_council_revealed",
+      "condition": "crambell_kach_treffen_revealed",
       "context": "凱奇的說話方式變得比較直接，並且會願意對玩家透漏更多內部資訊。",
       "isPermanent": true,
       "permanentSummary": "凱奇是舊會議的成員，並且對大部分三區所發生的事瞭若指掌。"

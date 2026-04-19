@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, isSaving } from '$lib/stores/gameStore';
 
   $: inScriptedDialogue = $activeScriptedDialogue !== null;
 
@@ -46,6 +46,9 @@
       autocomplete="off"
       spellcheck="false"
     />
+    {#if $isSaving}
+      <span class="saving-badge">存檔中</span>
+    {/if}
     <button
       class="submit-btn"
       on:click={handleSubmit}
@@ -100,11 +103,25 @@
   }
 
   .inv-btn {
-    width: 68px;
+    width: var(--right-outer-w);
     border-left: 1px solid var(--border);
     border-right: none;
     font-size: 11px;
     letter-spacing: 0.1em;
+  }
+
+  .saving-badge {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+    animation: savePulse 1s ease-in-out infinite;
+  }
+
+  @keyframes savePulse {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 1; }
   }
 
   .side-btn:hover,

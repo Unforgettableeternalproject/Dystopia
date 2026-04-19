@@ -136,6 +136,7 @@ export const activeScriptedDialogue = writable<ActiveScriptedDialogue | null>(nu
 
 export const selfCheckOpen = writable(false);
 export const inventoryOpen = writable(false);
+export const isSaving      = writable(false);
 
 // ── Derived ────────────────────────────────────────────────────
 

@@ -27,7 +27,10 @@
   let loadMenuOpen = false;
   let saveMenuOpen = false;
   let showCloseConfirm = false;
-  let confirmedClose   = false;
+
+  // Plain object (not Svelte-reactive) — the closure inside onCloseRequested
+  // reads .bypass directly, without going through Svelte's $$invalidate.
+  const _closeGuard = { bypass: false };
 
   onMount(async () => {
     controller = new GameController();
@@ -38,17 +41,24 @@
     } catch { /* no saves yet */ }
   });
 
-  onMount(async () => {
-    const win = getCurrentWindow();
-    return win.onCloseRequested((event) => {
-      if (confirmedClose) return;   // user already confirmed — allow close
-      event.preventDefault();
-      showCloseConfirm = true;
-    });
+  onMount(() => {
+    // Store unlisten as a plain local — not a Svelte reactive variable
+    let unlisten: (() => void) | undefined;
+
+    getCurrentWindow()
+      .onCloseRequested((event) => {
+        if (_closeGuard.bypass) return;   // confirmed — let Tauri proceed with close
+        event.preventDefault();
+        showCloseConfirm = true;
+      })
+      .then(fn => { unlisten = fn; });
+
+    return () => unlisten?.();   // synchronous cleanup for Svelte onMount
   });
 
   function confirmClose() {
-    confirmedClose = true;
+    _closeGuard.bypass = true;    // property mutation bypasses Svelte reactivity
+    showCloseConfirm = false;
     getCurrentWindow().close();
   }
 
@@ -242,7 +252,7 @@
 {#if showCloseConfirm}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="load-backdrop" on:click={cancelClose}>
+  <div class="close-backdrop" on:click={cancelClose}>
     <div class="confirm-panel" on:click|stopPropagation>
       <div class="load-header">
         <span class="load-title">離開遊戲</span>
@@ -370,6 +380,17 @@
     color: var(--text-secondary);
     font-family: var(--font-mono);
     flex-shrink: 0;
+  }
+
+  /* Close confirmation — above TitleScreen (z-index 200) */
+  .close-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Close confirmation dialog */

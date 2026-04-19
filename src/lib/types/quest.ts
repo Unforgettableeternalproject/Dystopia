@@ -17,8 +17,9 @@ export type QuestType = 'main' | 'side' | 'hidden';
 // ── Objective ─────────────────────────────────────────────────────
 
 export type ObjectiveType =
-  | 'flag_check'       // 單一旗標存在
+  | 'flag_check'       // 單一全域旗標存在
   | 'flag_expression'  // 複合旗標運算式（支援 AND/OR/NOT）
+  | 'quest_flag'       // 任務本地旗標（由 DM <<QUEST>> 信號設置）
   | 'location_visit'   // 到達指定地點
   | 'npc_talk'         // 與 NPC 互動過
   | 'item_collect'     // 持有指定道具
@@ -33,6 +34,8 @@ export interface QuestObjective {
   flag?: string;
   // flag_expression
   flagExpression?: string;    // 傳入 FlagSystem.evaluate()
+  // quest_flag — 任務本地旗標，DM 用 <<QUEST: id | flag: name>> 設置
+  questFlag?: string;
   // location_visit
   locationId?: string;
   // npc_talk
@@ -57,6 +60,12 @@ export interface QuestStageOutcome {
 export interface QuestStage {
   id: string;
   description: string;            // 玩家可見的階段標籤
+  /**
+   * 目標是否需要按順序完成。
+   * true = 每次只檢查第一個未完成的目標。
+   * false / 省略 = 並行評估所有目標（預設）。
+   */
+  ordered?: boolean;
   objectives: QuestObjective[];
   onComplete: QuestStageOutcome;
   /**
@@ -128,11 +137,26 @@ export interface QuestDefinition {
   originFilter?: string[];
 
   /**
+   * 任務分類（說明用，不影響引擎邏輯）。
+   * 'once'       — 一次性任務，達成即完成。
+   * 'staged'     — 多階段任務，依序推進。
+   * 'repeatable' — 循環任務，完成後重新開始。
+   */
+  questKind?: 'once' | 'staged' | 'repeatable';
+
+  /**
    * 是否為循環任務。
    * true = 完成後重置回 entryStageId，不會進入 completedQuestIds。
    * 典型用途：出身帶來的每日配額任務。
    */
   isRepeatable?: boolean;
+
+  /**
+   * 循環任務重置條件（僅 isRepeatable=true 時有效）。
+   * 省略 = 完成後立即重置（舊行為）。
+   * 有值 = 完成後等到此旗標運算式為 true 才重新授予。
+   */
+  repeatCondition?: string;
 
   /**
    * 是否為派系入會任務。
@@ -177,6 +201,13 @@ export interface QuestInstance {
   source: QuestSource;
   currentStageId: string | null;      // null = 完成
   completedObjectiveIds: string[];
+  /**
+   * 任務本地旗標集。
+   * 由 DM <<QUEST: questId | flag: name>> 信號設置。
+   * 用於 type:'quest_flag' 目標的判斷。
+   * 不會污染全域 FlagSystem。
+   */
+  localFlags: string[];
   isCompleted: boolean;
   isFailed: boolean;
   isDitched: boolean;

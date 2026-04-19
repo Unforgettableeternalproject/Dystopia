@@ -9,7 +9,8 @@
       "Bash(node -e \"const d=require\\('./package.json'\\); const all={...d.dependencies,...d.devDependencies}; Object.keys\\(all\\).filter\\(k=>k.includes\\('tauri'\\)\\).forEach\\(k=>console.log\\(k,'->',all[k]\\)\\)\")",
       "Bash(npm install:*)",
       "Bash(cargo build:*)",
-      "mcp__fff__grep"
+      "mcp__fff__grep",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

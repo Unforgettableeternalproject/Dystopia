@@ -148,6 +148,46 @@ export class QuestEngine {
   }
 
   /**
+   * 重新授予已完成且有 repeatCondition 的循環任務。
+   * 每回合呼叫一次（在 checkObjectives 之後）。
+   */
+  checkPendingRepeats(): void {
+    const gs  = this.state.getState();
+    const all = this.lore.getAllQuests();
+    for (const def of all) {
+      if (!def.isRepeatable || !def.repeatCondition) continue;
+      // 只處理已完成但目前不在 activeQuests 的任務
+      if (gs.activeQuests[def.id]) continue;
+      if (!gs.completedQuestIds.includes(def.id)) continue;
+      if (this.state.flags.evaluate(def.repeatCondition)) {
+        this.grantQuest(def.id, { source: def.source });
+      }
+    }
+  }
+
+  /**
+   * 處理 DM <<QUEST>> 信號。
+   * type 'flag'      → 設置任務本地旗標，觸發目標重新評估。
+   * type 'objective' → 直接標記目標為已完成，觸發階段推進。
+   */
+  applyQuestSignal(questId: string, type: 'flag' | 'objective', value: string): void {
+    const gs       = this.state.getState();
+    const instance = gs.activeQuests[questId];
+    if (!instance || instance.isCompleted || instance.isFailed) return;
+
+    if (type === 'flag') {
+      this.state.setQuestLocalFlag(questId, value);
+      // 重新評估該任務的目標
+      const def = this.lore.getQuest(questId);
+      if (def) this.processStage(questId, this.state.getState().activeQuests[questId]!, def);
+    } else if (type === 'objective') {
+      this.state.completeObjective(questId, value);
+      const def = this.lore.getQuest(questId);
+      if (def) this.processStage(questId, this.state.getState().activeQuests[questId]!, def);
+    }
+  }
+
+  /**
    * Check time-limited quests for expiry.
    * Call each turn after time has been advanced.
    */
@@ -170,9 +210,18 @@ export class QuestEngine {
 
     const gs = this.state.getState();
 
-    // Mark newly satisfied objectives
-    for (const obj of stage.objectives) {
-      if (!instance.completedObjectiveIds.includes(obj.id) && this.evaluateObjective(obj, gs)) {
+    // Determine which objectives to evaluate this pass
+    let toEvaluate: QuestObjective[];
+    if (stage.ordered) {
+      // Only check the first uncompleted objective in sequence
+      const next = stage.objectives.find(o => !instance.completedObjectiveIds.includes(o.id));
+      toEvaluate = next ? [next] : [];
+    } else {
+      toEvaluate = stage.objectives.filter(o => !instance.completedObjectiveIds.includes(o.id));
+    }
+
+    for (const obj of toEvaluate) {
+      if (this.evaluateObjective(obj, gs, instance)) {
         this.state.completeObjective(questId, obj.id);
       }
     }
@@ -189,8 +238,13 @@ export class QuestEngine {
     if (stage.onComplete.nextStageId === null) {
       // Quest done
       if (def.isRepeatable) {
-        // Repeatable: reset instead of completing
-        this.state.resetQuest(questId, def.entryStageId);
+        if (def.repeatCondition) {
+          // 有條件的循環：完成後進入 completedQuestIds，等到條件成立再重新授予
+          this.state.completeQuest(questId, def.rewards);
+        } else {
+          // 無條件循環：立即重置
+          this.state.resetQuest(questId, def.entryStageId);
+        }
       } else {
         this.state.completeQuest(questId, def.rewards);
         // Set faction flag if faction quest
@@ -222,13 +276,16 @@ export class QuestEngine {
     this.state.modifyReputation(factionId, delta);
   }
 
-  private evaluateObjective(obj: QuestObjective, gs: Readonly<GameState>): boolean {
+  private evaluateObjective(obj: QuestObjective, gs: Readonly<GameState>, instance: QuestInstance): boolean {
     switch (obj.type) {
       case 'flag_check':
         return obj.flag ? this.state.flags.has(obj.flag) : false;
 
       case 'flag_expression':
         return obj.flagExpression ? this.state.flags.evaluate(obj.flagExpression) : false;
+
+      case 'quest_flag':
+        return obj.questFlag ? instance.localFlags.includes(obj.questFlag) : false;
 
       case 'location_visit':
         return obj.locationId ? gs.discoveredLocationIds.includes(obj.locationId) : false;

@@ -19,10 +19,12 @@ import type { FlagSystem }        from './FlagSystem';
 
 const NPC_SIGNAL_PATTERN       = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
 const MILESTONE_SIGNAL_PATTERN = /<<MILESTONE:\s*([^>>]+)>>/gi;
+const QUEST_SIGNAL_PATTERN     = /<<QUEST:\s*([^|>>]+)\|([^>>]+)>>/gi;
 
 export interface ParsedDialogueSignals {
-  npcUpdates: Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
-  milestones: Array<{ milestoneId: string }>;
+  npcUpdates:   Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
+  milestones:   Array<{ milestoneId: string }>;
+  questSignals: Array<{ questId: string; type: 'flag' | 'objective'; value: string }>;
   cleanNarrative: string;
 }
 
@@ -218,8 +220,9 @@ export class DialogueManager {
   // ── Signal Parsing (LLM mode) ─────────────────────────────────
 
   parseSignals(narrative: string): ParsedDialogueSignals {
-    const npcUpdates: ParsedDialogueSignals['npcUpdates'] = [];
-    const milestones: ParsedDialogueSignals['milestones'] = [];
+    const npcUpdates:   ParsedDialogueSignals['npcUpdates']   = [];
+    const milestones:   ParsedDialogueSignals['milestones']   = [];
+    const questSignals: ParsedDialogueSignals['questSignals'] = [];
     let   clean = narrative;
 
     for (const match of narrative.matchAll(NPC_SIGNAL_PATTERN)) {
@@ -237,8 +240,18 @@ export class DialogueManager {
     }
     clean = clean.replace(MILESTONE_SIGNAL_PATTERN, '');
 
+    for (const match of narrative.matchAll(QUEST_SIGNAL_PATTERN)) {
+      const questId  = match[1].trim();
+      const kvString = match[2];
+      const flag     = this.extractKV(kvString, 'flag');
+      const obj      = this.extractKV(kvString, 'objective');
+      if (flag)      questSignals.push({ questId, type: 'flag',      value: flag.trim() });
+      else if (obj)  questSignals.push({ questId, type: 'objective', value: obj.trim() });
+    }
+    clean = clean.replace(QUEST_SIGNAL_PATTERN, '');
+
     clean = clean.replace(/\n{3,}/g, '\n\n').trimEnd();
-    return { npcUpdates, milestones, cleanNarrative: clean };
+    return { npcUpdates, milestones, questSignals, cleanNarrative: clean };
   }
 
   applySignals(signals: ParsedDialogueSignals, activeNpcIds: string[]): void {

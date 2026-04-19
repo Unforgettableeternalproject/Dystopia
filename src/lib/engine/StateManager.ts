@@ -213,6 +213,7 @@ export class StateManager {
       source:                 options?.source        ?? 'npc',
       currentStageId:         entryStageId,
       completedObjectiveIds:  [],
+      localFlags:             [],
       isCompleted:            false,
       isFailed:               false,
       isDitched:              false,
@@ -229,6 +230,15 @@ export class StateManager {
     const instance = this.state.activeQuests[questId];
     if (instance && !instance.completedObjectiveIds.includes(objectiveId)) {
       instance.completedObjectiveIds.push(objectiveId);
+      this.notifyUpdate();
+    }
+  }
+
+  /** 設置任務本地旗標（不影響全域 FlagSystem）。 */
+  setQuestLocalFlag(questId: string, flagName: string): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance && !instance.localFlags.includes(flagName)) {
+      instance.localFlags.push(flagName);
       this.notifyUpdate();
     }
   }
@@ -252,6 +262,7 @@ export class StateManager {
     if (instance) {
       instance.currentStageId        = entryStageId;
       instance.completedObjectiveIds = [];
+      instance.localFlags            = [];
       this.notifyUpdate();
     }
   }

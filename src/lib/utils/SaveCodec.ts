@@ -99,10 +99,11 @@ export async function decode(code: string): Promise<DecodeResult> {
     throw new Error(`Unsupported save version: ${snapshot.v} (expected ${SAVE_VERSION})`);
   }
 
-  // Deserialise array -> Set
+  // Deserialise array -> Set; add fallbacks for fields added after save version 1
   const player: PlayerState = {
     ...snapshot.player,
-    activeFlags: new Set(snapshot.player.activeFlags),
+    activeFlags:   new Set(snapshot.player.activeFlags),
+    knownIntelIds: snapshot.player.knownIntelIds ?? [],
   };
 
   const state: GameState = {
@@ -112,7 +113,12 @@ export async function decode(code: string): Promise<DecodeResult> {
     lastNarrative:         snapshot.lastNarrative,
     history:               snapshot.history,
     discoveredLocationIds: snapshot.discoveredLocationIds,
-    activeQuests:          snapshot.activeQuests,
+    // Patch localFlags for saves from before quest-local flags were added
+    activeQuests: Object.fromEntries(
+      Object.entries(snapshot.activeQuests).map(([id, q]) => [
+        id, { localFlags: [], ...q },
+      ])
+    ),
     completedQuestIds:     snapshot.completedQuestIds,
     npcMemory:             snapshot.npcMemory,
     worldPhase:            snapshot.worldPhase,
