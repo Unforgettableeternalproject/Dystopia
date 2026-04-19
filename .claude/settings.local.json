@@ -10,7 +10,14 @@
       "Bash(npm install:*)",
       "Bash(cargo build:*)",
       "mcp__fff__grep",
-      "mcp__ide__getDiagnostics"
+      "Bash(cat \"C:/Users/Bernie/.claude/state/\"*)",
+      "Bash(xargs grep:*)",
+      "Bash(claude mcp:*)",
+      "Bash(\"C:/Users/Bernie/.local/bin/token-savior.exe\" --help)",
+      "Bash(gh repo:*)",
+      "mcp__token-savior__list_projects",
+      "mcp__token-savior__memory_status",
+      "mcp__token-savior__set_project_root"
     ]
   }
 }

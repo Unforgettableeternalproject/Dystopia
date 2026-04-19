@@ -141,6 +141,33 @@ export class LoreVault {
     return Object.values(this.data.locations).filter(l => l.districtId === districtId);
   }
 
+  /** Returns all direct children (sublocations) of the given area location. */
+  getLocationsByParent(parentId: string): LocationNode[] {
+    return Object.values(this.data.locations).filter(l => l.parentId === parentId);
+  }
+
+  /**
+   * Returns district adjacency for a region derived from cross-district connections.
+   * e.g. if a location in Delth connects to a location in Famein, they are adjacent.
+   */
+  getDistrictAdjacency(regionId: string): Map<string, string[]> {
+    const adj = new Map<string, Set<string>>();
+    for (const loc of Object.values(this.data.locations)) {
+      if (loc.regionId !== regionId || !loc.districtId) continue;
+      if (!adj.has(loc.districtId)) adj.set(loc.districtId, new Set());
+      for (const conn of loc.base.connections) {
+        const target = this.data.locations[conn.targetLocationId];
+        if (!target?.districtId || target.districtId === loc.districtId) continue;
+        adj.get(loc.districtId)!.add(target.districtId);
+        if (!adj.has(target.districtId)) adj.set(target.districtId, new Set());
+        adj.get(target.districtId)!.add(loc.districtId);
+      }
+    }
+    const result = new Map<string, string[]>();
+    for (const [k, v] of adj) result.set(k, Array.from(v));
+    return result;
+  }
+
   /**
    * Returns true if the player can currently use this connection.
    * Checks all access conditions: flag, timePeriods, knowledgeIds.

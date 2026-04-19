@@ -75,8 +75,52 @@ export interface PlayerUIState {
   titles?:          string[];
   activeQuestSummaries?: Array<{ name: string; stageSummary: string }>;
   conditions?:      Array<{ label: string }>;
-  /** Nodes for the mini-map: current location + visible adjacent locations. */
-  mapNodes?:        Array<{ id: string; label: string; isCurrent: boolean; isDiscovered: boolean }>;
+  /** Structured data for the SVG mini-map (current area). */
+  miniMap?:         MiniMapData;
+  /** Structured data for the full region map modal. */
+  regionMap?:       RegionMapData;
+}
+
+// ── Map data types ─────────────────────────────────────────────
+
+export interface MiniMapNode {
+  id:          string;
+  label:       string;
+  isCurrent:   boolean;
+  isDiscovered: boolean;
+  /** IDs of connected nodes that are also within the same area. */
+  connections: string[];
+  /** True if this node is the area-level parent (vs a sublocation). */
+  isArea:      boolean;
+}
+
+export interface MiniMapData {
+  areaId:       string;
+  areaName:     string;
+  districtId:   string;
+  districtName: string;
+  nodes:        MiniMapNode[];
+}
+
+export interface DistrictMapNode {
+  id:          string;
+  label:       string;
+  isCurrent:   boolean;
+  adjacentIds: string[];
+  /** Area nodes — only populated for the current district. */
+  areas?: Array<{
+    id:          string;
+    name:        string;
+    isDiscovered: boolean;
+    isCurrent:   boolean;
+  }>;
+}
+
+export interface RegionMapData {
+  regionId:          string;
+  regionName:        string;
+  currentDistrictId: string;
+  districts:         DistrictMapNode[];
 }
 
 export const playerUI = writable<PlayerUIState>({

@@ -37,6 +37,8 @@ import {
   thoughts,
   playerUI,
   narrativeLines,
+  type MiniMapData,
+  type RegionMapData,
 } from '../stores/gameStore';
 import { createLogger } from '../utils/Logger';
 import { warmUpModel }  from '../utils/ModelWarmup';
@@ -752,20 +754,84 @@ export class GameController {
       });
     log.debug('syncUIState quests', { count: activeQuestSummaries.length, summaries: activeQuestSummaries });
 
-    // Build mini-map nodes: current location + visible adjacent locations
-    const mapNodes: Array<{ id: string; label: string; isCurrent: boolean; isDiscovered: boolean }> = [];
-    if (resolved) {
-      mapNodes.push({ id: gs.player.currentLocationId, label: resolved.name, isCurrent: true, isDiscovered: true });
-      for (const conn of resolved.connections.slice(0, 6)) {
-        if (!this.lore.canAccessConnection(conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds)) continue;
-        const adj = this.lore.resolveLocation(conn.targetLocationId, this.state.flags);
-        mapNodes.push({
-          id:           conn.targetLocationId,
-          label:        adj?.name ?? conn.description,
-          isCurrent:    false,
-          isDiscovered: gs.discoveredLocationIds.includes(conn.targetLocationId),
-        });
-      }
+    // Build mini-map data (current area + sublocations)
+    const currentLocId   = gs.player.currentLocationId;
+    const currentLocNode = this.lore.getLocation(currentLocId);
+    const areaId         = currentLocNode?.parentId ?? currentLocId;
+    const areaNode       = this.lore.getLocation(areaId);
+
+    // Pre-compute discovered areas: a location's parent area is implicitly discovered
+    // when the player has visited any sublocation inside it.
+    const discoveredAreas = new Set<string>(gs.discoveredLocationIds);
+    for (const locId of gs.discoveredLocationIds) {
+      const parent = this.lore.getLocation(locId)?.parentId;
+      if (parent) discoveredAreas.add(parent);
+    }
+    discoveredAreas.add(areaId); // Current area always visible
+
+    let miniMap: MiniMapData | undefined;
+    if (areaNode) {
+      const sublocations = this.lore.getLocationsByParent(areaId);
+      const allAreaNodes = [areaNode, ...sublocations];
+      const areaNodeIds  = new Set(allAreaNodes.map(n => n.id));
+      const districtNode = areaNode.districtId ? this.lore.getDistrict(areaNode.districtId) : undefined;
+
+      miniMap = {
+        areaId,
+        areaName:     areaNode.name,
+        districtId:   areaNode.districtId ?? '',
+        districtName: districtNode?.name  ?? '',
+        nodes: allAreaNodes.map(node => ({
+          id:           node.id,
+          label:        node.name,
+          isCurrent:    node.id === currentLocId,
+          // Area node: visible whenever player is inside it
+          // Sublocation: visible only if player has been there
+          isDiscovered: node.id === areaId
+            ? true
+            : gs.discoveredLocationIds.includes(node.id) || node.id === currentLocId,
+          connections:  node.base.connections
+            .map(c => c.targetLocationId)
+            .filter(tid => areaNodeIds.has(tid)),
+          isArea:       node.id === areaId,
+        })),
+      };
+    }
+
+    // Build region map data (all districts in region, BFS-ready)
+    let regionMap: RegionMapData | undefined;
+    if (region) {
+      const currentDistrictId = areaNode?.districtId ?? '';
+      const adjacency         = this.lore.getDistrictAdjacency(this.currentRegionId);
+      const districtIds       = region.districtIds ?? [];
+
+      regionMap = {
+        regionId:          this.currentRegionId,
+        regionName:        region.name,
+        currentDistrictId,
+        districts: districtIds.map(did => {
+          const district  = this.lore.getDistrict(did);
+          const isCurrent = did === currentDistrictId;
+          const areas = isCurrent && district
+            ? district.locationIds.flatMap(lid => {
+                const loc = this.lore.getLocation(lid);
+                return loc ? [{
+                  id:           loc.id,
+                  name:         loc.name,
+                  isDiscovered: discoveredAreas.has(lid),
+                  isCurrent:    lid === areaId,
+                }] : [];
+              })
+            : undefined;
+          return {
+            id:          did,
+            label:       district?.name ?? did,
+            isCurrent,
+            adjacentIds: adjacency.get(did) ?? [],
+            areas,
+          };
+        }),
+      };
     }
 
     const visibleConditions = gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label }));
@@ -790,7 +856,8 @@ export class GameController {
       titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
       activeQuestSummaries: activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
       conditions:      visibleConditions,
-      mapNodes:        mapNodes.length > 0 ? mapNodes : undefined,
+      miniMap,
+      regionMap,
     });
 
     detailedPlayer.set({

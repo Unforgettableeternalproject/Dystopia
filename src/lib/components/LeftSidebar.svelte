@@ -1,5 +1,7 @@
 <script lang="ts">
   import { playerUI } from '$lib/stores/gameStore';
+  import MiniMap    from './MiniMap.svelte';
+  import RegionMap  from './RegionMap.svelte';
 
   const PHASE_LABEL: Record<string, string> = {
     grace_period: '寬限期',
@@ -8,31 +10,15 @@
     escalation:   '加劇',
     endgame:      '終局',
   };
+
+  let regionMapOpen = false;
 </script>
 
 <aside class="left-sidebar">
-  <!-- Location map -->
+  <!-- Location mini-map -->
   <div class="map-box">
-    <span class="section-header">地點</span>
-
-    {#if $playerUI.mapNodes && $playerUI.mapNodes.length > 0}
-      <div class="map-nodes">
-        {#each $playerUI.mapNodes as node}
-          <div class="map-node" class:current={node.isCurrent} class:undiscovered={!node.isDiscovered && !node.isCurrent}>
-            <span class="node-dot">{node.isCurrent ? '◉' : '·'}</span>
-            <span class="node-label">{node.label}</span>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <!-- Fallback: show current location name only -->
-      <div class="map-nodes">
-        <div class="map-node current">
-          <span class="node-dot">◉</span>
-          <span class="node-label">{$playerUI.location}</span>
-        </div>
-      </div>
-    {/if}
+    <span class="section-header">地圖</span>
+    <MiniMap data={$playerUI.miniMap} on:openRegionMap={() => (regionMapOpen = true)} />
   </div>
 
   <!-- Time & period -->
@@ -64,6 +50,11 @@
   {/if}
 </aside>
 
+<!-- Region map modal (teleported outside sidebar layout) -->
+{#if regionMapOpen}
+  <RegionMap data={$playerUI.regionMap} on:close={() => (regionMapOpen = false)} />
+{/if}
+
 <style>
   .left-sidebar {
     display: flex;
@@ -88,50 +79,6 @@
     border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-  }
-
-  .map-nodes {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .map-node {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 0;
-  }
-
-  .node-dot {
-    font-size: 11px;
-    color: var(--text-dim);
-    flex-shrink: 0;
-    width: 12px;
-    text-align: center;
-    line-height: 1;
-  }
-
-  .node-label {
-    font-size: 11px;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.3;
-  }
-
-  .map-node.current .node-dot  { color: var(--accent); }
-  .map-node.current .node-label {
-    color: var(--text-primary);
-    font-size: 12px;
-  }
-
-  .map-node.undiscovered .node-dot  { opacity: 0.35; }
-  .map-node.undiscovered .node-label {
-    opacity: 0.35;
-    font-style: italic;
   }
 
   /* ── Info section ────────────────────────────────── */
