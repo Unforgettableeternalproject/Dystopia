@@ -113,6 +113,20 @@
         </section>
       {/if}
 
+      <!-- Knowledge -->
+      <section class="section">
+        <div class="section-label">知識</div>
+        {#if dp.knownIntelIds && dp.knownIntelIds.length > 0}
+          <div class="tag-list">
+            {#each dp.knownIntelIds as id}
+              <span class="tag intel-tag" title={id}>{id.replace(/_/g, ' ')}</span>
+            {/each}
+          </div>
+        {:else}
+          <div class="empty-inline">尚無已知情報</div>
+        {/if}
+      </section>
+
     {:else}
       <div class="empty">載入中...</div>
     {/if}
@@ -240,6 +254,18 @@
   .rep-val  { font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); }
   .rep-val.pos { color: #4a7a4a; }
   .rep-val.neg { color: var(--accent-red); }
+
+  .intel-tag {
+    border-color: var(--accent-blue);
+    color: #5a8aaa;
+    text-transform: lowercase;
+  }
+
+  .empty-inline {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
 
   .empty {
     padding: 24px 14px;

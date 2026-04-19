@@ -309,35 +309,74 @@ export class GameController {
     // Show the player's choice in the narrative
     pushLine('> ' + choice.text, 'player');
 
-    // Apply any side effects
+    // Apply basic side effects (affinity, rep, flags, attitude, intel)
     this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
+
+    // Apply quest effects
+    if (choice.effects?.grantQuest) {
+      this.quests.grantQuest(choice.effects.grantQuest);
+    }
+    if (choice.effects?.advanceQuestStage) {
+      const { questId, stageId } = choice.effects.advanceQuestStage;
+      this.state.advanceQuestStage(questId, stageId);
+    }
+    if (choice.effects?.completeObjective) {
+      const { questId, objectiveId } = choice.effects.completeObjective;
+      this.state.completeObjective(questId, objectiveId);
+    }
 
     const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
 
-    if (choice.nextNodeId === null) {
-      // End of scripted dialogue
+    // Post-condition branching: evaluate branches after effects are applied
+    let targetNodeId = choice.nextNodeId;
+    if (choice.branches) {
+      for (const branch of choice.branches) {
+        if (this.state.flags.evaluate(branch.condition)) {
+          targetNodeId = branch.nodeId;
+          break;
+        }
+      }
+    }
+
+    if (targetNodeId === null) {
       activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
       this.endScriptedDialogue();
       return;
     }
 
-    const nextNode = this.dialogueMgr.getNode(current.npcId, current.dialogueId, choice.nextNodeId);
+    const nextNode = this.dialogueMgr.getNode(current.npcId, current.dialogueId, targetNodeId);
     if (!nextNode) {
       activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
       this.endScriptedDialogue();
       return;
     }
 
-    // Display next node's lines
     const ctx = this.buildInterpolationCtx();
-    const nextLines = this.renderNodeLines(nextNode.lines, current.npcName, ctx);
     const filteredChoices = this.dialogueMgr.filterChoices(nextNode.choices, this.state.flags);
+
+    // transitionLines: show these instead of target node's lines (return/back pattern)
+    let addedNarrative: string;
+    if (choice.transitionLines && choice.transitionLines.length > 0) {
+      const transLines = this.renderNodeLines(choice.transitionLines, current.npcName, ctx);
+      for (let i = 0; i < transLines.length; i++) {
+        const line = choice.transitionLines[i];
+        pushLine(transLines[i], line.speaker === 'player' ? 'player' : line.speaker === 'npc' ? 'dialogue' : 'narrative');
+      }
+      addedNarrative = transLines.join('\n');
+    } else {
+      const nextLines = this.renderNodeLines(nextNode.lines, current.npcName, ctx);
+      for (let i = 0; i < nextLines.length; i++) {
+        const line = nextNode.lines[i];
+        pushLine(nextLines[i], line.speaker === 'player' ? 'player' : line.speaker === 'npc' ? 'dialogue' : 'narrative');
+      }
+      addedNarrative = nextLines.join('\n');
+    }
 
     activeScriptedDialogue.set({
       ...current,
-      currentNodeId:      choice.nextNodeId,
+      currentNodeId:      targetNodeId,
       currentChoices:     filteredChoices,
-      collectedNarrative: updatedNarrative + '\n' + nextLines.join('\n'),
+      collectedNarrative: updatedNarrative + '\n' + addedNarrative,
     });
 
     // Auto-end if the node has no choices
@@ -618,6 +657,24 @@ export class GameController {
         return stage ? [{ name: def!.name, stageSummary: stage.description }] : [];
       });
 
+    // Build mini-map nodes: current location + visible adjacent locations
+    const mapNodes: Array<{ id: string; label: string; isCurrent: boolean; isDiscovered: boolean }> = [];
+    if (resolved) {
+      mapNodes.push({ id: gs.player.currentLocationId, label: resolved.name, isCurrent: true, isDiscovered: true });
+      for (const conn of resolved.connections.slice(0, 6)) {
+        if (conn.condition && !this.state.flags.evaluate(conn.condition)) continue;
+        const adj = this.lore.resolveLocation(conn.toLocationId, this.state.flags);
+        mapNodes.push({
+          id:           conn.toLocationId,
+          label:        adj?.name ?? conn.description,
+          isCurrent:    false,
+          isDiscovered: gs.discoveredLocationIds.includes(conn.toLocationId),
+        });
+      }
+    }
+
+    const visibleConditions = gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label }));
+
     playerUI.set({
       name:            gs.player.name,
       location:        resolved?.name ?? gs.player.currentLocationId,
@@ -637,6 +694,8 @@ export class GameController {
       topFactions:     topFactions.length > 0 ? topFactions : undefined,
       titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
       activeQuestSummaries: activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
+      conditions:      visibleConditions,
+      mapNodes:        mapNodes.length > 0 ? mapNodes : undefined,
     });
 
     detailedPlayer.set({
@@ -654,8 +713,9 @@ export class GameController {
       conditions:  gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label })),
       titles:      gs.player.titles,
       inventory:   gs.player.inventory,
-      reputation:  { ...gs.player.externalStats.reputation },
-      affinity:    { ...gs.player.externalStats.affinity },
+      reputation:    { ...gs.player.externalStats.reputation },
+      affinity:      { ...gs.player.externalStats.affinity },
+      knownIntelIds: [...gs.player.knownIntelIds],
     });
   }
 
@@ -706,7 +766,7 @@ export class GameController {
     const rendered = this.renderNodeLines(node.lines, npcName, ctx);
     for (let i = 0; i < rendered.length; i++) {
       const line = node.lines[i];
-      pushLine(rendered[i], line.speaker === 'player' ? 'player' : 'narrative');
+      pushLine(rendered[i], line.speaker === 'player' ? 'player' : line.speaker === 'npc' ? 'dialogue' : 'narrative');
     }
 
     const filteredChoices = this.dialogueMgr.filterChoices(node.choices, this.state.flags);
@@ -787,7 +847,7 @@ export class GameController {
     }
     finishLastLine();
     isStreaming.set(false);
-    playerUI.update((p) => ({ ...p, name: '???', location: '戴司 — 宿舍寢室' }));
+    playerUI.update((p) => ({ ...p, location: '戴司 — 宿舍寢室' }));
   }
 
   private async runMockResponse(input: string): Promise<void> {

@@ -116,6 +116,12 @@ export class StateManager {
     }
   }
 
+  /** Grant intel and mirror to FlagSystem as `know_<intelId>` for flag-condition use. */
+  grantIntel(intelId: string): void {
+    this.addKnownIntel(intelId);
+    this.flags.set('know_' + intelId);
+  }
+
   // ── NPC Memory ───────────────────────────────────────────────
 
   /**

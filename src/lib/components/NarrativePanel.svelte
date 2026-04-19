@@ -128,6 +128,15 @@
     line-height: 1.85;
   }
 
+  /* NPC scripted dialogue: slightly warmer tone, subtle left indicator */
+  .line--dialogue {
+    color: #b8a882;
+    line-height: 1.85;
+    padding-left: 10px;
+    border-left: 2px solid var(--accent-dim);
+    margin-left: 2px;
+  }
+
   .line--player {
     color: var(--text-player);
     margin-top: 1em;

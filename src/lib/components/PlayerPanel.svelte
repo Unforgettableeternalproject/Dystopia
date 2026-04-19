@@ -1,54 +1,82 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, manaPercent } from '$lib/stores/gameStore';
 
-  $: manaPercent = $playerUI.manaMax > 0
-    ? Math.round(($playerUI.mana / $playerUI.manaMax) * 100)
-    : 0;
-
-  const ATTITUDE_LABEL: Record<string, string> = {
-    friendly: '友好',
-    neutral:  '中立',
-    cautious: '警惕',
-    hostile:  '敵對',
-  };
+  $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
+    ? $playerUI.name[0].toUpperCase()
+    : '?';
 </script>
 
 <aside class="player-panel">
+
+  <!-- Identity -->
   <div class="player-identity">
-    <div class="player-name">{$playerUI.name}</div>
-    {#if $playerUI.titles && $playerUI.titles.length > 0}
-      <div class="player-title">{$playerUI.titles[0]}</div>
-    {/if}
+    <div class="avatar">{avatarChar}</div>
+    <div class="identity-text">
+      <div class="player-name">{$playerUI.name}</div>
+      {#if $playerUI.titles && $playerUI.titles.length > 0}
+        <div class="player-title">{$playerUI.titles[0]}</div>
+      {:else}
+        <div class="player-title placeholder">—</div>
+      {/if}
+    </div>
   </div>
 
   <!-- Stat bars -->
-  <div class="stats">
-    <div class="stat-row">
-      <span class="stat-label">STA</span>
-      <div class="bar-wrap">
-        <div class="bar stamina" style="width:{$staminaPercent}%"></div>
+  <div class="section">
+    <div class="section-label">狀態</div>
+    <div class="stats">
+      <div class="stat-row">
+        <span class="stat-label">STA</span>
+        <div class="bar-wrap">
+          <div class="bar stamina" style="width:{$staminaPercent}%"></div>
+        </div>
+        <span class="stat-val">{$playerUI.stamina}<span class="stat-max">/{$playerUI.staminaMax}</span></span>
       </div>
-      <span class="stat-val">{$playerUI.stamina}</span>
-    </div>
 
-    <div class="stat-row">
-      <span class="stat-label">STR</span>
-      <div class="bar-wrap">
-        <div class="bar stress" style="width:{$stressPercent}%"></div>
+      <div class="stat-row">
+        <span class="stat-label">STR</span>
+        <div class="bar-wrap">
+          <div class="bar stress" style="width:{$stressPercent}%"></div>
+        </div>
+        <span class="stat-val">{$playerUI.stress}<span class="stat-max">/{$playerUI.stressMax}</span></span>
       </div>
-      <span class="stat-val">{$playerUI.stress}</span>
-    </div>
 
-    {#if $playerUI.manaMax > 0}
       <div class="stat-row">
         <span class="stat-label">MP</span>
         <div class="bar-wrap">
-          <div class="bar mana" style="width:{manaPercent}%"></div>
+          <div class="bar mana" style="width:{$manaPercent}%"></div>
         </div>
-        <span class="stat-val">{$playerUI.mana}</span>
+        <span class="stat-val">{$playerUI.mana}<span class="stat-max">/{$playerUI.manaMax}</span></span>
       </div>
+    </div>
+  </div>
+
+  <!-- Conditions (感受狀態) -->
+  <div class="section">
+    <div class="section-label">感受</div>
+    {#if $playerUI.conditions && $playerUI.conditions.length > 0}
+      <div class="cond-list">
+        {#each $playerUI.conditions as c}
+          <span class="cond-tag">{c.label}</span>
+        {/each}
+      </div>
+    {:else}
+      <div class="cond-normal">感覺良好</div>
     {/if}
   </div>
+
+  <!-- Active quests -->
+  {#if $playerUI.activeQuestSummaries && $playerUI.activeQuestSummaries.length > 0}
+    <div class="section">
+      <div class="section-label">任務</div>
+      {#each $playerUI.activeQuestSummaries as q}
+        <div class="quest-row">
+          <div class="quest-name">{q.name}</div>
+          <div class="quest-stage">{q.stageSummary}</div>
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Faction reputation -->
   {#if $playerUI.topFactions && $playerUI.topFactions.length > 0}
@@ -65,26 +93,6 @@
     </div>
   {/if}
 
-  <!-- World phase -->
-  {#if $playerUI.worldPhase}
-    <div class="section phase-section">
-      <div class="section-label">PHASE</div>
-      <div class="phase-val">{$playerUI.worldPhase.replace(/_/g, ' ')}</div>
-    </div>
-  {/if}
-
-  <!-- Active quests -->
-  {#if $playerUI.activeQuestSummaries && $playerUI.activeQuestSummaries.length > 0}
-    <div class="section">
-      <div class="section-label">任務</div>
-      {#each $playerUI.activeQuestSummaries as q}
-        <div class="quest-row">
-          <div class="quest-name">{q.name}</div>
-          <div class="quest-stage">{q.stageSummary}</div>
-        </div>
-      {/each}
-    </div>
-  {/if}
 </aside>
 
 <style>
@@ -95,17 +103,40 @@
     overflow-y: auto;
     border-left: 1px solid var(--border);
     background: var(--bg-secondary);
-    padding: 12px 10px;
   }
 
+  /* ── Identity ─────────────────────────────────────── */
   .player-identity {
-    padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 10px 10px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 10px;
+  }
+
+  .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-accent);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: 0;
+  }
+
+  .identity-text {
+    min-width: 0;
+    flex: 1;
   }
 
   .player-name {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-primary);
     font-weight: 500;
     letter-spacing: 0.03em;
@@ -117,20 +148,38 @@
   .player-title {
     font-size: 10px;
     color: var(--accent);
-    letter-spacing: 0.05em;
-    margin-top: 3px;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     opacity: 0.8;
   }
 
-  /* Stats */
+  .player-title.placeholder {
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+
+  /* ── Sections ─────────────────────────────────────── */
+  .section {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  /* ── Stats ────────────────────────────────────────── */
   .stats {
     display: flex;
     flex-direction: column;
-    gap: 7px;
-    margin-bottom: 12px;
+    gap: 6px;
   }
 
   .stat-row {
@@ -168,30 +217,43 @@
 
   .stat-val {
     font-size: 10px;
-    color: var(--text-dim);
+    color: var(--text-secondary);
     font-family: var(--font-mono);
-    width: 20px;
+    width: 32px;
     text-align: right;
     flex-shrink: 0;
   }
 
-  /* Sections */
-  .section {
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
-    margin-top: 4px;
-    margin-bottom: 4px;
-  }
-
-  .section-label {
-    font-size: 9px;
-    letter-spacing: 0.1em;
+  .stat-max {
     color: var(--text-dim);
-    text-transform: uppercase;
-    margin-bottom: 5px;
+    font-size: 9px;
   }
 
-  /* Faction */
+  /* ── Conditions ───────────────────────────────────── */
+  .cond-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .cond-tag {
+    font-size: 9px;
+    padding: 1px 6px;
+    background: transparent;
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+    border-radius: 2px;
+    opacity: 0.85;
+  }
+
+  .cond-normal {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Faction ──────────────────────────────────────── */
   .faction-row {
     display: flex;
     justify-content: space-between;
@@ -217,18 +279,12 @@
   .faction-rep.pos { color: #4a7a4a; }
   .faction-rep.neg { color: var(--accent-red); }
 
-  /* Phase */
-  .phase-val {
-    font-size: 10px;
-    color: var(--text-dim);
-    font-style: italic;
-    letter-spacing: 0.03em;
+  /* ── Quests ───────────────────────────────────────── */
+  .quest-row {
+    margin-bottom: 6px;
   }
 
-  /* Quests */
-  .quest-row {
-    margin-bottom: 7px;
-  }
+  .quest-row:last-child { margin-bottom: 0; }
 
   .quest-name {
     font-size: 10px;

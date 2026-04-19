@@ -1,5 +1,5 @@
 {
-  "_schema": "DialogueProfile v2 — scripted nodes + LLM fallback. One file per NPC (id = NPCNode.dialogueId).",
+  "_schema": "DialogueProfile v3 — scripted nodes + LLM fallback. One file per NPC (id = NPCNode.dialogueId).",
 
   "_modes": {
     "scripted": "Triggered by firstMeetingOnly, flag condition, or probability roll. Lines display directly; DM is bypassed. Choices are shown as buttons.",
@@ -23,27 +23,51 @@
   "defaultContext": "Speech style for LLM-mode dialogue: vocabulary, tone, speaking rhythm, topics this NPC will/won't discuss, typical reaction to repeat visitors. Do NOT describe personality (already in NPC publicDescription/secretLayers). Template variables like {user} are supported.",
 
   "nodes": {
-    "example_first_meeting": {
+    "example_node": {
       "lines": [
         { "speaker": "narrator", "text": "Narrator line — sets the scene before NPC speaks." },
-        { "speaker": "npc",      "text": "NPC line — shown as 「NPC名：「text」」" },
-        { "speaker": "player",   "text": "Player action descriptor — shown as > text" }
+        { "speaker": "npc",      "text": "NPC line — displayed with NPC name prefix." },
+        { "speaker": "player",   "text": "Player action descriptor — shown as '> text'." }
       ],
       "choices": [
         {
           "id": "unique_choice_id",
-          "text": "What the player says or does (shown on button)",
-          "nextNodeId": "another_node_id_or_null",
-          "condition": "optional_flag_expression_to_hide_this_choice",
+          "text": "What the player says or does (shown on button). Template variables supported.",
+          "nextNodeId": "target_node_id_or_null",
+
+          "_pre_conditions": "All pre-conditions are evaluated BEFORE the choice is shown. Hidden if any fail.",
+          "condition": "flag_expression — choice hidden if false. Supports &, |, ! operators.",
+          "knowledgeRequired": ["intel_id_1", "intel_id_2"],
+
+          "_post_condition_branching": "Branches are evaluated AFTER effects are applied. First matching branch wins. Falls back to nextNodeId.",
+          "branches": [
+            { "condition": "flag_a & flag_b", "nodeId": "alternate_node" }
+          ],
+
+          "_transition_note": "transitionLines: if set, these lines are shown instead of the target node's own lines. The target node's choices are still shown. Use for back/return navigation without repeating setup text.",
+          "transitionLines": [
+            { "speaker": "npc", "text": "Short bridging line shown when returning to a previous node." }
+          ],
+
           "effects": {
+            "_basic": "Basic stat and flag effects.",
             "affinity": 1,
             "reputation": { "faction_id": 1 },
             "flagsSet": ["flag_to_set"],
             "flagsUnset": ["flag_to_remove"],
-            "attitude": "friendly"
+            "attitude": "friendly | neutral | cautious | hostile",
+
+            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds AND sets flag know_<id> for use in conditions.",
+            "grantIntel": ["intel_id_1", "intel_id_2"],
+
+            "_quest_init": "Quest lifecycle effects.",
+            "grantQuest": "quest_id — immediately grants the quest (player does not manually accept).",
+            "advanceQuestStage": { "questId": "quest_id", "stageId": "next_stage_id" },
+            "completeObjective": { "questId": "quest_id", "objectiveId": "objective_id" }
           }
         },
         {
+          "_note": "Minimal choice — no conditions, no effects.",
           "id": "end_choice",
           "text": "（離開）",
           "nextNodeId": null
@@ -54,12 +78,12 @@
 
   "triggers": [
     {
-      "nodeId": "example_first_meeting",
-      "firstMeetingOnly": true,
-      "_comment_condition": "Optional: flag expression that must be true",
-      "_comment_probability": "Optional: 0-100 roll chance (default 100). Evaluated after condition."
+      "_note": "First meeting trigger — fires only on interactionCount === 0.",
+      "nodeId": "example_node",
+      "firstMeetingOnly": true
     },
     {
+      "_note": "Conditional + probability trigger — evaluated in array order, first match wins.",
       "nodeId": "another_node",
       "condition": "some_flag & !other_flag",
       "probability": 40
@@ -69,9 +93,9 @@
   "milestones": [
     {
       "id": "unique_milestone_id",
-      "label": "Design note: what this milestone represents (not injected into prompt)",
-      "condition": "flag_expression_that_activates_milestone",
-      "context": "Injected into DM prompt for LLM-mode dialogue when condition is true. Describe what the NPC knows/feels/plans in this situation.",
+      "label": "Design note: what this milestone represents (not injected into prompt).",
+      "condition": "flag_expression — milestone is active when true.",
+      "context": "Injected into DM prompt for LLM-mode dialogue when active. Describe what the NPC knows/feels/plans.",
       "isPermanent": false,
       "permanentSummary": "One sentence for NPC long-term memory. Required if isPermanent is true."
     }

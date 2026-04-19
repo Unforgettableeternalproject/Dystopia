@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
@@ -24,6 +25,9 @@
   let controller: GameController;
   let saveSlots: (SlotMeta | null)[] = Array(6).fill(null);
   let loadMenuOpen = false;
+  let saveMenuOpen = false;
+  let showCloseConfirm = false;
+  let confirmedClose   = false;
 
   onMount(async () => {
     controller = new GameController();
@@ -33,6 +37,24 @@
       saveSlots = await controller.listSaves();
     } catch { /* no saves yet */ }
   });
+
+  onMount(async () => {
+    const win = getCurrentWindow();
+    return win.onCloseRequested((event) => {
+      if (confirmedClose) return;   // user already confirmed — allow close
+      event.preventDefault();
+      showCloseConfirm = true;
+    });
+  });
+
+  function confirmClose() {
+    confirmedClose = true;
+    getCurrentWindow().close();
+  }
+
+  function cancelClose() {
+    showCloseConfirm = false;
+  }
 
   // ── New game ─────────────────────────────────────────────────
 
@@ -85,17 +107,23 @@
 
   // ── Save ──────────────────────────────────────────────────────
 
-  async function handleQuickSave() {
+  function openSaveMenu() {
     if (!controller) return;
     const { allowed, reason } = controller.canSave();
     if (!allowed) { pushLine('無法存檔：' + reason, 'system'); return; }
+    controller.listSaves().then(s => { saveSlots = s; saveMenuOpen = true; });
+  }
+
+  async function handleSaveToSlot(slotId: number) {
+    saveMenuOpen = false;
     try {
-      await controller.save(1, '快速存檔');
-      pushLine('（已存檔至存檔槽1）', 'system');
+      await controller.save(slotId, slotId === 0 ? '自動存檔' : undefined);
       saveSlots = await controller.listSaves();
+      pushLine(`（已存檔至槽位 ${slotId}）`, 'system');
     } catch (err) {
-      pushLine('存檔失敗。', 'system');
-      console.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      pushLine(`存檔失敗：${msg}`, 'system');
+      console.error('[Save] handleSaveToSlot failed:', err);
     }
   }
 
@@ -126,7 +154,7 @@
 <!-- Game layout (always rendered once playing, hidden before) -->
 {#if $gamePhase === 'playing'}
 <div class="game-layout">
-  <TopBar onSave={handleQuickSave} onLoadMenu={openLoadMenu} />
+  <TopBar onSave={openSaveMenu} onLoadMenu={openLoadMenu} />
 
   <div class="main-area" class:npc-active={$activeNpcUI !== null}>
     <LeftSidebar />
@@ -184,6 +212,48 @@
     </div>
   </div>
 {/if}
+
+<!-- In-game save menu overlay -->
+{#if saveMenuOpen}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="load-backdrop" on:click={() => saveMenuOpen = false}>
+    <div class="load-panel" on:click|stopPropagation>
+      <div class="load-header">
+        <span class="load-title">選擇存檔槽位</span>
+        <button class="load-close" on:click={() => saveMenuOpen = false}>✕</button>
+      </div>
+      {#each saveSlots.slice(1) as slot, i}
+        {@const slotId = i + 1}
+        <button class="load-slot" on:click={() => handleSaveToSlot(slotId)}>
+          <span class="ls-label">{slot?.label ?? '存檔 ' + slotId}{slot ? '' : ' — 空'}</span>
+          {#if slot}
+            <span class="ls-loc">{slot.locationName}</span>
+            <span class="ls-time">{slot.worldTime}</span>
+          {/if}
+        </button>
+      {/each}
+    </div>
+  </div>
+{/if}
+{/if}
+
+<!-- Close confirmation — shown regardless of game phase -->
+{#if showCloseConfirm}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="load-backdrop" on:click={cancelClose}>
+    <div class="confirm-panel" on:click|stopPropagation>
+      <div class="load-header">
+        <span class="load-title">離開遊戲</span>
+      </div>
+      <p class="confirm-msg">確定要關閉遊戲嗎？未存檔的進度將會遺失。</p>
+      <div class="confirm-actions">
+        <button class="confirm-btn danger" on:click={confirmClose}>確認關閉</button>
+        <button class="confirm-btn" on:click={cancelClose}>返回</button>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -300,5 +370,58 @@
     color: var(--text-secondary);
     font-family: var(--font-mono);
     flex-shrink: 0;
+  }
+
+  /* Close confirmation dialog */
+  .confirm-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-accent);
+    border-radius: 2px;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .confirm-msg {
+    padding: 18px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    justify-content: flex-end;
+  }
+
+  .confirm-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    background: transparent;
+    border: 1px solid var(--border-accent);
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .confirm-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .confirm-btn.danger {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+  }
+
+  .confirm-btn.danger:hover {
+    background: var(--accent-red);
+    color: var(--text-primary);
   }
 </style>

@@ -9,7 +9,9 @@ import type { ScriptedChoice } from '../types/dialogue';
 export interface NarrativeLine {
   id: string;
   text: string;
-  type: 'narrative' | 'system' | 'player' | 'rejected';
+  /** narrative = DM free text | dialogue = scripted NPC line | player = player input
+   *  system = info message | rejected = regulator rejection */
+  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'rejected';
   isStreaming: boolean;
 }
 
@@ -72,6 +74,9 @@ export interface PlayerUIState {
   topFactions?:     Array<{ id: string; name: string; rep: number }>;
   titles?:          string[];
   activeQuestSummaries?: Array<{ name: string; stageSummary: string }>;
+  conditions?:      Array<{ label: string }>;
+  /** Nodes for the mini-map: current location + visible adjacent locations. */
+  mapNodes?:        Array<{ id: string; label: string; isCurrent: boolean; isDiscovered: boolean }>;
 }
 
 export const playerUI = writable<PlayerUIState>({
@@ -95,6 +100,7 @@ export interface DetailedPlayerState {
   inventory:      string[];
   reputation:     Record<string, number>;
   affinity:       Record<string, number>;
+  knownIntelIds:  string[];
 }
 
 export const detailedPlayer = writable<DetailedPlayerState | null>(null);
@@ -141,4 +147,9 @@ export const staminaPercent = derived(
 export const stressPercent = derived(
   playerUI,
   ($p) => Math.round(($p.stress / $p.stressMax) * 100)
+);
+
+export const manaPercent = derived(
+  playerUI,
+  ($p) => $p.manaMax > 0 ? Math.round(($p.mana / $p.manaMax) * 100) : 0
 );

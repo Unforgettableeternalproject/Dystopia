@@ -28,16 +28,74 @@ export interface ChoiceEffects {
   flagsUnset?: string[];
   /** Immediately override the stored player attitude for this NPC. */
   attitude?: PlayerAttitude;
+
+  /**
+   * Grant intel IDs to the player's knowledge.
+   * Each id is added to knownIntelIds AND a flag `know_<id>` is set
+   * so that flag conditions like `"know_crambell_quota_trick"` work normally.
+   */
+  grantIntel?: string[];
+
+  /** Accept a quest by questId (player does not need to manually accept). */
+  grantQuest?: string;
+
+  /** Advance a quest to a specific stage. */
+  advanceQuestStage?: { questId: string; stageId: string };
+
+  /** Mark a quest objective as completed. */
+  completeObjective?: { questId: string; objectiveId: string };
+}
+
+/**
+ * Post-condition branch: evaluated after a choice is selected.
+ * Evaluated in array order — first matching condition routes to its nodeId.
+ * Falls back to the choice's `nextNodeId` if none match.
+ * Supports flag expressions including `know_<intel_id>` syntax.
+ */
+export interface ChoiceBranch {
+  condition: string;
+  nodeId: string;
 }
 
 export interface ScriptedChoice {
   id: string;
   /** Text shown on the choice button (what the player says / does). */
   text: string;
-  /** ID of the next node, or null to end the scripted dialogue. */
+
+  /**
+   * Fallback destination node, or null to end the dialogue.
+   * If `branches` is defined, this is only used when no branch condition matches.
+   */
   nextNodeId: string | null;
-  /** Flag expression — choice is hidden (not offered) if this evaluates false. */
+
+  /**
+   * Post-condition branching. Evaluated after effects are applied.
+   * First branch whose condition is true wins. Falls back to nextNodeId.
+   */
+  branches?: ChoiceBranch[];
+
+  /**
+   * Lines to display before showing the target node's choices.
+   * When set, the target node's own `lines` are SKIPPED — only its choices are shown.
+   * Use this for returning to a previous node without repeating its setup text.
+   *
+   * Example: returning to kach_intro_follow_up after exploring push_forest,
+   * showing a short transition instead of repeating the full opening.
+   */
+  transitionLines?: ScriptedLine[];
+
+  /**
+   * Pre-condition: flag expression — choice is hidden if this evaluates false.
+   * Supports all FlagSystem operators: &, |, !
+   */
   condition?: string;
+
+  /**
+   * Pre-condition: all listed intel IDs must be in player's knownIntelIds.
+   * Choice is hidden if any are missing.
+   */
+  knowledgeRequired?: string[];
+
   effects?: ChoiceEffects;
 }
 

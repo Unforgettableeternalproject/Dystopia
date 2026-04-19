@@ -75,11 +75,17 @@ export class DialogueManager {
   }
 
   /**
-   * Filter a node's choices by their optional flag conditions.
-   * Hidden choices (condition false) are excluded.
+   * Filter a node's choices by pre-conditions:
+   *   - `condition`        : flag expression must be true
+   *   - `knowledgeRequired`: all listed intel IDs must be in player's knownIntelIds
    */
   filterChoices(choices: ScriptedChoice[], flags: FlagSystem): ScriptedChoice[] {
-    return choices.filter(c => !c.condition || flags.evaluate(c.condition));
+    const known = this.state.getState().player.knownIntelIds;
+    return choices.filter(c => {
+      if (c.condition && !flags.evaluate(c.condition)) return false;
+      if (c.knowledgeRequired?.some(id => !known.includes(id))) return false;
+      return true;
+    });
   }
 
   /**
@@ -117,6 +123,10 @@ export class DialogueManager {
 
     if (effects.attitude) {
       this.state.updateNPCDialogueState(npcId, undefined, effects.attitude);
+    }
+
+    if (effects.grantIntel) {
+      for (const intelId of effects.grantIntel) this.state.grantIntel(intelId);
     }
   }
 
