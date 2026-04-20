@@ -33,7 +33,12 @@
       "mcp__token-savior__get_dependents",
       "mcp__token-savior__find_dead_code",
       "mcp__token-savior__find_hotspots",
-      "mcp__token-savior__get_entry_points"
+      "mcp__token-savior__get_entry_points",
+      "Bash(npm test:*)",
+      "Bash(node --input-type=module)",
+      "Bash(2>&1)",
+      "Bash(curl -s http://localhost:11434/v1/chat/completions -H \"Content-Type: application/json\" -d \"{\\\\\"model\\\\\":\\\\\"gemma4:e4b-it-q4_K_M\\\\\",\\\\\"max_tokens\\\\\":256,\\\\\"stream\\\\\":false,\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"system\\\\\",\\\\\"content\\\\\":\\\\\"You are an action validator for a grounded RPG. Respond ONLY with JSON: { \\\\\\\\\\\\\"allowed\\\\\\\\\\\\\": boolean, \\\\\\\\\\\\\"reason\\\\\\\\\\\\\": string | null, \\\\\\\\\\\\\"modifiedInput\\\\\\\\\\\\\": string | null }. mysticism=0 means player has NO magical ability at all - reject all magic actions.\\\\\"},{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"content\\\\\":\\\\\"{\\\\\\\\\\\\\"action\\\\\\\\\\\\\":\\\\\\\\\\\\\"我施展火球術燒掉眼前的障礙\\\\\\\\\\\\\",\\\\\\\\\\\\\"domainKnowledge\\\\\\\\\\\\\":{\\\\\\\\\\\\\"mysticism\\\\\\\\\\\\\":0},\\\\\\\\\\\\\"endo\\\\\\\\\\\\\":\\\\\\\\\\\\\"0/0\\\\\\\\\\\\\"}\\\\\"}]}\")",
+      "Bash(curl -s http://localhost:11434/v1/chat/completions -H \"Content-Type: application/json\" -d \"{\\\\\"model\\\\\":\\\\\"gemma4:e4b-it-q4_K_M\\\\\",\\\\\"max_tokens\\\\\":256,\\\\\"stream\\\\\":false,\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"system\\\\\",\\\\\"content\\\\\":\\\\\"Respond ONLY with JSON: { allowed: boolean }. mysticism=0 means NO magic.\\\\\"},{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"content\\\\\":\\\\\"{\\\\\\\\\\\\\"action\\\\\\\\\\\\\":\\\\\\\\\\\\\"cast fireball\\\\\\\\\\\\\",\\\\\\\\\\\\\"mysticism\\\\\\\\\\\\\":0}\\\\\"}]}\")"
     ]
   }
 }

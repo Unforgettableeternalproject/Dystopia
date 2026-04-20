@@ -2,18 +2,31 @@
 // Hard rules run first (no LLM). LLM only handles semantic edge cases.
 
 import type { PlayerAction, PlayerState, RegulatorResult, Thought } from '../types';
-import type { ResolvedLocation } from '../types/world';
 import type { ILLMClient } from './ILLMClient';
 
 const VALIDATE_SYSTEM = `You are an action validator for a grounded RPG.
-Determine if the player's action is physically/practically possible given their current stats and conditions.
+Each stat arrives with a parenthetical label that tells you its meaning — use those labels to judge feasibility.
 
 Rules:
-1. Use stats (strength, knowledge, talent, spirit, luck) and status (stamina, stress) to judge feasibility.
+1. Read the descriptors, not just the numbers. "0/50 (no concept)" means the player literally cannot do anything in that domain.
 2. Active conditions may restrict or modify possible actions (e.g., injured_arm limits heavy lifting).
 3. If impossible, give a short in-world reason — never say "your stat is too low".
-4. If possible but overreaching, you may downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
+4. If possible but overreaching, downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
 5. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null }`;
+
+// Patterns that indicate prompt injection attempts.
+// Checked case-insensitively; order does not matter.
+const INJECTION_PATTERNS: RegExp[] = [
+  /ignore\s+(all\s+)?previous\s+instructions?/i,
+  /forget\s+(all\s+)?previous/i,
+  /you\s+are\s+now\s+/i,
+  /pretend\s+(you\s+are|to\s+be)/i,
+  /system\s*prompt/i,
+  /jailbreak/i,
+  /無視.{0,10}(指令|規則|設定)/,
+  /忽略.{0,10}(之前|指令|規則)/,
+  /你(現在)?(是|要扮演)/,
+];
 
 export class Regulator {
   private client: ILLMClient;
@@ -25,26 +38,47 @@ export class Regulator {
   // ── Validation ──────────────────────────────────────────────
 
   async validate(action: PlayerAction, player: PlayerState): Promise<RegulatorResult> {
-    const hard = this.hardCheck(action, player);
+    const hard = this.hardCheck(action);
     if (hard !== null) return hard;
+
+    const staminaCheck = this.hardCheckStats(action, player);
+    if (staminaCheck !== null) return staminaCheck;
 
     const conditionSummary = player.conditions
       .filter(c => !c.isHidden)
       .map(c => c.id + ': ' + c.description)
       .join('; ');
 
+    const s = player.statusStats;
+    const d = player.secondaryStats;
+    const p = player.primaryStats;
     const userMessage = JSON.stringify({
-      action: action.input,
+      action:     action.input,
       actionType: action.type,
-      stats: player.primaryStats,
-      stamina: player.statusStats.stamina + '/' + player.statusStats.staminaMax,
-      stress: player.statusStats.stress + '/' + player.statusStats.stressMax,
+      traits: {
+        strength:  this.describeTrait(p.strength),
+        knowledge: this.describeTrait(p.knowledge),
+        talent:    this.describeTrait(p.talent),
+        spirit:    this.describeTrait(p.spirit),
+        luck:      this.describeTrait(p.luck),
+      },
+      stamina:        this.describeStamina(s.stamina, s.staminaMax),
+      stress:         this.describeStress(s.stress, s.stressMax),
+      endo:           this.describeEndo(s.endo, s.endoMax),
+      domainKnowledge: {
+        mysticism:     this.describeDomain(d.mysticism),
+        technology:    this.describeDomain(d.technology),
+        consciousness: this.describeDomain(d.consciousness),
+      },
       conditions: conditionSummary || 'none',
     });
 
     try {
-      const raw = await this.client.complete(VALIDATE_SYSTEM, userMessage, 256);
-      const parsed = JSON.parse(raw) as {
+      // 1024 tokens: thinking models spend budget on internal reasoning before emitting JSON.
+      const raw     = await this.client.complete(VALIDATE_SYSTEM, userMessage, 1024);
+      // Local models (e.g. Gemma via Ollama) often wrap JSON in markdown code fences.
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      const parsed = JSON.parse(cleaned) as {
         allowed: boolean;
         reason: string | null;
         modifiedInput: string | null;
@@ -61,11 +95,102 @@ export class Regulator {
     }
   }
 
-  private hardCheck(action: PlayerAction, player: PlayerState): RegulatorResult | null {
+  /**
+   * Hard rules that do not require player stats — pure input sanitisation.
+   * Returns a rejection result if the input is blocked, or null to continue.
+   */
+  hardCheck(action: PlayerAction): RegulatorResult | null {
+    // Block DM signal impersonation (e.g. <<FLAG: ...>>, <<NPC: ...>>)
+    if (/<<[^>]*>>/.test(action.input)) {
+      return { allowed: false, reason: '（無效的輸入）' };
+    }
+
+    // Block prompt injection attempts
+    if (INJECTION_PATTERNS.some(p => p.test(action.input))) {
+      return { allowed: false, reason: '（無效的輸入）' };
+    }
+
+    return null;
+  }
+
+  /**
+   * Hard rules that depend on player stats/status.
+   * Split from hardCheck() so tests can exercise each set independently.
+   */
+  hardCheckStats(action: PlayerAction, player: PlayerState): RegulatorResult | null {
     if (action.type === 'combat' && player.statusStats.stamina <= 0) {
       return { allowed: false, reason: '精疲力竭，連站穩都費力，更別說戰鬥了。' };
     }
     return null;
+  }
+
+  // ── Stat descriptors ────────────────────────────────────────
+  // Converts raw numbers to labelled strings so the LLM understands the scale.
+
+  /** Traits (primaryStats): scale 1–20. */
+  private describeTrait(val: number): string {
+    let label: string;
+    if (val <= 5)       label = 'layman — can barely manage basic tasks in this domain';
+    else if (val <= 8)  label = 'some knowledge — handles simple tasks';
+    else if (val <= 11) label = 'capable — reliable for standard tasks';
+    else if (val <= 15) label = 'mastered — handles complex tasks well';
+    else if (val <= 19) label = 'expert — excels at nearly everything';
+    else                label = 'near-perfect — exceptional, rarely fails';
+    return `${val}/20 (${label})`;
+  }
+
+  /** Internal values (secondaryStats): scale 0–50. */
+  private describeDomain(val: number): string {
+    let label: string;
+    if (val === 0)      label = 'no concept — completely clueless, cannot apply this domain at all';
+    else if (val <= 15) label = 'basic understanding — limited application, struggles with anything non-trivial';
+    else if (val <= 24) label = 'knows a thing or two — can attempt simple tasks with effort';
+    else if (val <= 34) label = 'familiar — comfortable with standard tasks in this domain';
+    else if (val <= 44) label = 'proficient — handles complex tasks reliably';
+    else if (val <= 49) label = 'highly proficient — masters nearly all of the domain';
+    else                label = 'transcendent — beyond normal limits';
+    return `${val}/50 (${label})`;
+  }
+
+  /** Stamina: scale 5–50, thresholds based on consumption ratio. */
+  private describeStamina(stamina: number, staminaMax: number): string {
+    if (staminaMax <= 0) return `${stamina}/? (unknown)`;
+    const remaining = stamina / staminaMax;
+    let label: string;
+    if (remaining <= 0.10)      label = 'near death — can barely breathe';
+    else if (remaining <= 0.25) label = 'can barely move';
+    else if (remaining <= 0.40) label = 'weakened — limited to light actions';
+    else if (remaining <= 0.55) label = 'fatigued — tiring quickly';
+    else if (remaining <= 0.80) label = 'slightly unwell — minor hindrance';
+    else                        label = 'fine';
+    return `${stamina}/${staminaMax} (${Math.round(remaining * 100)}% — ${label})`;
+  }
+
+  /** Stress: scale 0–50, thresholds based on accumulation ratio. */
+  private describeStress(stress: number, stressMax: number): string {
+    if (stressMax <= 0) return `${stress}/? (unknown)`;
+    const ratio = stress / stressMax;
+    let label: string;
+    if (ratio >= 0.90)      label = 'complete breakdown — barely functional';
+    else if (ratio >= 0.80) label = 'panicking — erratic behaviour likely';
+    else if (ratio >= 0.60) label = 'anxious — concentration impaired';
+    else if (ratio >= 0.40) label = 'tense — noticeable but manageable';
+    else if (ratio >= 0.20) label = 'uneasy — slightly on edge';
+    else                    label = 'calm';
+    return `${stress}/${stressMax} (${Math.round(ratio * 100)}% — ${label})`;
+  }
+
+  /** Endo (Endovis): scale 0–100. endoMax=0 means no magical capacity at all. */
+  private describeEndo(endo: number, endoMax: number): string {
+    if (endoMax === 0) return '0/0 (no magical capacity — magic is impossible)';
+    const ratio = endo / endoMax;
+    let label: string;
+    if (ratio <= 0)         label = 'fully depleted — cannot cast anything';
+    else if (ratio <= 0.20) label = 'nearly depleted — only trivial effects possible';
+    else if (ratio <= 0.50) label = 'low — limited to minor magic';
+    else if (ratio <= 0.80) label = 'sufficient — can sustain moderate magic';
+    else                    label = 'fully charged';
+    return `${endo}/${endoMax} (${Math.round(ratio * 100)}% — ${label})`;
   }
 
   // ── Thought processing ──────────────────────────────────────
