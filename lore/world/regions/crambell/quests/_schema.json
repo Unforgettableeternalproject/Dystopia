@@ -22,6 +22,30 @@
     "onDitch: 玩家在此階段執行 ditch 時的額外 stage 層級效果"
   ],
 
+  "_comment_onComplete_fields": [
+    "onComplete / onDitch 可用欄位：",
+    "  flagsSet / flagsUnset",
+    "  statChanges            — dot-path 格式，如 statusStats.stress: -1",
+    "  reputationChanges      — key = factionId",
+    "  affinityChanges        — key = npcId（新增）",
+    "  grantItems             — [{ itemId, variantId? }]（新增）",
+    "  grantQuestId           — 完成此階段時自動授予另一個任務（新增）",
+    "  nextStageId            — null = 任務完成"
+  ],
+
+  "_comment_objective_types": [
+    "type 可用值：",
+    "  flag_check         — flag: '旗標名'",
+    "  flag_expression    — flagExpression: 'flag_a AND flag_b'",
+    "  quest_flag         — questFlag: '本地旗標名'（DM <<QUEST>> 信號設置）",
+    "  location_visit     — locationId: '地點 ID'",
+    "  npc_talk           — npcId: 'NPC ID'",
+    "  item_collect       — itemId: '道具 ID'",
+    "  reputation         — factionId + minReputation",
+    "  encounter_completed — encounterCompletedId: '遭遇 ID'",
+    "                        requiredOutcomeType: 'success' | 'failure' | 'neutral'（可選）"
+  ],
+
   "id": "crambell_quest_id",
   "name": "任務顯示名稱",
   "type": "main | side | hidden",
@@ -52,20 +76,26 @@
       "objectives": [
         {
           "id": "obj_1",
-          "type": "flag_check | flag_expression | location_visit | npc_talk | item_collect | reputation",
+          "type": "flag_check | flag_expression | quest_flag | location_visit | npc_talk | item_collect | reputation | encounter_completed",
           "description": "玩家可見的具體目標",
           "flag": "required_flag (flag_check 用)",
           "flagExpression": "flag_a AND flag_b (flag_expression 用)",
+          "questFlag": "local_flag_name (quest_flag 用)",
           "locationId": "target_location (location_visit 用)",
           "npcId": "target_npc (npc_talk 用)",
           "itemId": "target_item (item_collect 用)",
           "factionId": "target_faction (reputation 用)",
-          "minReputation": 10
+          "minReputation": 10,
+          "encounterCompletedId": "encounter_id (encounter_completed 用)",
+          "requiredOutcomeType": "success | failure | neutral (encounter_completed 用，可省略)"
         }
       ],
       "onComplete": {
         "flagsSet": ["stage_1_complete"],
         "reputationChanges": { "crambell_treffen": 5 },
+        "affinityChanges": { "crambell_kach": 2 },
+        "grantItems": [{ "itemId": "item_id", "variantId": "optional_variant" }],
+        "grantQuestId": "next_quest_id (可省略)",
         "nextStageId": "stage_2"
       },
       "onDitch": {
@@ -77,7 +107,7 @@
 
   "rewards": {
     "experience": 100,
-    "items": ["item_id"],
+    "items": [{ "itemId": "item_id", "variantId": "optional_variant" }],
     "skillIds": ["skill_id"],
     "reputationChanges": { "crambell_treffen": 15 },
     "affinityChanges": { "crambell_kach": 5 },

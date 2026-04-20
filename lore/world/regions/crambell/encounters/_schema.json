@@ -1,0 +1,120 @@
+{
+  "_schema": "EncounterDefinition — one file per encounter",
+  "id": "encounter_name",
+  "name": "顯示名稱（遭遇面板標題）",
+  "type": "event",
+  "_comment_type": [
+    "type 決定 UI 主視覺與互動模式：",
+    "  'narrative' — 劇情遭遇：敘事場景，琥珀色主視覺，通常沒有選項或只有「繼續」",
+    "  'event'     — 事件遭遇：有選項的決策場景，藍色主視覺，可含數值判定（預設）",
+    "  'dialogue'  — 對話遭遇：橋接 NPC 對話系統（目前僅作觸發器）",
+    "  'combat'    — 戰鬥遭遇：紅色主視覺（MVP 延後，顯示 stub）",
+    "  'shop'      — 商店遭遇：綠色主視覺（MVP 延後，顯示 stub）"
+  ],
+  "description": "DM-facing：此遭遇的整體情境說明，一到兩句話。",
+  "entryNodeId": "node_intro",
+
+  "_comment_nodes": [
+    "nodes 是有向圖（DAG）。entryNodeId 為入口。",
+    "",
+    "每個節點可以是：",
+    "  1. 敘述節點（有 choices）      — 顯示文字並讓玩家選擇",
+    "  2. 判定節點（有 statCheck）    — 自動執行判定並跳轉，不顯示選項",
+    "  3. 結局節點（isOutcome: true）— 顯示後套用 effects 並結束遭遇",
+    "",
+    "dmNarrative: 向 DM 提供的情境（DM 會根據此生成敘述）",
+    "displayText:  直接顯示的固定文字（省略則使用 dmNarrative 作為顯示文字）",
+    "",
+    "選項的 nextNodeId 填 null 表示遭遇在此結束（不需要 isOutcome 節點）。",
+    "",
+    "effects 可用欄位（節點與選項的 effects 相同）：",
+    "  flagsSet / flagsUnset",
+    "  statChanges          — dot-path 格式，如 statusStats.stress: 2",
+    "  reputationChanges    — key = factionId",
+    "  affinityChanges      — key = npcId",
+    "  grantItems           — [{ itemId, variantId? }]",
+    "  grantQuestId         — 授予任務 ID",
+    "  grantIntelId         — 授予情報 ID（同時設置 know_<id> 旗標）"
+  ],
+
+  "_comment_stat_check": [
+    "statCheck.stat 格式：dot-path，如 'primaryStats.strength'、'statusStats.stamina'",
+    "通過條件：playerStat >= threshold",
+    "successNodeId / failNodeId 指向判定結果後的目標節點 ID",
+    "",
+    "可用的 stat 路徑：",
+    "  primaryStats.strength / knowledge / talent / spirit / luck",
+    "  secondaryStats.consciousness / mysticism / technology",
+    "  statusStats.stamina / stress / endo"
+  ],
+
+  "_comment_outcome_type": [
+    "outcomeType（isOutcome 節點使用）：",
+    "  'success' — 玩家成功（任務目標 encounter_completed 可以指定需要 success）",
+    "  'failure' — 玩家失敗",
+    "  'neutral' — 中性結局（省略時預設）"
+  ],
+
+  "nodes": {
+    "node_intro": {
+      "id": "node_intro",
+      "dmNarrative": "向 DM 描述場景情境的說明。DM 用這段文字產生敘述。",
+      "displayText": "（可選）直接顯示給玩家的固定文字，省略則以 dmNarrative 代替。",
+      "choices": [
+        {
+          "id": "choice_a",
+          "text": "選項 A 的文字",
+          "condition": "optional_flag （省略 = 永遠顯示）",
+          "nextNodeId": "node_check",
+          "effects": {
+            "flagsSet": [],
+            "statChanges": { "statusStats.stress": -1 }
+          }
+        },
+        {
+          "id": "choice_b",
+          "text": "選項 B 的文字",
+          "nextNodeId": null,
+          "effects": {
+            "reputationChanges": { "government": -2 }
+          }
+        }
+      ]
+    },
+
+    "node_check": {
+      "id": "node_check",
+      "dmNarrative": "判定場景說明。",
+      "statCheck": {
+        "stat": "primaryStats.strength",
+        "threshold": 8,
+        "successNodeId": "node_success",
+        "failNodeId": "node_failure"
+      }
+    },
+
+    "node_success": {
+      "id": "node_success",
+      "dmNarrative": "成功的場景說明。",
+      "displayText": "你成功了。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["encounter_passed"],
+        "reputationChanges": { "miners_union": 3 },
+        "grantQuestId": "optional_quest_to_grant"
+      }
+    },
+
+    "node_failure": {
+      "id": "node_failure",
+      "dmNarrative": "失敗的場景說明。",
+      "displayText": "你失敗了。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": { "statusStats.stamina": -2 }
+      }
+    }
+  }
+}

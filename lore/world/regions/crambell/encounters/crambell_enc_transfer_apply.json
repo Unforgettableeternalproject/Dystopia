@@ -1,0 +1,56 @@
+{
+  "id": "crambell_enc_transfer_apply",
+  "name": "申報站申請",
+  "type": "event",
+  "description": "玩家在作業時段結束後前往配額站，試圖提出工作調轉申請。官員會審查申請資格，玩家需要選擇適當的應對方式。成功則進入三日等待期，失敗則什麼都沒有。",
+  "entryNodeId": "at_post",
+  "nodes": {
+    "at_post": {
+      "id": "at_post",
+      "dmNarrative": "作業時段剛剛結束，配額站的窗口仍然開著。一個官員坐在裡面，手邊放著一疊文件。玩家走近窗口。[TODO: 描述配額站在作業時段結束後的氛圍，官員的外貌與態度]",
+      "choices": [
+        {
+          "id": "apply_formally",
+          "text": "直接提出調轉申請，說明自己符合資格",
+          "nextNodeId": "review_check"
+        },
+        {
+          "id": "leave",
+          "text": "猶豫了一下，還是轉身離開",
+          "nextNodeId": "left_end"
+        }
+      ]
+    },
+    "review_check": {
+      "id": "review_check",
+      "dmNarrative": "官員翻出一份表格，開始核對玩家的資料。他的表情平靜，看不出任何情緒。[TODO: 描述審查過程的細節，是否有任何互動，判定依據是什麼]",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "threshold": 3,
+        "successNodeId": "approved",
+        "failNodeId": "rejected"
+      }
+    },
+    "approved": {
+      "id": "approved",
+      "dmNarrative": "官員在表格上蓋了章，遞給玩家一份收據。『三天後來領取正式文件。』他說，語氣像是在交代一件例行公事。[TODO: 描述玩家拿到收據的感受，以及對這個機會的期待與不安]",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": []
+      }
+    },
+    "rejected": {
+      "id": "rejected",
+      "dmNarrative": "官員看了幾眼表格，把它推回窗口。『名額已滿。』他說，沒有任何解釋，就低頭繼續看他的文件。[TODO: 描述被拒絕的感受，讓玩家知道可以再試一次]",
+      "isOutcome": true,
+      "outcomeType": "failure"
+    },
+    "left_end": {
+      "id": "left_end",
+      "dmNarrative": "玩家轉身離開，窗口的燈還亮著。也許下次。[TODO: 簡短的旁白]",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

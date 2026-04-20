@@ -1,0 +1,7 @@
+{
+  "id": "crambell_work_permit",
+  "name": "工作證",
+  "description": "印有持有人姓名與配額分配的礦工身分牌。在坎貝爾第四象限作業時段中必須隨身攜帶，遺失將遭受嚴厲處置。",
+  "type": "key",
+  "obtainedFrom": "礦工出身玩家於遊戲開始時自動持有，記錄於 lore/world/starter.json 初始物品欄。"
+}

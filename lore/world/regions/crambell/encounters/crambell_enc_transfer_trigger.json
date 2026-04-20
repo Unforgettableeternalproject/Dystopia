@@ -1,0 +1,56 @@
+{
+  "id": "crambell_enc_transfer_trigger",
+  "name": "好康發報",
+  "type": "event",
+  "description": "廣播播出一則關於工作調轉的公告，有限的名額開放申請。玩家需要決定是否嘗試爭取這個機會。若選擇爭取，需通過力量判定（代表身體狀況和工作表現是否達到申請標準）。",
+  "entryNodeId": "broadcast",
+  "nodes": {
+    "broadcast": {
+      "id": "broadcast",
+      "dmNarrative": "擴音器突然傳出一段不尋常的廣播，與平時的工作指令截然不同。播音員用官腔宣讀著什麼——工作調轉名額、申請資格、截止時間。旁邊幾個工人互相交換眼神，又很快低下頭繼續工作。[TODO: 補充廣播的具體內容，應體現政府的官僚語氣，同時讓玩家感受到這是真實的機會]",
+      "choices": [
+        {
+          "id": "try",
+          "text": "試著去爭取這個機會",
+          "nextNodeId": "strength_check"
+        },
+        {
+          "id": "ignore",
+          "text": "這種消息聽過太多次了，繼續手上的工作",
+          "nextNodeId": "ignored_end"
+        }
+      ]
+    },
+    "strength_check": {
+      "id": "strength_check",
+      "dmNarrative": "玩家回想自己最近的工作表現，評估自己是否達到申請標準。（力量判定：代表體能與工作量表現）",
+      "statCheck": {
+        "stat": "primaryStats.strength",
+        "threshold": 3,
+        "successNodeId": "qualified",
+        "failNodeId": "not_qualified"
+      }
+    },
+    "qualified": {
+      "id": "qualified",
+      "dmNarrative": "玩家的工作表現達到申請標準。廣播中提到的截止時間還有一段——如果現在去配額站提出申請，也許來得及。[TODO: 描述玩家決定去爭取時的心理狀態]",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "grantQuestId": "crambell_transfer_opportunity"
+      }
+    },
+    "not_qualified": {
+      "id": "not_qualified",
+      "dmNarrative": "玩家知道自己的工作量還不夠——申請表上要求的數字比自己目前的還要高。廣播的聲音漸漸遠去，這次的機會就這樣過了。[TODO: 描述失敗的沮喪感，以及可以繼續努力的暗示]",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "ignored_end": {
+      "id": "ignored_end",
+      "dmNarrative": "玩家把廣播當作背景噪音，繼續工作。幾分鐘後，廣播結束了，什麼都沒有改變。[TODO: 可以加入玩家心理旁白，暗示這個選擇的成本]",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

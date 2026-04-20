@@ -270,6 +270,20 @@ export class QuestEngine {
         this.applyReputation(fid, delta);
       }
     }
+    if (outcome.affinityChanges) {
+      for (const [nid, delta] of Object.entries(outcome.affinityChanges)) {
+        if (delta !== undefined) this.state.modifyAffinity(nid, delta);
+      }
+    }
+    if (outcome.grantItems?.length) {
+      const now = this.state.getState().time.totalMinutes;
+      for (const { itemId, variantId } of outcome.grantItems) {
+        this.state.addItem(itemId, now, variantId);
+      }
+    }
+    if (outcome.grantQuestId) {
+      this.grantQuest(outcome.grantQuestId);
+    }
   }
 
   private applyReputation(factionId: string, delta: number): void {
@@ -300,6 +314,16 @@ export class QuestEngine {
         if (!obj.factionId || obj.minReputation === undefined) return false;
         const rep = gs.player.externalStats.reputation[obj.factionId] ?? 0;
         return rep >= obj.minReputation;
+      }
+
+      case 'encounter_completed': {
+        if (!obj.encounterCompletedId) return false;
+        const encId = obj.encounterCompletedId;
+        if (!this.state.flags.has(`encounter_${encId}_completed`)) return false;
+        if (obj.requiredOutcomeType) {
+          return this.state.flags.has(`encounter_${encId}_${obj.requiredOutcomeType}`);
+        }
+        return true;
       }
 
       default:

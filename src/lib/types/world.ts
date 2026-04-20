@@ -302,6 +302,22 @@ export interface EventCondition {
    * 範例: triggerHours: [6, 22] 每天 6:00 和 22:00 各觸發一次。
    */
   triggerHours?: number[];
+  /**
+   * 指定任務必須為進行中（非完成、非失敗）才觸發。
+   * 搭配 questStageId 可進一步限定特定任務階段。
+   */
+  questActiveId?: string;
+  /**
+   * 指定任務階段 ID。需同時設定 questActiveId。
+   * 玩家當前的任務階段必須符合才觸發。
+   */
+  questStageId?: string;
+}
+
+/** 物品發放項目（用於 EventOutcome.grantItems） */
+export interface EventGrantItem {
+  itemId: string;
+  variantId?: string;
 }
 
 export interface EventOutcome {
@@ -311,6 +327,16 @@ export interface EventOutcome {
   flagsSet?: string[];
   flagsUnset?: string[];
   statChanges?: Partial<Record<string, number>>;
+  /** 授予任務（由 GameController 轉交 QuestEngine 處理） */
+  grantQuestId?: string;
+  /** 派系聲望變化，key 為 factionId，value 為 delta（可為負值） */
+  reputationChanges?: Record<string, number>;
+  /** NPC 好感變化，key 為 npcId，value 為 delta（可為負值） */
+  affinityChanges?: Record<string, number>;
+  /** 給予玩家物品列表 */
+  grantItems?: EventGrantItem[];
+  /** 觸發遭遇 ID（由 GameController 轉交 EncounterEngine 處理） */
+  startEncounterId?: string;
 }
 
 export interface GameEvent {

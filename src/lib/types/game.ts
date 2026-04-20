@@ -6,6 +6,7 @@ import type { QuestInstance } from "./quest";
 import type { WorldPhaseState } from "./phase";
 import type { TimePeriod } from "./world";
 import type { PlayerAttitude } from "./dialogue";
+import type { ActiveEncounter } from "./encounter";
 
 /**
  * 遊戲內時間。
@@ -45,6 +46,11 @@ export interface GameState {
   npcMemory: Record<string, NPCMemoryEntry>;
   /** 當前進行中的對話；undefined 表示非對話狀態 */
   activeDialogue?: ActiveDialogueState;
+  /**
+   * 當前進行中的遭遇；undefined 表示非遭遇狀態。
+   * GameState.phase = 'event' 時此欄位應存在。
+   */
+  activeEncounter?: ActiveEncounter;
   /** 當前遊戲內時間 */
   time: GameTime;
   /** 當前時段（作業/休息/特殊） */

@@ -43,4 +43,7 @@ export const GameEvents = {
   QUEST_DITCHED:        'quest:ditched',    // 玩家主動放棄
   QUEST_FAILED:         'quest:failed',     // 逾時或條件不符失敗
   ITEM_EXPIRED:         'item:expired',     // 時限道具失效
+  ENCOUNTER_STARTED:    'encounter:started',   // 遭遇開始
+  ENCOUNTER_OUTCOME:    'encounter:outcome',   // 遭遇結局確定（帶 outcomeType）
+  ENCOUNTER_ENDED:      'encounter:ended',     // 遭遇結束（恢復 exploring）
 } as const;

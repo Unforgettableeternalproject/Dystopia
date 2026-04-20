@@ -4,6 +4,7 @@ import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
 import type { HistoryEntry } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
+import type { EncounterChoice, EncounterType } from '../types/encounter';
 import type { InventoryItem } from '../types/item';
 
 // ── Narrative Lines ────────────────────────────────────────────
@@ -217,6 +218,23 @@ export interface ActiveScriptedDialogue {
 }
 
 export const activeScriptedDialogue = writable<ActiveScriptedDialogue | null>(null);
+
+// ── Active structured encounter ────────────────────────────────
+
+export interface ActiveEncounterUI {
+  encounterId:   string;
+  encounterName: string;
+  /** 遭遇型別，決定渲染的 UI 元件 */
+  type:          EncounterType;
+  /** 顯示給玩家的場景文字（displayText 或 DM 敘述） */
+  nodeText:      string;
+  /** 過濾後玩家可見的選項 */
+  choices:       EncounterChoice[];
+  /** 數值判定結果（若有的話） */
+  statCheckResult?: { stat: string; threshold: number; passed: boolean };
+}
+
+export const activeEncounterUI = writable<ActiveEncounterUI | null>(null);
 
 // ── Modal state ────────────────────────────────────────────────
 

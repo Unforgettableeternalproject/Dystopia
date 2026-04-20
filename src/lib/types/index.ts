@@ -5,3 +5,4 @@ export type * from './game';
 export type * from './dialogue';
 export type * from './quest';
 export type * from './phase';
+export type * from './encounter';

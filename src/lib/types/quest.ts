@@ -17,13 +17,14 @@ export type QuestType = 'main' | 'side' | 'hidden';
 // ── Objective ─────────────────────────────────────────────────────
 
 export type ObjectiveType =
-  | 'flag_check'       // 單一全域旗標存在
-  | 'flag_expression'  // 複合旗標運算式（支援 AND/OR/NOT）
-  | 'quest_flag'       // 任務本地旗標（由 DM <<QUEST>> 信號設置）
-  | 'location_visit'   // 到達指定地點
-  | 'npc_talk'         // 與 NPC 互動過
-  | 'item_collect'     // 持有指定道具
-  | 'reputation';      // 對派系的聲望達到門檻
+  | 'flag_check'          // 單一全域旗標存在
+  | 'flag_expression'     // 複合旗標運算式（支援 AND/OR/NOT）
+  | 'quest_flag'          // 任務本地旗標（由 DM <<QUEST>> 信號設置）
+  | 'location_visit'      // 到達指定地點
+  | 'npc_talk'            // 與 NPC 互動過
+  | 'item_collect'        // 持有指定道具
+  | 'reputation'          // 對派系的聲望達到門檻
+  | 'encounter_completed'; // 遭遇以特定結局完成
 
 export interface QuestObjective {
   id: string;
@@ -45,6 +46,9 @@ export interface QuestObjective {
   // reputation
   factionId?: string;
   minReputation?: number;
+  // encounter_completed
+  encounterCompletedId?: string;
+  requiredOutcomeType?: 'success' | 'failure' | 'neutral';
 }
 
 // ── Stage ─────────────────────────────────────────────────────────
@@ -54,6 +58,9 @@ export interface QuestStageOutcome {
   flagsUnset?: string[];
   statChanges?: Record<string, number>;
   reputationChanges?: Record<string, number>;   // factionId -> delta
+  affinityChanges?: Record<string, number>;     // npcId -> delta
+  grantItems?: Array<{ itemId: string; variantId?: string }>;
+  grantQuestId?: string;
   nextStageId: string | null;                   // null = 任務完成
 }
 
@@ -79,7 +86,7 @@ export interface QuestStage {
 
 export interface QuestReward {
   experience?: number;
-  items?: string[];
+  items?: Array<{ itemId: string; variantId?: string }>;
   skillIds?: string[];                          // 解鎖技能（供未來技能系統使用）
   reputationChanges?: Record<string, number>;   // factionId -> delta
   affinityChanges?: Record<string, number>;     // npcId -> delta

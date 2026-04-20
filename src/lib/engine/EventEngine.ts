@@ -14,6 +14,10 @@ import { GameEvents } from './EventBus';
 export interface TriggeredEvent {
   event: GameEvent;
   outcome: EventOutcome;
+  /** 此結果需要授予的任務 ID（由 GameController 轉交 QuestEngine） */
+  grantQuestId?: string;
+  /** 此結果需要開啟的遭遇 ID（由 GameController 轉交 EncounterEngine） */
+  startEncounterId?: string;
 }
 
 export class EventEngine {
@@ -74,7 +78,12 @@ export class EventEngine {
       if (!outcome) continue;
 
       this.applyOutcome(outcome);
-      triggered.push({ event: ev, outcome });
+      triggered.push({
+        event: ev,
+        outcome,
+        grantQuestId:     outcome.grantQuestId,
+        startEncounterId: outcome.startEncounterId,
+      });
 
       // Non-repeatable: mark as permanently fired
       if (!ev.isRepeatable) {
@@ -145,6 +154,14 @@ export class EventEngine {
       if (!crossed) return false;
     }
 
+    // Quest active condition — specified quest must be in progress
+    if (condition.questActiveId) {
+      const qInst = gs.activeQuests[condition.questActiveId];
+      if (!qInst || qInst.isCompleted || qInst.isFailed) return false;
+      // Optional: specific stage must match
+      if (condition.questStageId && qInst.currentStageId !== condition.questStageId) return false;
+    }
+
     return true;
   }
 
@@ -163,6 +180,25 @@ export class EventEngine {
         if (delta !== undefined) this.state.modifyStat(key, delta);
       }
     }
+    if (outcome.reputationChanges) {
+      for (const [factionId, delta] of Object.entries(outcome.reputationChanges)) {
+        if (delta !== undefined) this.state.modifyReputation(factionId, delta);
+      }
+    }
+    if (outcome.affinityChanges) {
+      for (const [npcId, delta] of Object.entries(outcome.affinityChanges)) {
+        if (delta !== undefined) this.state.modifyAffinity(npcId, delta);
+      }
+    }
+    if (outcome.grantItems?.length) {
+      const now = this.state.getState().time.totalMinutes;
+      for (const { itemId, variantId } of outcome.grantItems) {
+        this.state.addItem(itemId, now, variantId);
+      }
+    }
+    // grantQuestId and startEncounterId are intentionally NOT applied here.
+    // They require higher-level coordination (QuestEngine / EncounterEngine)
+    // and are handled by GameController after processEventIds returns.
   }
 
   private resolveStatValue(gs: Readonly<import('../types').GameState>, key: string): number | undefined {

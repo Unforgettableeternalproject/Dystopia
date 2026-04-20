@@ -23,6 +23,8 @@ import { PhaseManager }     from './PhaseManager';
 import { QuestEngine }      from './QuestEngine';
 import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
+import { EncounterEngine }  from './EncounterEngine';
+import type { ResolvedNode } from './EncounterEngine';
 import type { PlayerAction, GameState, StarterConfig } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
@@ -49,7 +51,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, isSaving } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
@@ -65,8 +67,9 @@ export class GameController {
   private phases:      PhaseManager;
   private quests:      QuestEngine;
   private timeMgr:     TimeManager;
-  private dialogueMgr: DialogueManager;
-  private mockMode:    boolean;
+  private dialogueMgr:  DialogueManager;
+  private encounterMgr: EncounterEngine;
+  private mockMode:     boolean;
 
   /** ID of the region the player is currently in. Updated on region change. */
   private currentRegionId = 'crambell';
@@ -91,7 +94,8 @@ export class GameController {
     this.events      = new EventEngine(this.lore, this.state, this.timeMgr);
     this.phases      = new PhaseManager(this.lore, this.state);
     this.quests      = new QuestEngine(this.lore, this.state);
-    this.dialogueMgr = new DialogueManager(this.lore, this.state);
+    this.dialogueMgr  = new DialogueManager(this.lore, this.state);
+    this.encounterMgr = new EncounterEngine(this.lore, this.state);
 
     // Auto-save triggers: quest completion and game event start
     const doAutoSave = () => this.autoSave().catch(err => log.warn('Auto-save failed', err));
@@ -170,7 +174,15 @@ export class GameController {
       return;
     }
 
-    // 1. Dialogue encounter routing — bypass Regulator if in active encounter
+    // 1a. Encounter routing — bypass Regulator if in active structured encounter
+    const gs0pre = this.state.getState();
+    if (gs0pre.phase === 'event' && gs0pre.activeEncounter) {
+      await this.handleEncounterInput(input.trim());
+      inputDisabled.set(false);
+      return;
+    }
+
+    // 1b. Dialogue encounter routing — bypass Regulator if in active NPC encounter
     //    (guard: skip if scripted dialogue is currently showing choices)
     const currentEncounter = get(activeNpcUI);
     if (currentEncounter && !get(activeScriptedDialogue)) {
@@ -242,6 +254,23 @@ export class GameController {
       this.state.getState().player.currentLocationId, crossedHours,
     );
     const triggered = [...globalTriggered, ...locationTriggered];
+
+    // 3.7. Apply event-driven quest grants and encounter launches
+    for (const t of triggered) {
+      if (t.grantQuestId) {
+        this.quests.grantQuest(t.grantQuestId);
+        log.info('Quest granted by event', { questId: t.grantQuestId, eventId: t.event.id });
+      }
+      if (t.startEncounterId) {
+        const resolved = this.encounterMgr.start(t.startEncounterId);
+        if (resolved) {
+          this.renderEncounterNode(resolved);
+          log.info('Encounter started by event', {
+            encounterId: t.startEncounterId, eventId: t.event.id,
+          });
+        }
+      }
+    }
 
     // 4. DM narration
     const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
@@ -533,10 +562,11 @@ export class GameController {
     (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
     flags.forEach(f => this.state.flags.set(f));
     const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
-    this.events      = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
-    this.phases      = new PhaseManager(this.lore, this.state);
-    this.quests      = new QuestEngine(this.lore, this.state);
-    this.dialogueMgr = new DialogueManager(this.lore, this.state);
+    this.events       = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
+    this.phases       = new PhaseManager(this.lore, this.state);
+    this.quests       = new QuestEngine(this.lore, this.state);
+    this.dialogueMgr  = new DialogueManager(this.lore, this.state);
+    this.encounterMgr = new EncounterEngine(this.lore, this.state);
     this.syncUIState(gs);
     log.info('State loaded from save', { turn: gs.turn });
   }
@@ -911,6 +941,68 @@ export class GameController {
 
     // Refresh thoughts (dialogue mode suggestions or post-encounter exploration)
     await this.refreshThoughts(suggestions);
+  }
+
+  // -- Structured encounter ---------------------------------------------
+
+  /**
+   * Called by UI when the player selects a choice in an active encounter.
+   * Routes to EncounterEngine.selectChoice() and renders the resulting node.
+   */
+  async selectEncounterChoice(choiceId: string): Promise<void> {
+    inputDisabled.set(true);
+    const resolved = this.encounterMgr.selectChoice(choiceId);
+    if (resolved) {
+      this.renderEncounterNode(resolved);
+      // If quest grants are needed, handle them
+      // (EncounterEngine logs a warning for grantQuestId in effects)
+      // TODO: propagate grantQuestId from choice effects through return value
+    } else {
+      // Encounter ended
+      activeEncounterUI.set(null);
+      this.syncUIState(this.state.getState());
+      await this.refreshThoughts();
+    }
+    inputDisabled.set(false);
+  }
+
+  /**
+   * Renders a ResolvedNode to the narrative log and updates activeEncounterUI.
+   */
+  private renderEncounterNode(resolved: ResolvedNode): void {
+    const def = this.lore.getEncounter(
+      this.state.getState().activeEncounter?.encounterId ?? ''
+    );
+    const text = resolved.node.displayText ?? resolved.node.dmNarrative;
+
+    // If stat check was performed, show result prefix
+    if (resolved.statCheckResult) {
+      const { stat, threshold, passed } = resolved.statCheckResult;
+      const statLabel = stat.split('.').pop() ?? stat;
+      const resultText = passed
+        ? `[判定成功 — ${statLabel} ≥ ${threshold}]`
+        : `[判定失敗 — ${statLabel} < ${threshold}]`;
+      pushLine(resultText, 'system');
+    }
+
+    pushLine(text, 'narrative');
+
+    activeEncounterUI.set({
+      encounterId:     resolved.node.id,
+      encounterName:   def?.name ?? '遭遇',
+      type:            def?.type ?? 'event',
+      nodeText:        text,
+      choices:         resolved.visibleChoices,
+      statCheckResult: resolved.statCheckResult,
+    });
+  }
+
+  /**
+   * Guard called from submitAction when phase === 'event'.
+   * Free-text input is disabled during encounters — choices are button-driven.
+   */
+  private async handleEncounterInput(_input: string): Promise<void> {
+    pushLine('請選擇一個選項。', 'system');
   }
 
   // -- Thought generation -----------------------------------------------

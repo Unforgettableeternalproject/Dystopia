@@ -25,6 +25,7 @@
   ],
   "questIds": [
     "crambell_worker_daily_quota",
+    "crambell_transfer_opportunity",
     "crambell_treffen_contact",
     "crambell_mildore_rescue"
   ],
@@ -44,6 +45,8 @@
   "globalEventIds": [
     "crambell_work_period_start",
     "crambell_rest_period_start",
-    "crambell_broadcast"
+    "crambell_broadcast",
+    "crambell_quota_failure",
+    "crambell_transfer_wait"
   ]
 }

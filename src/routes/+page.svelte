@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue } from '$lib/stores/gameStore';
+  import { gamePhase, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -20,6 +20,7 @@
   import TitleScreen          from '$lib/components/TitleScreen.svelte';
   import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
   import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
+  import EncounterPanel       from '$lib/components/EncounterPanel.svelte';
 
   import type { Thought } from '$lib/types';
 
@@ -114,6 +115,11 @@
   async function handleDialogueChoice(choiceId: string) {
     if (!controller) return;
     await controller.selectDialogueChoice(choiceId);
+  }
+
+  async function handleEncounterChoice(choiceId: string) {
+    if (!controller) return;
+    await controller.selectEncounterChoice(choiceId);
   }
 
   // ── Save ──────────────────────────────────────────────────────
@@ -222,7 +228,7 @@
   <div class="main-area" class:npc-active={$activeNpcUI !== null}>
     <LeftSidebar />
 
-    <div class="center-column" class:encounter-active={$activeNpcUI !== null}>
+    <div class="center-column" class:encounter-active={$activeNpcUI !== null || $activeEncounterUI !== null}>
       {#if $activeNpcUI}
         <div class="encounter-bar">
           <span class="enc-icon">◈</span>
@@ -232,7 +238,9 @@
         </div>
       {/if}
       <NarrativePanel />
-      {#if $activeScriptedDialogue}
+      {#if $activeEncounterUI}
+        <EncounterPanel onSelect={handleEncounterChoice} />
+      {:else if $activeScriptedDialogue}
         <ScriptedChoicePanel onSelect={handleDialogueChoice} />
       {:else}
         <ThoughtsPanel onSelect={handleThoughtSelect} />

@@ -9,6 +9,7 @@ import type {
   TimePeriod,
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
+import type { EncounterDefinition } from '../types/encounter';
 import type { GameTime } from '../types/game';
 import { FlagRegistry } from '../engine/FlagRegistry';
 import type { ProximityContext } from '../engine/FlagRegistry';
@@ -25,6 +26,7 @@ interface LoreData {
   factions:     Record<string, Faction>;
   dialogues:    Record<string, DialogueProfile>;
   quests:       Record<string, QuestDefinition>;
+  encounters:   Record<string, EncounterDefinition>;
   phases:       WorldPhase[];
   regions:      Record<string, RegionIndex>;
   districts:    Record<string, DistrictIndex>;
@@ -36,7 +38,7 @@ interface LoreData {
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
-    dialogues: {}, quests: {}, phases: [], regions: {}, districts: {}, schedules: {},
+    dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
     flagManifest: [], items: {},
   };
 
@@ -64,6 +66,7 @@ export class LoreVault {
     }
     if (data.phases)       this.data.phases.push(...data.phases);
     if (data.items)        Object.assign(this.data.items,       data.items);
+    if (data.encounters)   Object.assign(this.data.encounters,  data.encounters);
   }
 
   /**
@@ -410,6 +413,12 @@ export class LoreVault {
 
   getAllItems(): ItemNode[] {
     return Object.values(this.data.items);
+  }
+
+  // -- Encounters ------------------------------------------------------
+
+  getEncounter(id: string): EncounterDefinition | undefined {
+    return this.data.encounters[id];
   }
 
   // -- DM scene context ------------------------------------------------

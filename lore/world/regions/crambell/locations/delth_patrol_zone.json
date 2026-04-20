@@ -38,7 +38,7 @@
       }
     ],
     "npcIds": ["crambell_mildore"],
-    "eventIds": ["crambell_patrol_delth", "crambell_public_punishment"],
+    "eventIds": ["crambell_patrol_delth", "crambell_public_punishment", "crambell_permit_check"],
     "isAccessible": true
   },
   "sublocations": [
@@ -60,7 +60,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": [],
+        "eventIds": ["crambell_transfer_apply"],
         "isAccessible": true
       },
       "localVariants": []

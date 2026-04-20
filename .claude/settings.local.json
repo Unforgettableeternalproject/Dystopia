@@ -34,7 +34,10 @@
       "mcp__token-savior__find_dead_code",
       "mcp__token-savior__find_hotspots",
       "mcp__token-savior__get_entry_points",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(node -e \"const f=require\\('./lore/world/regions/crambell/index.json'\\); console.log\\('quests:', f.questIds\\); console.log\\('globalEvents:', f.globalEventIds\\);\")",
+      "Bash(node -e \"const f=require\\('./lore/world/regions/crambell/events/crambell_transfer_trigger.json'\\); console.log\\('locationId:', f.locationId, '| condition flags:', f.condition.flags, '| notFlags:', f.condition.notFlags\\);\")",
+      "Bash(node -e \"const f=require\\('./lore/world/regions/crambell/events/crambell_transfer_wait.json'\\); f.outcomes.forEach\\(o=>console.log\\(o.id, '| condition:', o.condition||'none', '| flagsSet:', o.flagsSet\\)\\);\")"
     ]
   }
 }

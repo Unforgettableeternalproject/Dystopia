@@ -1,0 +1,33 @@
+{
+  "id": "crambell_permit_check",
+
+  "_comment": [
+    "【過失也是罪】",
+    "位置事件：掛載於 delth_patrol_zone.base.eventIds（管制區及其子地點共享）。",
+    "玩家在作業時段進入管制區，若未持有工作證則觸發。",
+    "旗標 crambell_permit_held 由系統在物品欄初始化時設置，遺失時清除。",
+    "  TODO：目前引擎無法直接在事件中查詢物品欄，需藉助旗標橋接。",
+    "  臨時方案：遊戲開始時確認 crambell_work_permit 在物品欄則設 crambell_permit_held；",
+    "  若引擎未來支援 item_check 條件類型，可移除此橋接旗標。",
+    "cooldownMinutes: 480 — 同一時段內只觸發一次。"
+  ],
+
+  "locationId": "delth_patrol_zone",
+
+  "condition": {
+    "timePeriod": ["work"],
+    "notFlags": ["crambell_permit_held", "crambell_permit_check_done_today"]
+  },
+
+  "description": "管制區的巡邏員注意到你，要求你出示工作證。",
+
+  "outcomes": [
+    {
+      "id": "no_permit_encounter",
+      "description": "玩家無法出示工作證，面臨被盤查的困境。",
+      "flagsSet": ["crambell_permit_check_done_today"],
+      "startEncounterId": "crambell_enc_permit_missing"
+    }
+  ],
+  "isRepeatable": true
+}

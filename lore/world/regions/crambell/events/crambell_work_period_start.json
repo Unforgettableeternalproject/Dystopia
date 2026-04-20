@@ -11,7 +11,15 @@
       "id": "work_start_normal",
       "description": "作業時段開始。警報聲急促，走廊燈全部亮起，人群開始向配額站方向湧去。",
       "flagsSet": ["crambell_work_period_active"],
-      "flagsUnset": ["crambell_rest_period_active"]
+      "flagsUnset": [
+        "crambell_rest_period_active",
+        "crambell_quota_done_today",
+        "crambell_quota_met_today",
+        "crambell_quota_failure_processed",
+        "crambell_transfer_trigger_checked",
+        "crambell_transfer_wait_processed",
+        "crambell_permit_check_done_today"
+      ]
     }
   ],
   "isRepeatable": true

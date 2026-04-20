@@ -1,0 +1,40 @@
+{
+  "id": "crambell_transfer_trigger",
+
+  "_comment": [
+    "【調轉機會】",
+    "位置事件：掛載於 delth_mine_worksite.base.eventIds。",
+    "作業時段內，玩家完成當日配額後，在工作岡位有機率觸發此事件，開啟遭遇「好康發報」。",
+    "設計意圖：機率應隨每次完成配額而提升，錯過（遭遇不接受）後重置。",
+    "  目前實作為每日一次（cooldownMinutes: 1440），簡化機率遞增機制（TODO：計數器系統）。",
+    "觸發後設 crambell_transfer_trigger_checked 防止同日重複觸發；",
+    "  此旗標由 crambell_work_period_start 事件在次日作業開始時清除。",
+    "玩家若未在遭遇中選擇爭取（結果為 neutral），機率重置語意：",
+    "  目前藉 cooldown 機制模擬，後續可加入旗標計數器精確控制。"
+  ],
+
+  "locationId": "delth_mine_worksite",
+
+  "condition": {
+    "timePeriod": ["work"],
+    "flags": ["crambell_quota_met_today"],
+    "notFlags": [
+      "crambell_transfer_trigger_checked",
+      "crambell_transfer_opportunity:active",
+      "crambell_route1_complete"
+    ],
+    "cooldownMinutes": 1440
+  },
+
+  "description": "配額站的擴音器突然播出一則不尋常的廣播，語氣和平時的工作指令不同，像是某種機會。",
+
+  "outcomes": [
+    {
+      "id": "trigger_encounter",
+      "description": "廣播播出，玩家有機會選擇是否爭取調轉名額。",
+      "flagsSet": ["crambell_transfer_trigger_checked"],
+      "startEncounterId": "crambell_enc_transfer_trigger"
+    }
+  ],
+  "isRepeatable": true
+}

@@ -205,6 +205,31 @@ export class StateManager {
     this.notifyUpdate();
   }
 
+  // ── Encounter ────────────────────────────────────────────────
+
+  setPhase(phase: import('../types/game').GamePhase): void {
+    this.state.phase = phase;
+    this.notifyUpdate();
+  }
+
+  setActiveEncounter(encounter: import('../types/encounter').ActiveEncounter): void {
+    this.state.activeEncounter = encounter;
+    this.notifyUpdate();
+  }
+
+  clearActiveEncounter(): void {
+    this.state.activeEncounter = undefined;
+    this.state.phase = 'exploring';
+    this.notifyUpdate();
+  }
+
+  // ── Intel (alias) ────────────────────────────────────────────
+
+  /** Alias for grantIntel — sets knownIntelIds and mirrors to FlagSystem. */
+  addIntel(intelId: string): void {
+    this.grantIntel(intelId);
+  }
+
   // ── Quests ───────────────────────────────────────────────────
 
   /**
@@ -304,8 +329,9 @@ export class StateManager {
           this.state.player.statusStats.experience += reward.experience;
         }
         if (reward.items) {
-          reward.items.forEach(itemId => {
-            this.addItem(itemId, this.state.time.totalMinutes);
+          const now = this.state.time.totalMinutes;
+          reward.items.forEach(({ itemId, variantId }) => {
+            this.addItem(itemId, now, variantId);
           });
         }
       }

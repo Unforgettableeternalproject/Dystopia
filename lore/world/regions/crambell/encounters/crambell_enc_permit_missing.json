@@ -1,0 +1,101 @@
+{
+  "id": "crambell_enc_permit_missing",
+  "name": "沒有辦法解釋的過錯",
+  "type": "event",
+  "description": "玩家在管制區被巡邏員攔下，要求出示工作證，但玩家無法出示。玩家可以選擇認罪受罰，或者嘗試用賄賂或其他方式脫身。",
+  "entryNodeId": "stopped",
+  "nodes": {
+    "stopped": {
+      "id": "stopped",
+      "dmNarrative": "一個巡邏員突然擋在玩家面前，手伸向玩家要求出示工作證。玩家翻遍口袋，什麼都沒有。[TODO: 描述被攔下的突然性，巡邏員的外貌與態度]",
+      "choices": [
+        {
+          "id": "admit",
+          "text": "承認遺失，接受處置",
+          "nextNodeId": "detained"
+        },
+        {
+          "id": "bribe",
+          "text": "偷偷遞給他一些錢，希望他睜一隻眼閉一隻眼",
+          "condition": "crambell_player_has_melphin",
+          "nextNodeId": "bribe_check"
+        },
+        {
+          "id": "run",
+          "text": "趁他不注意，試著脫身",
+          "nextNodeId": "escape_check"
+        }
+      ]
+    },
+    "bribe_check": {
+      "id": "bribe_check",
+      "dmNarrative": "玩家悄悄把錢塞到對方手上。巡邏員低頭看了一眼。[TODO: 描述賄賂過程的緊張感]",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "threshold": 3,
+        "successNodeId": "bribed_away",
+        "failNodeId": "detained"
+      }
+    },
+    "escape_check": {
+      "id": "escape_check",
+      "dmNarrative": "玩家打量著四周，思考是否有逃脫的機會。[TODO: 描述逃跑的機會與風險]",
+      "statCheck": {
+        "stat": "primaryStats.strength",
+        "threshold": 4,
+        "successNodeId": "escaped",
+        "failNodeId": "caught_running"
+      }
+    },
+    "bribed_away": {
+      "id": "bribed_away",
+      "dmNarrative": "巡邏員若無其事地把錢收進口袋，揮手讓玩家走。[TODO: 描述賄賂成功後的如釋重負]",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": 1
+        }
+      }
+    },
+    "escaped": {
+      "id": "escaped",
+      "dmNarrative": "玩家趁著人流，迅速混入人群中消失。巡邏員的聲音在身後消散。[TODO: 描述逃跑成功後的壓力，以及被記住的風險]",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": 3
+        }
+      }
+    },
+    "caught_running": {
+      "id": "caught_running",
+      "dmNarrative": "玩家沒跑幾步就被抓住了，這下情況更糟。[TODO: 描述被逮住後的後果，比直接認罪更嚴重]",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "reputationChanges": {
+          "crambell_government": -3
+        },
+        "statChanges": {
+          "statusStats.stress": 4
+        }
+      }
+    },
+    "detained": {
+      "id": "detained",
+      "dmNarrative": "玩家被帶到一旁登記，罰款並留下違規記錄。沒有申訴的機會。[TODO: 描述被拘留的細節，扣多少錢、有什麼後續影響]",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "reputationChanges": {
+          "crambell_government": -2
+        },
+        "statChanges": {
+          "statusStats.stress": 3
+        }
+      }
+    }
+  }
+}
