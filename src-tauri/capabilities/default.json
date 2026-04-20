@@ -14,7 +14,10 @@
     "fs:allow-remove",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$APPLOCALDATA/**" }]
+      "allow": [
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
     }
   ]
 }

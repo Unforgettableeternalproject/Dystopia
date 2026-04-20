@@ -100,6 +100,28 @@ export class TimeManager {
     return this.jumpToHour(time, nextPeriod.startHour, nextPeriod.startMinute);
   }
 
+  /**
+   * Return the list of hour boundaries (0–23) crossed when advancing from
+   * `from` to `to`. Handles midnight wrap-around and multi-hour jumps.
+   * Example: 5:55 → 6:05 returns [6]. 23:50 → 00:10 returns [0].
+   * Returns all 24 hours when the advance spans a full day or more.
+   */
+  computeCrossedHours(from: GameTime, to: GameTime): number[] {
+    const minutesDiff = to.totalMinutes - from.totalMinutes;
+    if (minutesDiff <= 0) return [];
+    if (minutesDiff >= 1440) return Array.from({ length: 24 }, (_, i) => i);
+
+    const crossed: number[] = [];
+    const fromMins = from.hour * 60 + from.minute;
+    for (let h = 0; h < 24; h++) {
+      // Offset from current position to h:00, always positive (i.e., in the future)
+      let offset = h * 60 - fromMins;
+      if (offset <= 0) offset += 1440;
+      if (offset <= minutesDiff) crossed.push(h);
+    }
+    return crossed;
+  }
+
   /** Format: "AD 1498-06-12 21:23" */
   formatTime(time: GameTime): string {
     const pad = (n: number) => n.toString().padStart(2, '0');

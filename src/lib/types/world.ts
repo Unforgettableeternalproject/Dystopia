@@ -207,6 +207,16 @@ export interface EventCondition {
    * 0 或未設定 = 每回合都可觸發（若其他條件滿足）。
    */
   cooldownMinutes?: number;
+  /** 至少一個 NPC 在當前場景中才觸發。 */
+  npcIds?: string[];
+  /**
+   * 當遊戲時鐘跨越這些整點小時 (0–23) 時觸發。
+   * 以本回合的時間推進量來判斷是否跨越邊界——即使一次行動
+   * 跨越多個小時，每個邊界都會被偵測到。
+   * 搭配 cooldownMinutes >= 55 防止同一小時內重複觸發。
+   * 範例: triggerHours: [6, 22] 每天 6:00 和 22:00 各觸發一次。
+   */
+  triggerHours?: number[];
 }
 
 export interface EventOutcome {

@@ -13,6 +13,7 @@ src-tauri/target/
 .env
 .env.*
 !.env.example
+*cache.json
 
 # Editor
 .vscode/

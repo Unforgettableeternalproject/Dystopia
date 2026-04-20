@@ -17,7 +17,23 @@
       "Bash(gh repo:*)",
       "mcp__token-savior__list_projects",
       "mcp__token-savior__memory_status",
-      "mcp__token-savior__set_project_root"
+      "mcp__token-savior__set_project_root",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(pip show:*)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); mcp=d.get\\('mcpServers',{}\\); print\\(json.dumps\\(mcp.get\\('token-savior', mcp.get\\('token_savior', 'not found'\\)\\), indent=2\\)\\)\")",
+      "Bash(python:*)",
+      "mcp__token-savior__get_project_summary",
+      "mcp__token-savior__get_classes",
+      "mcp__token-savior__get_components",
+      "mcp__token-savior__find_symbol",
+      "mcp__token-savior__search_codebase",
+      "mcp__token-savior__get_dependencies",
+      "mcp__token-savior__get_call_chain",
+      "mcp__token-savior__get_dependents",
+      "mcp__token-savior__find_dead_code",
+      "mcp__token-savior__find_hotspots",
+      "mcp__token-savior__get_entry_points"
     ]
   }
 }

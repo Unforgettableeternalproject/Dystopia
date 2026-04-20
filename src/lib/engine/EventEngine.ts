@@ -29,24 +29,35 @@ export class EventEngine {
     this.schedule = schedule;
   }
 
+  // Temporary context populated before each processEventIds pass.
+  // Avoids threading extra params through every internal method.
+  private checkCtx: { sceneNpcIds: string[]; crossedHours: number[] } = {
+    sceneNpcIds: [],
+    crossedHours: [],
+  };
+
   /**
-   * Check all events available at the current location.
-   * Returns triggered events with their selected outcomes.
-   * Applies flag/stat/cooldown changes immediately.
+   * Check all events at the current location.
+   * @param crossedHours Hour boundaries (0–23) crossed during this action's time advance.
    */
-  checkAndApply(locationId: string): TriggeredEvent[] {
+  checkAndApply(locationId: string, crossedHours: number[] = []): TriggeredEvent[] {
     const resolved = this.lore.resolveLocation(locationId, this.state.flags);
     if (!resolved) return [];
+    this.checkCtx = { sceneNpcIds: resolved.npcIds, crossedHours };
     return this.processEventIds(resolved.eventIds);
   }
 
   /**
    * Check global (non-location-bound) events for the current region.
-   * Call once per turn after location events.
+   * @param crossedHours Hour boundaries (0–23) crossed during this action's time advance.
    */
-  checkGlobalEvents(regionId: string): TriggeredEvent[] {
+  checkGlobalEvents(regionId: string, crossedHours: number[] = []): TriggeredEvent[] {
     const region = this.lore.getRegion(regionId);
     if (!region?.globalEventIds?.length) return [];
+    // Global events may also specify npcIds — check against current scene
+    const gs       = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    this.checkCtx  = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours };
     return this.processEventIds(region.globalEventIds);
   }
 
@@ -118,6 +129,20 @@ export class EventEngine {
         const elapsed = gs.time.totalMinutes - lastFired;
         if (elapsed < condition.cooldownMinutes) return false;
       }
+    }
+
+    // NPC presence condition — at least one required NPC must be in the current scene
+    if (condition.npcIds?.length) {
+      const hasNpc = condition.npcIds.some(id => this.checkCtx.sceneNpcIds.includes(id));
+      if (!hasNpc) return false;
+    }
+
+    // Hour-boundary trigger — fires only when the clock crosses one of these hours
+    // during this action's time advance. Acts as a gate: if specified and no
+    // matching boundary was crossed, the event does not fire this turn.
+    if (condition.triggerHours?.length) {
+      const crossed = condition.triggerHours.some(h => this.checkCtx.crossedHours.includes(h));
+      if (!crossed) return false;
     }
 
     return true;

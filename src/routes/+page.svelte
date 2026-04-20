@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
@@ -138,12 +139,61 @@
   }
 
   function openLoadMenu() {
+    deleteConfirmSlot = null;
     controller.listSaves().then(s => { saveSlots = s; loadMenuOpen = true; });
   }
 
   async function handleLoadFromMenu(slotId: number) {
     loadMenuOpen = false;
     await handleLoadSlot(slotId);
+  }
+
+  // ── Save slot management ──────────────────────────────────────
+
+  let deleteConfirmSlot: number | null = null;
+
+  async function handleExportSlot(slotId: number) {
+    try {
+      const json     = await controller.exportSave(slotId);
+      const filename = `dystopia_slot${slotId}.dys`;
+      await writeTextFile(filename, json, { baseDir: BaseDirectory.Download });
+      pushLine(`（存檔已匯出至下載資料夾：${filename}）`, 'system');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      pushLine(`匯出失敗：${msg}`, 'system');
+    }
+  }
+
+  async function handleDeleteSlot(slotId: number) {
+    try {
+      await controller.deleteSave(slotId);
+      saveSlots = await controller.listSaves();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      pushLine(`刪除失敗：${msg}`, 'system');
+    } finally {
+      deleteConfirmSlot = null;
+    }
+  }
+
+  function handleImportSlot(slotId: number) {
+    const input    = document.createElement('input');
+    input.type     = 'file';
+    input.accept   = '.dys,application/json';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const content = await file.text();
+        await controller.importSave(content, slotId);
+        saveSlots = await controller.listSaves();
+        pushLine(`（存檔已匯入至槽位 ${slotId}）`, 'system');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        pushLine(`匯入失敗：${msg}`, 'system');
+      }
+    };
+    input.click();
   }
 </script>
 
@@ -153,6 +203,9 @@
     {saveSlots}
     onNewGame={handleNewGame}
     onLoadSlot={handleLoadSlot}
+    onExportSlot={handleExportSlot}
+    onDeleteSlot={handleDeleteSlot}
+    onImportSlot={handleImportSlot}
   />
 {/if}
 
@@ -200,22 +253,42 @@
 {#if loadMenuOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="load-backdrop" on:click={() => loadMenuOpen = false}>
+  <div class="load-backdrop" on:click={() => { loadMenuOpen = false; deleteConfirmSlot = null; }}>
     <div class="load-panel" on:click|stopPropagation>
       <div class="load-header">
-        <span class="load-title">讀取存檔</span>
-        <button class="load-close" on:click={() => loadMenuOpen = false}>✕</button>
+        <span class="load-title">存檔管理</span>
+        <button class="load-close" on:click={() => { loadMenuOpen = false; deleteConfirmSlot = null; }}>✕</button>
       </div>
       {#each saveSlots as slot, i}
         {#if slot}
-          <button class="load-slot" on:click={() => handleLoadFromMenu(i)}>
-            <span class="ls-label">{i === 0 ? '自動存檔' : slot.label ?? '存檔 ' + i}</span>
-            <span class="ls-loc">{slot.locationName}</span>
-            <span class="ls-time">{slot.worldTime}</span>
-          </button>
+          <div class="load-slot occupied">
+            <button class="ls-main" on:click={() => handleLoadFromMenu(i)}>
+              <span class="ls-label">{i === 0 ? '自動存檔' : slot.label ?? '存檔 ' + i}</span>
+              <span class="ls-loc">{slot.locationName}</span>
+              <span class="ls-time">{slot.worldTime}</span>
+            </button>
+            {#if i > 0}
+              <div class="ls-actions">
+                {#if deleteConfirmSlot === i}
+                  <span class="ls-confirm-text">確定刪除?</span>
+                  <button class="ls-action-btn danger" on:click={() => handleDeleteSlot(i)}>確定</button>
+                  <button class="ls-action-btn" on:click={() => deleteConfirmSlot = null}>取消</button>
+                {:else}
+                  <button class="ls-action-btn" on:click={() => handleExportSlot(i)}>匯出</button>
+                  <button class="ls-action-btn" on:click={() => handleImportSlot(i)}>匯入</button>
+                  <button class="ls-action-btn danger" on:click={() => deleteConfirmSlot = i}>刪除</button>
+                {/if}
+              </div>
+            {/if}
+          </div>
         {:else}
           <div class="load-slot empty">
             <span class="ls-label">{i === 0 ? '自動存檔' : '存檔 ' + i} — 空</span>
+            {#if i > 0}
+              <div class="ls-actions">
+                <button class="ls-action-btn" on:click={() => handleImportSlot(i)}>匯入</button>
+              </div>
+            {/if}
           </div>
         {/if}
       {/each}
@@ -235,7 +308,7 @@
       </div>
       {#each saveSlots.slice(1) as slot, i}
         {@const slotId = i + 1}
-        <button class="load-slot" on:click={() => handleSaveToSlot(slotId)}>
+        <button class="save-slot" on:click={() => handleSaveToSlot(slotId)}>
           <span class="ls-label">{slot?.label ?? '存檔 ' + slotId}{slot ? '' : ' — 空'}</span>
           {#if slot}
             <span class="ls-loc">{slot.locationName}</span>
@@ -342,24 +415,8 @@
   .load-close:hover { color: var(--text-primary); }
 
   .load-slot {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border: none;
-    border-bottom: 1px solid var(--border);
     background: transparent;
-    text-align: left;
     width: 100%;
-    cursor: pointer;
-    transition: background 0.1s;
-  }
-
-  .load-slot:hover:not(.empty) { background: var(--bg-tertiary); }
-
-  .load-slot.empty {
-    opacity: 0.35;
-    cursor: default;
   }
 
   .ls-label {
@@ -381,6 +438,97 @@
     font-family: var(--font-mono);
     flex-shrink: 0;
   }
+
+  /* Redesigned slot row for management view */
+  .load-slot.occupied {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ls-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.1s;
+    min-width: 0;
+  }
+
+  .ls-main:hover { background: var(--bg-tertiary); }
+
+  .load-slot.empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .load-slot.empty .ls-label {
+    flex: 1;
+    opacity: 0.35;
+  }
+
+  .ls-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .load-slot.empty .ls-actions {
+    border-left: none;
+  }
+
+  .ls-action-btn {
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+  }
+
+  .ls-action-btn:hover { background: var(--bg-tertiary); color: var(--text-secondary); }
+  .ls-action-btn.danger { color: var(--accent-red, #c0392b); }
+  .ls-action-btn.danger:hover { background: rgba(192, 57, 43, 0.12); }
+
+  .ls-confirm-text {
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 0 6px;
+    font-family: var(--font-mono);
+  }
+
+  /* Save menu slot (write-only, simpler) */
+  .save-slot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .save-slot:hover { background: var(--bg-tertiary); }
 
   /* Close confirmation — above TitleScreen (z-index 200) */
   .close-backdrop {

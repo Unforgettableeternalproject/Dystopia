@@ -86,6 +86,27 @@ export class FlagRegistry {
     return lines.join('\n');
   }
 
+  // ── Automatic Flag Cleanup ────────────────────────────────────
+
+  /**
+   * Evaluate unsetConditions for all manifest entries.
+   * Any flag that is currently SET and whose unsetCondition evaluates to true
+   * will be automatically unset. Call once per turn after DM signals are applied.
+   * Returns the list of flagIds that were unset (for logging).
+   */
+  processFlagUnsets(flags: FlagSystem): string[] {
+    const unset: string[] = [];
+    for (const entry of this.entries) {
+      if (!entry.unsetCondition) continue;
+      if (!flags.has(entry.flagId)) continue;
+      if (flags.evaluate(entry.unsetCondition)) {
+        flags.unset(entry.flagId);
+        unset.push(entry.flagId);
+      }
+    }
+    return unset;
+  }
+
   // ── Signal Parsing ────────────────────────────────────────────
 
   /**

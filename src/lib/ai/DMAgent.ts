@@ -4,7 +4,7 @@
 import type { PlayerAction, HistoryEntry } from '../types';
 import type { ILLMClient } from './ILLMClient';
 
-const SYSTEM_PROMPT = `請以繁體中文輸出所有敘述與對話。
+export const DM_SYSTEM_PROMPT = `請以繁體中文輸出所有敘述與對話。
 
 You are the narrator (DM) of a theatrical RPG set in a dark industrial world.
 
@@ -44,12 +44,19 @@ Rules:
 - The signal line is invisible to the player.
 
 TIME SIGNALING:
-If the player's action takes significantly more time than a typical action (e.g., sleep, extended
-rest, long travel, cooking a full meal), append a time signal line AFTER MOVE (if present):
+Always include a time signal on its own line, placed after <<FLAGS>> and <<MOVE>> if present:
   <<TIME: N>>
-where N is the total in-game minutes this action takes (integer). Examples:
-  sleep 8 hours = 480 | short nap 2 hours = 120 | a full meal = 30 | quick snack = 10
-Omit this line for ordinary short actions — the engine applies a default.
+where N is an integer representing total in-game minutes for this action.
+Default for most actions is 10. Never omit this signal.
+
+When the player describes an action with a clear duration, use a realistic estimate:
+  Sleep full night (6–8 h) : 360–480  | Nap (1–2 h)         : 60–120
+  Extended sleep (3–4 h)   : 180–240  | Quick rest (<30 min) : 20–30
+  Full meal                : 20–30    | Long travel / task   : 60–300
+
+For sleep or extended rest: decide N first, then narrate only the falling-asleep moment
+and the waking-up scene at current_time + N. Do NOT narrate events that happen during
+the rest (clock announcements, disturbances, etc.) — the engine handles those separately.
 
 THOUGHT SUGGESTIONS:
 As the very last line of your output, suggest 2–3 concise follow-up actions in Traditional
@@ -59,7 +66,7 @@ Examples: 前往配額申報站 | 詢問舍友 | 觀察走廊
 Omit if the scene has insufficient context for meaningful suggestions.
 
 The structured scene data, player status, and triggered events are provided in each message.
-Respond with narration then optional signals — no OOC commentary, no markdown headers.`;
+Respond with narration then signals — no OOC commentary, no markdown headers.`;
 
 export class DMAgent {
   private client: ILLMClient;
@@ -98,6 +105,6 @@ export class DMAgent {
       action.input,
     ].join('\n');
 
-    yield* this.client.stream(SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
+    yield* this.client.stream(DM_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
   }
 }

@@ -7,9 +7,14 @@
   let playerName = '';
   let nameError = '';
 
-  export let onNewGame: (name: string) => void;
-  export let onLoadSlot: (slotId: number) => void;
+  export let onNewGame:    (name: string) => void;
+  export let onLoadSlot:   (slotId: number) => void;
+  export let onExportSlot: (slotId: number) => void = () => {};
+  export let onDeleteSlot: (slotId: number) => void = () => {};
+  export let onImportSlot: (slotId: number) => void = () => {};
   export let saveSlots: Array<{ slotId: number; label?: string; ts: number; locationName: string; worldTime: string } | null> = [];
+
+  let deleteConfirmSlot: number | null = null;
 
   function confirmName() {
     const trimmed = playerName.trim();
@@ -71,19 +76,39 @@
       <div class="slot-list">
         {#each saveSlots as slot, i}
           {#if slot}
-            <button class="slot-row" on:click={() => onLoadSlot(i)}>
-              <div class="slot-left">
-                <span class="slot-label">{i === 0 ? '自動存檔' : slot.label ?? '存檔 ' + i}</span>
-                <span class="slot-location">{slot.locationName}</span>
-              </div>
-              <div class="slot-right">
-                <span class="slot-time">{slot.worldTime}</span>
-                <span class="slot-date">{formatDate(slot.ts)}</span>
-              </div>
-            </button>
+            <div class="slot-row occupied">
+              <button class="slot-main" on:click={() => { deleteConfirmSlot = null; onLoadSlot(i); }}>
+                <div class="slot-left">
+                  <span class="slot-label">{i === 0 ? '自動存檔' : slot.label ?? '存檔 ' + i}</span>
+                  <span class="slot-location">{slot.locationName}</span>
+                </div>
+                <div class="slot-right">
+                  <span class="slot-time">{slot.worldTime}</span>
+                  <span class="slot-date">{formatDate(slot.ts)}</span>
+                </div>
+              </button>
+              {#if i > 0}
+                <div class="slot-actions">
+                  {#if deleteConfirmSlot === i}
+                    <span class="slot-confirm-text">確定刪除?</span>
+                    <button class="slot-action-btn danger" on:click={() => { onDeleteSlot(i); deleteConfirmSlot = null; }}>確定</button>
+                    <button class="slot-action-btn" on:click={() => deleteConfirmSlot = null}>取消</button>
+                  {:else}
+                    <button class="slot-action-btn" on:click={() => onExportSlot(i)}>匯出</button>
+                    <button class="slot-action-btn" on:click={() => onImportSlot(i)}>匯入</button>
+                    <button class="slot-action-btn danger" on:click={() => deleteConfirmSlot = i}>刪除</button>
+                  {/if}
+                </div>
+              {/if}
+            </div>
           {:else}
             <div class="slot-row empty">
               <span class="slot-empty-label">{i === 0 ? '自動存檔' : '存檔 ' + i} — 空</span>
+              {#if i > 0}
+                <div class="slot-actions">
+                  <button class="slot-action-btn" on:click={() => onImportSlot(i)}>匯入</button>
+                </div>
+              {/if}
             </div>
           {/if}
         {/each}
@@ -265,23 +290,73 @@
 
   .slot-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
+    align-items: stretch;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 2px;
-    cursor: pointer;
     width: 100%;
-    text-align: left;
     transition: border-color 0.1s;
   }
 
-  .slot-row:hover:not(.empty) { border-color: var(--accent); }
+  .slot-row.occupied:hover { border-color: var(--accent); }
 
   .slot-row.empty {
-    cursor: default;
-    opacity: 0.35;
+    align-items: center;
+    padding: 10px 14px;
+  }
+
+  .slot-main {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+  }
+
+  .slot-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .slot-row.empty .slot-actions {
+    border-left: none;
+    padding-left: 0;
+    margin-left: auto;
+  }
+
+  .slot-action-btn {
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+  }
+
+  .slot-action-btn:hover { background: var(--bg-tertiary); color: var(--text-secondary); }
+  .slot-action-btn.danger { color: var(--accent-red, #c0392b); }
+  .slot-action-btn.danger:hover { background: rgba(192, 57, 43, 0.12); }
+
+  .slot-confirm-text {
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 0 6px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
   }
 
   .slot-left {
@@ -323,6 +398,7 @@
     font-size: 11px;
     color: var(--text-dim);
     font-family: var(--font-mono);
+    opacity: 0.45;
   }
 
   .version-tag {

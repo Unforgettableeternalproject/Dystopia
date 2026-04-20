@@ -11,7 +11,7 @@
 //   8. syncUIState
 //   9. refreshThoughts
 
-import { DMAgent }          from '../ai/DMAgent';
+import { DMAgent, DM_SYSTEM_PROMPT } from '../ai/DMAgent';
 import { Regulator }        from '../ai/Regulator';
 import { autoClients }      from '../ai/LLMClientFactory';
 import type { ILLMClient }  from '../ai/ILLMClient';
@@ -107,6 +107,7 @@ export class GameController {
     }
     const gs = this.state.getState();
     this.state.discoverLocation(gs.player.currentLocationId);
+    this.discoverSceneNpcs();
     log.info('Game started', { turn: gs.turn, location: gs.player.currentLocationId });
 
     // Grant origin quests based on player's starting background
@@ -192,13 +193,16 @@ export class GameController {
     const newPeriod = schedule
       ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs0.player.activeFlags)
       : gs0.timePeriod;
-    const periodChanged = this.state.advanceTime(newTime, newPeriod);
+    const periodChanged  = this.state.advanceTime(newTime, newPeriod);
+    const crossedHours   = this.timeMgr.computeCrossedHours(gs0.time, newTime);
 
-    // 3. Check global events (period transitions, broadcasts, etc.)
-    const globalTriggered = this.events.checkGlobalEvents(this.currentRegionId);
+    // 3. Check global events (period transitions, broadcasts, hour-based triggers)
+    const globalTriggered = this.events.checkGlobalEvents(this.currentRegionId, crossedHours);
 
     // 3.5. Check location events
-    const locationTriggered = this.events.checkAndApply(this.state.getState().player.currentLocationId);
+    const locationTriggered = this.events.checkAndApply(
+      this.state.getState().player.currentLocationId, crossedHours,
+    );
     const triggered = [...globalTriggered, ...locationTriggered];
 
     // 4. DM narration
@@ -207,14 +211,26 @@ export class GameController {
 
     // 4.5. Apply extra time if DM signaled more than default (e.g., sleeping 8 h)
     if (signaledMinutes !== null && signaledMinutes > defaultMinutes) {
-      const extra     = signaledMinutes - defaultMinutes;
-      const gs1       = this.state.getState();
-      const laterTime = this.timeMgr.advance(gs1.time, extra);
+      const extra       = signaledMinutes - defaultMinutes;
+      const gs1         = this.state.getState();
+      const laterTime   = this.timeMgr.advance(gs1.time, extra);
       const laterPeriod = schedule
         ? this.timeMgr.getCurrentPeriod(laterTime, schedule, gs1.player.activeFlags)
         : gs1.timePeriod;
       this.state.advanceTime(laterTime, laterPeriod);
+      // Fire time-based global events for any additional hours crossed during extended sleep
+      const extraCrossed = this.timeMgr.computeCrossedHours(gs1.time, laterTime);
+      if (extraCrossed.length > 0) {
+        this.events.checkGlobalEvents(this.currentRegionId, extraCrossed);
+      }
     }
+
+    // 4.6. Auto-discover NPCs visible in the current scene
+    this.discoverSceneNpcs();
+
+    // 4.7. Process automatic flag unsets (FlagManifest unsetCondition)
+    const autoUnset = this.lore.flagRegistry.processFlagUnsets(this.state.flags);
+    if (autoUnset.length > 0) log.debug('Auto-unset flags', { flags: autoUnset });
 
     // 5-7. Post-narration systems
     this.quests.checkTimeLimits(this.state.getState().time.totalMinutes);
@@ -437,6 +453,40 @@ export class GameController {
     return this.state.flags.toArray();
   }
 
+  /**
+   * Build the full DM prompt for the current game state — without calling the LLM.
+   * Used by the debug route to inspect context structure.
+   * @param actionInput  Simulated player action (default: 觀察四周)
+   */
+  getDMContextPreview(actionInput = '觀察四周'): {
+    systemPrompt: string;
+    sceneContext:  string;
+    fullUserMessage: string;
+  } {
+    const sceneContext = this.buildSceneCtx([]);
+    const gs           = this.state.getState();
+    const historyText  = gs.history
+      .slice(-5)
+      .map(h => {
+        const loc = h.locationId ? ` [${h.locationId}]` : '';
+        return `Turn ${h.turn}${loc}\nPlayer: ${h.action.input}\nNarrator: ${h.narrative}`;
+      })
+      .join('\n\n');
+
+    const fullUserMessage = [
+      '## Scene Data',
+      sceneContext,
+      '',
+      '## Recent History',
+      historyText || '(game start)',
+      '',
+      '## Player Action',
+      actionInput,
+    ].join('\n');
+
+    return { systemPrompt: DM_SYSTEM_PROMPT, sceneContext, fullUserMessage };
+  }
+
   /** Restore from a decoded SaveSnapshot. */
   loadState(gs: GameState, flags: string[]): void {
     // Rebuild StateManager with the restored state
@@ -476,6 +526,29 @@ export class GameController {
     const gs    = this.state.getState();
     const parts: string[] = [];
 
+    // ── Time & schedule header (always first) ─────────────────────────────
+    const timeStr    = this.timeMgr.formatTime(gs.time);
+    const periodStr  = this.timeMgr.formatPeriod(gs.timePeriod);
+    const periodNote = periodChanged ? ' ← 時段轉換' : '';
+
+    const schedule   = this.lore.getSchedule(this.currentRegionId);
+    const schedLine  = schedule
+      ? schedule.periods
+          .map(p => {
+            const fmt = (h: number, m: number) =>
+              h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
+            return `${p.label} ${fmt(p.startHour, p.startMinute)}–${fmt(p.endHour, p.endMinute)}`;
+          })
+          .join(' | ')
+      : null;
+
+    parts.push([
+      '## Current Time',
+      'Time: ' + timeStr + ' | ' + periodStr + periodNote,
+      schedLine ? 'Schedule: ' + schedLine : '',
+    ].filter(Boolean).join('\n'));
+
+    // ── Location context ───────────────────────────────────────────────────
     parts.push(
       this.lore.buildSceneContext(
         gs.player.currentLocationId,
@@ -490,14 +563,9 @@ export class GameController {
       .map(c => c.label)
       .join(', ');
 
-    const timeStr    = this.timeMgr.formatTime(gs.time);
-    const periodStr  = this.timeMgr.formatPeriod(gs.timePeriod);
-    const periodNote = periodChanged ? ' ← 時段轉換' : '';
-
     parts.push([
       '',
       '## Player Status',
-      'Time: ' + timeStr + ' | ' + periodStr + periodNote,
       'Stamina: ' + gs.player.statusStats.stamina + '/' + gs.player.statusStats.staminaMax +
         ' | Stress: ' + gs.player.statusStats.stress + '/' + gs.player.statusStats.stressMax,
       'World Phase: ' + gs.worldPhase.currentPhase.replace(/_/g, ' '),
@@ -979,6 +1047,19 @@ export class GameController {
       attitude:         mem?.playerAttitude ?? 'neutral',
       interactionCount: mem?.interactionCount ?? 0,
     });
+  }
+
+  /** Auto-set met_<npcId> discovery flags for all NPCs visible in the current scene. */
+  private discoverSceneNpcs(): void {
+    const gs       = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    if (!resolved) return;
+    for (const npcId of resolved.npcIds) {
+      if (!this.state.flags.has('met_' + npcId)) {
+        this.state.flags.set('met_' + npcId);
+        log.debug('NPC discovered', { npcId });
+      }
+    }
   }
 
   // -- Mock mode --------------------------------------------------------
