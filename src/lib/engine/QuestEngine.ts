@@ -18,7 +18,7 @@ import type { StateManager }      from './StateManager';
 import type {
   QuestDefinition, QuestInstance,
   QuestObjective, QuestSource,
-  QuestStageOutcome,
+  QuestStageOutcome, QuestStageFailOutcome,
 } from '../types/quest';
 import type { GameState } from '../types';
 import { GameEvents } from './EventBus';
@@ -166,6 +166,34 @@ export class QuestEngine {
   }
 
   /**
+   * 外部觸發任務階段失敗（由 EventOutcome.failQuestId 或 EncounterChoiceEffects.failQuestId 啟動）。
+   * 套用當前階段的 onFail 效果並根據 nextStageId 決定後續：
+   *   nextStageId = null   → 任務完全失敗
+   *   nextStageId = string → 退回指定階段（可重試）
+   *   nextStageId = undefined → 僅套用效果，停留在當前階段
+   */
+  applyQuestFail(questId: string): void {
+    const gs       = this.state.getState();
+    const instance = gs.activeQuests[questId];
+    if (!instance || instance.isCompleted || instance.isFailed) return;
+
+    const def   = this.lore.getQuest(questId);
+    const stage = instance.currentStageId ? def?.stages[instance.currentStageId] : undefined;
+
+    if (stage?.onFail) {
+      this.applyFailOutcome(stage.onFail);
+
+      if (stage.onFail.nextStageId === null) {
+        this.state.failQuest(questId);
+      } else if (typeof stage.onFail.nextStageId === 'string') {
+        this.state.advanceQuestStage(questId, stage.onFail.nextStageId);
+      }
+      // undefined = stay at current stage; effects already applied
+    }
+    // No onFail defined = silent, do nothing
+  }
+
+  /**
    * 處理 DM <<QUEST>> 信號。
    * type 'flag'      → 設置任務本地旗標，觸發目標重新評估。
    * type 'objective' → 直接標記目標為已完成，觸發階段推進。
@@ -283,6 +311,26 @@ export class QuestEngine {
     }
     if (outcome.grantQuestId) {
       this.grantQuest(outcome.grantQuestId);
+    }
+  }
+
+  private applyFailOutcome(outcome: QuestStageFailOutcome): void {
+    outcome.flagsSet?.forEach(f => this.state.flags.set(f));
+    outcome.flagsUnset?.forEach(f => this.state.flags.unset(f));
+    if (outcome.statChanges) {
+      for (const [key, delta] of Object.entries(outcome.statChanges)) {
+        if (delta !== undefined) this.state.modifyStat(key, delta);
+      }
+    }
+    if (outcome.reputationChanges) {
+      for (const [fid, delta] of Object.entries(outcome.reputationChanges)) {
+        this.applyReputation(fid, delta);
+      }
+    }
+    if (outcome.affinityChanges) {
+      for (const [nid, delta] of Object.entries(outcome.affinityChanges)) {
+        if (delta !== undefined) this.state.modifyAffinity(nid, delta);
+      }
     }
   }
 

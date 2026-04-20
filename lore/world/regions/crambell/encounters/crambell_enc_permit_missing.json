@@ -17,7 +17,7 @@
         {
           "id": "bribe",
           "text": "偷偷遞給他一些錢，希望他睜一隻眼閉一隻眼",
-          "condition": "crambell_player_has_melphin",
+          "minMelphin": 5,
           "nextNodeId": "bribe_check"
         },
         {
@@ -53,6 +53,7 @@
       "isOutcome": true,
       "outcomeType": "neutral",
       "effects": {
+        "melphinChange": -5,
         "statChanges": {
           "statusStats.stress": 1
         }

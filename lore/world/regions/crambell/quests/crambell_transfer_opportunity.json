@@ -33,6 +33,9 @@
       "onComplete": {
         "flagsSet": ["crambell_transfer_application_approved"],
         "nextStageId": "day1"
+      },
+      "onFail": {
+        "statChanges": { "statusStats.stress": 1 }
       }
     },
     "day1": {

@@ -42,9 +42,12 @@
     },
     "rejected": {
       "id": "rejected",
-      "dmNarrative": "官員看了幾眼表格，把它推回窗口。『名額已滿。』他說，沒有任何解釋，就低頭繼續看他的文件。[TODO: 描述被拒絕的感受，讓玩家知道可以再試一次]",
+      "dmNarrative": "官員看了幾眼表格，把它推回窗口。『名額已滿。』他說，沒有任何解釋，就低頭繼續看他的文件。[TODO: 描述被拒絕的感受，讓玩家知道可以再試一次（明天再來）]",
       "isOutcome": true,
-      "outcomeType": "failure"
+      "outcomeType": "failure",
+      "effects": {
+        "failQuestId": "crambell_transfer_opportunity"
+      }
     },
     "left_end": {
       "id": "left_end",

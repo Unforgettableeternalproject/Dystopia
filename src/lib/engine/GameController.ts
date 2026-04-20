@@ -261,6 +261,10 @@ export class GameController {
         this.quests.grantQuest(t.grantQuestId);
         log.info('Quest granted by event', { questId: t.grantQuestId, eventId: t.event.id });
       }
+      if (t.failQuestId) {
+        this.quests.applyQuestFail(t.failQuestId);
+        log.info('Quest fail applied by event', { questId: t.failQuestId, eventId: t.event.id });
+      }
       if (t.startEncounterId) {
         const resolved = this.encounterMgr.start(t.startEncounterId);
         if (resolved) {
@@ -952,11 +956,18 @@ export class GameController {
   async selectEncounterChoice(choiceId: string): Promise<void> {
     inputDisabled.set(true);
     const resolved = this.encounterMgr.selectChoice(choiceId);
+    // Handle high-level effects that EncounterEngine stored for us
+    const pending = this.encounterMgr.flushPendingEffects();
+    if (pending.questGrant) {
+      this.quests.grantQuest(pending.questGrant);
+      log.info('Quest granted by encounter choice', { questId: pending.questGrant });
+    }
+    if (pending.questFail) {
+      this.quests.applyQuestFail(pending.questFail);
+      log.info('Quest fail applied by encounter choice', { questId: pending.questFail });
+    }
     if (resolved) {
       this.renderEncounterNode(resolved);
-      // If quest grants are needed, handle them
-      // (EncounterEngine logs a warning for grantQuestId in effects)
-      // TODO: propagate grantQuestId from choice effects through return value
     } else {
       // Encounter ended
       activeEncounterUI.set(null);

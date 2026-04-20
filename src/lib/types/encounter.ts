@@ -13,6 +13,7 @@
 //   'shop'      — 商店遭遇：交易界面（MVP 延後）
 
 import type { EventGrantItem } from './world';
+import type { ItemRequirement } from './item';
 
 // ── Encounter Type ────────────────────────────────────────────
 
@@ -52,6 +53,16 @@ export interface EncounterChoiceEffects {
   grantItems?: EventGrantItem[];
   grantQuestId?: string;
   grantIntelId?: string;
+  /**
+   * 梅分變化（正 = 獲得，負 = 扣除）。不走 statChanges dot-path。
+   * 由 GameController 轉交 StateManager.modifyMelphin 處理。
+   */
+  melphinChange?: number;
+  /**
+   * 觸發指定任務的 onFail 效果並推進/失敗該任務。
+   * 由 GameController 轉交 QuestEngine.applyQuestFail 處理。
+   */
+  failQuestId?: string;
 }
 
 /** 遭遇中的單一選項 */
@@ -63,6 +74,15 @@ export interface EncounterChoice {
    * 省略 = 永遠顯示。
    */
   condition?: string;
+  /**
+   * 物品持有需求（AND 關係）。玩家需持有所有未失效的指定物品，此選項才顯示。
+   * 與旗標 condition 為獨立條件（AND）。
+   */
+  itemCondition?: ItemRequirement[];
+  /**
+   * 最低梅分門檻。玩家持有梅分需大於等於此數值，此選項才顯示。
+   */
+  minMelphin?: number;
   /** 選擇後套用的效果（選填） */
   effects?: EncounterChoiceEffects;
   /**

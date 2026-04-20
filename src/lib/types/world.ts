@@ -312,6 +312,15 @@ export interface EventCondition {
    * 玩家當前的任務階段必須符合才觸發。
    */
   questStageId?: string;
+  /**
+   * 玩家持有的物品需求（AND 關係）。玩家需持有所有未失效的指定物品才能觸發。
+   * 與 ConnectionAccess.itemRequirements 語意相同。
+   */
+  itemRequirements?: ItemRequirement[];
+  /**
+   * 最低梅分門檻。玩家持有梅分需大於等於此數值才能觸發。
+   */
+  minMelphin?: number;
 }
 
 /** 物品發放項目（用於 EventOutcome.grantItems） */
@@ -337,6 +346,15 @@ export interface EventOutcome {
   grantItems?: EventGrantItem[];
   /** 觸發遭遇 ID（由 GameController 轉交 EncounterEngine 處理） */
   startEncounterId?: string;
+  /**
+   * 梅分變化（正 = 獲得，負 = 扣除）。
+   * 由 StateManager.modifyMelphin 處理，不走 statChanges 的 dot-path。
+   */
+  melphinChange?: number;
+  /**
+   * 觸發指定任務的 onFail 效果並推進/失敗該任務（由 GameController 轉交 QuestEngine）。
+   */
+  failQuestId?: string;
 }
 
 export interface GameEvent {

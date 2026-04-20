@@ -5,7 +5,7 @@
 //   checkAndApply(locationId)   — location-bound events (from LocationNode.eventIds)
 //   checkGlobalEvents(regionId) — global events (from RegionIndex.globalEventIds)
 
-import type { GameEvent, EventOutcome, RegionSchedule } from '../types';
+import type { GameEvent, EventOutcome, RegionSchedule, ItemRequirement } from '../types';
 import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { TimeManager } from './TimeManager';
@@ -18,6 +18,8 @@ export interface TriggeredEvent {
   grantQuestId?: string;
   /** 此結果需要開啟的遭遇 ID（由 GameController 轉交 EncounterEngine） */
   startEncounterId?: string;
+  /** 此結果需要觸發失敗的任務 ID（由 GameController 轉交 QuestEngine.applyQuestFail） */
+  failQuestId?: string;
 }
 
 export class EventEngine {
@@ -83,6 +85,7 @@ export class EventEngine {
         outcome,
         grantQuestId:     outcome.grantQuestId,
         startEncounterId: outcome.startEncounterId,
+        failQuestId:      outcome.failQuestId,
       });
 
       // Non-repeatable: mark as permanently fired
@@ -162,6 +165,23 @@ export class EventEngine {
       if (condition.questStageId && qInst.currentStageId !== condition.questStageId) return false;
     }
 
+    // Item requirements — player must hold all specified non-expired items
+    if (condition.itemRequirements?.length) {
+      for (const req of condition.itemRequirements) {
+        const held = gs.player.inventory.some(
+          i => i.itemId === req.itemId
+            && !i.isExpired
+            && (req.variantId === undefined || i.variantId === req.variantId)
+        );
+        if (!held) return false;
+      }
+    }
+
+    // Melphin minimum — player must hold at least this amount
+    if (condition.minMelphin !== undefined && gs.player.melphin < condition.minMelphin) {
+      return false;
+    }
+
     return true;
   }
 
@@ -196,7 +216,10 @@ export class EventEngine {
         this.state.addItem(itemId, now, variantId);
       }
     }
-    // grantQuestId and startEncounterId are intentionally NOT applied here.
+    if (outcome.melphinChange) {
+      this.state.modifyMelphin(outcome.melphinChange);
+    }
+    // grantQuestId, startEncounterId, failQuestId are intentionally NOT applied here.
     // They require higher-level coordination (QuestEngine / EncounterEngine)
     // and are handled by GameController after processEventIds returns.
   }

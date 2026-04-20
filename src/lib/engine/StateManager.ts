@@ -49,6 +49,12 @@ export class StateManager {
 
   // ── Stats ────────────────────────────────────────────────────
 
+  /** Modify Melphin (currency). Clamps to minimum 0. */
+  modifyMelphin(delta: number): void {
+    this.state.player.melphin = Math.max(0, this.state.player.melphin + delta);
+    this.notifyUpdate();
+  }
+
   /** Update a stat by dot-path, e.g. "primaryStats.strength" */
   modifyStat(key: string, delta: number): void {
     const [group, stat] = key.split('.');

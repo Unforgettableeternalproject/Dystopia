@@ -13,6 +13,7 @@
 import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { EncounterDefinition, EncounterNode, EncounterChoice, EncounterChoiceEffects } from '../types/encounter';
+import type { ItemRequirement } from '../types/item';
 import { GameEvents } from './EventBus';
 import { createLogger } from '../utils/Logger';
 
@@ -32,11 +33,30 @@ export interface ResolvedNode {
   statCheckResult?: { stat: string; threshold: number; passed: boolean };
 }
 
+/** 待 GameController 處理的高層效果（需跨引擎協調） */
+export interface EncounterPendingEffects {
+  questGrant?: string;
+  questFail?: string;
+}
+
 export class EncounterEngine {
+  /** 暫存由遭遇 effects 產生的、需要 GameController 轉發的高層效果 */
+  private pending: EncounterPendingEffects = {};
+
   constructor(
     private lore:  LoreVault,
     private state: StateManager,
   ) {}
+
+  /**
+   * 取出並清空待處理效果。
+   * GameController 在每次 selectChoice 呼叫後呼叫此方法，確保 grantQuestId / failQuestId 被正確處理。
+   */
+  flushPendingEffects(): EncounterPendingEffects {
+    const out = { ...this.pending };
+    this.pending = {};
+    return out;
+  }
 
   /**
    * 啟動遭遇。
@@ -182,10 +202,14 @@ export class EncounterEngine {
       return { ...resolved, statCheckResult: { stat, threshold, passed } };
     }
 
-    // Filter choices by condition
-    const visibleChoices = (node.choices ?? []).filter(c =>
-      !c.condition || this.state.flags.evaluate(c.condition)
-    );
+    // Filter choices by flag condition, item requirements, and melphin threshold
+    const gs = this.state.getState();
+    const visibleChoices = (node.choices ?? []).filter(c => {
+      if (c.condition && !this.state.flags.evaluate(c.condition)) return false;
+      if (c.itemCondition?.length && !this.meetsItemCondition(c.itemCondition, gs)) return false;
+      if (c.minMelphin !== undefined && gs.player.melphin < c.minMelphin) return false;
+      return true;
+    });
 
     return {
       node,
@@ -218,15 +242,31 @@ export class EncounterEngine {
         this.state.addItem(itemId, now, variantId);
       }
     }
+    if (effects.melphinChange) {
+      this.state.modifyMelphin(effects.melphinChange);
+    }
     if (effects.grantQuestId) {
-      // QuestEngine not available here — caller (GameController) must handle
-      log.warn('EncounterChoiceEffects.grantQuestId must be handled by GameController', {
-        questId: effects.grantQuestId,
-      });
+      // Store for GameController to pick up via flushPendingEffects()
+      this.pending.questGrant = effects.grantQuestId;
+    }
+    if (effects.failQuestId) {
+      // Store for GameController to pick up via flushPendingEffects()
+      this.pending.questFail = effects.failQuestId;
     }
     if (effects.grantIntelId) {
       this.state.addIntel(effects.grantIntelId);
     }
+  }
+
+  /** 玩家是否持有所有指定未失效物品 */
+  private meetsItemCondition(reqs: ItemRequirement[], gs: Readonly<import('../types').GameState>): boolean {
+    return reqs.every(req =>
+      gs.player.inventory.some(
+        i => i.itemId === req.itemId
+          && !i.isExpired
+          && (req.variantId === undefined || i.variantId === req.variantId)
+      )
+    );
   }
 
   private endEncounter(collectedNarrative: string, outcomeType?: 'success' | 'failure' | 'neutral'): void {

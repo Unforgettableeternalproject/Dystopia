@@ -39,10 +39,11 @@
     },
     "fined": {
       "id": "fined",
-      "dmNarrative": "官員將罰款金額告知玩家，並在紀錄冊上留下記號。沒有商量的餘地。[TODO: 描述被罰款的壓迫感，以及對後續的暗示]",
+      "dmNarrative": "官員將罰款金額告知玩家，並在紀錄冊上留下記號。沒有商量的餘地。[TODO: 描述被罰款的壓迫感、罰款金額說明]",
       "isOutcome": true,
       "outcomeType": "failure",
       "effects": {
+        "melphinChange": -10,
         "statChanges": {
           "statusStats.stress": 2
         }

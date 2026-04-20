@@ -64,6 +64,23 @@ export interface QuestStageOutcome {
   nextStageId: string | null;                   // null = 任務完成
 }
 
+/**
+ * 任務階段失敗後果。由 QuestEngine.applyQuestFail() 套用。
+ *
+ * nextStageId 語意：
+ *   null      = 任務完全失敗（進入 completedQuestIds，標記 isFailed）
+ *   string    = 任務退回指定階段（如重試入口），不失敗
+ *   undefined = 僅套用效果，停留在當前階段（輕微懲罰，可繼續嘗試）
+ */
+export interface QuestStageFailOutcome {
+  flagsSet?: string[];
+  flagsUnset?: string[];
+  statChanges?: Record<string, number>;
+  reputationChanges?: Record<string, number>;
+  affinityChanges?: Record<string, number>;
+  nextStageId?: string | null;
+}
+
 export interface QuestStage {
   id: string;
   description: string;            // 玩家可見的階段標籤
@@ -75,6 +92,11 @@ export interface QuestStage {
   ordered?: boolean;
   objectives: QuestObjective[];
   onComplete: QuestStageOutcome;
+  /**
+   * 外部觸發失敗時的後果（由 EventOutcome.failQuestId 或 EncounterChoiceEffects.failQuestId 啟動）。
+   * 省略 = 無失敗後果（任務停留在當前階段）。
+   */
+  onFail?: QuestStageFailOutcome;
   /**
    * 玩家在此階段放棄任務時的後果。
    * 省略 = 無後果（但聲望損失仍由 ditchConsequences 決定）。
