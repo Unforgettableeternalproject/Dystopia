@@ -25,7 +25,8 @@ import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode } from './EncounterEngine';
-import type { PlayerAction, GameState, StarterConfig } from '../types';
+import type { EncounterDefinition } from '../types/encounter';
+import type { PlayerAction, ActionType, GameState, StarterConfig } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
@@ -161,10 +162,10 @@ export class GameController {
     await this.refreshThoughts(suggestions);
   }
 
-  async submitAction(input: string): Promise<void> {
+  async submitAction(input: string, actionType?: ActionType): Promise<void> {
     if (!input.trim()) return;
 
-    const action: PlayerAction = { type: 'free', input: input.trim() };
+    const action: PlayerAction = { type: actionType ?? 'free', input: input.trim() };
     inputDisabled.set(true);
     pushLine('> ' + input, 'player');
 
@@ -232,7 +233,7 @@ export class GameController {
     }
 
     // 2. Tick conditions
-    this.state.tickConditions();
+    this.state.tickConditions(id => this.lore.getCondition(id));
 
     // 2.5. Advance in-game time (default amount for event/period detection)
     const gs0            = this.state.getState();
@@ -268,7 +269,7 @@ export class GameController {
       if (t.startEncounterId) {
         const resolved = this.encounterMgr.start(t.startEncounterId);
         if (resolved) {
-          this.renderEncounterNode(resolved);
+          await this.renderEncounterNode(resolved);
           log.info('Encounter started by event', {
             encounterId: t.startEncounterId, eventId: t.event.id,
           });
@@ -967,7 +968,7 @@ export class GameController {
       log.info('Quest fail applied by encounter choice', { questId: pending.questFail });
     }
     if (resolved) {
-      this.renderEncounterNode(resolved);
+      await this.renderEncounterNode(resolved);
     } else {
       // Encounter ended
       activeEncounterUI.set(null);
@@ -979,33 +980,134 @@ export class GameController {
 
   /**
    * Renders a ResolvedNode to the narrative log and updates activeEncounterUI.
+   * If the node has a dmNarrative (no hardcoded displayText), streams DM-generated narration.
    */
-  private renderEncounterNode(resolved: ResolvedNode): void {
-    const def = this.lore.getEncounter(
-      this.state.getState().activeEncounter?.encounterId ?? ''
-    );
-    const text = resolved.node.displayText ?? resolved.node.dmNarrative;
+  private async renderEncounterNode(resolved: ResolvedNode): Promise<void> {
+    const gs  = this.state.getState();
+    const def = this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
 
-    // If stat check was performed, show result prefix
+    // Stat check result prefix — always shown as a system line
     if (resolved.statCheckResult) {
       const { stat, threshold, passed } = resolved.statCheckResult;
       const statLabel = stat.split('.').pop() ?? stat;
-      const resultText = passed
-        ? `[判定成功 — ${statLabel} ≥ ${threshold}]`
-        : `[判定失敗 — ${statLabel} < ${threshold}]`;
-      pushLine(resultText, 'system');
+      pushLine(
+        passed
+          ? `[判定成功 — ${statLabel} ≥ ${threshold}]`
+          : `[判定失敗 — ${statLabel} < ${threshold}]`,
+        'system',
+      );
     }
 
-    pushLine(text, 'narrative');
+    let nodeText: string;
 
-    activeEncounterUI.set({
-      encounterId:     resolved.node.id,
-      encounterName:   def?.name ?? '遭遇',
-      type:            def?.type ?? 'event',
-      nodeText:        text,
-      choices:         resolved.visibleChoices,
-      statCheckResult: resolved.statCheckResult,
-    });
+    if (resolved.node.displayText) {
+      // Hardcoded text — display directly, no DM call
+      nodeText = resolved.node.displayText;
+      pushLine(nodeText, 'narrative');
+      activeEncounterUI.set({
+        encounterId:     resolved.node.id,
+        encounterName:   def?.name ?? '遭遇',
+        type:            def?.type ?? 'event',
+        nodeText,
+        choices:         resolved.visibleChoices,
+        statCheckResult: resolved.statCheckResult,
+      });
+    } else if (resolved.node.dmNarrative && def && !this.mockMode) {
+      // DM-generated narration — show encounter frame immediately (no choices yet)
+      activeEncounterUI.set({
+        encounterId:     resolved.node.id,
+        encounterName:   def.name,
+        type:            def.type ?? 'event',
+        nodeText:        '',
+        choices:         [],
+        statCheckResult: resolved.statCheckResult,
+      });
+      // Stream narration
+      const ctx = this.buildEncounterContext(def, resolved);
+      nodeText = '';
+      isStreaming.set(true);
+      pushLine('', 'narrative');
+      try {
+        for await (const chunk of this.dm.narrateEncounterNode(ctx, gs.history)) {
+          nodeText += chunk;
+          appendToLastLine(chunk);
+        }
+      } catch (err) {
+        log.error('Encounter DM narration failed', err);
+        nodeText = resolved.node.dmNarrative;
+        appendToLastLine(resolved.node.dmNarrative);
+      } finally {
+        isStreaming.set(false);
+        finishLastLine();
+      }
+      // Reveal choices after narration completes
+      activeEncounterUI.set({
+        encounterId:     resolved.node.id,
+        encounterName:   def.name,
+        type:            def.type ?? 'event',
+        nodeText,
+        choices:         resolved.visibleChoices,
+        statCheckResult: resolved.statCheckResult,
+      });
+    } else {
+      // Fallback: raw dmNarrative or placeholder (mock mode / no definition)
+      nodeText = resolved.node.dmNarrative ?? '...';
+      pushLine(nodeText, 'narrative');
+      activeEncounterUI.set({
+        encounterId:     resolved.node.id,
+        encounterName:   def?.name ?? '遭遇',
+        type:            def?.type ?? 'event',
+        nodeText,
+        choices:         resolved.visibleChoices,
+        statCheckResult: resolved.statCheckResult,
+      });
+    }
+  }
+
+  /**
+   * Builds the context string passed to DMAgent.narrateEncounterNode().
+   */
+  private buildEncounterContext(def: EncounterDefinition, resolved: ResolvedNode): string {
+    const gs     = this.state.getState();
+    const active = gs.activeEncounter;
+    const parts: string[] = [];
+
+    parts.push(`## 遭遇名稱：${def.name}`);
+    if (def.description) parts.push(def.description);
+    parts.push('');
+
+    // Most recent player choice (extracted from collectedNarrative)
+    if (active?.collectedNarrative) {
+      const lastChoice = active.collectedNarrative
+        .split('\n')
+        .reverse()
+        .find(l => l.startsWith('[玩家]:'));
+      if (lastChoice) {
+        parts.push('## 玩家剛才的選擇');
+        parts.push(lastChoice.replace('[玩家]: ', '').trim());
+        parts.push('');
+      }
+    }
+
+    if (resolved.statCheckResult) {
+      const { stat, threshold, passed } = resolved.statCheckResult;
+      const statLabel = stat.split('.').pop() ?? stat;
+      parts.push('## 數值判定');
+      parts.push(passed
+        ? `${statLabel} 判定通過（目標值 ${threshold}）— 請描述成功的情境`
+        : `${statLabel} 判定失敗（目標值 ${threshold}）— 請描述失敗的情境`,
+      );
+      parts.push('');
+    }
+
+    parts.push('## 本節點 DM 指示');
+    parts.push(resolved.node.dmNarrative ?? '');
+    parts.push('');
+
+    parts.push('## 當前環境');
+    parts.push(`地點：${gs.player.currentLocationId} ／ 時段：${gs.timePeriod}`);
+
+    return parts.join('\n');
   }
 
   /**
@@ -1387,6 +1489,77 @@ export class GameController {
     }
     finishLastLine();
     isStreaming.set(false);
+  }
+
+  // -- Debug API --------------------------------------------------------
+
+  /** Returns all lore catalog entries for the debug launcher panel. */
+  getDebugCatalog() {
+    return this.lore.getDebugCatalog();
+  }
+
+  /** Directly start a structured encounter by ID, bypassing event flow. */
+  async debugTriggerEncounter(encounterId: string): Promise<void> {
+    const resolved = this.encounterMgr.start(encounterId);
+    if (!resolved) {
+      pushLine(`[Debug] 找不到遭遇：${encounterId}`, 'system');
+      return;
+    }
+    pushLine(`[Debug] 觸發遭遇：${encounterId}`, 'system');
+    await this.renderEncounterNode(resolved);
+  }
+
+  /** Open the NPC dialogue panel for npcId, as if the player had interacted. */
+  debugStartNpcDialogue(npcId: string): void {
+    const npc = this.lore.getNPC(npcId);
+    if (!npc) {
+      pushLine(`[Debug] 找不到 NPC：${npcId}`, 'system');
+      return;
+    }
+    activeNpcUI.set(null);
+    encounterSessionLog.set([]);
+    this.updateActiveNpcUI(npcId);
+    pushLine(`[Debug] 開啟 NPC 對話：${npc.name}（直接輸入文字開始）`, 'system');
+  }
+
+  /** Grant a quest directly, regardless of conditions. */
+  debugGrantQuest(questId: string): void {
+    const ok = this.acceptQuest(questId);
+    pushLine(ok
+      ? `[Debug] 已授予任務：${questId}`
+      : `[Debug] 任務授予失敗（已存在或 ID 錯誤）：${questId}`,
+      'system',
+    );
+  }
+
+  /** Set a flag and sync UI. */
+  debugSetFlag(flag: string): void {
+    this.state.flags.set(flag);
+    pushLine(`[Debug] 旗標設置：${flag}`, 'system');
+    this.syncUIState(this.state.getState());
+  }
+
+  /** Unset a flag and sync UI. */
+  debugUnsetFlag(flag: string): void {
+    this.state.flags.unset(flag);
+    pushLine(`[Debug] 旗標清除：${flag}`, 'system');
+    this.syncUIState(this.state.getState());
+  }
+
+  /** Teleport player to locationId, reset NPC panel, refresh UI. */
+  debugTeleport(locationId: string): void {
+    const loc = this.lore.getLocation(locationId);
+    if (!loc) {
+      pushLine(`[Debug] 找不到地點：${locationId}`, 'system');
+      return;
+    }
+    this.state.movePlayer(locationId);
+    activeNpcUI.set(null);
+    encounterSessionLog.set([]);
+    this.discoverSceneNpcs();
+    this.syncUIState(this.state.getState());
+    pushLine(`[Debug] 傳送至：${loc.name}`, 'system');
+    this.refreshThoughts();
   }
 
   // -- Initial state ----------------------------------------------------

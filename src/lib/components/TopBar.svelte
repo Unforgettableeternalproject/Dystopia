@@ -1,12 +1,16 @@
 <script lang="ts">
-  import { playerUI, isStreaming } from '$lib/stores/gameStore';
+  import { playerUI, isStreaming, isDebugMode } from '$lib/stores/gameStore';
 
   export let onSave: (() => void) | undefined = undefined;
   export let onLoadMenu: (() => void) | undefined = undefined;
 </script>
 
 <header class="top-bar">
-  <div class="region">{$playerUI.regionName}</div>
+  {#if $isDebugMode}
+    <div class="region debug-region">◇ 除錯模式</div>
+  {:else}
+    <div class="region">{$playerUI.regionName}</div>
+  {/if}
 
   <div class="center-info">
     {#if $playerUI.time}
@@ -23,8 +27,8 @@
     <button
       class="topbar-btn"
       on:click={onSave}
-      disabled={$isStreaming || !onSave}
-      title="快速存檔 (存檔槽1)"
+      disabled={$isStreaming || !onSave || $isDebugMode}
+      title={$isDebugMode ? '除錯模式不允許存檔' : '快速存檔 (存檔槽1)'}
     >存</button>
     <button
       class="topbar-btn"
@@ -59,6 +63,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
+  }
+
+  .debug-region {
+    color: #c9a96e;
+    letter-spacing: 0.12em;
   }
 
   .center-info {

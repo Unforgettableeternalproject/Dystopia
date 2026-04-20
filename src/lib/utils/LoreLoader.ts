@@ -58,6 +58,10 @@ const worldPhases = import.meta.glob(
   '../../../lore/world/phases.json', { eager: true }
 ) as Record<string, any>;
 
+const conditionsMod = import.meta.glob(
+  '../../../lore/world/conditions.json', { eager: true }
+) as Record<string, any>;
+
 const starterMod = import.meta.glob(
   '../../../lore/world/starter.json', { eager: true }
 ) as Record<string, any>;
@@ -137,6 +141,13 @@ export function loadCrambellLore(controller: GameController): void {
   if (Array.isArray(phases)) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     controller.loadLore({ phases: phases as any });
+  }
+
+  // Condition definitions (global, keyed by id)
+  const conds = single(conditionsMod);
+  if (conds && typeof conds === 'object') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    controller.loadLore({ conditions: conds as any });
   }
 
   // Starter config

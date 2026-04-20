@@ -1,5 +1,6 @@
 // ── Player Types ──────────────────────────────────────────────
 import type { InventoryItem } from './item';
+import type { PlayerCondition } from './condition';
 
 /** 主要技能數值 */
 export interface PrimaryStats {
@@ -36,20 +37,6 @@ export interface ExternalStats {
   affinity: Record<string, number>;
   /** 對地點的熟悉度 Record<locationId, value> */
   familiarity: Record<string, number>;
-}
-
-/**
- * 暫時性狀態條件 — 附加在玩家身上的短期或持續效果。
- * 例如：受傷、虛空污染、心靈控制、精神崩潰等。
- * expiresOnTurn 為 undefined 表示持續到主動清除。
- */
-export interface PlayerCondition {
-  id: string;                               // 唯一識別碼，例如 'injured_arm'
-  label: string;                            // 玩家可見的簡短標籤
-  description: string;                      // DM 面向的效果說明
-  expiresOnTurn?: number;                   // undefined = 永久，直到旗標或事件清除
-  statModifiers?: Partial<PrimaryStats>;    // 選填：對主要數值的加減效果
-  isHidden?: boolean;                       // true = 玩家不知道自己有這個條件（如被操控）
 }
 
 /** 玩家完整狀態 */

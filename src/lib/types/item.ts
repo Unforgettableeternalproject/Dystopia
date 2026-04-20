@@ -35,30 +35,6 @@ export interface ConsumableStatusChanges {
 }
 
 /**
- * 消耗品使用後套用的暫時性或永久條件（buff / debuff / 中毒 / 激勵等）。
- * 對應 PlayerCondition，`durationTurns` 在使用時由引擎轉換為絕對回合數 expiresOnTurn。
- */
-export interface ConsumableConditionEffect {
-  id: string;
-  /** 玩家可見的簡短狀態標籤 */
-  label: string;
-  /** DM 面向的效果說明（不直接顯示給玩家） */
-  description: string;
-  /**
-   * 持續回合數；省略 = 永久直到主動清除。
-   * 引擎計算：expiresOnTurn = currentTurn + durationTurns
-   */
-  durationTurns?: number;
-  /**
-   * 對主要數值的加成（可為負值）。
-   * 欄位對應 PrimaryStats（strength / knowledge / talent / spirit / luck）。
-   */
-  statModifiers?: ItemStatBonus;
-  /** true = 玩家不知道自己有這個條件（如被藥物操控） */
-  isHidden?: boolean;
-}
-
-/**
  * 消耗品的使用效果定義。
  * ItemNode.type = 'consumable' 時填寫，其他類型省略此欄位。
  */
@@ -66,10 +42,17 @@ export interface ConsumableEffect {
   /** 立即套用的狀態數值變化 */
   statusChanges?: ConsumableStatusChanges;
   /**
-   * 套用一個狀態條件（buff / debuff）。
-   * 若已有相同 id 的條件，會覆蓋（刷新持續時間）。
+   * 套用一個狀態條件（buff / debuff / 受傷等）。
+   * 填入 ConditionDefinition.id，由引擎查表取得完整定義。
+   * 若玩家已有相同 id 的條件，會覆蓋（重置 runtime 狀態）。
    */
-  applyCondition?: ConsumableConditionEffect;
+  applyConditionId?: string;
+  /**
+   * 套用條件時的持續回合數覆蓋。
+   * 省略 = 依 ConditionDefinition 決定（無限期或由 tickEffect.maxTicks 控制）。
+   * 引擎計算：expiresOnTurn = currentTurn + durationTurns
+   */
+  applyConditionDurationTurns?: number;
   /**
    * 清除的條件 ID 列表（解除中毒、治療等）。
    * 陣列內所有條件同時移除。

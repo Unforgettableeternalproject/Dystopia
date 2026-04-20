@@ -7,8 +7,9 @@
   let playerName = '';
   let nameError = '';
 
-  export let onNewGame:    (name: string) => void;
-  export let onLoadSlot:   (slotId: number) => void;
+  export let onNewGame:      (name: string) => void;
+  export let onLoadSlot:     (slotId: number) => void;
+  export let onDebugStart:   (() => void) | undefined = undefined;
   export let onExportSlot: (slotId: number) => void = () => {};
   export let onDeleteSlot: (slotId: number) => void = () => {};
   export let onImportSlot: (slotId: number) => void = () => {};
@@ -119,7 +120,12 @@
     </div>
   {/if}
 
-  <div class="version-tag">v0.1-dev</div>
+  <div class="bottom-right">
+    {#if onDebugStart}
+      <button class="debug-entry-btn" on:click={onDebugStart}>除錯模式</button>
+    {/if}
+    <div class="version-tag">v0.1-dev</div>
+  </div>
 </div>
 
 <style>
@@ -401,10 +407,36 @@
     opacity: 0.45;
   }
 
-  .version-tag {
+  .bottom-right {
     position: absolute;
-    bottom: 16px;
+    bottom: 14px;
     right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .debug-entry-btn {
+    background: none;
+    border: 1px solid color-mix(in srgb, #c9a96e 40%, transparent);
+    color: #c9a96e;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    opacity: 0.55;
+    transition: opacity 0.1s, border-color 0.1s;
+  }
+
+  .debug-entry-btn:hover {
+    opacity: 1;
+    border-color: #c9a96e;
+  }
+
+  .version-tag {
     font-size: 10px;
     color: var(--text-dim);
     font-family: var(--font-mono);

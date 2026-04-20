@@ -279,9 +279,14 @@ export class EncounterEngine {
       this.state.flags.set(`encounter_${active.encounterId}_${outcomeType}`);
     }
 
-    // Write to history
+    // Write to history with structured label for DM context continuity
+    const def          = this.lore.getEncounter(active.encounterId);
+    const encounterLabel = def?.name ? `[遭遇] ${def.name}` : `[遭遇] ${active.encounterId}`;
+    const outcomeLabel   = outcomeType
+      ? `（${outcomeType === 'success' ? '成功' : outcomeType === 'failure' ? '失敗' : '中性'}）`
+      : '';
     this.state.appendHistory(
-      { type: 'free', input: `遭遇：${active.encounterId}` },
+      { type: 'free', input: `${encounterLabel}${outcomeLabel}` },
       collectedNarrative.slice(0, 400),
     );
 

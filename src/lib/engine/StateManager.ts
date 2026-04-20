@@ -2,7 +2,8 @@
 // All state changes go through here for consistency and event emission.
 
 import type { GameState, PlayerAction, Thought, NPCMemoryEntry, GameTime } from '../types';
-import type { PlayerCondition } from '../types/player';
+import type { PlayerCondition } from '../types/condition';
+import type { ConditionDefinition } from '../types/condition';
 import type { WorldPhaseId } from '../types/phase';
 import type { QuestInstance, QuestSource, QuestDitchConsequences, QuestReward } from '../types/quest';
 import type { TimePeriod } from '../types/world';
@@ -98,13 +99,34 @@ export class StateManager {
 
   // ── Conditions ───────────────────────────────────────────────
 
-  /** Add or replace a player condition by id. */
-  addCondition(condition: PlayerCondition): void {
-    const idx = this.state.player.conditions.findIndex(c => c.id === condition.id);
+  /**
+   * Add or replace a player condition by id.
+   * Automatically initializes tickState if the definition has a tickEffect.
+   * @param conditionId  ConditionDefinition.id
+   * @param getCondition  Resolver for condition definitions (e.g. lore.getCondition)
+   * @param options       Optional expiresOnTurn override
+   */
+  addCondition(
+    conditionId: string,
+    getCondition: (id: string) => ConditionDefinition | undefined,
+    options?: { expiresOnTurn?: number },
+  ): void {
+    const def = getCondition(conditionId);
+    const instance: PlayerCondition = {
+      id: conditionId,
+      expiresOnTurn: options?.expiresOnTurn,
+    };
+    if (def?.tickEffect) {
+      instance.tickState = {
+        ticksApplied: 0,
+        nextTickTurn: this.state.turn + def.tickEffect.everyNTurns,
+      };
+    }
+    const idx = this.state.player.conditions.findIndex(c => c.id === conditionId);
     if (idx >= 0) {
-      this.state.player.conditions[idx] = condition;
+      this.state.player.conditions[idx] = instance;
     } else {
-      this.state.player.conditions.push(condition);
+      this.state.player.conditions.push(instance);
     }
     this.notifyUpdate();
   }
@@ -114,13 +136,44 @@ export class StateManager {
     this.notifyUpdate();
   }
 
-  /** Expire any conditions whose expiresOnTurn <= current turn. Call once per turn. */
-  tickConditions(): void {
+  /**
+   * Process condition ticks and expire outdated conditions. Call once per turn.
+   * - Applies tick effects (e.g. bleeding damage) when nextTickTurn is reached.
+   * - Removes conditions whose expiresOnTurn has passed or tickEffect is exhausted.
+   * @param getCondition  Resolver for condition definitions (e.g. lore.getCondition)
+   */
+  tickConditions(getCondition: (id: string) => ConditionDefinition | undefined): void {
+    const currentTurn = this.state.turn;
+    let changed = false;
+
+    for (const c of this.state.player.conditions) {
+      if (!c.tickState) continue;
+      const def = getCondition(c.id);
+      if (!def?.tickEffect) continue;
+      const te = def.tickEffect;
+
+      // Apply all overdue ticks in sequence (handles skipped turns)
+      while (c.tickState.nextTickTurn <= currentTurn && c.tickState.ticksApplied < te.maxTicks) {
+        for (const [key, delta] of Object.entries(te.statChanges)) {
+          if (delta !== undefined) this.modifyStat(key, delta);
+        }
+        c.tickState.ticksApplied += 1;
+        c.tickState.nextTickTurn += te.everyNTurns;
+        changed = true;
+      }
+    }
+
     const before = this.state.player.conditions.length;
-    this.state.player.conditions = this.state.player.conditions.filter(
-      c => c.expiresOnTurn === undefined || c.expiresOnTurn > this.state.turn
-    );
-    if (this.state.player.conditions.length !== before) this.notifyUpdate();
+    this.state.player.conditions = this.state.player.conditions.filter(c => {
+      if (c.expiresOnTurn !== undefined && c.expiresOnTurn <= currentTurn) return false;
+      if (c.tickState) {
+        const def = getCondition(c.id);
+        if (def?.tickEffect && c.tickState.ticksApplied >= def.tickEffect.maxTicks) return false;
+      }
+      return true;
+    });
+
+    if (changed || this.state.player.conditions.length !== before) this.notifyUpdate();
   }
 
   // ── Intel ────────────────────────────────────────────────────

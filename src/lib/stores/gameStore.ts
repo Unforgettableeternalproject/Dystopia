@@ -93,7 +93,8 @@ export const inputDisabled = writable(false);
 // ── Game phase ─────────────────────────────────────────────────
 
 export type GamePhase = 'title' | 'naming' | 'loading' | 'playing';
-export const gamePhase = writable<GamePhase>('title');
+export const gamePhase    = writable<GamePhase>('title');
+export const isDebugMode  = writable(false);
 
 // ── Player UI State ────────────────────────────────────────────
 

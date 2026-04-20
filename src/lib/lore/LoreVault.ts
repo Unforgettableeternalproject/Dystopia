@@ -9,6 +9,7 @@ import type {
   TimePeriod,
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
+import type { ConditionDefinition } from '../types/condition';
 import type { EncounterDefinition } from '../types/encounter';
 import type { GameTime } from '../types/game';
 import { FlagRegistry } from '../engine/FlagRegistry';
@@ -33,13 +34,14 @@ interface LoreData {
   schedules:    Record<string, RegionSchedule>;
   flagManifest: FlagManifestEntry[];
   items:        Record<string, ItemNode>;
+  conditions:   Record<string, ConditionDefinition>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
     dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
-    flagManifest: [], items: {},
+    flagManifest: [], items: {}, conditions: {},
   };
 
   /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
@@ -67,6 +69,7 @@ export class LoreVault {
     if (data.phases)       this.data.phases.push(...data.phases);
     if (data.items)        Object.assign(this.data.items,       data.items);
     if (data.encounters)   Object.assign(this.data.encounters,  data.encounters);
+    if (data.conditions)   Object.assign(this.data.conditions,  data.conditions);
   }
 
   /**
@@ -415,10 +418,39 @@ export class LoreVault {
     return Object.values(this.data.items);
   }
 
+  // -- Conditions ------------------------------------------------------
+
+  getCondition(id: string): ConditionDefinition | undefined {
+    return this.data.conditions[id];
+  }
+
+  getAllConditions(): ConditionDefinition[] {
+    return Object.values(this.data.conditions);
+  }
+
   // -- Encounters ------------------------------------------------------
 
   getEncounter(id: string): EncounterDefinition | undefined {
     return this.data.encounters[id];
+  }
+
+  // -- Debug catalog ---------------------------------------------------
+
+  /** Returns all loadable IDs + display names for the debug launcher. */
+  getDebugCatalog(): {
+    encounters: { id: string; name: string; type: string }[];
+    npcs:       { id: string; name: string; type: string }[];
+    events:     { id: string; name: string }[];
+    quests:     { id: string; name: string }[];
+    locations:  { id: string; name: string }[];
+  } {
+    return {
+      encounters: Object.values(this.data.encounters).map(e => ({ id: e.id, name: e.name, type: e.type ?? 'event' })),
+      npcs:       Object.values(this.data.npcs).map(n => ({ id: n.id, name: n.name, type: n.type })),
+      events:     Object.values(this.data.events).map(e => ({ id: e.id, name: e.name })),
+      quests:     Object.values(this.data.quests).map(q => ({ id: q.id, name: q.name })),
+      locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
+    };
   }
 
   // -- DM scene context ------------------------------------------------

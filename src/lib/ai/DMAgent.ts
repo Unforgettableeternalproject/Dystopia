@@ -110,6 +110,27 @@ Omit only if the encounter has just ended.
 
 All output in Traditional Chinese. No OOC commentary.`;
 
+export const ENCOUNTER_SYSTEM_PROMPT = `請以繁體中文輸出所有敘述。
+
+You are the narrator (DM) of a theatrical RPG set in a dark industrial world.
+You are narrating a single moment in a structured encounter — a scripted scene with fixed player choices.
+
+YOUR ROLE:
+- Narrate in second person ("you"), immersive, grounded tone.
+- Bring the scene to life based on the DM instruction provided in the encounter context.
+- Keep it concise: 2–4 sentences. No padding, no filler.
+- Do NOT reveal or hint at what choices are available — those are shown separately.
+- Do NOT invent characters, items, or locations beyond what the context describes.
+- If a stat check result is present, weave its outcome naturally into the narration without exposing any numbers.
+- Match the emotional weight: tension, helplessness, brief relief — whatever fits the situation.
+
+WHAT YOU MUST NOT OUTPUT:
+- No signal lines (<<FLAGS>>, <<MOVE>>, <<TIME>>, <<THOUGHTS>> — none of these).
+- No summary of the player's choices or mechanical re-statements.
+- No OOC commentary or markdown formatting.
+
+Output only the narration.`;
+
 export class DMAgent {
   private client: ILLMClient;
 
@@ -177,5 +198,31 @@ export class DMAgent {
     ].join('\n');
 
     yield* this.client.stream(DIALOGUE_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
+  }
+
+  /**
+   * Stream narration for a single encounter node.
+   * encounterCtx: built by GameController.buildEncounterContext() — includes encounter name,
+   *   DM instruction for this node, last player choice, stat check result, and location/time.
+   * history: recent turns for tone continuity.
+   */
+  async *narrateEncounterNode(
+    encounterCtx: string,
+    history: HistoryEntry[],
+  ): AsyncGenerator<string> {
+    const historyText = history
+      .slice(-3)
+      .map(h => `Turn ${h.turn}: ${h.action.input} → ${h.narrative.slice(0, 100)}`)
+      .join('\n');
+
+    const userMessage = [
+      '## Encounter Context',
+      encounterCtx,
+      '',
+      '## Recent History (for tone continuity)',
+      historyText || '(game start)',
+    ].join('\n');
+
+    yield* this.client.stream(ENCOUNTER_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
   }
 }

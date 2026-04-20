@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -21,6 +21,7 @@
   import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
   import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
   import EncounterPanel       from '$lib/components/EncounterPanel.svelte';
+  import DebugPanel           from '$lib/components/DebugPanel.svelte';
 
   import type { Thought } from '$lib/types';
 
@@ -29,6 +30,14 @@
   let loadMenuOpen = false;
   let saveMenuOpen = false;
   let showCloseConfirm = false;
+  let debugPanelOpen = false;
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      if ($gamePhase === 'playing') debugPanelOpen = !debugPanelOpen;
+    }
+  }
 
   // Plain object (not Svelte-reactive) — the closure inside onCloseRequested
   // reads .bypass directly, without going through Svelte's $$invalidate.
@@ -71,6 +80,7 @@
   // ── New game ─────────────────────────────────────────────────
 
   async function handleNewGame(playerName: string) {
+    isDebugMode.set(false);
     gamePhase.set('loading');
     try {
       await controller.start(playerName);
@@ -78,6 +88,20 @@
     } catch (err) {
       pushLine('系統錯誤：無法啟動遊戲引擎。', 'system');
       console.error(err);
+      gamePhase.set('title');
+    }
+  }
+
+  async function handleDebugStart() {
+    isDebugMode.set(true);
+    gamePhase.set('loading');
+    try {
+      await controller.start('DEBUG');
+      gamePhase.set('playing');
+    } catch (err) {
+      pushLine('系統錯誤：無法啟動除錯模式。', 'system');
+      console.error(err);
+      isDebugMode.set(false);
       gamePhase.set('title');
     }
   }
@@ -109,7 +133,11 @@
   }
 
   function handleThoughtSelect(thought: Thought) {
-    handleSubmit(thought.text);
+    if (!controller) return;
+    controller.submitAction(thought.text, thought.actionType).catch(err => {
+      pushLine('（動作處理時發生錯誤）', 'system');
+      console.error(err);
+    });
   }
 
   async function handleDialogueChoice(choiceId: string) {
@@ -203,6 +231,8 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <!-- Title screen -->
 {#if $gamePhase === 'title'}
   <TitleScreen
@@ -212,6 +242,7 @@
     onExportSlot={handleExportSlot}
     onDeleteSlot={handleDeleteSlot}
     onImportSlot={handleImportSlot}
+    onDebugStart={handleDebugStart}
   />
 {/if}
 
@@ -263,6 +294,10 @@
 
 {#if $inventoryOpen}
   <InventoryModal />
+{/if}
+
+{#if debugPanelOpen}
+  <DebugPanel {controller} onClose={() => { debugPanelOpen = false; }} />
 {/if}
 
 <!-- In-game load menu overlay -->

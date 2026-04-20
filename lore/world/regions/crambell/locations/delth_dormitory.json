@@ -43,6 +43,10 @@
           {
             "targetLocationId": "delth_dormitory",
             "description": "走到宿舍入口"
+          },
+          {
+            "targetLocationId": "delth_dormitory_public_bathroom",
+            "description": "前往公共盥洗空間"
           }
         ],
         "npcIds": ["crambell_kach"],
