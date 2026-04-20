@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, isSaving } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, isSaving } from '$lib/stores/gameStore';
 
   $: inScriptedDialogue = $activeScriptedDialogue !== null;
+  $: inEncounter        = $activeNpcUI !== null;
 
   export let onSubmit: (input: string) => void;
 
@@ -35,13 +36,19 @@
   </button>
 
   <!-- Input area -->
-  <div class="input-area">
-    <span class="prefix" aria-hidden="true">&gt;</span>
+  <div class="input-area" class:encounter={inEncounter}>
+    <span class="prefix" class:enc-prefix={inEncounter} aria-hidden="true">
+      {inEncounter ? '「' : '>'}
+    </span>
     <input
       bind:value={inputValue}
       on:keydown={handleKeydown}
       disabled={$inputDisabled || $isStreaming || inScriptedDialogue}
-      placeholder={inScriptedDialogue ? '對話進行中...' : $isStreaming ? '' : '輸入行動...'}
+      placeholder={inScriptedDialogue
+        ? '對話進行中...'
+        : inEncounter
+          ? `對 ${$activeNpcUI?.name} 說...`
+          : $isStreaming ? '' : '輸入行動...'}
       class="text-input"
       autocomplete="off"
       spellcheck="false"
@@ -138,6 +145,11 @@
     gap: 8px;
     padding: 0 14px;
     background: var(--bg-input);
+    transition: background 0.25s ease;
+  }
+
+  .input-area.encounter {
+    background: color-mix(in srgb, var(--accent-dim) 15%, var(--bg-input));
   }
 
   .prefix {
@@ -146,6 +158,13 @@
     font-family: var(--font-mono);
     flex-shrink: 0;
     user-select: none;
+    transition: color 0.2s ease;
+  }
+
+  .prefix.enc-prefix {
+    font-size: 17px;
+    color: var(--accent);
+    opacity: 0.85;
   }
 
   .text-input {

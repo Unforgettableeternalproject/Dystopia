@@ -3,10 +3,10 @@
 
   const STAT_LABEL: Record<string, string> = {
     strength: '力量', knowledge: '知識', talent: '才能', spirit: '精神', luck: '幸運',
-    consciousness: '意識', arcane: '奧術', technology: '技術',
+    consciousness: '意識', mysticism: '奧秘', technology: '科技',
     stamina: '體力', staminaMax: '體力上限',
     stress: '壓力', stressMax: '壓力上限',
-    mana: '法力', manaMax: '法力上限',
+    endo: 'Endo', endoMax: 'Endo 上限',
     experience: '經驗值',
   };
 

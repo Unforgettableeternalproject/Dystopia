@@ -5,6 +5,7 @@
 // Schema files (_schema.json) are skipped automatically.
 
 import type { GameController } from '../engine/GameController';
+import type { StarterConfig }  from '../types';
 
 // ── Eager globs (resolved at build time by Vite) ──────────────────────────
 
@@ -51,6 +52,10 @@ const crambellSchedule = import.meta.glob(
 
 const worldPhases = import.meta.glob(
   '../../../lore/world/phases.json', { eager: true }
+) as Record<string, any>;
+
+const starterMod = import.meta.glob(
+  '../../../lore/world/starter.json', { eager: true }
 ) as Record<string, any>;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -127,5 +132,11 @@ export function loadCrambellLore(controller: GameController): void {
   if (Array.isArray(phases)) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     controller.loadLore({ phases: phases as any });
+  }
+
+  // Starter config
+  const starter = single(starterMod);
+  if (starter) {
+    controller.loadStarter(starter as StarterConfig);
   }
 }

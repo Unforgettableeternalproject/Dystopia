@@ -2,6 +2,7 @@
 
 import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
+import type { HistoryEntry } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
 
 // ── Narrative Lines ────────────────────────────────────────────
@@ -43,6 +44,45 @@ export function finishLastLine(): void {
   });
 }
 
+/** Rebuild narrativeLines from saved history (called on load). */
+export function restoreHistoryLines(history: HistoryEntry[]): void {
+  const lines: NarrativeLine[] = [];
+  for (const entry of history) {
+    // Skip internal engine actions that shouldn't appear in the log
+    if (entry.action.input && !entry.action.input.startsWith('(')) {
+      lines.push({
+        id:          'hist-player-' + entry.turn,
+        text:        entry.action.input,
+        type:        'player',
+        isStreaming: false,
+      });
+    }
+    if (entry.narrative) {
+      lines.push({
+        id:          'hist-narrative-' + entry.turn,
+        text:        entry.narrative,
+        type:        'narrative',
+        isStreaming: false,
+      });
+    }
+  }
+  narrativeLines.set(lines);
+}
+
+// ── Dialogue Encounter ─────────────────────────────────────────
+
+export interface EncounterLogEntry {
+  speaker: 'player' | 'npc';
+  text: string;
+}
+
+/** Per-session exchange log; cleared when encounter ends (player moves away, END_ENCOUNTER). */
+export const encounterSessionLog = writable<EncounterLogEntry[]>([]);
+
+export function appendEncounterLog(speaker: 'player' | 'npc', text: string): void {
+  encounterSessionLog.update(log => [...log, { speaker, text }]);
+}
+
 // ── Thoughts ───────────────────────────────────────────────────
 
 export const thoughts = writable<Thought[]>([]);
@@ -63,8 +103,8 @@ export interface PlayerUIState {
   staminaMax:       number;
   stress:           number;
   stressMax:        number;
-  mana:             number;
-  manaMax:          number;
+  endo:             number;
+  endoMax:          number;
   turn:             number;
   worldPhase?:      string;
   activeQuestCount?: number;
@@ -129,7 +169,7 @@ export const playerUI = writable<PlayerUIState>({
   regionName: '???',
   stamina: 10, staminaMax: 10,
   stress:  0,  stressMax:  10,
-  mana:    0,  manaMax:    0,
+  endo:    0,  endoMax:    0,
   turn:    0,
 });
 
@@ -194,7 +234,7 @@ export const stressPercent = derived(
   ($p) => Math.round(($p.stress / $p.stressMax) * 100)
 );
 
-export const manaPercent = derived(
+export const endoPercent = derived(
   playerUI,
-  ($p) => $p.manaMax > 0 ? Math.round(($p.mana / $p.manaMax) * 100) : 0
+  ($p) => $p.endoMax > 0 ? Math.round(($p.endo / $p.endoMax) * 100) : 0
 );

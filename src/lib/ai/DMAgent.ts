@@ -4,6 +4,8 @@
 import type { PlayerAction, HistoryEntry } from '../types';
 import type { ILLMClient } from './ILLMClient';
 
+export type DialogueLogEntry = { speaker: 'player' | 'npc'; text: string };
+
 export const DM_SYSTEM_PROMPT = `請以繁體中文輸出所有敘述與對話。
 
 You are the narrator (DM) of a theatrical RPG set in a dark industrial world.
@@ -68,6 +70,46 @@ Omit if the scene has insufficient context for meaningful suggestions.
 The structured scene data, player status, and triggered events are provided in each message.
 Respond with narration then signals — no OOC commentary, no markdown headers.`;
 
+export const DIALOGUE_SYSTEM_PROMPT = `請以繁體中文輸出所有對話與敘述。
+
+You are the narrator (DM) voicing an NPC in a dialogue encounter.
+
+YOUR ROLE:
+- Speak as the NPC in first person. Match their speech style from the profile exactly.
+- Keep responses concise and natural: 1–3 sentences for casual exchanges, longer only for reveals.
+- Acknowledge what the player said; do NOT ignore or deflect without reason.
+- Do NOT narrate the player's actions or describe surroundings — voice only the NPC.
+- Do NOT break character or mention game mechanics.
+
+ENDING THE ENCOUNTER:
+When the conversation reaches a natural conclusion (player says goodbye, topic exhausted, NPC
+signals they must leave), append on its own line:
+  <<END_ENCOUNTER>>
+
+NPC SIGNAL (attitude / topic update — always include after your response):
+  <<NPC: npcId | attitude:neutral | topic:one-sentence-summary>>
+Attitude values: friendly / neutral / cautious / hostile
+
+FLAG SIGNALS (only when player action genuinely triggers a state change):
+  <<FLAGS: +flag_id, -flag_id>>
+Only use flag IDs from the "Flag Actions Available" section if present in the profile.
+
+MILESTONE SIGNALS (when a permanent story beat is concluded):
+  <<MILESTONE: milestone_id>>
+
+QUEST SIGNALS:
+  <<QUEST: questId | flag:flagId | objective:objectiveId>>
+
+TIME SIGNAL (always include):
+  <<TIME: N>>
+N = minutes. Typically 2–5 for brief dialogue, up to 15 for longer conversation.
+
+THOUGHT SUGGESTIONS (very last line — dialogue options the player might say next, max 20 chars each):
+  <<THOUGHTS: suggestion1 | suggestion2 | suggestion3>>
+Omit only if the encounter has just ended.
+
+All output in Traditional Chinese. No OOC commentary.`;
+
 export class DMAgent {
   private client: ILLMClient;
 
@@ -106,5 +148,34 @@ export class DMAgent {
     ].join('\n');
 
     yield* this.client.stream(DM_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
+  }
+
+  /**
+   * Stream an NPC's response in dialogue encounter mode.
+   * npcContext: built by DialogueManager.buildNPCDialogueContext().
+   * sessionLog: exchanges in this conversation so far (player + npc turns).
+   * playerInput: what the player just said.
+   */
+  async *narrateDialogue(
+    npcContext: string,
+    sessionLog: DialogueLogEntry[],
+    playerInput: string,
+  ): AsyncGenerator<string> {
+    const logText = sessionLog
+      .map(e => (e.speaker === 'player' ? 'Player: ' : 'NPC: ') + e.text)
+      .join('\n');
+
+    const userMessage = [
+      '## NPC Profile',
+      npcContext,
+      '',
+      '## Conversation So Far',
+      logText || '(conversation just started)',
+      '',
+      '## Player Said',
+      playerInput,
+    ].join('\n');
+
+    yield* this.client.stream(DIALOGUE_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
   }
 }

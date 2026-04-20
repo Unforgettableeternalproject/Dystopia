@@ -145,3 +145,27 @@ export interface NPCMemoryEntry {
    */
   permanentMilestoneIds: string[];
 }
+
+/**
+ * 開發用初始設定（lore/world/starter.json）。
+ * 分離 world（世界狀態）與 player（玩家初始值），titles 由稱號系統管理。
+ */
+export interface StarterConfig {
+  world: {
+    startLocationId: string;
+    startTime: { year: number; month: number; day: number; hour: number; minute: number };
+    startPeriod: TimePeriod;
+    worldPhase: string;
+    startingFlags: string[];
+  };
+  player: {
+    origin: string;
+    /** 初始顯示稱號；真正的稱號系統之後才實作 */
+    title?: string;
+    primaryStats: { strength: number; knowledge: number; talent: number; spirit: number; luck: number };
+    secondaryStats: { consciousness: number; mysticism: number; technology: number };
+    statusStats: { stamina: number; staminaMax: number; stress: number; stressMax: number; endo: number; endoMax: number };
+    knownIntelIds: string[];
+    inventory: string[];
+  };
+}

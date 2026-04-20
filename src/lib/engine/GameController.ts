@@ -23,7 +23,7 @@ import { PhaseManager }     from './PhaseManager';
 import { QuestEngine }      from './QuestEngine';
 import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
-import type { PlayerAction, GameState } from '../types';
+import type { PlayerAction, GameState, StarterConfig } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
@@ -32,6 +32,9 @@ import {
   pushLine,
   appendToLastLine,
   finishLastLine,
+  restoreHistoryLines,
+  encounterSessionLog,
+  appendEncounterLog,
   isStreaming,
   inputDisabled,
   thoughts,
@@ -40,6 +43,7 @@ import {
   type MiniMapData,
   type RegionMapData,
 } from '../stores/gameStore';
+import type { DialogueLogEntry } from '../ai/DMAgent';
 import { createLogger } from '../utils/Logger';
 import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
@@ -66,6 +70,8 @@ export class GameController {
 
   /** ID of the region the player is currently in. Updated on region change. */
   private currentRegionId = 'crambell';
+
+  private starterConfig: StarterConfig | null = null;
 
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
     const auto = autoClients();
@@ -99,6 +105,27 @@ export class GameController {
     this.lore.load(data);
     // Refresh schedule for current region after lore load
     this.events.setSchedule(this.lore.getSchedule(this.currentRegionId) ?? null);
+  }
+
+  loadStarter(config: StarterConfig): void {
+    this.starterConfig = config;
+    // Patch the live state directly — loadStarter is called after construction
+    // but before start(), so no turns have been played yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = this.state.getState() as any;
+    s.player.origin                = config.player.origin;
+    s.player.currentLocationId     = config.world.startLocationId;
+    Object.assign(s.player.primaryStats,   config.player.primaryStats);
+    Object.assign(s.player.secondaryStats, config.player.secondaryStats);
+    Object.assign(s.player.statusStats, { ...config.player.statusStats, experience: 0 });
+    s.player.knownIntelIds = [...config.player.knownIntelIds];
+    s.player.inventory     = [...config.player.inventory];
+    if (config.player.title) s.player.titles = [config.player.title];
+    s.time = { ...config.world.startTime, totalMinutes: 0 };
+    s.timePeriod = config.world.startPeriod;
+    s.worldPhase.currentPhase    = config.world.worldPhase;
+    s.worldPhase.appliedPhaseIds = [config.world.worldPhase];
+    for (const flag of config.world.startingFlags) this.state.flags.set(flag);
   }
 
   async start(playerName?: string): Promise<void> {
@@ -143,7 +170,16 @@ export class GameController {
       return;
     }
 
-    // 1. Regulator validation
+    // 1. Dialogue encounter routing — bypass Regulator if in active encounter
+    //    (guard: skip if scripted dialogue is currently showing choices)
+    const currentEncounter = get(activeNpcUI);
+    if (currentEncounter && !get(activeScriptedDialogue)) {
+      await this.handleDialogueInput(input.trim(), currentEncounter.npcId);
+      inputDisabled.set(false);
+      return;
+    }
+
+    // 2. Regulator validation
     log.debug('Action submitted', { input });
     const result = await this.regulator.validate(action, this.state.getState().player);
     if (!result.allowed) {
@@ -158,6 +194,7 @@ export class GameController {
     // Track active NPC panel
     if (finalAction.type === 'move') {
       activeNpcUI.set(null);
+      encounterSessionLog.set([]);
     } else if (finalAction.type === 'interact' && finalAction.targetId) {
       this.updateActiveNpcUI(finalAction.targetId);
     }
@@ -308,8 +345,9 @@ export class GameController {
     const { state, flags } = await SaveManager.loadSlot(slotId);
     this.loadState(state, flags);
 
-    // Clear any stale narrative lines from previous session
-    narrativeLines.set([]);
+    // Restore narrative history from save, then add a separator
+    restoreHistoryLines(state.history);
+    pushLine('—— 讀取存檔 ——', 'system');
 
     let loadSuggestions: string[] = [];
     if (this.mockMode) {
@@ -597,9 +635,9 @@ export class GameController {
     const flagCtx  = this.lore.flagRegistry.buildDMContext(proxCtx);
     if (flagCtx) parts.push('\n' + flagCtx);
 
-    // NPC relationship status for all NPCs in scene
+    // NPC relationship status for NPCs visible in current time period
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
-    const sceneNpcIds = resolved?.npcIds ?? [];
+    const sceneNpcIds = this.lore.getNPCsByIds(resolved?.npcIds ?? [], this.state.flags, gs.timePeriod).map(n => n.id);
     if (sceneNpcIds.length > 0) {
       const npcStatus = this.dialogueMgr.buildSceneNPCStatus(sceneNpcIds);
       if (npcStatus) parts.push('\n' + npcStatus);
@@ -739,6 +777,140 @@ export class GameController {
     return { signaledMinutes, suggestions };
   }
 
+  // -- Dialogue encounter -----------------------------------------------
+
+  /**
+   * Handle player input while in a dialogue encounter with npcId.
+   * Bypasses Regulator; routes straight to DM in dialogue mode.
+   */
+  private async handleDialogueInput(text: string, npcId: string): Promise<void> {
+    const npc = this.lore.getNPC(npcId);
+    if (!npc) {
+      // NPC gone — exit encounter silently
+      activeNpcUI.set(null);
+      encounterSessionLog.set([]);
+      return;
+    }
+
+    // Check for scripted trigger before LLM dialogue (special nodes can fire mid-encounter)
+    const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
+    const scripted = this.dialogueMgr.checkScriptedTrigger(
+      npcId, npc.dialogueId, this.state.flags, interactionCount,
+    );
+    if (scripted) {
+      this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
+      return;
+    }
+
+    const npcContext = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.dialogueId, this.state.flags);
+    // Snapshot log BEFORE appending current player turn (playerInput is passed separately to DM)
+    const sessionLog = get(encounterSessionLog) as DialogueLogEntry[];
+
+    // Stream DM dialogue response
+    isStreaming.set(true);
+    pushLine('', 'narrative');
+
+    let fullText    = '';
+    let signalCutoff = -1;
+    try {
+      for await (const chunk of this.dm.narrateDialogue(npcContext, sessionLog, text)) {
+        const prevLen = fullText.length;
+        fullText += chunk;
+        if (signalCutoff === -1) {
+          const idx = fullText.indexOf('<<');
+          if (idx !== -1) {
+            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            signalCutoff = idx;
+          } else {
+            appendToLastLine(chunk);
+          }
+        }
+      }
+    } catch (err) {
+      log.error('Dialogue DM narration failed', err);
+      appendToLastLine('\n[narration error -- please retry]');
+    } finally {
+      isStreaming.set(false);
+    }
+
+    // Extract TIME and THOUGHTS before signal parsing
+    let signaledMinutes: number | null = null;
+    const timeMatch = /<<TIME:\s*(\d+)>>/i.exec(fullText);
+    if (timeMatch) signaledMinutes = Math.max(1, parseInt(timeMatch[1], 10));
+
+    let suggestions: string[] = [];
+    const thoughtsMatch = /<<THOUGHTS:\s*([^>]+?)>>/i.exec(fullText);
+    if (thoughtsMatch) {
+      suggestions = thoughtsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3);
+    }
+
+    const preParsed = fullText
+      .replace(/<<TIME:\s*\d+>>\s*\n?/gi, '')
+      .replace(/<<THOUGHTS:[^>]+?>>\s*\n?/gi, '')
+      .trimEnd();
+
+    // Parse flag signals
+    const proxCtx = this.buildProximityContext(this.state.getState());
+    const { signals, cleanNarrative: afterFlags } = this.lore.flagRegistry.parseSignals(preParsed);
+    const validSignals = this.lore.flagRegistry.validateSignals(signals, proxCtx);
+    for (const sig of validSignals) {
+      if (sig.action === 'set')   this.state.flags.set(sig.flagId);
+      if (sig.action === 'unset') this.state.flags.unset(sig.flagId);
+    }
+
+    // Parse dialogue signals (NPC attitude, milestones, quests, END_ENCOUNTER)
+    const dialogueSignals = this.dialogueMgr.parseSignals(afterFlags);
+    this.dialogueMgr.applySignals(dialogueSignals, [npcId]);
+    for (const qs of dialogueSignals.questSignals) {
+      this.quests.applyQuestSignal(qs.questId, qs.type, qs.value);
+    }
+
+    const cleanNarrative = dialogueSignals.cleanNarrative;
+
+    // Patch displayed line
+    if (cleanNarrative !== fullText) {
+      narrativeLines.update(lines => {
+        if (lines.length === 0) return lines;
+        const last = lines[lines.length - 1];
+        return [...lines.slice(0, -1), { ...last, text: cleanNarrative, isStreaming: false }];
+      });
+    } else {
+      finishLastLine();
+    }
+
+    // Append this turn (player + NPC) to session log
+    appendEncounterLog('player', text);
+    appendEncounterLog('npc', cleanNarrative);
+
+    // Advance time
+    if (signaledMinutes) {
+      const gs       = this.state.getState();
+      const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
+      const newTime  = this.timeMgr.advance(gs.time, signaledMinutes);
+      const newPeriod = schedule
+        ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
+        : gs.timePeriod;
+      this.state.advanceTime(newTime, newPeriod);
+    }
+
+    // Append to global history
+    const action: PlayerAction = { type: 'interact', input: text, targetId: npcId };
+    this.state.appendHistory(action, cleanNarrative.slice(0, 200));
+
+    // Refresh NPC panel with updated affinity/attitude
+    this.updateActiveNpcUI(npcId);
+
+    // Handle natural encounter end
+    if (dialogueSignals.endEncounter) {
+      activeNpcUI.set(null);
+      encounterSessionLog.set([]);
+      log.info('Encounter ended naturally', { npcId });
+    }
+
+    // Refresh thoughts (dialogue mode suggestions or post-encounter exploration)
+    await this.refreshThoughts(suggestions);
+  }
+
   // -- Thought generation -----------------------------------------------
 
   private async refreshThoughts(dmSuggestions: string[] = []): Promise<void> {
@@ -778,7 +950,7 @@ export class GameController {
         result.push({ id: id('move'), text: 'Go to ' + exit.description, actionType: 'move' });
       }
 
-      const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags).slice(0, 2);
+      const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod).slice(0, 2);
       for (const npc of npcs) {
         result.push({ id: id('talk'), text: 'Talk to ' + npc.name, actionType: 'interact' });
       }
@@ -912,8 +1084,8 @@ export class GameController {
       staminaMax:      gs.player.statusStats.staminaMax,
       stress:          gs.player.statusStats.stress,
       stressMax:       gs.player.statusStats.stressMax,
-      mana:            gs.player.statusStats.mana,
-      manaMax:         gs.player.statusStats.manaMax,
+      endo:            gs.player.statusStats.endo,
+      endoMax:         gs.player.statusStats.endoMax,
       turn:            gs.turn,
       worldPhase:      gs.worldPhase.currentPhase,
       activeQuestCount,
@@ -936,8 +1108,8 @@ export class GameController {
         staminaMax: gs.player.statusStats.staminaMax,
         stress:     gs.player.statusStats.stress,
         stressMax:  gs.player.statusStats.stressMax,
-        mana:       gs.player.statusStats.mana,
-        manaMax:    gs.player.statusStats.manaMax,
+        endo:       gs.player.statusStats.endo,
+        endoMax:    gs.player.statusStats.endoMax,
         experience: gs.player.statusStats.experience,
       },
       conditions:  gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label })),
@@ -1036,6 +1208,11 @@ export class GameController {
   private updateActiveNpcUI(npcId: string): void {
     const npc = this.lore.getNPC(npcId);
     if (!npc) { activeNpcUI.set(null); return; }
+    // New encounter (different NPC or first time) — reset session log
+    const current = get(activeNpcUI);
+    if (!current || current.npcId !== npcId) {
+      encounterSessionLog.set([]);
+    }
     const gs  = this.state.getState();
     const mem = gs.npcMemory[npcId];
     activeNpcUI.set({
@@ -1049,15 +1226,16 @@ export class GameController {
     });
   }
 
-  /** Auto-set met_<npcId> discovery flags for all NPCs visible in the current scene. */
+  /** Auto-set met_<npcId> discovery flags for NPCs visible in the current scene and time period. */
   private discoverSceneNpcs(): void {
     const gs       = this.state.getState();
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
     if (!resolved) return;
-    for (const npcId of resolved.npcIds) {
-      if (!this.state.flags.has('met_' + npcId)) {
-        this.state.flags.set('met_' + npcId);
-        log.debug('NPC discovered', { npcId });
+    const visibleNpcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod);
+    for (const npc of visibleNpcs) {
+      if (!this.state.flags.has('met_' + npc.id)) {
+        this.state.flags.set('met_' + npc.id);
+        log.debug('NPC discovered', { npcId: npc.id });
       }
     }
   }
@@ -1115,8 +1293,8 @@ export class GameController {
         origin:           'worker',
         currentLocationId: 'delth_dormitory_room',
         primaryStats:    { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
-        secondaryStats:  { consciousness: 2, arcane: 0, technology: 3 },
-        statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, mana: 0, manaMax: 0, experience: 0 },
+        secondaryStats:  { consciousness: 2, mysticism: 0, technology: 3 },
+        statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, endo: 0, endoMax: 0, experience: 0 },
         externalStats:   { reputation: {}, affinity: {}, familiarity: {} },
         inventory:       [],
         activeFlags:     new Set(),

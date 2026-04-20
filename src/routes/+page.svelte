@@ -222,7 +222,15 @@
   <div class="main-area" class:npc-active={$activeNpcUI !== null}>
     <LeftSidebar />
 
-    <div class="center-column">
+    <div class="center-column" class:encounter-active={$activeNpcUI !== null}>
+      {#if $activeNpcUI}
+        <div class="encounter-bar">
+          <span class="enc-icon">◈</span>
+          <span class="enc-label">對話遭遇</span>
+          <span class="enc-sep">·</span>
+          <span class="enc-name">{$activeNpcUI.name}</span>
+        </div>
+      {/if}
       <NarrativePanel />
       {#if $activeScriptedDialogue}
         <ScriptedChoicePanel onSelect={handleDialogueChoice} />
@@ -363,6 +371,61 @@
     overflow: hidden;
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
+    transition: border-color 0.25s ease;
+  }
+
+  .center-column.encounter-active {
+    border-left-color: var(--accent-dim);
+    border-right-color: var(--accent-dim);
+  }
+
+  /* Encounter mode header strip */
+  .encounter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 14px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-accent);
+    border-left: 2px solid var(--accent);
+    flex-shrink: 0;
+    animation: encounterSlideIn 0.18s ease-out;
+  }
+
+  @keyframes encounterSlideIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .enc-icon {
+    font-size: 9px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .enc-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .enc-sep {
+    font-size: 9px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .enc-name {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* In-game load menu */

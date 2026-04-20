@@ -9,10 +9,10 @@ export interface PrimaryStats {
   luck: number;         // 運氣 — 機率、奇遇判定
 }
 
-/** 次要內部（設定）數值 */
+/** 內部數值 — 玩家對世界三大領域的理解程度 */
 export interface SecondaryStats {
   consciousness: number; // 意識 — 與精神學領域相關
-  arcane: number;        // 奧秘 — 與魔法領域相關
+  mysticism: number;     // 奧秘 — 與魔法領域相關
   technology: number;    // 科技 — 與科學領域相關
 }
 
@@ -22,8 +22,8 @@ export interface StatusStats {
   staminaMax: number;
   stress: number;        // 壓力 — 越高越不穩定
   stressMax: number;
-  mana: number;          // 魔力 — 魔法使用量
-  manaMax: number;
+  endo: number;          // Endo (Endovis) — 體內魔素，魔法使用量
+  endoMax: number;
   experience: number;    // 經驗 — 影響技能成長方向
 }
 

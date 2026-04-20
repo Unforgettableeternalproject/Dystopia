@@ -29,6 +29,7 @@
   "dialogueId": "crambell_kach_default",
   "questIds": [],
   "isVisible": true,
+  "availablePeriods": ["work"],
   "phaseOverrides": {
     "crambell_treffen_trust_gained": {
       "dialogueId": "crambell_kach_treffen"

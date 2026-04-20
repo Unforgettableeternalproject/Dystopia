@@ -51,6 +51,8 @@ export interface NPCNode {
   dialogueId: string;            // points to dialogues/<id>.json
   questIds?: string[];
   isVisible: boolean;
+  /** 時段限制；省略 = 任何時段皆可出現 */
+  availablePeriods?: TimePeriod[];
   phaseOverrides?: Record<string, NPCOverride>;  // flag expression -> patch
 }
 

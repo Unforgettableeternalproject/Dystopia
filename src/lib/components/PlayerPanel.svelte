@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, manaPercent } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, endoPercent } from '$lib/stores/gameStore';
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -42,11 +42,11 @@
       </div>
 
       <div class="stat-row">
-        <span class="stat-label">MP</span>
+        <span class="stat-label">END</span>
         <div class="bar-wrap">
-          <div class="bar mana" style="width:{$manaPercent}%"></div>
+          <div class="bar endo" style="width:{$endoPercent}%"></div>
         </div>
-        <span class="stat-val">{$playerUI.mana}<span class="stat-max">/{$playerUI.manaMax}</span></span>
+        <span class="stat-val">{$playerUI.endo}<span class="stat-max">/{$playerUI.endoMax}</span></span>
       </div>
     </div>
   </div>
@@ -213,7 +213,7 @@
 
   .stamina { background: var(--accent); }
   .stress  { background: var(--accent-red); }
-  .mana    { background: var(--accent-blue); }
+  .endo    { background: var(--accent-blue); }
 
   .stat-val {
     font-size: 10px;

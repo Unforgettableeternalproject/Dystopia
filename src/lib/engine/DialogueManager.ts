@@ -18,17 +18,20 @@ import type { StateManager }      from './StateManager';
 import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from '../types/dialogue';
 import type { FlagSystem }        from './FlagSystem';
 
-const NPC_SIGNAL_PATTERN       = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
-const MILESTONE_SIGNAL_PATTERN = /<<MILESTONE:\s*([^>>]+)>>/gi;
-const QUEST_SIGNAL_PATTERN     = /<<QUEST:\s*([^|>>]+)\|([^>>]+)>>/gi;
-const MOVE_SIGNAL_PATTERN      = /<<MOVE:\s*([^>>]+)>>/gi;
+const NPC_SIGNAL_PATTERN          = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
+const MILESTONE_SIGNAL_PATTERN    = /<<MILESTONE:\s*([^>>]+)>>/gi;
+const QUEST_SIGNAL_PATTERN        = /<<QUEST:\s*([^|>>]+)\|([^>>]+)>>/gi;
+const MOVE_SIGNAL_PATTERN         = /<<MOVE:\s*([^>>]+)>>/gi;
+const END_ENCOUNTER_SIGNAL_PATTERN = /<<END_ENCOUNTER>>/gi;
 
 export interface ParsedDialogueSignals {
-  npcUpdates:   Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
-  milestones:   Array<{ milestoneId: string }>;
-  questSignals: Array<{ questId: string; type: 'flag' | 'objective'; value: string }>;
+  npcUpdates:    Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
+  milestones:    Array<{ milestoneId: string }>;
+  questSignals:  Array<{ questId: string; type: 'flag' | 'objective'; value: string }>;
   /** Location ID to move the player to, if DM signaled a location change. */
-  moveSignal?:  string;
+  moveSignal?:   string;
+  /** True if DM signaled the dialogue encounter should end naturally. */
+  endEncounter:  boolean;
   cleanNarrative: string;
 }
 
@@ -260,8 +263,12 @@ export class DialogueManager {
     if (moveMatch) moveSignal = moveMatch[1].trim();
     clean = clean.replace(MOVE_SIGNAL_PATTERN, '');
 
+    // END_ENCOUNTER signal
+    const endEncounter = END_ENCOUNTER_SIGNAL_PATTERN.test(clean);
+    clean = clean.replace(END_ENCOUNTER_SIGNAL_PATTERN, '');
+
     clean = clean.replace(/\n{3,}/g, '\n\n').trimEnd();
-    return { npcUpdates, milestones, questSignals, moveSignal, cleanNarrative: clean };
+    return { npcUpdates, milestones, questSignals, moveSignal, endEncounter, cleanNarrative: clean };
   }
 
   applySignals(signals: ParsedDialogueSignals, activeNpcIds: string[]): void {

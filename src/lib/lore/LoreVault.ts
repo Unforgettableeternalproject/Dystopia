@@ -210,10 +210,11 @@ export class LoreVault {
     return this.data.npcs[id];
   }
 
-  // Resolve NPC with phase overrides applied.
-  resolveNPC(id: string, flags: FlagSystem): NPCNode | undefined {
+  // Resolve NPC with phase overrides and optional time period filter applied.
+  resolveNPC(id: string, flags: FlagSystem, timePeriod?: TimePeriod): NPCNode | undefined {
     const npc = this.data.npcs[id];
     if (!npc || !npc.isVisible) return undefined;
+    if (timePeriod && npc.availablePeriods?.length && !npc.availablePeriods.includes(timePeriod)) return undefined;
     if (!npc.phaseOverrides) return npc;
 
     let patch: NPCOverride = {};
@@ -225,9 +226,9 @@ export class LoreVault {
     return { ...npc, ...patch };
   }
 
-  getNPCsByIds(ids: string[], flags: FlagSystem): NPCNode[] {
+  getNPCsByIds(ids: string[], flags: FlagSystem, timePeriod?: TimePeriod): NPCNode[] {
     return ids
-      .map(id => this.resolveNPC(id, flags))
+      .map(id => this.resolveNPC(id, flags, timePeriod))
       .filter((n): n is NPCNode => !!n);
   }
 
@@ -295,7 +296,7 @@ export class LoreVault {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved) return '[Unknown location]';
 
-    const npcs = this.getNPCsByIds(resolved.npcIds, flags);
+    const npcs = this.getNPCsByIds(resolved.npcIds, flags, accessCtx?.timePeriod);
 
     const exits = resolved.connections
       .map(c => {
