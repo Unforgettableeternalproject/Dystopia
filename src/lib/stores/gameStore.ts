@@ -4,6 +4,7 @@ import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
 import type { HistoryEntry } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
+import type { InventoryItem } from '../types/item';
 
 // ── Narrative Lines ────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ export interface DetailedPlayerState {
   statusStats:    Record<string, number>;
   conditions:     Array<{ label: string }>;
   titles:         string[];
-  inventory:      string[];
+  inventory:      InventoryItem[];
   reputation:     Record<string, number>;
   affinity:       Record<string, number>;
   knownIntelIds:  string[];

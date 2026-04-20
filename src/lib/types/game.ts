@@ -1,6 +1,7 @@
 // -- Game State & AI Types ---
 
 import type { PlayerState } from "./player";
+import type { InventoryItem } from "./item";
 import type { QuestInstance } from "./quest";
 import type { WorldPhaseState } from "./phase";
 import type { TimePeriod } from "./world";
@@ -166,6 +167,6 @@ export interface StarterConfig {
     secondaryStats: { consciousness: number; mysticism: number; technology: number };
     statusStats: { stamina: number; staminaMax: number; stress: number; stressMax: number; endo: number; endoMax: number };
     knownIntelIds: string[];
-    inventory: string[];
+    inventory: InventoryItem[];
   };
 }

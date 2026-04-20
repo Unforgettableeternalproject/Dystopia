@@ -1,0 +1,88 @@
+{
+  "_schema": "ItemNode — one file per item definition",
+  "_version": 1,
+
+  "_comment_type": [
+    "type 欄位決定物品的核心行為分類：",
+    "  'equipment'  = 裝備類：穿戴後持續提供 statBonus 加成，可進行裝備/卸下操作。",
+    "  'consumable' = 消耗品：使用後觸發效果並從物品欄移除（或減少 quantity）。",
+    "  'key'        = 關鍵道具：不可消耗、不可裝備，作為通行、任務或劇情的解鎖憑證。",
+    "",
+    "MVP 階段僅實作 key 類型（如移動許可）。equipment / consumable 留待後續。"
+  ],
+
+  "_comment_variants": [
+    "variants 陣列用於有多種版本的物品（如移動許可有前往不同象限的版本）。",
+    "有 variants 的物品在發放時需指定 variantId，InventoryItem 中會記錄對應 variantId。",
+    "玩家物品欄中，同一 itemId + 不同 variantId 視為不同的物品實例。",
+    "",
+    "在 ConnectionAccess.itemRequirements 中，可透過 variantId 精確指定需要哪個版本：",
+    "  { \"itemId\": \"travel_permit\", \"variantId\": \"district_1\" }",
+    "省略 variantId 表示持有任意變體即可通行。"
+  ],
+
+  "_comment_expiry": [
+    "expiresAfterMinutes：物品從獲得起算，幾分鐘後失效（遊戲內時間）。",
+    "  失效時機由引擎在每回合開始時檢查，符合條件者將 InventoryItem.isExpired 標記為 true。",
+    "  失效物品仍留在物品欄中作為紀錄，但不再滿足 itemRequirements 的驗證條件。",
+    "  省略此欄位 = 永久有效，直到被旗標或事件明確移除。",
+    "",
+    "換算參考：",
+    "  480  分鐘 = 8 小時（一個作業時段）",
+    "  1440 分鐘 = 24 小時（一個遊戲內日）",
+    "  2880 分鐘 = 48 小時（兩日）"
+  ],
+
+  "_comment_statBonus": [
+    "statBonus 僅對 type=equipment 的物品有意義。",
+    "對應 PrimaryStats：strength / knowledge / talent / spirit / luck。",
+    "可為負值（例如施加詛咒或負重效果）。",
+    "MVP 階段裝備效果由引擎計算，暫未實作裝備槽限制。"
+  ],
+
+  "_comment_obtaining": [
+    "物品的發放方式（非此 JSON 的欄位，記錄在此供設計參考）：",
+    "  - Quest reward：在 quests/_schema.json → rewards.items 中填入 itemId（無法指定 variantId）",
+    "  - 對話 / 事件：透過 DM signal 或 EventOutcome 觸發（可指定 variantId）",
+    "  - 初始物品：在 lore/world/starter.json → player.inventory 中填入初始 InventoryItem"
+  ],
+
+  "_comment_how_to_use_in_access": [
+    "在 LocationConnection.access 或 LocationBase.accessCondition 中使用物品門檻：",
+    "  \"itemRequirements\": [",
+    "    { \"itemId\": \"travel_permit\", \"variantId\": \"district_2\" }",
+    "  ]",
+    "多個條目為 AND 關係（全部都要持有）。",
+    "lockedMessage 建議同時填寫，讓玩家知道為何無法通行。"
+  ],
+
+  "id": "region_item_name",
+  "name": "物品顯示名稱",
+  "description": "玩家在物品欄中看到的說明文字。描述外觀、用途或背景故事，不超過 2 句。",
+  "type": "key",
+  "obtainedFrom": "說明此物品通常從何處取得（給 DM / 玩家閱讀）。",
+  "expiresAfterMinutes": 1440,
+  "stackable": false,
+
+  "variants": [
+    {
+      "id": "district_1",
+      "label": "往第一象限",
+      "description": "蓋有第一象限入境章的許可證。"
+    },
+    {
+      "id": "district_2",
+      "label": "往第二象限",
+      "description": "蓋有第二象限入境章的許可證。"
+    }
+  ],
+
+  "statBonus": {
+    "_comment": "type=equipment 時填寫，其他類型省略此欄位",
+    "strength": 0,
+    "knowledge": 0,
+    "talent": 0,
+    "spirit": 0,
+    "luck": 0
+  }
+}

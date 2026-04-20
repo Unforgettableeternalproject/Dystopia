@@ -2,16 +2,18 @@
 // Loads authored content from JSON; the DM only reads world data through here.
 
 import type {
-  LocationNode, ResolvedLocation, LocationConnection,
+  LocationNode, ResolvedLocation, LocationConnection, ConnectionAccess, GameTimeRange,
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
   DistrictIndex, RegionSchedule, FlagManifestEntry,
   TimePeriod,
 } from '../types';
+import type { ItemNode, InventoryItem } from '../types/item';
+import type { GameTime } from '../types/game';
 import { FlagRegistry } from '../engine/FlagRegistry';
 import type { ProximityContext } from '../engine/FlagRegistry';
 import type { DialogueProfile } from '../types/dialogue';
-import type { QuestDefinition } from '../types/quest';
+import type { QuestDefinition, QuestInstance } from '../types/quest';
 import type { WorldPhase, WorldPhaseId, PhaseEffect } from '../types/phase';
 import type { FlagSystem } from '../engine/FlagSystem';
 import type { NPCMemoryEntry } from '../types/game';
@@ -28,13 +30,14 @@ interface LoreData {
   districts:    Record<string, DistrictIndex>;
   schedules:    Record<string, RegionSchedule>;
   flagManifest: FlagManifestEntry[];
+  items:        Record<string, ItemNode>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
     dialogues: {}, quests: {}, phases: [], regions: {}, districts: {}, schedules: {},
-    flagManifest: [],
+    flagManifest: [], items: {},
   };
 
   /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
@@ -60,6 +63,7 @@ export class LoreVault {
       this.flagRegistry.load(this.data.flagManifest);
     }
     if (data.phases)       this.data.phases.push(...data.phases);
+    if (data.items)        Object.assign(this.data.items,       data.items);
   }
 
   /**
@@ -78,10 +82,22 @@ export class LoreVault {
       districtId:   node.districtId   ?? inheritedDistrictId,
       parentId:     parentId          ?? node.parentId,
       locationType: node.locationType ?? (parentId !== undefined ? 'sublocation' : undefined),
+      // Fresh array so auto-injection below doesn't mutate original JSON objects.
+      base: { ...node.base, connections: [...node.base.connections] },
     };
     this.data.locations[node.id] = patched;
     for (const sub of node.sublocations ?? []) {
       this.registerLocation(sub, node.id, patched.regionId, patched.districtId);
+
+      // Auto-inject implicit parent ↔ child connections (if not already authored).
+      const parent = this.data.locations[node.id];
+      const child  = this.data.locations[sub.id];
+      if (!parent.base.connections.some(c => c.targetLocationId === sub.id)) {
+        parent.base.connections.push({ targetLocationId: sub.id, description: '進入' + child.name });
+      }
+      if (!child.base.connections.some(c => c.targetLocationId === node.id)) {
+        child.base.connections.push({ targetLocationId: node.id, description: '返回' + parent.name });
+      }
     }
   }
 
@@ -168,22 +184,88 @@ export class LoreVault {
     return result;
   }
 
+  /** Returns true if the given game time falls within the range (supports overnight wrap). */
+  private isInTimeRange(range: GameTimeRange, time: GameTime): boolean {
+    const cur   = time.hour * 60 + time.minute;
+    const start = range.startHour * 60 + range.startMinute;
+    const end   = range.endHour   * 60 + range.endMinute;
+    return start <= end
+      ? cur >= start && cur <= end          // same-day range: 06:00–16:00
+      : cur >= start || cur <= end;         // overnight range: 22:00–06:00
+  }
+
+  /**
+   * Core access evaluation — shared by connections and locations.
+   * All conditions are AND. timeRanges / questStages arrays are OR within themselves.
+   */
+  private evaluateAccessCondition(
+    a: ConnectionAccess | undefined,
+    flags: FlagSystem,
+    timePeriod: TimePeriod,
+    knownIntelIds: string[],
+    activeQuests?: QuestInstance[],
+    gameTime?: GameTime,
+    inventory?: InventoryItem[],
+  ): boolean {
+    if (!a) return true;
+    if (a.flag && !flags.evaluate(a.flag)) return false;
+    if (a.timePeriods?.length && !a.timePeriods.includes(timePeriod)) return false;
+    if (a.timeRanges?.length) {
+      if (!gameTime || !a.timeRanges.some(r => this.isInTimeRange(r, gameTime))) return false;
+    }
+    if (a.knowledgeIds?.length && a.knowledgeIds.some(id => !knownIntelIds.includes(id))) return false;
+    if (a.questStages?.length) {
+      const inStage = a.questStages.some(qs =>
+        activeQuests?.some(qi => qi.questId === qs.questId && qi.currentStageId === qs.stageId)
+      );
+      if (!inStage) return false;
+    }
+    if (a.itemRequirements?.length) {
+      for (const req of a.itemRequirements) {
+        const has = (inventory ?? []).some(i =>
+          i.itemId === req.itemId &&
+          !i.isExpired &&
+          (req.variantId === undefined || i.variantId === req.variantId)
+        );
+        if (!has) return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Returns true if the player can currently use this connection.
-   * Checks all access conditions: flag, timePeriods, knowledgeIds.
+   * Checks all access conditions: flag, timePeriods, timeRanges, knowledgeIds, questStages.
    */
   canAccessConnection(
     conn: LocationConnection,
     flags: FlagSystem,
     timePeriod: TimePeriod,
     knownIntelIds: string[],
+    activeQuests?: QuestInstance[],
+    gameTime?: GameTime,
+    inventory?: InventoryItem[],
   ): boolean {
-    const a = conn.access;
-    if (!a) return true;
-    if (a.flag && !flags.evaluate(a.flag)) return false;
-    if (a.timePeriods?.length && !a.timePeriods.includes(timePeriod)) return false;
-    if (a.knowledgeIds?.length && a.knowledgeIds.some(id => !knownIntelIds.includes(id))) return false;
-    return true;
+    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory);
+  }
+
+  /**
+   * Returns true if the player can enter this location.
+   * Combines localVariant-resolved isAccessible with base.accessCondition.
+   */
+  canAccessLocation(
+    locationId: string,
+    flags: FlagSystem,
+    timePeriod: TimePeriod,
+    knownIntelIds: string[],
+    activeQuests?: QuestInstance[],
+    gameTime?: GameTime,
+    inventory?: InventoryItem[],
+  ): boolean {
+    const resolved = this.resolveLocation(locationId, flags);
+    if (!resolved || !resolved.isAccessible) return false;
+    const node = this.data.locations[locationId];
+    return this.evaluateAccessCondition(node?.base.accessCondition, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory);
   }
 
   // -- Districts -------------------------------------------------------
@@ -280,6 +362,16 @@ export class LoreVault {
     return this.getPhase(phaseId)?.effects ?? [];
   }
 
+  // -- Items -----------------------------------------------------------
+
+  getItem(id: string): ItemNode | undefined {
+    return this.data.items[id];
+  }
+
+  getAllItems(): ItemNode[] {
+    return Object.values(this.data.items);
+  }
+
   // -- DM scene context ------------------------------------------------
 
   /**
@@ -291,7 +383,7 @@ export class LoreVault {
     locationId: string,
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
-    accessCtx?: { timePeriod: TimePeriod; knownIntelIds: string[] },
+    accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[] },
   ): string {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved) return '[Unknown location]';
@@ -308,11 +400,15 @@ export class LoreVault {
           if (c.access.timePeriods?.length) reqs.push('time: ' + c.access.timePeriods.join('/'));
           if (c.access.flag)                reqs.push('flag: ' + c.access.flag);
           if (c.access.knowledgeIds?.length) reqs.push('knowledge: ' + c.access.knowledgeIds.join(', '));
+          if (c.access.itemRequirements?.length) {
+            const itemDescs = c.access.itemRequirements.map(r => r.itemId + (r.variantId ? ':' + r.variantId : ''));
+            reqs.push('item: ' + itemDescs.join(', '));
+          }
           if (reqs.length) parts.push('[requires ' + reqs.join(' | ') + ']');
 
           // Show lock status when access context is provided
           if (accessCtx) {
-            const open = this.canAccessConnection(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds);
+            const open = this.canAccessConnection(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory);
             if (!open) {
               const msg = c.access.lockedMessage ?? '此通道目前無法通行';
               parts.push('[LOCKED: ' + msg + ']');

@@ -16,6 +16,10 @@
       {
         "targetLocationId": "delth_forest",
         "description": "前往象限邊緣森林"
+      },
+      {
+        "targetLocationId": "delth_mine_path",
+        "description": "往礦場的通道，只在早上開放"
       }
     ],
     "npcIds": [],

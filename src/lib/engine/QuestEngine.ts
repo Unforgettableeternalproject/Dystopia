@@ -294,7 +294,7 @@ export class QuestEngine {
         return obj.npcId ? !!gs.npcMemory[obj.npcId] : false;
 
       case 'item_collect':
-        return obj.itemId ? gs.player.inventory.includes(obj.itemId) : false;
+        return obj.itemId ? gs.player.inventory.some(i => i.itemId === obj.itemId && !i.isExpired) : false;
 
       case 'reputation': {
         if (!obj.factionId || obj.minReputation === undefined) return false;

@@ -73,9 +73,19 @@ export class StateManager {
     this.notifyUpdate();
   }
 
-  addItem(itemId: string): void {
-    if (!this.state.player.inventory.includes(itemId)) {
-      this.state.player.inventory.push(itemId);
+  addItem(itemId: string, totalMinutes: number, variantId?: string): void {
+    const exists = this.state.player.inventory.some(
+      i => i.itemId === itemId && i.variantId === variantId && !i.isExpired
+    );
+    if (!exists) {
+      this.state.player.inventory.push({
+        instanceId: itemId + (variantId ? '_' + variantId : '') + '_' + totalMinutes,
+        itemId,
+        variantId,
+        obtainedAtMinute: totalMinutes,
+        quantity: 1,
+        isExpired: false,
+      });
       this.notifyUpdate();
     }
   }
@@ -295,9 +305,7 @@ export class StateManager {
         }
         if (reward.items) {
           reward.items.forEach(itemId => {
-            if (!this.state.player.inventory.includes(itemId)) {
-              this.state.player.inventory.push(itemId);
-            }
+            this.addItem(itemId, this.state.time.totalMinutes);
           });
         }
       }

@@ -592,7 +592,7 @@ export class GameController {
         gs.player.currentLocationId,
         this.state.flags,
         gs.npcMemory,
-        { timePeriod: gs.timePeriod, knownIntelIds: gs.player.knownIntelIds },
+        { timePeriod: gs.timePeriod, knownIntelIds: gs.player.knownIntelIds, inventory: gs.player.inventory },
       )
     );
 
@@ -943,7 +943,7 @@ export class GameController {
     if (resolved) {
       const exits = resolved.connections
         .filter(c => this.lore.canAccessConnection(
-          c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+          c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds, undefined, undefined, gs.player.inventory,
         ))
         .slice(0, 3);
       for (const exit of exits) {

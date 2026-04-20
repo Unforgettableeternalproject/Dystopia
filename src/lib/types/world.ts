@@ -1,4 +1,5 @@
 // World / Lore entity types.
+import type { ItemRequirement } from './item';
 // Dialogue is a separate type (see dialogue.ts).
 // Quest definitions are in quest.ts.
 // World phase effects are in phase.ts.
@@ -59,16 +60,53 @@ export interface NPCNode {
 // ── Location ─────────────────────────────────────────────────────
 
 /**
- * 通道進入條件。所有設定的欄位同時滿足才能通行（AND 關係）。
+ * 任務階段參照。指向特定任務的特定進行階段。
+ * 用於 AccessCondition.questStages，陣列內為 OR 關係（符合其中一個即可）。
+ */
+export interface QuestStageRef {
+  questId: string;
+  stageId: string;
+}
+
+/**
+ * 精確時間範圍（遊戲內時鐘，24 小時制）。
+ * 支援跨午夜，例如 { startHour: 22, startMinute: 0, endHour: 6, endMinute: 0 }。
+ * 用於 ConnectionAccess.timeRanges，陣列內為 OR 關係（落在其中一個範圍即通過）。
+ */
+export interface GameTimeRange {
+  startHour: number;    // 0–23
+  startMinute: number;  // 0–59
+  endHour: number;      // 0–23
+  endMinute: number;    // 0–59
+}
+
+/**
+ * 通道／地點進入條件。所有設定的欄位同時滿足才能通行（AND 關係）。
  * 省略整個 access 物件 = 永遠開放。
  */
 export interface ConnectionAccess {
   /** 旗標表達式；evaluate 為 true 時開放 */
   flag?: string;
-  /** 僅在這些時段開放；省略 = 任何時段皆可 */
+  /** 僅在這些時段（work/rest/special）開放；省略 = 任何時段皆可 */
   timePeriods?: TimePeriod[];
+  /**
+   * 精確時間範圍。陣列內為 OR — 當前時間落在其中任一範圍即通過。
+   * 與 timePeriods 同為 AND 關係的獨立條件：兩者都設定時，兩者都必須通過。
+   * 省略 = 無時鐘限制。
+   */
+  timeRanges?: GameTimeRange[];
   /** 玩家需擁有的情報 ID（knownIntelIds）；省略 = 無知識門檻 */
   knowledgeIds?: string[];
+  /**
+   * 任務階段限制。陣列內為 OR — 玩家只要正在進行其中一個 questId+stageId 組合即開放。
+   * 省略 = 無任務限制。
+   */
+  questStages?: QuestStageRef[];
+  /**
+   * 物品持有需求（AND 關係）。玩家需持有所有指定的未失效物品才能通行。
+   * 例：移動許可（特定象限變體）。省略 = 無物品門檻。
+   */
+  itemRequirements?: ItemRequirement[];
   /**
    * 條件不滿足時顯示給玩家的說明（由 DM 或 Regulator 傳遞）。
    * 例：「礦坑入口在休息時段關閉」、「此通道需要通行憑證」
@@ -90,7 +128,17 @@ export interface LocationBase {
   connections: LocationConnection[];
   npcIds: string[];
   eventIds: string[];
+  /**
+   * 靜態可訪問預設值。false = 地點預設隱藏／封鎖，可由 localVariants 覆蓋。
+   * 若需要動態條件（旗標、時段、任務階段），請同時設定 accessCondition。
+   */
   isAccessible: boolean;
+  /**
+   * 動態進入條件。評估時機與 ConnectionAccess 相同（AND 關係）。
+   * isAccessible 為靜態預設，accessCondition 提供額外的動態把關；
+   * 兩者皆通過才允許進入。省略 = 不附加動態條件。
+   */
+  accessCondition?: ConnectionAccess;
 }
 
 // LocalVariant: for changes scoped to this location only (e.g. mine collapse).

@@ -12,7 +12,8 @@ Rules:
 2. Active conditions may restrict or modify possible actions (e.g., injured_arm limits heavy lifting).
 3. If impossible, give a short in-world reason — never say "your stat is too low".
 4. If possible but overreaching, downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
-5. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null }`;
+5. The "reason" and "modifiedInput" fields must be written in Traditional Chinese (繁體中文).
+6. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null }`;
 
 // Patterns that indicate prompt injection attempts.
 // Checked case-insensitively; order does not matter.

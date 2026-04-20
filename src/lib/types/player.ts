@@ -1,4 +1,5 @@
 // ── Player Types ──────────────────────────────────────────────
+import type { InventoryItem } from './item';
 
 /** 主要技能數值 */
 export interface PrimaryStats {
@@ -61,7 +62,7 @@ export interface PlayerState {
   secondaryStats: SecondaryStats;
   statusStats: StatusStats;
   externalStats: ExternalStats;
-  inventory: string[];         // item ID 列表
+  inventory: InventoryItem[];  // 物品欄
   activeFlags: Set<string>;    // 已達成的旗標
   titles: string[];            // 已獲得的稱號
   conditions: PlayerCondition[]; // 當前生效的暫時性狀態
