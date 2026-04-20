@@ -59,6 +59,7 @@ function makePlayer(
     },
     externalStats:  { reputation: {}, affinity: {}, familiarity: {} },
     inventory:      [],
+    melphin:        0,
     activeFlags:    new Set(),
     titles:         [],
     conditions,

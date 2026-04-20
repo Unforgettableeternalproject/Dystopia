@@ -51,7 +51,14 @@
           "flag": "optional_flag_expression",
           "timePeriods": ["work"],
           "knowledgeIds": ["intel_id_player_must_have"],
-          "lockedMessage": "玩家試圖通行時看到的說明（如「礦坑在休息時段關閉」）"
+          "lockedMessage": "玩家試圖通行時看到的說明（如「礦坑在休息時段關閉」）",
+          "bypass": {
+            "_comment": "bypass 省略 = 不啟用繞過。只有在 access 條件無法滿足時才評估 bypass（access 優先）。bypass 內任一條件成立即可通行，但會附加時間懲罰。",
+            "flag": "optional_bypass_flag_expression",
+            "knowledgeIds": ["bypass_intel_id"],
+            "bypassMessage": "（選填）DM context：玩家以特殊方式通過時的提示語",
+            "timePenaltyMinutes": 15
+          }
         }
       },
       {

@@ -389,6 +389,26 @@ export class StateManager {
     return periodChanged;
   }
 
+  /**
+   * 檢查物品欄中所有未失效物品，將已到達時限的物品標記為 isExpired。
+   * @param getExpiresAfterMinutes 接受 itemId，回傳該物品定義的時限分鐘數；無時限回傳 undefined
+   */
+  tickItemExpiry(getExpiresAfterMinutes: (itemId: string) => number | undefined): void {
+    const now = this.state.time.totalMinutes;
+    let changed = false;
+    for (const item of this.state.player.inventory) {
+      if (item.isExpired) continue;
+      const expiresAfter = getExpiresAfterMinutes(item.itemId);
+      if (expiresAfter === undefined) continue;
+      if (now >= item.obtainedAtMinute + expiresAfter) {
+        item.isExpired = true;
+        changed = true;
+        this.bus.emit(GameEvents.ITEM_EXPIRED, { itemId: item.itemId, instanceId: item.instanceId, variantId: item.variantId });
+      }
+    }
+    if (changed) this.notifyUpdate();
+  }
+
   setEventCooldown(eventId: string, totalMinutes: number): void {
     this.state.eventCooldowns[eventId] = totalMinutes;
   }

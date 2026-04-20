@@ -17,6 +17,7 @@ import type { LoreVault }         from '../lore/LoreVault';
 import type { StateManager }      from './StateManager';
 import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from '../types/dialogue';
 import type { FlagSystem }        from './FlagSystem';
+import type { InventoryItem }     from '../types/item';
 
 const NPC_SIGNAL_PATTERN          = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
 const MILESTONE_SIGNAL_PATTERN    = /<<MILESTONE:\s*([^>>]+)>>/gi;
@@ -87,12 +88,26 @@ export class DialogueManager {
    * Filter a node's choices by pre-conditions:
    *   - `condition`        : flag expression must be true
    *   - `knowledgeRequired`: all listed intel IDs must be in player's knownIntelIds
+   *   - `itemRequired`     : all listed items must be held and not expired (AND)
+   *   - `minMelphin`       : player's melphin must be >= this value
    */
   filterChoices(choices: ScriptedChoice[], flags: FlagSystem): ScriptedChoice[] {
-    const known = this.state.getState().player.knownIntelIds;
+    const player = this.state.getState().player;
+    const known: string[]        = player.knownIntelIds;
+    const inventory: InventoryItem[] = player.inventory ?? [];
+    const melphin: number        = player.melphin ?? 0;
+
     return choices.filter(c => {
       if (c.condition && !flags.evaluate(c.condition)) return false;
       if (c.knowledgeRequired?.some(id => !known.includes(id))) return false;
+      if (c.itemRequired?.some(req =>
+        !inventory.some(i =>
+          i.itemId === req.itemId &&
+          !i.isExpired &&
+          (req.variantId === undefined || i.variantId === req.variantId)
+        )
+      )) return false;
+      if (c.minMelphin !== undefined && melphin < c.minMelphin) return false;
       return true;
     });
   }

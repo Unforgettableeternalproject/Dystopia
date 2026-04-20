@@ -4,7 +4,7 @@
   "type": "quest",
   "baseLocationId": "delth_mining_shafts",
   "factionId": "crambell_government",
-  "publicDescription": "負責第三到第四象限治安的地區警監（內勤2★），高挑，面容嚴肅，制服永遠整潔。對違規者沒有同情心，對反抗政府的人認為那不過是找死。表面上是個盡忠職守的執法者。",
+  "publicDescription": "負責第三到第四象限治安的地區警監（內勤2★），高挑，面容嚴肅，制服永遠整潔。對違規者沒有同情心，對反抗政府的人認為那不過是找死。一般會叼著一根菸。",
   "secretLayers": [
     {
       "id": "kane_selective_enforcement",

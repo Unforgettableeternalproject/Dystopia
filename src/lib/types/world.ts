@@ -81,6 +81,31 @@ export interface GameTimeRange {
 }
 
 /**
+ * 通道進入條件的繞過設定。
+ * bypass 內所有欄位為 OR 關係——任一條件成立即可無視整個 access 的限制。
+ * 省略整個 bypass 物件 = 不啟用繞過機制。
+ */
+export interface ConnectionBypass {
+  /** 旗標表達式；evaluate 為 true 時繞過 access */
+  flag?: string;
+  /** 玩家持有其中任一情報 ID 即可繞過 */
+  knowledgeIds?: string[];
+  /** 玩家持有其中任一物品即可繞過（與 ConnectionAccess.itemRequirements 的 AND 邏輯相反，此處為 OR） */
+  itemRequirements?: ItemRequirement[];
+  /**
+   * DM context：玩家以特殊方式通過時的提示語。
+   * 例：「出示工頭牌後守衛揮手放行」
+   */
+  bypassMessage?: string;
+  /**
+   * bypass 通過時額外消耗的遊戲內時間（分鐘）。
+   * 代表走迂迴路線、賄賂、交涉等需要額外時間的方式。
+   * 省略 = 無額外時間成本。
+   */
+  timePenaltyMinutes?: number;
+}
+
+/**
  * 通道／地點進入條件。所有設定的欄位同時滿足才能通行（AND 關係）。
  * 省略整個 access 物件 = 永遠開放。
  */
@@ -108,10 +133,20 @@ export interface ConnectionAccess {
    */
   itemRequirements?: ItemRequirement[];
   /**
+   * 最低持有梅分門檻。玩家持有梅分需大於等於此數值才能通行。
+   * 省略 = 無貨幣門檻。
+   */
+  minMelphin?: number;
+  /**
    * 條件不滿足時顯示給玩家的說明（由 DM 或 Regulator 傳遞）。
    * 例：「礦坑入口在休息時段關閉」、「此通道需要通行憑證」
    */
   lockedMessage?: string;
+  /**
+   * 繞過條件。bypass 內任一條件成立即可無視此 access 的所有限制（OR 覆蓋 AND）。
+   * 省略 = 不啟用繞過機制。
+   */
+  bypass?: ConnectionBypass;
 }
 
 export interface LocationConnection {

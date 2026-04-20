@@ -67,4 +67,5 @@ export interface PlayerState {
   titles: string[];            // 已獲得的稱號
   conditions: PlayerCondition[]; // 當前生效的暫時性狀態
   knownIntelIds: string[];     // 已發現的情報 ID（對應 lore/intel/ 資料）
+  melphin: number;             // 梅分 (Melphin) — 持有貨幣
 }

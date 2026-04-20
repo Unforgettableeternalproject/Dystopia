@@ -196,7 +196,10 @@ export class LoreVault {
 
   /**
    * Core access evaluation — shared by connections and locations.
-   * All conditions are AND. timeRanges / questStages arrays are OR within themselves.
+   * All access conditions are AND. timeRanges / questStages arrays are OR within themselves.
+   * Bypass is only checked when access conditions fail (access takes priority).
+   * Returns { allowed, bypassMessage?, timePenalty? } where bypass fields are set only when
+   * normal access failed and bypass was the reason the connection opened.
    */
   private evaluateAccessCondition(
     a: ConnectionAccess | undefined,
@@ -206,36 +209,53 @@ export class LoreVault {
     activeQuests?: QuestInstance[],
     gameTime?: GameTime,
     inventory?: InventoryItem[],
-  ): boolean {
-    if (!a) return true;
-    if (a.flag && !flags.evaluate(a.flag)) return false;
-    if (a.timePeriods?.length && !a.timePeriods.includes(timePeriod)) return false;
-    if (a.timeRanges?.length) {
-      if (!gameTime || !a.timeRanges.some(r => this.isInTimeRange(r, gameTime))) return false;
-    }
-    if (a.knowledgeIds?.length && a.knowledgeIds.some(id => !knownIntelIds.includes(id))) return false;
-    if (a.questStages?.length) {
-      const inStage = a.questStages.some(qs =>
+    melphin?: number,
+  ): { allowed: boolean; bypassMessage?: string; timePenalty?: number } {
+    if (!a) return { allowed: true };
+
+    // ── Normal access check (AND) ──────────────────────────────────
+    const accessPassed =
+      (!a.flag || flags.evaluate(a.flag)) &&
+      (!a.timePeriods?.length || a.timePeriods.includes(timePeriod)) &&
+      (!a.timeRanges?.length || (!!gameTime && a.timeRanges.some(r => this.isInTimeRange(r, gameTime)))) &&
+      (!a.knowledgeIds?.length || a.knowledgeIds.every(id => knownIntelIds.includes(id))) &&
+      (!a.questStages?.length || a.questStages.some(qs =>
         activeQuests?.some(qi => qi.questId === qs.questId && qi.currentStageId === qs.stageId)
-      );
-      if (!inStage) return false;
-    }
-    if (a.itemRequirements?.length) {
-      for (const req of a.itemRequirements) {
-        const has = (inventory ?? []).some(i =>
+      )) &&
+      (!a.itemRequirements?.length || a.itemRequirements.every(req =>
+        (inventory ?? []).some(i =>
           i.itemId === req.itemId &&
           !i.isExpired &&
           (req.variantId === undefined || i.variantId === req.variantId)
-        );
-        if (!has) return false;
+        )
+      )) &&
+      (a.minMelphin === undefined || (melphin ?? 0) >= a.minMelphin);
+
+    if (accessPassed) return { allowed: true };
+
+    // ── Bypass check (OR) — only reached when access failed ────────
+    if (a.bypass) {
+      const b = a.bypass;
+      const bypassGranted =
+        (b.flag !== undefined && flags.evaluate(b.flag)) ||
+        (b.knowledgeIds?.some(id => knownIntelIds.includes(id)) ?? false) ||
+        (b.itemRequirements?.some(req =>
+          (inventory ?? []).some(i =>
+            i.itemId === req.itemId &&
+            !i.isExpired &&
+            (req.variantId === undefined || i.variantId === req.variantId)
+          )
+        ) ?? false);
+      if (bypassGranted) {
+        return { allowed: true, bypassMessage: b.bypassMessage, timePenalty: b.timePenaltyMinutes };
       }
     }
-    return true;
+
+    return { allowed: false };
   }
 
   /**
    * Returns true if the player can currently use this connection.
-   * Checks all access conditions: flag, timePeriods, timeRanges, knowledgeIds, questStages.
    */
   canAccessConnection(
     conn: LocationConnection,
@@ -245,8 +265,27 @@ export class LoreVault {
     activeQuests?: QuestInstance[],
     gameTime?: GameTime,
     inventory?: InventoryItem[],
+    melphin?: number,
   ): boolean {
-    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory);
+    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin).allowed;
+  }
+
+  /**
+   * Returns full access evaluation result.
+   * bypassMessage / timePenalty are set only when normal access failed and bypass was triggered.
+   * Used by buildSceneContext (DM hints) and GameController (applying time cost on move).
+   */
+  getConnectionAccessResult(
+    conn: LocationConnection,
+    flags: FlagSystem,
+    timePeriod: TimePeriod,
+    knownIntelIds: string[],
+    activeQuests?: QuestInstance[],
+    gameTime?: GameTime,
+    inventory?: InventoryItem[],
+    melphin?: number,
+  ): { allowed: boolean; bypassMessage?: string; timePenalty?: number } {
+    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin);
   }
 
   /**
@@ -261,11 +300,12 @@ export class LoreVault {
     activeQuests?: QuestInstance[],
     gameTime?: GameTime,
     inventory?: InventoryItem[],
+    melphin?: number,
   ): boolean {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved || !resolved.isAccessible) return false;
     const node = this.data.locations[locationId];
-    return this.evaluateAccessCondition(node?.base.accessCondition, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory);
+    return this.evaluateAccessCondition(node?.base.accessCondition, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin).allowed;
   }
 
   // -- Districts -------------------------------------------------------
@@ -383,7 +423,7 @@ export class LoreVault {
     locationId: string,
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
-    accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[] },
+    accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number },
   ): string {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved) return '[Unknown location]';
@@ -404,14 +444,20 @@ export class LoreVault {
             const itemDescs = c.access.itemRequirements.map(r => r.itemId + (r.variantId ? ':' + r.variantId : ''));
             reqs.push('item: ' + itemDescs.join(', '));
           }
+          if (c.access.minMelphin !== undefined) reqs.push('melphin: ' + c.access.minMelphin + '+');
           if (reqs.length) parts.push('[requires ' + reqs.join(' | ') + ']');
 
-          // Show lock status when access context is provided
+          // Show lock/bypass status when access context is provided
           if (accessCtx) {
-            const open = this.canAccessConnection(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory);
-            if (!open) {
+            const result = this.getConnectionAccessResult(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin);
+            if (!result.allowed) {
               const msg = c.access.lockedMessage ?? '此通道目前無法通行';
               parts.push('[LOCKED: ' + msg + ']');
+            } else if (result.bypassMessage || result.timePenalty !== undefined) {
+              const bypassParts: string[] = [];
+              if (result.bypassMessage) bypassParts.push(result.bypassMessage);
+              if (result.timePenalty !== undefined) bypassParts.push('+' + result.timePenalty + 'min');
+              parts.push('[BYPASS: ' + bypassParts.join(' | ') + ']');
             }
           }
         }

@@ -38,6 +38,8 @@
           "_pre_conditions": "All pre-conditions are evaluated BEFORE the choice is shown. Hidden if any fail.",
           "condition": "flag_expression — choice hidden if false. Supports &, |, ! operators.",
           "knowledgeRequired": ["intel_id_1", "intel_id_2"],
+          "itemRequired": [{ "itemId": "transit_permit", "variantId": "delth" }],
+          "minMelphin": 10,
 
           "_post_condition_branching": "Branches are evaluated AFTER effects are applied. First matching branch wins. Falls back to nextNodeId.",
           "branches": [

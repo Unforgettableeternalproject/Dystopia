@@ -6,6 +6,8 @@
 //   LLM       — DM generates freely using defaultContext + relationship history.
 //               Fires when no scripted trigger matches.
 
+import type { ItemRequirement } from './item';
+
 // ── Attitude ──────────────────────────────────────────────────
 
 /** Player attitude toward a specific NPC, updated by DM <<NPC>> signals. */
@@ -95,6 +97,19 @@ export interface ScriptedChoice {
    * Choice is hidden if any are missing.
    */
   knowledgeRequired?: string[];
+
+  /**
+   * Pre-condition: player must hold ALL listed items (AND).
+   * Choice is hidden if any item is missing or expired.
+   * Example: 需要特定象限移動許可、任務道具等 key item。
+   */
+  itemRequired?: ItemRequirement[];
+
+  /**
+   * Pre-condition: player must hold at least this many Melphin.
+   * Choice is hidden if player's melphin < minMelphin.
+   */
+  minMelphin?: number;
 
   effects?: ChoiceEffects;
 }

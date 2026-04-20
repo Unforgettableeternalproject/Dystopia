@@ -51,6 +51,14 @@
     </div>
   </div>
 
+  <!-- Melphin (貨幣) -->
+  <div class="section melphin-section">
+    <div class="melphin-row">
+      <span class="melphin-label">MEL</span>
+      <span class="melphin-val">{$playerUI.melphin ?? 0}<span class="melphin-unit"> ₘ</span></span>
+    </div>
+  </div>
+
   <!-- Conditions (感受狀態) -->
   <div class="section">
     <div class="section-label">感受</div>
@@ -227,6 +235,34 @@
   .stat-max {
     color: var(--text-dim);
     font-size: 9px;
+  }
+
+  /* ── Melphin ──────────────────────────────────────── */
+  .melphin-section {
+    padding: 6px 10px;
+  }
+
+  .melphin-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .melphin-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+
+  .melphin-val {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+
+  .melphin-unit {
+    font-size: 9px;
+    color: var(--text-dim);
   }
 
   /* ── Conditions ───────────────────────────────────── */

@@ -19,8 +19,17 @@
         "description": "前往費敏象限（第一象限）",
         "travelNote": "通道口的核查人員仔細核對你的通行憑證，然後放行。",
         "access": {
-          "flag": "crambell_transit_famein_permitted",
+          "itemRequirements": ["famein_transit_pass"],
           "lockedMessage": "此通道需要有效的費敏通行憑證"
+        }
+      },
+      {
+        "targetLocationId": "pestilens_transit_hub",
+        "description": "前往帕絲蒂蘭斯象限（第二象限）",
+        "travelNote": "通道口的核查人員核對你的特殊通行許可，並確認你並不存在於政府列管的人員名單中後放行。",
+        "access": {
+          "itemRequirements": ["pestilens_transit_pass"],
+          "lockedMessage": "此通道需要有效的帕絲蒂蘭斯特殊通行許可"
         }
       },
       {
@@ -28,7 +37,7 @@
         "description": "前往瓦爾象限（第三象限）",
         "travelNote": "通道口的核查人員核對你的工作分配令，確認與瓦爾的工作調配相符後放行。",
         "access": {
-          "flag": "crambell_transit_wyar_permitted",
+          "itemRequirements": ["wyar_transit_pass"],
           "lockedMessage": "此通道需要有效的瓦爾工作調配令"
         }
       },
@@ -37,7 +46,7 @@
         "description": "前往康庫爾（中央政府）",
         "travelNote": "前往中央需要高層許可，守衛格外嚴格地核查你的身分鎖資料。",
         "access": {
-          "flag": "crambell_konquer_access_granted",
+          "itemRequirements": ["konquer_access_pass"],
           "lockedMessage": "前往中央政府需要高層通行授權"
         }
       }

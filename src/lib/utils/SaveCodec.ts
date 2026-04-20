@@ -104,6 +104,7 @@ export async function decode(code: string): Promise<DecodeResult> {
     ...snapshot.player,
     activeFlags:   new Set(snapshot.player.activeFlags),
     knownIntelIds: snapshot.player.knownIntelIds ?? [],
+    melphin:       snapshot.player.melphin       ?? 0,
   };
 
   const state: GameState = {

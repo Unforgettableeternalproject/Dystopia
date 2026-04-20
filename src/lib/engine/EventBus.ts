@@ -42,4 +42,5 @@ export const GameEvents = {
   QUEST_GRANTED:        'quest:granted',    // 任務被授予（系統/NPC/事件）
   QUEST_DITCHED:        'quest:ditched',    // 玩家主動放棄
   QUEST_FAILED:         'quest:failed',     // 逾時或條件不符失敗
+  ITEM_EXPIRED:         'item:expired',     // 時限道具失效
 } as const;

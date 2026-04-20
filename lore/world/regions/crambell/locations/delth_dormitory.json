@@ -69,6 +69,25 @@
         "isAccessible": true
       },
       "localVariants": []
+    },
+    {
+      "id": "delth_dormitory_public_bathroom",
+      "name": "公共盥洗空間",
+      "tags": ["indoor", "residential", "sanitation"],
+      "base": {
+        "description": "宿舍裡的公共盥洗空間，設有幾個洗手台和淋浴間，供工人使用。水壓不穩，但至少還能用。牆上貼著一些衛生規定和公告。",
+        "ambience": ["潮濕", "霉味", "水聲", "低語"],
+        "connections": [
+          {
+            "targetLocationId": "delth_dormitory_common",
+            "description": "走回宿舍公共區"
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
     }
   ]
 }

@@ -11,6 +11,14 @@
       {
         "targetLocationId": "delth_dormitory",
         "description": "返回宿舍區"
+      },
+      {
+        "targetLocationId": "delth_warehouse",
+        "description": "通往經濟資源倉庫的密道",
+        "access": {
+          "knowledgeIds": ["crambell_warehouse_secret"],
+          "lockedMessage": "你並沒有發現什麼不尋常之處。"
+        }
       }
     ],
     "npcIds": [],
@@ -30,6 +38,29 @@
             {
               "targetLocationId": "delth_forest",
               "description": "返回森林"
+            },
+            {
+              "targetLocationId": "delth_forest_deep",
+              "description": "繼續往森林深處走"
+            }
+          ],
+          "npcIds": [],
+          "eventIds": [],
+          "isAccessible": true
+        },
+        "localVariants": []
+      },
+      {
+        "id": "delth_forest_deep",
+        "name": "森林深處",
+        "tags": ["outdoor", "natural", "secluded"],
+        "base": {
+          "description": "森林深處的一片密林，樹木高大且茂密，光線難以穿透。這裡幾乎沒有任何人跡，只有偶爾的動物聲響打破寂靜。",
+          "ambience": ["寂靜", "密林", "陰暗", "神秘"],
+          "connections": [
+            {
+              "targetLocationId": "delth_forest_clearing",
+              "description": "返回林間空地"
             }
           ],
           "npcIds": [],
@@ -38,5 +69,5 @@
         },
         "localVariants": []
       }
-  ]
+    ]
 }

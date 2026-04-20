@@ -3,6 +3,7 @@
   "name": "奧蘭",
   "type": "wandering",
   "baseLocationId": "delth_transit_hub",
+  "factionId": "crambell_treffen",
   "publicDescription": "穿梭於各象限的物流司機，貨物百分之百準時無損到達，這個紀錄在坎貝爾幾乎是個傳說。他與政府有很深的交情。沒有確鑿證據的情況下誣賴他，玩家自己會陷入麻煩。",
   "secretLayers": [
     {

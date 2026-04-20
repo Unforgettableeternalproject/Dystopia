@@ -11,15 +11,94 @@
       {
         "targetLocationId": "delth_mine_path",
         "description": "返回礦場通路"
-      },
-      {
-        "targetLocationId": "delth_warehouse",
-        "description": "前往倉儲區"
       }
     ],
-    "npcIds": ["crambell_kane"],
+    "npcIds": [],
     "eventIds": [],
     "isAccessible": true
   },
+  "sublocations": [
+    {
+      "id": "delth_mine_worksite",
+      "name": "工作岡位",
+      "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
+      "base": {
+        "description": "玩家工作的主要區域，包含幾個相對較大的坑口，提升機運作較為頻繁。這裡的監察官員特別嚴格，工人們在這裡工作時需要格外小心，以免因為違規而被扣配額或遭受處置。",
+        "ambience": ["礦粉瀰漫", "機器轟鳴", "黑暗坑口", "危險", "強制勞動"],
+        "connections": [
+          {
+            "targetLocationId": "delth_mine_plaza",
+            "description": "前往礦區廣場"
+          },
+          {
+            "targetLocationId": "delth_mine_storage",
+            "description": "前往礦坑儲藏室",
+            "access": {
+              "knowledgeIds": ["crambell_mine_storage_access"],
+              "lockedMessage": "遠處的建築有很多人在走動著，沒有理由最好不要隨便過去。"
+            }
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_mine_plaza",
+      "name": "礦區廣場",
+      "tags": ["outdoor", "industrial", "gathering_spot"],
+      "base": {
+        "description": "位於礦區中心的一片開闊地帶，工人們在這裡短暫休息、吃飯或交流。廣場上有幾張破舊的長椅和桌子，偶爾會有小販來這裡賣些簡單的食物和飲料。監察官員也會在這裡巡邏，但相對於工作岡位來說，氛圍稍微輕鬆一些。",
+        "ambience": ["礦粉瀰漫", "機器轟鳴", "工人聚集", "短暫休息", "簡單食物"],
+        "connections": [
+          {
+            "targetLocationId": "delth_mine_worksite",
+            "description": "返回工作岡位"
+          },
+          {
+            "targetLocationId": "delth_mine_storage",
+            "description": "前往礦坑儲藏室",
+            "access": {
+              "knowledgeIds": ["crambell_mine_storage_access"],
+              "lockedMessage": "遠處的建築有很多人在走動著，沒有理由最好不要隨便過去。"
+            }
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_mine_storage",
+      "name": "礦坑儲藏室",
+      "tags": ["indoor", "industrial", "storage"],
+      "base": {
+        "description": "一個位於礦區邊緣的建築，主要用來存放工具、備品和一些緊急物資。這裡的監察官員會定期檢查物資的使用情況，確保工人們不會私自拿取或藏匿物品。儲藏室內部昏暗潮濕，空氣中彌漫著油味和金屬的氣息。",
+        "ambience": ["昏暗", "潮濕", "工具和備品", "緊急物資", "監察官員"],
+        "connections": [
+          {
+            "targetLocationId": "delth_mine_worksite",
+            "description": "返回工作岡位"
+          },
+          {
+            "targetLocationId": "delth_mine_plaza",
+            "description": "前往礦區廣場"
+          },
+          {
+            "targetLocationId": "delth_mine_path",
+            "description": "這裡似乎可以直接繞過檢查哨，並去到外面?"
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    }
+  ],
   "localVariants": []
 }

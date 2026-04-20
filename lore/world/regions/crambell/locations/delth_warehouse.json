@@ -13,6 +13,18 @@
         "description": "返回礦區"
       },
       {
+        "targetLocationId": "delth_forest",
+        "description": "前往邊緣森林",
+        "access": {
+          "knowledgeIds": ["crambell_warehouse_secret"],
+          "lockedMessage": "你在樹叢間並沒有發現什麼不尋常之處。"
+        }
+      },
+      {
+        "targetLocationId": "delth_patrol_zone",
+        "description": "從正門前往管制區"
+      },
+      {
         "targetLocationId": "delth_south_ground",
         "description": "從倉庫後門前往南方空地"
       }

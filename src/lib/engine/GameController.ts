@@ -231,6 +231,7 @@ export class GameController {
       ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs0.player.activeFlags)
       : gs0.timePeriod;
     const periodChanged  = this.state.advanceTime(newTime, newPeriod);
+    this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
     const crossedHours   = this.timeMgr.computeCrossedHours(gs0.time, newTime);
 
     // 3. Check global events (period transitions, broadcasts, hour-based triggers)
@@ -255,6 +256,7 @@ export class GameController {
         ? this.timeMgr.getCurrentPeriod(laterTime, schedule, gs1.player.activeFlags)
         : gs1.timePeriod;
       this.state.advanceTime(laterTime, laterPeriod);
+      this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
       // Fire time-based global events for any additional hours crossed during extended sleep
       const extraCrossed = this.timeMgr.computeCrossedHours(gs1.time, laterTime);
       if (extraCrossed.length > 0) {
@@ -592,7 +594,7 @@ export class GameController {
         gs.player.currentLocationId,
         this.state.flags,
         gs.npcMemory,
-        { timePeriod: gs.timePeriod, knownIntelIds: gs.player.knownIntelIds, inventory: gs.player.inventory },
+        { timePeriod: gs.timePeriod, knownIntelIds: gs.player.knownIntelIds, inventory: gs.player.inventory, melphin: gs.player.melphin },
       )
     );
 
@@ -943,7 +945,7 @@ export class GameController {
     if (resolved) {
       const exits = resolved.connections
         .filter(c => this.lore.canAccessConnection(
-          c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds, undefined, undefined, gs.player.inventory,
+          c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds, undefined, undefined, gs.player.inventory, gs.player.melphin,
         ))
         .slice(0, 3);
       for (const exit of exits) {
@@ -1096,6 +1098,7 @@ export class GameController {
       titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
       activeQuestSummaries: activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
       conditions:      visibleConditions,
+      melphin:         gs.player.melphin,
       miniMap,
       regionMap,
     });
@@ -1297,6 +1300,7 @@ export class GameController {
         statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, endo: 0, endoMax: 0, experience: 0 },
         externalStats:   { reputation: {}, affinity: {}, familiarity: {} },
         inventory:       [],
+        melphin:         25,
         activeFlags:     new Set(),
         titles:          [],
         conditions:      [],

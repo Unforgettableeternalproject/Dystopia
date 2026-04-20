@@ -116,6 +116,7 @@ export interface PlayerUIState {
   titles?:          string[];
   activeQuestSummaries?: Array<{ name: string; stageSummary: string }>;
   conditions?:      Array<{ label: string }>;
+  melphin?:         number;
   /** Structured data for the SVG mini-map (current area). */
   miniMap?:         MiniMapData;
   /** Structured data for the full region map modal. */
