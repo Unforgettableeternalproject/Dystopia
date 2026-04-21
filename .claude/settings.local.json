@@ -43,7 +43,10 @@
       "Bash(npx vitest:*)",
       "Skill(notecraft)",
       "mcp__token-savior__reindex",
-      "Read(//c/Users/Bernie/AppData/Roaming/Claude/**)"
+      "Read(//c/Users/Bernie/AppData/Roaming/Claude/**)",
+      "Read(//c/Users/Bernie/**)",
+      "Read(//c/Users/Bernie/source/repos/Unforgettableeternalproject/**)",
+      "Bash(npx notebooklm:*)"
     ]
   }
 }

@@ -1158,6 +1158,7 @@ export class GameController {
   private async renderEncounterNode(
     resolved: ResolvedNode,
     def?: EncounterDefinition,
+    isDebug = false,
   ): Promise<void> {
     const gs = this.state.getState();
     // Use the explicitly-passed def when available (e.g., after endEncounter clears state).
@@ -1200,7 +1201,10 @@ export class GameController {
         statCheckResult: resolved.statCheckResult,
       });
       // Stream narration
-      const ctx = this.buildEncounterContext(effectiveDef, resolved);
+      let ctx = this.buildEncounterContext(effectiveDef, resolved);
+      if (isDebug) {
+        ctx = `[DEBUG MODE — 此遭遇由開發人員手動觸發，玩家實際位置可能與遭遇預期地點不符。請直接根據以下 Context 描述遭遇情況，無需顧慮地點一致性，以模擬測試為目的即可。]\n\n` + ctx;
+      }
       nodeText = '';
       isStreaming.set(true);
       pushLine('', 'narrative');
@@ -1821,7 +1825,7 @@ export class GameController {
       return;
     }
     pushLine(`[Debug] 觸發遭遇：${encounterId}`, 'system');
-    await this.renderEncounterNode(resolved);
+    await this.renderEncounterNode(resolved, undefined, true);
   }
 
   /** Open the NPC dialogue panel for npcId and immediately fire any matching scripted trigger. */
@@ -1866,11 +1870,12 @@ export class GameController {
     if (triggered.startEncounterId) {
       const encDef  = this.lore.getEncounter(triggered.startEncounterId);
       const resolved = this.encounterMgr.start(triggered.startEncounterId);
-      if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined);
+      if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined, true);
     }
 
     // Run DM so the event is narrated in context
-    const sceneCtx = this.buildSceneCtx([triggered]);
+    const debugPrefix = `[DEBUG MODE — 此事件由開發人員手動強制觸發，玩家實際位置可能與事件預期地點不符。請直接根據提供的事件 Context 描述情況，模擬此事件的發生，無需顧慮地點一致性。]\n\n`;
+    const sceneCtx = debugPrefix + this.buildSceneCtx([triggered]);
     const { suggestions } = await this.runDM(
       { type: 'examine', input: '（環顧四周）' } as PlayerAction,
       sceneCtx,
