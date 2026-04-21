@@ -297,7 +297,7 @@ export function showEventToast(label: string, color?: 'warning' | 'danger'): voi
   _toastTimer = setTimeout(() => {
     eventToast.set(null);
     _toastTimer = null;
-  }, 3000);
+  }, 5000);
 }
 
 // ── Derived ────────────────────────────────────────────────────

@@ -212,7 +212,7 @@
     border-radius: 2px;
     z-index: 10;
     pointer-events: none;
-    animation: toastIn 0.18s ease-out, toastOut 0.3s ease-in 2.7s forwards;
+    animation: toastIn 0.18s ease-out, toastOut 0.3s ease-in 4.7s forwards;
   }
 
   .event-toast.toast--warning {

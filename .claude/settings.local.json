@@ -42,7 +42,8 @@
       "Bash(grep -v \"^--$\")",
       "Bash(npx vitest:*)",
       "Skill(notecraft)",
-      "mcp__token-savior__reindex"
+      "mcp__token-savior__reindex",
+      "Read(//c/Users/Bernie/AppData/Roaming/Claude/**)"
     ]
   }
 }

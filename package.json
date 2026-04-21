@@ -11,7 +11,10 @@
     "lint": "eslint src --ext .ts,.svelte",
     "format": "prettier --write src",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lore:setup": "npx tsx scripts/setup-notebooklm.ts",
+    "lore:update": "npx tsx scripts/update-notebooklm.ts",
+    "lore:query": "npx tsx scripts/query-lore.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.0",
