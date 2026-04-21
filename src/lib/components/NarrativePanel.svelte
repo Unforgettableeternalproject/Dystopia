@@ -90,7 +90,7 @@
   </div>
 
   {#if $eventToast}
-    <div class="event-toast">
+    <div class="event-toast toast--{$eventToast.variant}">
       {$eventToast.label}
     </div>
   {/if}
@@ -155,6 +155,19 @@
     color: var(--accent);
   }
 
+  /* Story encounter description: gray, stage-direction style */
+  .line--scene {
+    color: #8a8a8a;
+    line-height: 1.85;
+    font-style: italic;
+  }
+
+  /* Event-triggered narration: blue, matching the event toast */
+  .line--event {
+    color: #5fa8d3;
+    line-height: 1.85;
+  }
+
   .line--system {
     color: var(--text-system);
     font-size: 12px;
@@ -193,22 +206,37 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* Event toast */
+  /* Event toast — base */
   .event-toast {
     position: absolute;
     top: 8px;
     right: 12px;
     background: var(--bg-tertiary);
-    border: 1px solid #5fa8d355;
-    color: #5fa8d3;
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    padding: 4px 12px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    padding: 6px 16px;
     border-radius: 2px;
+    border: 1px solid transparent;
     z-index: 10;
     pointer-events: none;
     animation: toastIn 0.18s ease-out, toastOut 0.3s ease-in 4.7s forwards;
+  }
+
+  /* Variant colours */
+  .toast--normal   { color: #5fa8d3; border-color: #5fa8d355; }
+  .toast--negative { color: #d4a017; border-color: #d4a01755; }
+  .toast--danger   { color: #d35f5f; border-color: #d35f5f55; }
+
+  /* Rare — gold, 7 s, glow pulse */
+  .toast--rare {
+    color: #c9a227;
+    border-color: #c9a22770;
+    background: color-mix(in srgb, var(--bg-tertiary) 88%, #c9a227 12%);
+    animation:
+      toastIn    0.18s ease-out,
+      rarePulse  2s   ease-in-out 0.2s infinite,
+      toastOut   0.3s ease-in 6.7s forwards;
   }
 
   @keyframes toastIn {
@@ -219,6 +247,11 @@
   @keyframes toastOut {
     from { opacity: 1; }
     to   { opacity: 0; }
+  }
+
+  @keyframes rarePulse {
+    0%, 100% { box-shadow: 0 0 4px #c9a22730; }
+    50%       { box-shadow: 0 0 12px #c9a22780, 0 0 24px #c9a22740; }
   }
 
   /* "Back to latest" button */

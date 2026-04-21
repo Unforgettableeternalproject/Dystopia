@@ -46,7 +46,12 @@
       "Read(//c/Users/Bernie/AppData/Roaming/Claude/**)",
       "Read(//c/Users/Bernie/**)",
       "Read(//c/Users/Bernie/source/repos/Unforgettableeternalproject/**)",
-      "Bash(npx notebooklm:*)"
+      "Bash(npx notebooklm:*)",
+      "mcp__mempal__mempal_status",
+      "mcp__mempal__mempal_search",
+      "mcp__mempal__mempal_taxonomy",
+      "mcp__mempal__mempal_ingest",
+      "Bash(mempal:*)"
     ]
   }
 }

@@ -60,6 +60,7 @@ export interface GameState {
    * EventEngine 用此判斷冷卻是否結束。
    */
   eventCooldowns: Record<string, number>;
+  eventCounters: Record<string, number>;
 }
 
 export type GamePhase =

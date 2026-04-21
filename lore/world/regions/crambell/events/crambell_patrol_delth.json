@@ -22,5 +22,7 @@
       "statChanges": { "statusStats.stress": 1 }
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": true,
+  "notificationVariant": "danger"
 }

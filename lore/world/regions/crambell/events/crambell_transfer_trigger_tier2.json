@@ -1,13 +1,11 @@
 {
-  "id": "crambell_transfer_trigger",
+  "id": "crambell_transfer_trigger_tier2",
   "name": "調轉機會",
 
   "_comment": [
-    "這是調轉機會的第 1 階機率事件（首次達標後檢查）。",
-    "掛載於 delth_mine_worksite.base.eventIds；同位置另有 tier2/tier3/tier4 事件。",
-    "達成每日配額後，只要當天尚未檢查且未進入調轉任務，就會依當前 counter 決定是否觸發。",
-    "本階只在 counter = 0 時生效；若未觸發則 counter +1，若觸發則 reset counter。",
-    "每日只檢查一次，仍由 crambell_transfer_trigger_checked 控制；其重置由 crambell_work_period_start 處理。"
+    "調轉機會第 2 階機率事件。",
+    "只在 counter = 1 時生效；代表玩家已經完成過一次每日配額但前次未觸發。",
+    "若這次仍未觸發則 counter +1；若成功觸發則 reset counter。"
   ],
 
   "locationId": "delth_mine_worksite",
@@ -16,7 +14,7 @@
     "timePeriod": ["work"],
     "flags": ["crambell_quota_met_today"],
     "exactEventCounters": {
-      "crambell_transfer_trigger_progress": 0
+      "crambell_transfer_trigger_progress": 1
     },
     "notFlags": [
       "crambell_transfer_trigger_checked",
@@ -30,8 +28,8 @@
   "outcomes": [
     {
       "id": "no_opportunity_today",
-      "description": "今天沒有發生任何調轉契機；玩家錯過一次累積機會，下一次觸發率提高。",
-      "weight": 3,
+      "description": "今天依舊沒有調轉契機，但這條線索已更接近浮現。",
+      "weight": 2,
       "flagsSet": ["crambell_transfer_trigger_checked"],
       "eventCounterChanges": {
         "crambell_transfer_trigger_progress": 1
@@ -39,9 +37,9 @@
     },
     {
       "id": "trigger_encounter",
-      "description": "工作中的細微異動讓玩家接觸到調轉機會，進入對應遭遇。",
+      "description": "調轉契機終於浮現，玩家可進入相應遭遇。",
       "flagsSet": ["crambell_transfer_trigger_checked"],
-      "weight": 1,
+      "weight": 2,
       "eventCounterReset": ["crambell_transfer_trigger_progress"],
       "startEncounterId": "crambell_enc_transfer_trigger"
     }

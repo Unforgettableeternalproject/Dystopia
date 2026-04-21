@@ -295,6 +295,9 @@ export interface EventCondition {
   anyFlags?: string[];
   notFlags?: string[];                // 這些旗標全部不存在時才觸發
   minStats?: Partial<Record<string, number>>;
+  minEventCounters?: Record<string, number>;
+  maxEventCounters?: Record<string, number>;
+  exactEventCounters?: Record<string, number>;
   /** 事件只在這些時段觸發 */
   timePeriod?: TimePeriod[];
   /**
@@ -356,6 +359,9 @@ export interface EventOutcome {
   description: string;
   flagsSet?: string[];
   flagsUnset?: string[];
+  eventCounterSet?: Record<string, number>;
+  eventCounterChanges?: Record<string, number>;
+  eventCounterReset?: string[];
   statChanges?: Partial<Record<string, number>>;
   /** 授予任務（由 GameController 轉交 QuestEngine 處理） */
   grantQuestId?: string;
@@ -388,6 +394,8 @@ export interface GameEvent {
   isRepeatable: boolean;
   /** 若為 true，觸發時以事件 name（或 id）為標題閃現短暫提示。沉默事件不設此欄位。 */
   notification?: boolean;
+  /** Toast 樣式。預設 normal（藍）。negative=黃、danger=紅、rare=金（7 秒，帶光暈）。 */
+  notificationVariant?: 'normal' | 'negative' | 'danger' | 'rare';
 }
 
 // ── Faction ──────────────────────────────────────────────────────

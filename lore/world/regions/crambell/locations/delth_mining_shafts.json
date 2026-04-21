@@ -40,7 +40,12 @@
           }
         ],
         "npcIds": [],
-        "eventIds": ["crambell_transfer_trigger"],
+        "eventIds": [
+          "crambell_transfer_trigger",
+          "crambell_transfer_trigger_tier2",
+          "crambell_transfer_trigger_tier3",
+          "crambell_transfer_trigger_tier4"
+        ],
         "isAccessible": true
       },
       "localVariants": []

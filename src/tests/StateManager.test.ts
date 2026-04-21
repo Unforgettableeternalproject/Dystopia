@@ -41,6 +41,7 @@ function makeState(): GameState {
     time: { year: 1498, month: 6, day: 12, hour: 21, minute: 23, totalMinutes: 0 },
     timePeriod: 'rest',
     eventCooldowns: {},
+    eventCounters: {},
   };
 }
 
@@ -150,6 +151,20 @@ describe('StateManager — 數值修改', () => {
     const { mgr } = makeManager();
     mgr.modifyMelphin(-500);
     expect(mgr.getState().player.melphin).toBe(0);
+  });
+
+  it('event counters — 可累加、設值與重置', () => {
+    const { mgr } = makeManager();
+    expect(mgr.getEventCounter('transfer_progress')).toBe(0);
+
+    mgr.modifyEventCounter('transfer_progress', 2);
+    expect(mgr.getEventCounter('transfer_progress')).toBe(2);
+
+    mgr.setEventCounter('transfer_progress', 5);
+    expect(mgr.getEventCounter('transfer_progress')).toBe(5);
+
+    mgr.resetEventCounter('transfer_progress');
+    expect(mgr.getEventCounter('transfer_progress')).toBe(0);
   });
 });
 

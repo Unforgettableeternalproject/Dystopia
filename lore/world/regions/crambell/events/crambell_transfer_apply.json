@@ -28,5 +28,6 @@
       "startEncounterId": "crambell_enc_transfer_apply"
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": true
 }

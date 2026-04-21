@@ -252,6 +252,7 @@ export class GameController {
 
     // 2.5. Advance in-game time (default amount for event/period detection)
     const gs0            = this.state.getState();
+    const initialTime    = { ...gs0.time };
     const schedule       = this.lore.getSchedule(this.currentRegionId) ?? null;
     const defaultMinutes = ACTION_MINUTES[finalAction.type] ?? 10;
     const newTime   = this.timeMgr.advance(gs0.time, defaultMinutes);
@@ -260,7 +261,7 @@ export class GameController {
       : gs0.timePeriod;
     const periodChanged  = this.state.advanceTime(newTime, newPeriod);
     this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
-    const crossedHours   = this.timeMgr.computeCrossedHours(gs0.time, newTime);
+    const crossedHours   = this.timeMgr.computeCrossedHours(initialTime, newTime);
 
     // 3. Check global events (period transitions, broadcasts, hour-based triggers)
     const globalTriggered = this.events.checkGlobalEvents(this.currentRegionId, crossedHours);
@@ -271,30 +272,7 @@ export class GameController {
     );
     const triggered = [...globalTriggered, ...locationTriggered];
 
-    // 3.7. Apply event-driven quest grants and encounter launches
-    for (const t of triggered) {
-      if (t.grantQuestId) {
-        this.quests.grantQuest(t.grantQuestId);
-        log.info('Quest granted by event', { questId: t.grantQuestId, eventId: t.event.id });
-      }
-      if (t.failQuestId) {
-        this.quests.applyQuestFail(t.failQuestId);
-        log.info('Quest fail applied by event', { questId: t.failQuestId, eventId: t.event.id });
-      }
-      if (t.startEncounterId) {
-        const encDef   = this.lore.getEncounter(t.startEncounterId);
-        const resolved = this.encounterMgr.start(t.startEncounterId);
-        if (resolved) {
-          await this.renderEncounterNode(resolved, encDef ?? undefined);
-          log.info('Encounter started by event', {
-            encounterId: t.startEncounterId, eventId: t.event.id,
-          });
-        }
-      }
-      if (t.event.notification) {
-        showEventToast(t.event.name ?? t.event.id);
-      }
-    }
+    const eventEncounter = this.processTriggeredEvents(triggered);
 
     // 4. DM narration
     // For NPC interact: route to isolated dialogue DM — full scene context is not injected.
@@ -310,7 +288,19 @@ export class GameController {
     // This keeps event narration and action response from bleeding together.
     if (triggered.length > 0) {
       const eventCtx = this.buildSceneCtx(triggered, periodChanged);
-      await this.runEventDM(eventCtx);
+      const hasNotification = triggered.some(t => t.event.notification);
+      await this.runEventDM(eventCtx, hasNotification ? 'event' : 'narrative');
+    }
+
+    // 4.15. Launch event-triggered encounter AFTER narration so event text plays first.
+    if (eventEncounter) {
+      const resolved = this.encounterMgr.start(eventEncounter.id);
+      if (resolved) {
+        await this.renderEncounterNode(resolved, eventEncounter.def ?? undefined);
+        log.info('Encounter started by event', { encounterId: eventEncounter.id });
+      }
+      this.releaseInput();
+      return;
     }
 
     // 4.2. Player action DM — events already narrated above, so triggered is empty here.
@@ -322,16 +312,34 @@ export class GameController {
     if (signaledMinutes !== null && signaledMinutes > defaultMinutes) {
       const extra       = signaledMinutes - defaultMinutes;
       const gs1         = this.state.getState();
+      const lateStartTime = { ...gs1.time };
       const laterTime   = this.timeMgr.advance(gs1.time, extra);
       const laterPeriod = schedule
         ? this.timeMgr.getCurrentPeriod(laterTime, schedule, gs1.player.activeFlags)
         : gs1.timePeriod;
-      this.state.advanceTime(laterTime, laterPeriod);
+      const latePeriodChanged = this.state.advanceTime(laterTime, laterPeriod);
       this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
       // Fire time-based global events for any additional hours crossed during extended sleep
-      const extraCrossed = this.timeMgr.computeCrossedHours(gs1.time, laterTime);
+      const extraCrossed = this.timeMgr.computeCrossedHours(lateStartTime, laterTime);
       if (extraCrossed.length > 0) {
-        this.events.checkGlobalEvents(this.currentRegionId, extraCrossed);
+        const lateTriggered = this.events.checkGlobalEvents(this.currentRegionId, extraCrossed);
+        const lateEventEncounter = this.processTriggeredEvents(lateTriggered);
+
+        if (lateTriggered.length > 0) {
+          const lateEventCtx = this.buildSceneCtx(lateTriggered, latePeriodChanged);
+          const hasNotification = lateTriggered.some(t => t.event.notification);
+          await this.runEventDM(lateEventCtx, hasNotification ? 'event' : 'narrative');
+        }
+
+        if (lateEventEncounter) {
+          const resolved = this.encounterMgr.start(lateEventEncounter.id);
+          if (resolved) {
+            await this.renderEncounterNode(resolved, lateEventEncounter.def ?? undefined);
+            log.info('Encounter started by delayed event', { encounterId: lateEventEncounter.id });
+          }
+          this.releaseInput();
+          return;
+        }
       }
     }
 
@@ -817,9 +825,9 @@ export class GameController {
    * Runs BEFORE the player-action DM so their outputs stay distinct in the narrative.
    * No signal processing — state changes were already applied by EventEngine.
    */
-  private async runEventDM(sceneCtx: string): Promise<void> {
+  private async runEventDM(sceneCtx: string, lineType: 'event' | 'narrative' = 'event'): Promise<void> {
     isStreaming.set(true);
-    pushLine('', 'narrative');
+    pushLine('', lineType, true);
     let fullText = '';
     let signalCutoff = -1;
     try {
@@ -836,12 +844,48 @@ export class GameController {
           }
         }
       }
+      // Patch displayed text to strip any signal artifact caused by chunk-boundary splits
+      // (e.g. a stray '<' appended before the second '<' arrived to complete '<<').
+      const displayText = (signalCutoff === -1 ? fullText : fullText.slice(0, signalCutoff)).trimEnd();
+      narrativeLines.update(lines => {
+        if (lines.length === 0) return lines;
+        const last = lines[lines.length - 1];
+        if (last.text === displayText) return lines;
+        return [...lines.slice(0, -1), { ...last, text: displayText }];
+      });
     } catch (err) {
       log.error('Event DM narration failed', err);
       appendToLastLine('\n[event narration error]');
     } finally {
+      finishLastLine();
       isStreaming.set(false);
     }
+  }
+
+  private processTriggeredEvents(
+    triggered: TriggeredEvent[],
+  ): { id: string; def: ReturnType<LoreVault['getEncounter']> } | null {
+    let eventEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
+
+    for (const t of triggered) {
+      if (t.grantQuestId) {
+        this.quests.grantQuest(t.grantQuestId);
+        log.info('Quest granted by event', { questId: t.grantQuestId, eventId: t.event.id });
+      }
+      if (t.failQuestId) {
+        this.quests.applyQuestFail(t.failQuestId);
+        log.info('Quest fail applied by event', { questId: t.failQuestId, eventId: t.event.id });
+      }
+      if (t.startEncounterId && !eventEncounter) {
+        eventEncounter = { id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) };
+        log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
+      }
+      if (t.event.notification) {
+        showEventToast(t.event.name ?? t.event.id, t.event.notificationVariant ?? 'normal');
+      }
+    }
+
+    return eventEncounter;
   }
 
   private async runDM(
@@ -1205,6 +1249,13 @@ export class GameController {
     // Use the explicitly-passed def when available (e.g., after endEncounter clears state).
     const effectiveDef = def ?? this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
 
+    // Map encounter type to narrative line style.
+    const encType = effectiveDef?.type ?? 'event';
+    const lineType =
+      encType === 'event'     ? 'event'     :  // blue — event encounter
+      encType === 'narrative' ? 'scene'     :  // gray italic — story/cutscene encounter
+                                'narrative';   // default white — dialogue etc.
+
     // Stat check result prefix — always shown as a system line
     if (resolved.statCheckResult) {
       const { stat, threshold, passed } = resolved.statCheckResult;
@@ -1222,7 +1273,7 @@ export class GameController {
     if (resolved.node.displayText) {
       // Hardcoded text — display directly, no DM call
       nodeText = resolved.node.displayText;
-      pushLine(nodeText, 'narrative');
+      pushLine(nodeText, lineType);
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
         encounterName:   effectiveDef?.name ?? '遭遇',
@@ -1248,7 +1299,7 @@ export class GameController {
       }
       nodeText = '';
       isStreaming.set(true);
-      pushLine('', 'narrative');
+      pushLine('', lineType, true);
       try {
         for await (const chunk of this.dm.narrateEncounterNode(ctx, gs.history)) {
           nodeText += chunk;
@@ -1274,7 +1325,7 @@ export class GameController {
     } else {
       // Fallback: raw dmNarrative or placeholder (mock mode / no definition)
       nodeText = resolved.node.dmNarrative ?? '...';
-      pushLine(nodeText, 'narrative');
+      pushLine(nodeText, lineType);
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
         encounterName:   effectiveDef?.name ?? '遭遇',
@@ -1307,9 +1358,13 @@ export class GameController {
     parts.push('## 當前環境');
     parts.push(`地點：${gs.player.currentLocationId} ／ 時段：${gs.timePeriod}`);
     const closeCtx = parts.join('\n');
+    const closeLineType =
+      def.type === 'event'     ? 'event'     :
+      def.type === 'narrative' ? 'scene'     :
+                                 'narrative';
 
     isStreaming.set(true);
-    pushLine('', 'narrative');
+    pushLine('', closeLineType, true);
     try {
       for await (const chunk of this.dm.narrateEncounterClose(closeCtx, gs.history)) {
         appendToLastLine(chunk);
@@ -1902,26 +1957,24 @@ export class GameController {
     }
     pushLine(`[Debug] 強制觸發事件：${triggered.event.description ?? eventId}`, 'system');
     if (triggered.event.notification) {
-      showEventToast(triggered.event.name ?? triggered.event.id);
+      showEventToast(triggered.event.name ?? triggered.event.id, triggered.event.notificationVariant ?? 'normal');
     }
 
-    // Apply side effects (same as normal event flow)
+    // Apply side effects — quest grants immediately; encounter deferred until after narration.
     if (triggered.grantQuestId) this.quests.grantQuest(triggered.grantQuestId);
     if (triggered.failQuestId)  this.quests.applyQuestFail(triggered.failQuestId);
+
+    // Narrate the event first so event text appears before encounter UI.
+    const debugPrefix = `[DEBUG MODE — 此事件由開發人員手動強制觸發，玩家實際位置可能與事件預期地點不符。請直接根據提供的事件 Context 描述情況，模擬此事件的發生，無需顧慮地點一致性。]\n\n`;
+    const eventCtx = debugPrefix + this.buildSceneCtx([triggered]);
+    await this.runEventDM(eventCtx, triggered.event.notification ? 'event' : 'narrative');
+
+    // Launch encounter after narration completes.
     if (triggered.startEncounterId) {
       const encDef  = this.lore.getEncounter(triggered.startEncounterId);
       const resolved = this.encounterMgr.start(triggered.startEncounterId);
       if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined, true);
     }
-
-    // Run DM so the event is narrated in context
-    const debugPrefix = `[DEBUG MODE — 此事件由開發人員手動強制觸發，玩家實際位置可能與事件預期地點不符。請直接根據提供的事件 Context 描述情況，模擬此事件的發生，無需顧慮地點一致性。]\n\n`;
-    const sceneCtx = debugPrefix + this.buildSceneCtx([triggered]);
-    const { suggestions } = await this.runDM(
-      { type: 'examine', input: '（環顧四周）' } as PlayerAction,
-      sceneCtx,
-    );
-    await this.refreshThoughts(suggestions);
     this.syncUIState(this.state.getState());
   }
 
@@ -2050,6 +2103,7 @@ export class GameController {
       },
       timePeriod:     'rest',
       eventCooldowns: {},
+      eventCounters:  {},
     };
   }
 }

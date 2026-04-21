@@ -31,7 +31,10 @@
     "npcIds": ["npc_id_at_least_one_present"],
     "triggerHours": [6, 22],
     "questActiveId": "quest_id",
-    "questStageId": "stage_id"
+    "questStageId": "stage_id",
+    "minEventCounters": { "transfer_progress": 2 },
+    "maxEventCounters": { "transfer_progress": 5 },
+    "exactEventCounters": { "transfer_progress": 3 }
   },
 
   "description": "DM-facing 事件描述。向 DM 說明此刻世界發生了什麼，DM 自行決定如何融入敘事。",
@@ -66,6 +69,13 @@
       "affinityChanges": {
         "npc_id": 2
       },
+      "eventCounterSet": {
+        "transfer_progress": 3
+      },
+      "eventCounterChanges": {
+        "transfer_progress": 1
+      },
+      "eventCounterReset": ["transfer_progress"],
       "grantItems": [
         { "itemId": "work_permit" },
         { "itemId": "travel_permit", "variantId": "val" }

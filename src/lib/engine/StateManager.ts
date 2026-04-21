@@ -499,6 +499,31 @@ export class StateManager {
     this.state.eventCooldowns[eventId] = totalMinutes;
   }
 
+  getEventCounter(counterId: string): number {
+    return this.state.eventCounters[counterId] ?? 0;
+  }
+
+  setEventCounter(counterId: string, value: number): void {
+    const next = Math.max(0, Math.trunc(value));
+    if (next === 0) {
+      delete this.state.eventCounters[counterId];
+    } else {
+      this.state.eventCounters[counterId] = next;
+    }
+    this.notifyUpdate();
+  }
+
+  modifyEventCounter(counterId: string, delta: number): void {
+    this.setEventCounter(counterId, this.getEventCounter(counterId) + delta);
+  }
+
+  resetEventCounter(counterId: string): void {
+    if (counterId in this.state.eventCounters) {
+      delete this.state.eventCounters[counterId];
+      this.notifyUpdate();
+    }
+  }
+
   // ── World phase ──────────────────────────────────────────────
 
   advancePhase(phaseId: WorldPhaseId): void {

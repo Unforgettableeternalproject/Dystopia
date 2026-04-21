@@ -38,6 +38,7 @@ export interface SaveSnapshot {
   time:                 GameTime;
   timePeriod:           TimePeriod;
   eventCooldowns:       Record<string, number>;
+  eventCounters:        Record<string, number>;
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -68,6 +69,7 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     time:           gs.time,
     timePeriod:     gs.timePeriod,
     eventCooldowns: gs.eventCooldowns,
+    eventCounters:  gs.eventCounters,
   };
 
   const json       = JSON.stringify(snapshot);
@@ -129,6 +131,7 @@ export async function decode(code: string): Promise<DecodeResult> {
     time:           snapshot.time           ?? { year: 1498, month: 6, day: 12, hour: 21, minute: 23, totalMinutes: 0 },
     timePeriod:     snapshot.timePeriod     ?? 'rest',
     eventCooldowns: snapshot.eventCooldowns ?? {},
+    eventCounters:  snapshot.eventCounters  ?? {},
   };
 
   return { snapshot, state, flags: snapshot.flags };

@@ -30,8 +30,11 @@
         "crambell_quota_failure_processed",
         "crambell_transfer_trigger_checked"
       ],
+      "eventCounterReset": ["crambell_transfer_trigger_progress"],
       "startEncounterId": "crambell_enc_quota_audit"
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": true,
+  "notificationVariant": "negative"
 }

@@ -128,6 +128,22 @@ export class EventEngine {
       }
     }
 
+    if (condition.minEventCounters) {
+      for (const [counterId, min] of Object.entries(condition.minEventCounters)) {
+        if (min === undefined || this.state.getEventCounter(counterId) < min) return false;
+      }
+    }
+    if (condition.maxEventCounters) {
+      for (const [counterId, max] of Object.entries(condition.maxEventCounters)) {
+        if (max === undefined || this.state.getEventCounter(counterId) > max) return false;
+      }
+    }
+    if (condition.exactEventCounters) {
+      for (const [counterId, exact] of Object.entries(condition.exactEventCounters)) {
+        if (exact === undefined || this.state.getEventCounter(counterId) !== exact) return false;
+      }
+    }
+
     // Time period condition
     if (condition.timePeriod && this.schedule) {
       const current = this.time.getCurrentPeriod(gs.time, this.schedule, gs.player.activeFlags);
@@ -258,6 +274,17 @@ export class EventEngine {
   private applyOutcome(outcome: EventOutcome): void {
     outcome.flagsSet?.forEach(f => this.state.flags.set(f));
     outcome.flagsUnset?.forEach(f => this.state.flags.unset(f));
+    outcome.eventCounterReset?.forEach(counterId => this.state.resetEventCounter(counterId));
+    if (outcome.eventCounterSet) {
+      for (const [counterId, value] of Object.entries(outcome.eventCounterSet)) {
+        if (value !== undefined) this.state.setEventCounter(counterId, value);
+      }
+    }
+    if (outcome.eventCounterChanges) {
+      for (const [counterId, delta] of Object.entries(outcome.eventCounterChanges)) {
+        if (delta !== undefined) this.state.modifyEventCounter(counterId, delta);
+      }
+    }
     if (outcome.statChanges) {
       for (const [key, delta] of Object.entries(outcome.statChanges)) {
         if (delta !== undefined) this.state.modifyStat(key, delta);

@@ -1,4 +1,5 @@
 {
+  "_comment_global": "這個事件暫時還沒有實裝，之後可能會考慮移除。",
   "id": "crambell_public_punishment",
   "name": "公開懲戒",
   "locationId": "delth_patrol_zone",
@@ -18,5 +19,6 @@
       "statChanges": { "statusStats.stress": 2 }
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": true
 }

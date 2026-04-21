@@ -14,8 +14,9 @@ export interface NarrativeLine {
   id: string;
   text: string;
   /** narrative = DM free text | dialogue = scripted NPC line | player = player input
-   *  system = info message | rejected = regulator rejection */
-  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'rejected';
+   *  system = info message | rejected = regulator rejection | event = game event trigger
+   *  scene = story encounter description (gray, stage-direction style) */
+  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'rejected' | 'event' | 'scene';
   isStreaming: boolean;
 }
 
@@ -282,21 +283,25 @@ export const questCompletionBanner = writable<string | null>(null);
 // ── Event toast ────────────────────────────────────────────────
 // 事件觸發時在敘事框右上角閃現三秒的提示
 
+export type ToastVariant = 'normal' | 'negative' | 'danger' | 'rare';
+
 export interface EventToastState {
   label: string;
+  variant: ToastVariant;
 }
 
 export const eventToast = writable<EventToastState | null>(null);
 
 let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function showEventToast(label: string): void {
+export function showEventToast(label: string, variant: ToastVariant = 'normal'): void {
   if (_toastTimer) clearTimeout(_toastTimer);
-  eventToast.set({ label });
+  eventToast.set({ label, variant });
+  const duration = variant === 'rare' ? 7000 : 5000;
   _toastTimer = setTimeout(() => {
     eventToast.set(null);
     _toastTimer = null;
-  }, 5000);
+  }, duration);
 }
 
 // ── Derived ────────────────────────────────────────────────────
