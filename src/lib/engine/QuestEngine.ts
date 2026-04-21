@@ -269,6 +269,8 @@ export class QuestEngine {
         if (def.repeatCondition) {
           // 有條件的循環：完成後進入 completedQuestIds，等到條件成立再重新授予
           this.state.completeQuest(questId, def.rewards);
+          // 從 activeQuests 移除，讓 checkPendingRepeats 在條件成立時可重新授予
+          this.state.removeActiveQuest(questId);
         } else {
           // 無條件循環：立即重置
           this.state.resetQuest(questId, def.entryStageId);

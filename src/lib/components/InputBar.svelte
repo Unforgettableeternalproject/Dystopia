@@ -76,7 +76,7 @@
     aria-label="物品欄"
     class:active={$inventoryOpen}
   >
-    INV
+    背包
   </button>
 </div>
 

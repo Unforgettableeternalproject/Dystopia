@@ -304,7 +304,8 @@ export class GameController {
     }
 
     const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
-    const { signaledMinutes, suggestions, encounterSignal } = await this.runDM(finalAction, sceneCtx);
+    const navHint  = this.buildNavHint(finalAction);
+    const { signaledMinutes, suggestions, encounterSignal } = await this.runDM(finalAction, sceneCtx + navHint);
 
     // 4.5. Apply extra time if DM signaled more than default (e.g., sleeping 8 h)
     if (signaledMinutes !== null && signaledMinutes > defaultMinutes) {
@@ -736,6 +737,67 @@ export class GameController {
     return parts.join('\n');
   }
 
+  // -- Multi-hop navigation hint ----------------------------------------
+
+  /**
+   * When the player's move action names a discovered but non-adjacent location,
+   * compute the path and return a compact navigation hint to inject into DM context.
+   * Returns '' when not applicable (not a move, adjacent, or no path found).
+   *
+   * Name matching: checks whether the action input contains the location's display name.
+   * If multiple matches exist, the longest name wins (most specific match).
+   */
+  private buildNavHint(action: PlayerAction): string {
+    if (action.type !== 'move') return '';
+
+    const gs = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    if (!resolved) return '';
+
+    const adjacentIds = new Set(resolved.connections.map(c => c.targetLocationId));
+
+    let bestMatch: { id: string; name: string } | null = null;
+    for (const locId of gs.discoveredLocationIds) {
+      if (locId === gs.player.currentLocationId || adjacentIds.has(locId)) continue;
+      const loc = this.lore.getLocation(locId);
+      if (loc && action.input.includes(loc.name)) {
+        if (!bestMatch || loc.name.length > bestMatch.name.length) {
+          bestMatch = { id: locId, name: loc.name };
+        }
+      }
+    }
+    if (!bestMatch) return '';
+
+    const discovered = new Set([...gs.discoveredLocationIds, gs.player.currentLocationId]);
+    const pathResult = this.lore.findPath(
+      gs.player.currentLocationId,
+      bestMatch.id,
+      this.state.flags,
+      {
+        timePeriod:    gs.timePeriod,
+        gameTime:      gs.time,
+        knownIntelIds: gs.player.knownIntelIds,
+        activeQuests:  Object.values(gs.activeQuests),
+        inventory:     gs.player.inventory,
+        melphin:       gs.player.melphin,
+      },
+      discovered,
+    );
+    if (!pathResult) return '';
+
+    const routeNames = pathResult.path.map(id => this.lore.getLocation(id)?.name ?? id);
+    const bypassNote = pathResult.usedBypass ? ' [partial bypass]' : '';
+
+    return [
+      '',
+      '### Navigation Route (engine-resolved)',
+      'Destination: [' + bestMatch.id + '] ' + bestMatch.name,
+      'Route: ' + routeNames.join(' → ') + ' (~' + pathResult.totalTime + ' min' + bypassNote + ')',
+      'If the player successfully departs, emit <<MOVE: ' + bestMatch.id + '>>.',
+      'Set <<TIME: ' + pathResult.totalTime + '>> to reflect the full journey.',
+    ].join('\n');
+  }
+
   // -- DM narration -----------------------------------------------------
 
   private async runDM(
@@ -828,13 +890,40 @@ export class GameController {
       .replace(/\n{3,}/g, '\n\n')
       .trimEnd();
 
-    // Apply MOVE signal
+    // Apply MOVE signal — validate via findPath so multi-hop navigation is supported.
     if (moveTarget) {
-      if (this.lore.resolveLocation(moveTarget, this.state.flags)) {
+      const gs = this.state.getState();
+      const discovered = new Set(gs.discoveredLocationIds);
+      // Always include current location as traversable even if not yet in discovered list.
+      discovered.add(gs.player.currentLocationId);
+
+      const pathResult = this.lore.findPath(
+        gs.player.currentLocationId,
+        moveTarget,
+        this.state.flags,
+        {
+          timePeriod:    gs.timePeriod,
+          gameTime:      gs.time,
+          knownIntelIds: gs.player.knownIntelIds,
+          activeQuests:  Object.values(gs.activeQuests),
+          inventory:     gs.player.inventory,
+          melphin:       gs.player.melphin,
+        },
+        discovered,
+      );
+
+      if (pathResult) {
         this.state.movePlayer(moveTarget);
-        log.info('Player moved', { to: moveTarget });
-      } else {
+        // For multi-hop paths, override TIME with the computed path cost so in-game
+        // time accurately reflects the full journey (DM may only estimate one hop).
+        if (pathResult.path.length > 2) {
+          signaledMinutes = pathResult.totalTime;
+        }
+        log.info('Player moved', { to: moveTarget, hops: pathResult.path.length - 1, time: pathResult.totalTime, bypass: pathResult.usedBypass });
+      } else if (!this.lore.resolveLocation(moveTarget, this.state.flags)) {
         log.warn('DM MOVE signal references unknown location', { locationId: moveTarget });
+      } else {
+        log.warn('DM MOVE signal: no accessible path found', { from: gs.player.currentLocationId, to: moveTarget });
       }
     }
 
@@ -983,16 +1072,16 @@ export class GameController {
       this.state.advanceTime(newTime, newPeriod);
     }
 
-    // Append to global history (opener turns log as NPC continuing rather than player action)
-    const histInput = opener ? `（${npc.name} 開口）` : text;
-    const action: PlayerAction = { type: 'interact', input: histInput, targetId: npcId };
-    this.state.appendHistory(action, cleanNarrative.slice(0, 200));
-
     // Handle natural encounter end — must happen BEFORE updateActiveNpcUI to prevent
     // interaction count increment from triggering a scripted dialogue restart.
+    // Append ONE compact summary entry for the entire encounter (not per-turn).
     if (dialogueSignals.endEncounter) {
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
+      this.state.appendHistory(
+        { type: 'interact', input: `（與 ${npc.name} 交談）`, targetId: npcId },
+        cleanNarrative.slice(0, 200),
+      );
       log.info('Encounter ended naturally', { npcId });
     } else {
       // Refresh NPC panel with updated affinity/attitude only if encounter is still active

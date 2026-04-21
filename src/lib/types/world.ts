@@ -153,6 +153,11 @@ export interface LocationConnection {
   targetLocationId: string;
   description: string;           // player-facing exit label
   travelNote?: string;           // DM narration hint for the journey
+  /**
+   * 通道耗時（分鐘）。預設 5 分鐘。
+   * 透過 bypass 路徑時，若 bypass 未設定 timePenaltyMinutes，系統自動加算 +20%。
+   */
+  traverseTime?: number;
   /** 進入條件；省略 = 永遠開放 */
   access?: ConnectionAccess;
 }
@@ -218,6 +223,12 @@ export interface LocationNode {
   parentId?: string;
   /** 地點層級；頂層地點不設此欄位（由 LoreVault 自動填入子地點） */
   locationType?: LocationType;
+  /**
+   * 是否自動在父地點與子地點之間建立雙向連線。預設 true。
+   * 設為 false 可停用自動注入，適用於需要明確定義進出路線的線性地點
+   * （如走廊、序列式關卡）。
+   */
+  enableDefaultConnection?: boolean;
   /**
    * 此地點內嵌的子地點。LoreVault 載入時會自動展開，
    * 以各自的 id 平攤進 locations dict，並繼承 parentId / regionId / districtId。
@@ -472,4 +483,31 @@ export interface DistrictIndex {
   /** 進出關卡的旗標 ID，hasCheckpoint 為 true 時使用 */
   checkpointFlag?: string;
   locationIds: string[];
+}
+
+// ── Pathfinding ───────────────────────────────────────────────────
+
+/** 單一路段的導航資訊（來源 → 目的地一步） */
+export interface PathSegment {
+  fromId: string;
+  toId: string;
+  connectionDescription: string;
+  /** 此路段實際耗時（分鐘），已含 bypass 懲罰 */
+  time: number;
+  bypassUsed: boolean;
+  bypassMessage?: string;
+}
+
+/**
+ * `findPath` 回傳的路徑結果。
+ * - `path`：有序地點 ID 清單（含起點與終點）
+ * - `segments`：每個路段的詳細資訊
+ * - `totalTime`：全程耗時（分鐘）
+ * - `usedBypass`：任一路段使用了 bypass
+ */
+export interface PathResult {
+  path: string[];
+  segments: PathSegment[];
+  totalTime: number;
+  usedBypass: boolean;
 }

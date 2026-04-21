@@ -27,7 +27,16 @@
     "parentId 欄位：由 LoreVault 自動填入，子地點 JSON 無需手動設定。",
     "",
     "原則：每個節點都必須有可到達的進出通道（連通圖），不可有孤立節點。",
-    "子地點的出口通常指回上層 area 節點；area 節點指回頂層地點。"
+    "子地點的出口通常指回上層 area 節點；area 節點指回頂層地點。",
+    "",
+    "enableDefaultConnection（area 節點）：",
+    "  省略/true = LoreVault 自動建立父↔子雙向連線（預設行為，一般建築適用）。",
+    "  false     = 停用自動注入，所有通道必須在 connections 手動定義（線性動線如走廊適用）。",
+    "",
+    "traverseTime（connections 欄位）：",
+    "  通道耗時（分鐘）。省略 = 預設 5 分鐘。",
+    "  多跳導航路徑時，引擎以各路段 traverseTime 累加計算總耗時並覆蓋 <<TIME>>。",
+    "  bypass 路徑若未設 timePenaltyMinutes，自動加算 +20%。"
   ],
 
   "id": "region_location_name",
@@ -46,6 +55,8 @@
         "targetLocationId": "other_location_id",
         "description": "玩家看到的出口標籤",
         "travelNote": "（選填）DM 在描述移動過程時的提示語",
+        "_comment_traverseTime": "traverseTime：此通道的耗時（分鐘）。省略 = 預設 5 分鐘。透過 bypass 通行時若 bypass 未設 timePenaltyMinutes，自動加算 +20%。",
+        "traverseTime": 10,
         "access": {
           "_comment": "access 整個欄位省略 = 永遠開放。所有設定的子欄位同時滿足才能通行（AND 關係）。",
           "flag": "optional_flag_expression",
@@ -62,7 +73,7 @@
         }
       },
       {
-        "_comment": "無 access 欄位 = 永遠開放的出口",
+        "_comment": "無 access 欄位、無 traverseTime = 永遠開放、耗時預設 5 分鐘的出口",
         "targetLocationId": "always_open_destination",
         "description": "離開"
       }
@@ -71,6 +82,13 @@
     "eventIds": ["event_id"],
     "isAccessible": true
   },
+
+  "_comment_enableDefaultConnection": [
+    "area 節點專用欄位。省略或設為 true：LoreVault 自動在父地點與所有子地點之間建立雙向連線（大多數建築適用）。",
+    "設為 false：停用自動注入，所有進出通道必須在 connections 中手動定義（適用於線性動線地點，如走廊、序列式關卡）。",
+    "子地點不需要也不應設定此欄位。"
+  ],
+  "enableDefaultConnection": false,
 
   "_comment_sublocations": "area 節點專用：將子地點直接嵌入此陣列。LoreVault 載入時自動展開並繼承層級欄位。",
   "sublocations": [

@@ -6,7 +6,7 @@ import type {
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
   DistrictIndex, RegionSchedule, FlagManifestEntry,
-  TimePeriod,
+  TimePeriod, PathResult, PathSegment,
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
@@ -96,13 +96,18 @@ export class LoreVault {
       this.registerLocation(sub, node.id, patched.regionId, patched.districtId);
 
       // Auto-inject implicit parent ↔ child connections (if not already authored).
+      // Skipped when either the parent or child explicitly opts out via enableDefaultConnection: false.
       const parent = this.data.locations[node.id];
       const child  = this.data.locations[sub.id];
-      if (!parent.base.connections.some(c => c.targetLocationId === sub.id)) {
-        parent.base.connections.push({ targetLocationId: sub.id, description: '進入' + child.name });
-      }
-      if (!child.base.connections.some(c => c.targetLocationId === node.id)) {
-        child.base.connections.push({ targetLocationId: node.id, description: '返回' + parent.name });
+      // enableDefaultConnection is a parent-level setting — only the parent decides.
+      const autoConnect = parent.enableDefaultConnection !== false;
+      if (autoConnect) {
+        if (!parent.base.connections.some(c => c.targetLocationId === sub.id)) {
+          parent.base.connections.push({ targetLocationId: sub.id, description: '進入' + child.name });
+        }
+        if (!child.base.connections.some(c => c.targetLocationId === node.id)) {
+          child.base.connections.push({ targetLocationId: node.id, description: '返回' + parent.name });
+        }
       }
     }
   }
@@ -312,6 +317,140 @@ export class LoreVault {
     if (!resolved || !resolved.isAccessible) return false;
     const node = this.data.locations[locationId];
     return this.evaluateAccessCondition(node?.base.accessCondition, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin).allowed;
+  }
+
+  // -- Pathfinding -------------------------------------------------------
+
+  /**
+   * Core weighted shortest-path (Dijkstra) from `fromId` to `toId`.
+   * Only traverses nodes present in `discovered`.
+   * When `allowBypass` is false, connections that require bypass are skipped.
+   * When `allowBypass` is true, bypass connections are included at +20% cost
+   * (or +timePenaltyMinutes if defined on the bypass).
+   */
+  private _dijkstra(
+    fromId: string,
+    toId: string,
+    flags: FlagSystem,
+    accessCtx: {
+      timePeriod: TimePeriod;
+      gameTime?: GameTime;
+      knownIntelIds: string[];
+      activeQuests?: QuestInstance[];
+      inventory?: InventoryItem[];
+      melphin?: number;
+    },
+    discovered: ReadonlySet<string>,
+    allowBypass: boolean,
+  ): PathResult | null {
+    if (fromId === toId) return { path: [fromId], segments: [], totalTime: 0, usedBypass: false };
+
+    type Entry = { cost: number; prev: string | null; segment: PathSegment | null };
+    const dist = new Map<string, Entry>();
+    dist.set(fromId, { cost: 0, prev: null, segment: null });
+
+    // Naïve priority queue — adequate for small location graphs (< 200 nodes).
+    const queue: { id: string; cost: number }[] = [{ id: fromId, cost: 0 }];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+      queue.sort((a, b) => a.cost - b.cost);
+      const { id: current, cost: currentCost } = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      if (current === toId) break;
+
+      const resolved = this.resolveLocation(current, flags);
+      if (!resolved) continue;
+
+      for (const conn of resolved.connections) {
+        const nextId = conn.targetLocationId;
+        if (!discovered.has(nextId) || visited.has(nextId)) continue;
+
+        const result = this.evaluateAccessCondition(
+          conn.access, flags, accessCtx.timePeriod, accessCtx.knownIntelIds,
+          accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin,
+        );
+        if (!result.allowed) continue;
+
+        const baseTime = conn.traverseTime ?? 5;
+        const bypassUsed = result.bypassMessage !== undefined || result.timePenalty !== undefined;
+
+        if (bypassUsed && !allowBypass) continue;
+
+        const segmentCost = bypassUsed
+          ? (result.timePenalty !== undefined ? baseTime + result.timePenalty : Math.ceil(baseTime * 1.2))
+          : baseTime;
+
+        const newCost = currentCost + segmentCost;
+        const existing = dist.get(nextId);
+        if (!existing || newCost < existing.cost) {
+          dist.set(nextId, {
+            cost: newCost,
+            prev: current,
+            segment: {
+              fromId: current,
+              toId: nextId,
+              connectionDescription: conn.description,
+              time: segmentCost,
+              bypassUsed,
+              bypassMessage: result.bypassMessage,
+            },
+          });
+          queue.push({ id: nextId, cost: newCost });
+        }
+      }
+    }
+
+    const endEntry = dist.get(toId);
+    if (!endEntry || (endEntry.prev === null && fromId !== toId)) return null;
+
+    // Reconstruct path
+    const segments: PathSegment[] = [];
+    let cur = toId;
+    while (cur !== fromId) {
+      const entry = dist.get(cur);
+      if (!entry?.segment) return null;
+      segments.unshift(entry.segment);
+      cur = entry.prev!;
+    }
+
+    return {
+      path: [fromId, ...segments.map(s => s.toId)],
+      segments,
+      totalTime: endEntry.cost,
+      usedBypass: segments.some(s => s.bypassUsed),
+    };
+  }
+
+  /**
+   * Find the optimal path from `fromId` to `toId` through discovered locations.
+   *
+   * Priority:
+   * 1. Fully-accessible path (no bypass) — shortest by total traverseTime.
+   * 2. If none exists, shortest path that may use bypass connections.
+   *
+   * Returns null when no path exists.
+   */
+  findPath(
+    fromId: string,
+    toId: string,
+    flags: FlagSystem,
+    accessCtx: {
+      timePeriod: TimePeriod;
+      gameTime?: GameTime;
+      knownIntelIds: string[];
+      activeQuests?: QuestInstance[];
+      inventory?: InventoryItem[];
+      melphin?: number;
+    },
+    discoveredLocationIds: ReadonlySet<string>,
+  ): PathResult | null {
+    // Pass 1: prefer fully-accessible paths
+    const accessOnly = this._dijkstra(fromId, toId, flags, accessCtx, discoveredLocationIds, false);
+    if (accessOnly) return accessOnly;
+    // Pass 2: allow bypass as fallback
+    return this._dijkstra(fromId, toId, flags, accessCtx, discoveredLocationIds, true);
   }
 
   // -- Districts -------------------------------------------------------

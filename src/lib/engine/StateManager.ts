@@ -388,6 +388,18 @@ export class StateManager {
     }
   }
 
+  /**
+   * 將已完成的循環任務實例從 activeQuests 移除。
+   * 讓 QuestEngine.checkPendingRepeats 在條件成立時可重新授予。
+   * 僅對 isCompleted=true 的實例有效。
+   */
+  removeActiveQuest(questId: string): void {
+    if (this.state.activeQuests[questId]?.isCompleted) {
+      delete this.state.activeQuests[questId];
+      this.notifyUpdate();
+    }
+  }
+
   /** 玩家主動放棄任務。套用當前階段的 ditchConsequences 後移出 activeQuests。 */
   ditchQuest(questId: string, consequences?: QuestDitchConsequences): void {
     const instance = this.state.activeQuests[questId];

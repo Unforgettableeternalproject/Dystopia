@@ -47,14 +47,21 @@ Rules:
 - Omit the signal line entirely if no flags change this turn.
 
 MOVEMENT SIGNALING:
-When the player successfully moves to an adjacent location, signal the engine by appending:
+When the player successfully moves to a location, signal the engine by appending:
   <<MOVE: location_id>>
-where location_id is exactly the targetLocationId shown in brackets in the Exits section (e.g. [delth_patrol_zone]).
+where location_id is exactly the targetLocationId shown in the Exits section.
 Rules:
-- Only emit this signal when the player physically relocates (walks through an exit, enters a room, etc.).
+- Only emit this signal when the player physically relocates to a destination.
 - Do NOT emit if the player merely looks toward, talks about, or is blocked from entering a location.
 - Do NOT emit for NPCs moving — only for the player character.
 - The signal line is invisible to the player.
+
+MULTI-HOP NAVIGATION:
+When a "### Navigation Route (engine-resolved)" block appears in the scene context:
+- The engine has already validated a path to a non-adjacent previously-discovered location.
+- Narrate the full journey naturally (passing through intermediate areas) without revealing mechanical path details.
+- Emit <<MOVE: location_id>> using the Destination ID shown in that block.
+- Use the provided time value for <<TIME: N>> (e.g. <<TIME: 15>>).
 
 ENCOUNTER SIGNALING:
 When the player initiates contact with an NPC or a scene event triggers a structured encounter, signal:

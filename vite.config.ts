@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [sveltekit()],
   // Tauri 在開發時需要固定 port
   server: {
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
     fs: {
