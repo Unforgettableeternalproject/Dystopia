@@ -209,8 +209,10 @@ export class LoreVault {
    * Core access evaluation — shared by connections and locations.
    * All access conditions are AND. timeRanges / questStages arrays are OR within themselves.
    * Bypass is only checked when access conditions fail (access takes priority).
-   * Returns { allowed, bypassMessage?, timePenalty? } where bypass fields are set only when
-   * normal access failed and bypass was the reason the connection opened.
+   * Returns { allowed, wasBypass?, bypassMessage?, timePenalty? } where bypass fields are set only
+   * when normal access failed and bypass was the reason the connection opened.
+   * `wasBypass` is explicitly true whenever the bypass branch fired, regardless of whether
+   * bypassMessage or timePenaltyMinutes are defined on that bypass object.
    */
   private evaluateAccessCondition(
     a: ConnectionAccess | undefined,
@@ -221,7 +223,7 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-  ): { allowed: boolean; bypassMessage?: string; timePenalty?: number } {
+  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
     if (!a) return { allowed: true };
 
     // ── Normal access check (AND) ──────────────────────────────────
@@ -258,7 +260,7 @@ export class LoreVault {
           )
         ) ?? false);
       if (bypassGranted) {
-        return { allowed: true, bypassMessage: b.bypassMessage, timePenalty: b.timePenaltyMinutes };
+        return { allowed: true, wasBypass: true, bypassMessage: b.bypassMessage, timePenalty: b.timePenaltyMinutes };
       }
     }
 
@@ -295,7 +297,7 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-  ): { allowed: boolean; bypassMessage?: string; timePenalty?: number } {
+  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
     return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin);
   }
 
@@ -374,7 +376,7 @@ export class LoreVault {
         if (!result.allowed) continue;
 
         const baseTime = conn.traverseTime ?? 5;
-        const bypassUsed = result.bypassMessage !== undefined || result.timePenalty !== undefined;
+        const bypassUsed = result.wasBypass === true;
 
         if (bypassUsed && !allowBypass) continue;
 
@@ -633,7 +635,7 @@ export class LoreVault {
             if (!result.allowed) {
               const msg = c.access.lockedMessage ?? '此通道目前無法通行';
               parts.push('[LOCKED: ' + msg + ']');
-            } else if (result.bypassMessage || result.timePenalty !== undefined) {
+            } else if (result.wasBypass || result.bypassMessage || result.timePenalty !== undefined) {
               const bypassParts: string[] = [];
               if (result.bypassMessage) bypassParts.push(result.bypassMessage);
               if (result.timePenalty !== undefined) bypassParts.push('+' + result.timePenalty + 'min');

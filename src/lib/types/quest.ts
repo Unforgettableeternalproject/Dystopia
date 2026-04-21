@@ -18,7 +18,7 @@ export type QuestType = 'main' | 'side' | 'hidden';
 
 export type ObjectiveType =
   | 'flag_check'          // 單一全域旗標存在
-  | 'flag_expression'     // 複合旗標運算式（支援 AND/OR/NOT）
+  | 'flag_expression'     // 複合旗標運算式（支援 AND/OR/NOT 或 &/|/!）
   | 'quest_flag'          // 任務本地旗標（由 DM <<QUEST>> 信號設置）
   | 'location_visit'      // 到達指定地點
   | 'npc_talk'            // 與 NPC 互動過

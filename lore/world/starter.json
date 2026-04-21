@@ -21,7 +21,7 @@
     },
     "secondaryStats": {
       "consciousness": 2,
-      "arcane": 0,
+      "mysticism": 0,
       "technology": 3
     },
     "statusStats": {
@@ -29,8 +29,8 @@
       "staminaMax": 10,
       "stress": 2,
       "stressMax": 10,
-      "mana": 0,
-      "manaMax": 0
+      "endo": 0,
+      "endoMax": 0
     },
     "knownIntelIds": [],
     "inventory": [ "crambell_work_permit" ]

@@ -6,7 +6,6 @@
     "proximity": {
       "locationIds": ["delth_patrol_zone"],
       "questIds": ["crambell_mildore_rescue"],
-      "flags": ["crambell_mildore_situation_understood"],
       "notFlags": ["crambell_mildore_charge_known"]
     }
   },

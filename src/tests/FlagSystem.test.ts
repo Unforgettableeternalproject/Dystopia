@@ -135,25 +135,38 @@ describe('FlagSystem.evaluate() — 基本語法', () => {
   });
 });
 
-// ── evaluate() — AND/OR/NOT 文字運算子（預期不支援的已知 bug）───────────────
+// ── evaluate() — AND/OR/NOT 文字運算子 ───────────────────────────────────────
 
-describe('FlagSystem.evaluate() — 文字運算子 AND/OR/NOT（已知問題）', () => {
+describe('FlagSystem.evaluate() — 文字運算子 AND/OR/NOT', () => {
   const flags = makeFlags(['f_a', 'f_b']);
 
-  it('文字 "AND" 不被識別，旗標名稱含 AND 字串，evaluate 結果不是語意 AND', () => {
-    // "f_a AND f_b" — 引擎只切 | 和 &，不切 AND；
-    // "f_a AND f_b" 會被當成單一 token 查詢，f_a AND f_b 不是旗標，結果為 false
-    expect(flags.evaluate('f_a AND f_b')).toBe(false);
+  it('文字 "AND" — 兩旗標均存在，結果為 true', () => {
+    expect(flags.evaluate('f_a AND f_b')).toBe(true);
   });
 
-  it('文字 "OR" 不被識別，evaluate 結果不是語意 OR', () => {
-    // "f_missing OR f_a" 被當成單一 token，不是旗標，結果為 false
-    expect(flags.evaluate('f_missing OR f_a')).toBe(false);
+  it('文字 "AND" — 其中一個旗標不存在，結果為 false', () => {
+    expect(flags.evaluate('f_a AND f_missing')).toBe(false);
   });
 
-  it('文字 "NOT" 前綴不被識別，evaluate 結果不是語意 NOT', () => {
-    // "NOT f_missing" 被當成單一 token，不是旗標，結果為 false
-    expect(flags.evaluate('NOT f_missing')).toBe(false);
+  it('文字 "OR" — 第一個不存在、第二個存在，結果為 true', () => {
+    expect(flags.evaluate('f_missing OR f_a')).toBe(true);
+  });
+
+  it('文字 "OR" — 兩個均不存在，結果為 false', () => {
+    expect(flags.evaluate('f_missing OR f_also_missing')).toBe(false);
+  });
+
+  it('文字 "NOT" 前綴 — 旗標不存在，結果為 true', () => {
+    expect(flags.evaluate('NOT f_missing')).toBe(true);
+  });
+
+  it('文字 "NOT" 前綴 — 旗標存在，結果為 false', () => {
+    expect(flags.evaluate('NOT f_a')).toBe(false);
+  });
+
+  it('混合文字與符號運算子', () => {
+    // f_a AND NOT f_missing → true & true = true
+    expect(flags.evaluate('f_a AND NOT f_missing')).toBe(true);
   });
 });
 

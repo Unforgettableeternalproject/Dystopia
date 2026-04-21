@@ -40,14 +40,19 @@ export class FlagSystem {
 
   /**
    * Evaluate a condition string.
-   * Format: 'flag1 & flag2 | !flag3'
-   * - '|' = OR (lowest precedence)
-   * - '&' = AND
-   * - '!' prefix = NOT (true when flag is absent)
+   * Supports both symbol form ('flag1 & flag2 | !flag3') and word form ('flag1 AND flag2 OR NOT flag3').
+   * - '|' / 'OR'  = OR (lowest precedence)
+   * - '&' / 'AND' = AND
+   * - '!' / 'NOT' prefix = NOT (true when flag is absent)
    */
   evaluate(condition: string): boolean {
     if (!condition.trim()) return true;
-    return condition
+    // Normalise word-form operators to symbol form so lore files can use either style.
+    const normalised = condition
+      .replace(/\bOR\b/g, '|')
+      .replace(/\bAND\b/g, '&')
+      .replace(/\bNOT\s+/g, '!');
+    return normalised
       .split('|')
       .some((orPart) =>
         orPart

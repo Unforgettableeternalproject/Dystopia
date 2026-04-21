@@ -1,4 +1,5 @@
 {
+  "_comment_global": "這個任務暫時還沒有實裝，以下是設計草案。",
   "id": "crambell_mildore_rescue",
   "name": "禁閉架上的女人",
   "type": "side",
@@ -65,11 +66,11 @@
           "id": "freed",
           "type": "flag_check",
           "description": "米爾多雷已重獲自由",
-          "flag": "crambell_quest_mildore_freed"
+          "flag": "crambell_mildore_released"
         }
       ],
       "onComplete": {
-        "flagsSet": ["crambell_quest_mildore_freed"],
+        "flagsSet": ["crambell_quest_mildore_freed", "crambell_mildore_rescued"],
         "reputationChanges": { "crambell_peoples_alliance": 5 },
         "nextStageId": null
       }
