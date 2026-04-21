@@ -1,5 +1,6 @@
 {
   "id": "crambell_delth_broadcast",
+  "name": "第四象限廣播",
   "_comment": "戴司全域事件。政府廣播，每 240 分鐘觸發一次，無視時段。outccome 依目前時段旗標決定內容。",
   "condition": {
     "cooldownMinutes": 240
@@ -19,5 +20,6 @@
       "statChanges": { "statusStats.stress": 1 }
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": {}
 }

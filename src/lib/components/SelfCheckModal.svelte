@@ -1,5 +1,7 @@
 <script lang="ts">
   import { selfCheckOpen, detailedPlayer, playerUI } from '$lib/stores/gameStore';
+  import { fade, fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
 
   const STAT_LABEL: Record<string, string> = {
     strength: '力量', knowledge: '知識', talent: '才能', spirit: '精神', luck: '幸運',
@@ -19,8 +21,8 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="modal-backdrop" on:click={handleBg}>
-  <aside class="modal-panel" role="dialog" aria-label="自我視察">
+<div class="modal-backdrop" transition:fade={{ duration: 180 }} on:click={handleBg}>
+  <aside class="modal-panel" transition:fly={{ x: -280, duration: 220, easing: cubicOut }} role="dialog" aria-label="自我視察">
     <div class="modal-header">
       <span class="modal-title">自我視察</span>
       <button class="close-btn" on:click={close} aria-label="關閉">✕</button>
@@ -149,14 +151,8 @@
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-accent);
     overflow-y: auto;
-    animation: slideFromLeft 0.15s ease-out;
     display: flex;
     flex-direction: column;
-  }
-
-  @keyframes slideFromLeft {
-    from { transform: translateX(-100%); opacity: 0; }
-    to   { transform: translateX(0);     opacity: 1; }
   }
 
   .modal-header {

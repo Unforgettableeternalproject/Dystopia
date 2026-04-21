@@ -1,5 +1,6 @@
 {
   "id": "crambell_work_period_start",
+  "name": "報時鐘 — 工作時段",
   "_comment": "全域事件。作業時段開始時觸發一次（自我標記設計：設旗標後，同一時段內不再觸發）。",
   "condition": {
     "timePeriod": ["work"],
@@ -22,5 +23,8 @@
       ]
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": {
+    "color": "warning"
+  }
 }

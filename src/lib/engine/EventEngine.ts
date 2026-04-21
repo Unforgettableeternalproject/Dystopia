@@ -193,6 +193,43 @@ export class EventEngine {
     return true;
   }
 
+  /**
+   * Force-trigger an event by ID, bypassing all canTrigger conditions.
+   * Used by debug tools only.
+   */
+  forceEvent(eventId: string): TriggeredEvent | null {
+    const event = this.lore.getEvent(eventId);
+    if (!event) return null;
+
+    // Set up checkCtx for the current scene so applyOutcome has context
+    const resolved = this.lore.resolveLocation(
+      this.state.getState().player.currentLocationId,
+      this.state.flags,
+    );
+    this.checkCtx = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours: [] };
+
+    const outcome = this.selectOutcome(event);
+    if (!outcome) return null;
+
+    this.applyOutcome(outcome);
+
+    if (!event.isRepeatable) {
+      this.state.flags.set(event.id + ':fired');
+    } else {
+      this.state.setEventCooldown(event.id, this.state.getState().time.totalMinutes);
+    }
+
+    this.state.emit(GameEvents.GAME_EVENT_TRIGGERED, { eventId: event.id, outcomeId: outcome.id });
+
+    return {
+      event,
+      outcome,
+      grantQuestId:     outcome.grantQuestId,
+      startEncounterId: outcome.startEncounterId,
+      failQuestId:      outcome.failQuestId,
+    };
+  }
+
   // Select the first outcome whose condition is met (or the first unconditional one).
   private selectOutcome(event: GameEvent): EventOutcome | undefined {
     return event.outcomes.find(

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { inventoryOpen, detailedPlayer } from '$lib/stores/gameStore';
   import type { ResolvedInventoryItem } from '$lib/stores/gameStore';
+  import { fade, fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
 
   let selected: ResolvedInventoryItem | null = null;
 
@@ -32,9 +34,9 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="modal-backdrop" on:click={handleBg}>
+<div class="modal-backdrop" transition:fade={{ duration: 180 }} on:click={handleBg}>
   <div class="backdrop-fill" on:click={handleBg}></div>
-  <aside class="modal-panel" role="dialog" aria-label="物品欄">
+  <aside class="modal-panel" transition:fly={{ x: 260, duration: 220, easing: cubicOut }} role="dialog" aria-label="物品欄">
 
     <div class="modal-header">
       <button class="close-btn" on:click={close} aria-label="關閉">✕</button>
@@ -112,14 +114,8 @@
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-accent);
     overflow-y: auto;
-    animation: slideFromRight 0.15s ease-out;
     display: flex;
     flex-direction: column;
-  }
-
-  @keyframes slideFromRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
   }
 
   /* ── Header ────────────────────────────────────────── */

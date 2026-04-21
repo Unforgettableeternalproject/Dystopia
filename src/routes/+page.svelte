@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questCompletionBanner } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questCompletionBanner, statCheckOverlay } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -23,6 +23,7 @@
   import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
   import EncounterPanel       from '$lib/components/EncounterPanel.svelte';
   import DebugPanel           from '$lib/components/DebugPanel.svelte';
+  import StatCheckOverlay     from '$lib/components/StatCheckOverlay.svelte';
 
   import type { Thought } from '$lib/types';
 
@@ -38,6 +39,18 @@
   $: if ($questCompletionBanner) {
     if (_bannerTimer) clearTimeout(_bannerTimer);
     _bannerTimer = setTimeout(() => questCompletionBanner.set(null), 3500);
+  }
+
+  // 偵測 activeEncounterUI 變化，若有 statCheckResult 則觸發判定 overlay
+  let _prevEncounterRef: typeof $activeEncounterUI = null;
+  $: {
+    const enc = $activeEncounterUI;
+    if (enc !== _prevEncounterRef) {
+      _prevEncounterRef = enc;
+      if (enc?.statCheckResult) {
+        statCheckOverlay.set(enc.statCheckResult);
+      }
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -317,6 +330,15 @@
 
 {#if $questDetailOpen}
   <QuestDetailModal />
+{/if}
+
+{#if $statCheckOverlay}
+  <StatCheckOverlay
+    stat={$statCheckOverlay.stat}
+    threshold={$statCheckOverlay.threshold}
+    value={$statCheckOverlay.value}
+    passed={$statCheckOverlay.passed}
+  />
 {/if}
 
 <!-- Quest completion banner -->

@@ -1,5 +1,6 @@
 {
   "id": "crambell_rest_period_start",
+  "name": "報時鐘 — 休息時段",
   "_comment": "全域事件。休息時段開始時觸發一次（自我標記設計）。",
   "condition": {
     "timePeriod": ["rest"],
@@ -14,5 +15,6 @@
       "flagsUnset": ["crambell_work_period_active"]
     }
   ],
-  "isRepeatable": true
+  "isRepeatable": true,
+  "notification": {}
 }

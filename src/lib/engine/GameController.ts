@@ -52,7 +52,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, questCompletionBanner } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, questCompletionBanner, showEventToast } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
@@ -290,6 +290,9 @@ export class GameController {
             encounterId: t.startEncounterId, eventId: t.event.id,
           });
         }
+      }
+      if (t.event.notification) {
+        showEventToast(t.event.name ?? t.event.id, t.event.notification.color);
       }
     }
 
@@ -1845,6 +1848,37 @@ export class GameController {
     }
   }
 
+  /** Force-trigger a game event by ID, bypassing all canTrigger conditions. */
+  async debugForceEvent(eventId: string): Promise<void> {
+    const triggered = this.events.forceEvent(eventId);
+    if (!triggered) {
+      pushLine(`[Debug] 找不到事件或無可選結果：${eventId}`, 'system');
+      return;
+    }
+    pushLine(`[Debug] 強制觸發事件：${triggered.event.description ?? eventId}`, 'system');
+    if (triggered.event.notification) {
+      showEventToast(triggered.event.name ?? triggered.event.id, triggered.event.notification.color);
+    }
+
+    // Apply side effects (same as normal event flow)
+    if (triggered.grantQuestId) this.quests.grantQuest(triggered.grantQuestId);
+    if (triggered.failQuestId)  this.quests.applyQuestFail(triggered.failQuestId);
+    if (triggered.startEncounterId) {
+      const encDef  = this.lore.getEncounter(triggered.startEncounterId);
+      const resolved = this.encounterMgr.start(triggered.startEncounterId);
+      if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined);
+    }
+
+    // Run DM so the event is narrated in context
+    const sceneCtx = this.buildSceneCtx([triggered]);
+    const { suggestions } = await this.runDM(
+      { type: 'examine', input: '（環顧四周）' } as PlayerAction,
+      sceneCtx,
+    );
+    await this.refreshThoughts(suggestions);
+    this.syncUIState(this.state.getState());
+  }
+
   /** Grant a quest directly, regardless of conditions. */
   debugGrantQuest(questId: string): void {
     const ok = this.acceptQuest(questId);
@@ -1853,6 +1887,7 @@ export class GameController {
       : `[Debug] 任務授予失敗（已存在或 ID 錯誤）：${questId}`,
       'system',
     );
+    if (ok) this.syncUIState(this.state.getState());
   }
 
   /** Set a flag and sync UI. */

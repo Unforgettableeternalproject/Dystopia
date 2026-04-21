@@ -151,7 +151,9 @@
                 <span class="item-name">{evt.name}</span>
                 <span class="item-id">{evt.id}</span>
               </div>
-              <span class="note-text">事件由引擎條件觸發，無法直接啟動</span>
+              <button class="trigger-btn" on:click={() => controller.debugForceEvent(evt.id).catch(console.error)}>
+                強制觸發
+              </button>
             </div>
           {:else}
             <div class="empty">無符合項目</div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { afterUpdate } from 'svelte';
-  import { narrativeLines, isStreaming } from '$lib/stores/gameStore';
+  import { narrativeLines, isStreaming, eventToast } from '$lib/stores/gameStore';
 
   let scrollEl: HTMLDivElement;
   let autoScroll  = true;
@@ -88,6 +88,16 @@
       {/if}
     </div>
   </div>
+
+  {#if $eventToast}
+    <div
+      class="event-toast"
+      class:toast--warning={$eventToast.color === 'warning'}
+      class:toast--danger={$eventToast.color === 'danger'}
+    >
+      {$eventToast.label}
+    </div>
+  {/if}
 
   {#if showScrollBtn}
     <button class="scroll-btn" on:click={scrollToLatest} title="回到最新">↓</button>
@@ -185,6 +195,44 @@
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(2px); }
     to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Event toast */
+  .event-toast {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid #5fa8d355;
+    color: #5fa8d3;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 4px 12px;
+    border-radius: 2px;
+    z-index: 10;
+    pointer-events: none;
+    animation: toastIn 0.18s ease-out, toastOut 0.3s ease-in 2.7s forwards;
+  }
+
+  .event-toast.toast--warning {
+    border-color: #c9a96e55;
+    color: #c9a96e;
+  }
+
+  .event-toast.toast--danger {
+    border-color: #d35f5f55;
+    color: #d35f5f;
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes toastOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
   }
 
   /* "Back to latest" button */

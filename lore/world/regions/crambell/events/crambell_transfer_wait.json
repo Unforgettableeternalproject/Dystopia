@@ -1,5 +1,6 @@
 {
   "id": "crambell_transfer_wait",
+  "name": "等待期計日",
 
   "_comment": [
     "【遷移等待期 — 日計數】",

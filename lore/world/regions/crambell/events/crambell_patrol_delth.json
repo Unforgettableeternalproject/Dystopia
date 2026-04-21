@@ -1,5 +1,6 @@
 {
   "id": "crambell_patrol_delth",
+  "name": "管制區巡邏",
   "locationId": "delth_patrol_zone",
   "_comment": "地點事件：巡邏管制區，需掛載到 delth_patrol_zone.eventIds。作業時段巡邏，每 120 分鐘一次。",
   "condition": {

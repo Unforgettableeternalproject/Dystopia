@@ -255,10 +255,16 @@ export interface ActiveEncounterUI {
   /** 過濾後玩家可見的選項 */
   choices:       EncounterChoice[];
   /** 數值判定結果（若有的話） */
-  statCheckResult?: { stat: string; threshold: number; passed: boolean };
+  statCheckResult?: { stat: string; threshold: number; value: number; passed: boolean };
 }
 
 export const activeEncounterUI = writable<ActiveEncounterUI | null>(null);
+
+// ── Stat check overlay ─────────────────────────────────────────
+// 設定後會觸發畫面中央的判定動畫視窗，顯示完畢後元件自行清除
+export const statCheckOverlay = writable<{
+  stat: string; threshold: number; value: number; passed: boolean;
+} | null>(null);
 
 // ── Modal state ────────────────────────────────────────────────
 
@@ -272,6 +278,27 @@ export const questDetailOpen    = writable<QuestDetailEntry | null>(null);
 
 // Quest completion banner — set to quest name to trigger, cleared by the banner component
 export const questCompletionBanner = writable<string | null>(null);
+
+// ── Event toast ────────────────────────────────────────────────
+// 事件觸發時在敘事框右上角閃現三秒的提示
+
+export interface EventToastState {
+  label: string;
+  color?: 'warning' | 'danger';
+}
+
+export const eventToast = writable<EventToastState | null>(null);
+
+let _toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function showEventToast(label: string, color?: 'warning' | 'danger'): void {
+  if (_toastTimer) clearTimeout(_toastTimer);
+  eventToast.set({ label, color });
+  _toastTimer = setTimeout(() => {
+    eventToast.set(null);
+    _toastTimer = null;
+  }, 3000);
+}
 
 // ── Derived ────────────────────────────────────────────────────
 

@@ -30,7 +30,7 @@ export interface ResolvedNode {
   /** 是否為結局節點（遭遇在展示後應結束） */
   isOutcome: boolean;
   /** 數值判定結果（若此節點經過 stat check 解析才有值） */
-  statCheckResult?: { stat: string; threshold: number; passed: boolean };
+  statCheckResult?: { stat: string; threshold: number; value: number; passed: boolean };
 }
 
 /** 待 GameController 處理的高層效果（需跨引擎協調） */
@@ -216,12 +216,12 @@ export class EncounterEngine {
       const nextNode = def.nodes[nextId];
       if (!nextNode) {
         log.warn('Missing stat check target node', { nextId });
-        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, threshold, passed } };
+        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, threshold, value: value ?? 0, passed } };
       }
 
       // Recurse — the resolved node is the final destination
       const resolved = this.resolveNode(def, nextNode);
-      return { ...resolved, statCheckResult: { stat, threshold, passed } };
+      return { ...resolved, statCheckResult: { stat, threshold, value: value ?? 0, passed } };
     }
 
     // Filter choices by flag condition, item requirements, and melphin threshold

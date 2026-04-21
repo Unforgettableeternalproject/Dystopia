@@ -40,7 +40,9 @@
       "Bash(node -e \"const f=require\\('./lore/world/regions/crambell/events/crambell_transfer_wait.json'\\); f.outcomes.forEach\\(o=>console.log\\(o.id, '| condition:', o.condition||'none', '| flagsSet:', o.flagsSet\\)\\);\")",
       "Bash(node:*)",
       "Bash(grep -v \"^--$\")",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Skill(notecraft)",
+      "mcp__token-savior__reindex"
     ]
   }
 }
