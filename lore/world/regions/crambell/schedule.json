@@ -1,0 +1,22 @@
+{
+  "regionId": "crambell",
+  "periods": [
+    {
+      "id": "work",
+      "label": "作業時段",
+      "startHour": 6,
+      "startMinute": 0,
+      "endHour": 18,
+      "endMinute": 0
+    },
+    {
+      "id": "rest",
+      "label": "休息時段",
+      "startHour": 18,
+      "startMinute": 0,
+      "endHour": 6,
+      "endMinute": 0
+    }
+  ],
+  "specialPeriodFlag": "crambell_special_period_active"
+}

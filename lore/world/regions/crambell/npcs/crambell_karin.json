@@ -1,0 +1,35 @@
+{
+  "id": "crambell_carin",
+  "name": "卡林·巴克禮",
+  "type": "quest",
+  "baseLocationId": "delth_transit_hub",
+  "factionId": "crambell_government",
+  "publicDescription": "領主伊森·奇萊的親信，做事快速且凌厲，在三區具有絕對的戰力。她通常只接「麻煩」的任務，不處理日常瑣事。沉默，不解釋自己的行動。",
+  "secretLayers": [
+    {
+      "id": "carin_coup_role",
+      "label": "政變中的角色",
+      "condition": "crambell_carin_past_heard",
+      "context": "坊間傳言卡林曾是舊會議的一員，是三區政變的主要行動者之一。具體她做了什麼，沒有官方記錄。"
+    },
+    {
+      "id": "carin_killed_earl",
+      "label": "親手刺殺前任領主",
+      "condition": "crambell_carin_truth_known",
+      "context": "卡林親手刺殺了前任領主厄羅·斯洛，終結了政變。她對這件事似乎並不得意，鮮少提及，也不允許別人在她面前討論——這個反應本身就值得注意。",
+      "dialogueId": "crambell_carin_confronted"
+    }
+  ],
+  "dialogueId": "crambell_carin_default",
+  "questIds": [],
+  "isVisible": false,
+  "phaseOverrides": {
+    "crambell_carin_deployed": {
+      "isVisible": true
+    },
+    "crambell_player_allied_government_high": {
+      "isVisible": true,
+      "dialogueId": "crambell_carin_ally"
+    }
+  }
+}

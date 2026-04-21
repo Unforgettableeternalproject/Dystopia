@@ -1,0 +1,52 @@
+{
+  "id": "crambell_quota_failure",
+  "name": "配額未達",
+  "_comment": [
+    "全域事件，於 18:00 觸發，條件為當日配額未完成。",
+    "固定啟動配額稽核遭遇。",
+    "若轉移申請已核准，則撤銷申請並使可重複任務失敗。"
+  ],
+  "condition": {
+    "triggerHours": [18],
+    "notFlags": [
+      "crambell_quota_met_today",
+      "crambell_quota_failure_processed"
+    ]
+  },
+  "description": "作業時段結束，玩家未完成配額。監察部門立即介入。",
+  "outcomes": [
+    {
+      "id": "quota_audit_transfer_revoked",
+      "condition": "crambell_transfer_application_approved",
+      "description": "配額未達，待審的轉移申請被撤銷，並觸發配額稽核。",
+      "flagsSet": [
+        "crambell_quota_failure_processed",
+        "crambell_transfer_trigger_checked"
+      ],
+      "flagsUnset": [
+        "crambell_transfer_application_approved",
+        "crambell_transfer_day1_met",
+        "crambell_transfer_day2_met",
+        "crambell_transfer_day3_met",
+        "crambell_transfer_wait_processed"
+      ],
+      "eventCounterReset": ["crambell_transfer_trigger_progress"],
+      "failQuestId": "crambell_transfer_opportunity",
+      "startEncounterId": "crambell_enc_quota_audit"
+    },
+    {
+      "id": "quota_audit_standard",
+      "condition": "!crambell_transfer_application_approved",
+      "description": "配額未達，觸發配額稽核。",
+      "flagsSet": [
+        "crambell_quota_failure_processed",
+        "crambell_transfer_trigger_checked"
+      ],
+      "eventCounterReset": ["crambell_transfer_trigger_progress"],
+      "startEncounterId": "crambell_enc_quota_audit"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": true,
+  "notificationVariant": "negative"
+}

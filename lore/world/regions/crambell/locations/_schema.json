@@ -1,0 +1,131 @@
+{
+  "_schema": "LocationNode — one file per location (area or sublocation)",
+  "_version": 2,
+
+  "_comment_hierarchy": [
+    "地點層級（由上到下）：",
+    "  Region（區域/國家）→ District（象限/區塊）→ Area（地點/建築）→ Sublocation（子地點/房間）",
+    "",
+    "locationType 欄位：",
+    "  省略         = 頂層地點（直接隸屬於 district，如一條街、一個廣場）",
+    "  'area'       = 建築/街區級別的中層地點（有多個子地點，如宿舍棟）",
+    "  'sublocation'= 房間/角落等最小粒度地點",
+    "",
+    "子地點嵌入方式（推薦）：",
+    "  在 area 節點的 JSON 中加入 'sublocations' 陣列，直接嵌入子地點資料。",
+    "  LoreVault 載入時會自動展開，並繼承 parentId / regionId / districtId / locationType。",
+    "  子地點 JSON 只需填寫 id / name / tags / base / localVariants，無需重複層級欄位。",
+    "  已嵌入的子地點不需要在 district.locationIds 或 region.locationIds 中額外列出。",
+    "",
+    "完整圖範例（delth_dormitory.json）：",
+    "  delth_dormitory（area）",
+    "    sublocations: [",
+    "      delth_dormitory_common（sublocation，自動繼承 parentId）",
+    "        → delth_dormitory_room（sublocation）",
+    "    ]",
+    "",
+    "parentId 欄位：由 LoreVault 自動填入，子地點 JSON 無需手動設定。",
+    "",
+    "原則：每個節點都必須有可到達的進出通道（連通圖），不可有孤立節點。",
+    "子地點的出口通常指回上層 area 節點；area 節點指回頂層地點。",
+    "",
+    "enableDefaultConnection（area 節點）：",
+    "  省略/true = LoreVault 自動建立父↔子雙向連線（預設行為，一般建築適用）。",
+    "  false     = 停用自動注入，所有通道必須在 connections 手動定義（線性動線如走廊適用）。",
+    "",
+    "traverseTime（connections 欄位）：",
+    "  通道耗時（分鐘）。省略 = 預設 5 分鐘。",
+    "  多跳導航路徑時，引擎以各路段 traverseTime 累加計算總耗時並覆蓋 <<TIME>>。",
+    "  bypass 路徑若未設 timePenaltyMinutes，自動加算 +20%。"
+  ],
+
+  "id": "region_location_name",
+  "name": "地點顯示名稱",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "locationType": "sublocation",
+  "parentId": "parent_area_location_id",
+  "tags": ["outdoor", "public", "military_zone"],
+
+  "base": {
+    "description": "DM scene description — what this place looks like and feels like.",
+    "ambience": ["keyword1", "keyword2"],
+    "connections": [
+      {
+        "targetLocationId": "other_location_id",
+        "description": "玩家看到的出口標籤",
+        "travelNote": "（選填）DM 在描述移動過程時的提示語",
+        "_comment_traverseTime": "traverseTime：此通道的耗時（分鐘）。省略 = 預設 5 分鐘。透過 bypass 通行時若 bypass 未設 timePenaltyMinutes，自動加算 +20%。",
+        "traverseTime": 10,
+        "access": {
+          "_comment": "access 整個欄位省略 = 永遠開放。所有設定的子欄位同時滿足才能通行（AND 關係）。",
+          "flag": "optional_flag_expression",
+          "timePeriods": ["work"],
+          "knowledgeIds": ["intel_id_player_must_have"],
+          "lockedMessage": "玩家試圖通行時看到的說明（如「礦坑在休息時段關閉」）",
+          "bypass": {
+            "_comment": "bypass 省略 = 不啟用繞過。只有在 access 條件無法滿足時才評估 bypass（access 優先）。bypass 內任一條件成立即可通行，但會附加時間懲罰。",
+            "flag": "optional_bypass_flag_expression",
+            "knowledgeIds": ["bypass_intel_id"],
+            "bypassMessage": "（選填）DM context：玩家以特殊方式通過時的提示語",
+            "timePenaltyMinutes": 15
+          }
+        }
+      },
+      {
+        "_comment": "無 access 欄位、無 traverseTime = 永遠開放、耗時預設 5 分鐘的出口",
+        "targetLocationId": "always_open_destination",
+        "description": "離開"
+      }
+    ],
+    "npcIds": ["npc_id"],
+    "eventIds": ["event_id"],
+    "isAccessible": true
+  },
+
+  "_comment_enableDefaultConnection": [
+    "area 節點專用欄位。省略或設為 true：LoreVault 自動在父地點與所有子地點之間建立雙向連線（大多數建築適用）。",
+    "設為 false：停用自動注入，所有進出通道必須在 connections 中手動定義（適用於線性動線地點，如走廊、序列式關卡）。",
+    "子地點不需要也不應設定此欄位。"
+  ],
+  "enableDefaultConnection": false,
+
+  "_comment_sublocations": "area 節點專用：將子地點直接嵌入此陣列。LoreVault 載入時自動展開並繼承層級欄位。",
+  "sublocations": [
+    {
+      "id": "child_location_id",
+      "name": "子地點名稱",
+      "tags": ["indoor"],
+      "base": {
+        "description": "子地點場景描述",
+        "ambience": ["keyword"],
+        "connections": [
+          { "targetLocationId": "parent_area_id", "description": "返回上層" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    }
+  ],
+
+  "localVariants": [
+    {
+      "_comment": "localVariants：僅影響本地點的狀態變化（跨地點的全局變化請用 phases.json）",
+      "id": "variant_id",
+      "label": "設計備注，不出現在遊戲中",
+      "condition": "local_flag_only",
+      "priority": 10,
+      "description": "（選填）替換 base.description",
+      "ambience": ["（選填）替換 base.ambience"],
+      "connections": ["（選填）完全替換 base.connections"],
+      "isAccessible": false,
+      "addNpcIds": ["新增的 NPC"],
+      "removeNpcIds": ["移除的 NPC"],
+      "addEventIds": ["新增的事件"],
+      "removeEventIds": ["移除的事件"],
+      "transitionNote": "（選填）DM context：這個地點發生了什麼改變"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "_schema": "FlagManifestEntry[] — flag proximity manifest",
+
+  "_comment": [
+    "每個檔案是一個 FlagManifestEntry 陣列。",
+    "DM 只會看到當前 context（地點/任務/旗標/時段）符合 proximity 條件的旗標。",
+    "",
+    "proximity 規則：",
+    "  locationIds   — 玩家在這些地點時才顯示（OR）",
+    "  districtIds   — 玩家在這些象限時才顯示（OR）",
+    "  questIds      — 玩家持有這些任務中任一個時才顯示（OR）",
+    "  flags         — 這些旗標全部存在（AND）",
+    "  anyFlags      — 這些旗標至少一個存在（OR）",
+    "  notFlags      — 這些旗標全部不存在（AND）",
+    "  timePeriod    — 只在這些時段顯示",
+    "",
+    "DM signal 格式（narrative 結尾）：",
+    "  <<FLAGS: +flag_to_set, -flag_to_unset>>",
+    "  這行不會顯示給玩家，系統解析後剝離。"
+  ],
+
+  "_example": {
+    "flagId": "crambell_example_flag",
+    "description": "一句話描述此旗標代表什麼狀態",
+    "setCondition": "玩家做了什麼事才應設置此旗標",
+    "unsetCondition": "在什麼情況下清除此旗標（省略 = 永久）",
+    "proximity": {
+      "locationIds": ["delth_plaza"],
+      "questIds": ["crambell_some_quest"],
+      "flags": ["required_flag"],
+      "notFlags": ["already_done_flag"],
+      "timePeriod": ["work"]
+    }
+  }
+}

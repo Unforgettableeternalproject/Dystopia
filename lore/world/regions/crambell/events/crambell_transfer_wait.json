@@ -1,0 +1,42 @@
+{
+  "id": "crambell_transfer_wait",
+  "name": "轉移等待期",
+  "_comment": [
+    "每天 18:00 觸發，條件為申請已核准。",
+    "每一個配額達成日會讓等待天數推進一天。",
+    "配額未達的情況由 crambell_quota_failure 單獨處理，該事件會撤銷申請。"
+  ],
+  "condition": {
+    "triggerHours": [18],
+    "flags": [
+      "crambell_transfer_application_approved",
+      "crambell_quota_met_today"
+    ],
+    "notFlags": [
+      "crambell_transfer_wait_processed",
+      "crambell_transfer_permit_ready"
+    ],
+    "questActiveId": "crambell_transfer_opportunity"
+  },
+  "description": "已核准的轉移案件，需要連續三天完成配額才能通過。",
+  "outcomes": [
+    {
+      "id": "day3_complete",
+      "condition": "crambell_transfer_day2_met",
+      "description": "第三天的配額達成記錄完成。",
+      "flagsSet": ["crambell_transfer_day3_met", "crambell_transfer_wait_processed"]
+    },
+    {
+      "id": "day2_complete",
+      "condition": "crambell_transfer_day1_met",
+      "description": "第二天的配額達成記錄完成。",
+      "flagsSet": ["crambell_transfer_day2_met", "crambell_transfer_wait_processed"]
+    },
+    {
+      "id": "day1_complete",
+      "description": "第一天的配額達成記錄完成。",
+      "flagsSet": ["crambell_transfer_day1_met", "crambell_transfer_wait_processed"]
+    }
+  ],
+  "isRepeatable": true
+}

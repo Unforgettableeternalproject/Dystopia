@@ -1,0 +1,85 @@
+{
+  "_comment_global": "這個任務暫時還沒有實裝，以下是設計草案。",
+  "id": "crambell_mildore_rescue",
+  "name": "禁閉架上的女人",
+  "type": "side",
+  "source": "npc",
+  "giverNpcId": "crambell_mildore",
+  "regionId": "crambell",
+  "canDitch": false,
+  "autoAccept": false,
+
+  "_comment": [
+    "支線任務：解救米爾多雷。",
+    "起點：玩家在廣場目擊米爾多雷被關在禁閉架，並選擇靠近交談。",
+    "她不會直接求救，但玩家可以從她的言語中判斷情況。",
+    "完成路線可以是：賄賂凱恩（需要道具或資源）、找凱奇協助、或找艾洛安買情報。",
+    "完成後她加入倉庫作業，成為人民聯盟的一個聯絡點。",
+    "不依附任何派系，但完成後人民聯盟聲望小幅提升。"
+  ],
+
+  "entryStageId": "understand_situation",
+  "stages": {
+    "understand_situation": {
+      "id": "understand_situation",
+      "description": "搞清楚她為什麼在那裡，以及是否有辦法幫她",
+      "objectives": [
+        {
+          "id": "talk_to_mildore",
+          "type": "npc_talk",
+          "description": "與米爾多雷交談",
+          "npcId": "crambell_mildore"
+        },
+        {
+          "id": "understand_charge",
+          "type": "flag_check",
+          "description": "得知她被拘禁的原因",
+          "flag": "crambell_mildore_charge_known"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_mildore_situation_understood"],
+        "nextStageId": "find_solution"
+      }
+    },
+    "find_solution": {
+      "id": "find_solution",
+      "description": "找到一個方法讓她重新獲得自由",
+      "objectives": [
+        {
+          "id": "solution_found",
+          "type": "flag_expression",
+          "description": "透過任何途徑取得讓她獲釋的條件",
+          "flagExpression": "crambell_mildore_bribe_ready OR crambell_mildore_treffen_arranged OR crambell_mildore_intel_purchased"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": [],
+        "nextStageId": "execute_rescue"
+      }
+    },
+    "execute_rescue": {
+      "id": "execute_rescue",
+      "description": "執行計劃",
+      "objectives": [
+        {
+          "id": "freed",
+          "type": "flag_check",
+          "description": "米爾多雷已重獲自由",
+          "flag": "crambell_mildore_released"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_quest_mildore_freed", "crambell_mildore_rescued"],
+        "reputationChanges": { "crambell_peoples_alliance": 5 },
+        "nextStageId": null
+      }
+    }
+  },
+
+  "rewards": {
+    "experience": 80,
+    "reputationChanges": { "crambell_peoples_alliance": 5 },
+    "affinityChanges": { "crambell_mildore": 20 }
+  }
+}

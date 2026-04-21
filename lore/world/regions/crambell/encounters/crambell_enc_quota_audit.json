@@ -1,0 +1,53 @@
+{
+  "id": "crambell_enc_quota_audit",
+  "name": "申報站盤查",
+  "type": "event",
+  "description": "玩家因未達成當日配額而被召至配額站接受盤查。官員會核對配額記錄，玩家面臨罰款，也可以嘗試辯解（成功率取決於玩家的說辭）。此遭遇同時重置調轉機會的觸發機率。",
+  "entryNodeId": "summoned",
+  "nodes": {
+    "summoned": {
+      "id": "summoned",
+      "dmNarrative": "廣播點名了玩家的工號。配額站的官員坐在燈光下，面前擺著當日的配額紀錄。玩家站在窗口前。[TODO: 描述被點名後走向配額站的心理壓力，官員的態度]",
+      "choices": [
+        {
+          "id": "accept",
+          "text": "低頭認錯，接受處罰",
+          "nextNodeId": "fined"
+        },
+        {
+          "id": "excuse",
+          "text": "試著解釋今天遇到的狀況",
+          "nextNodeId": "excuse_check"
+        }
+      ]
+    },
+    "excuse_check": {
+      "id": "excuse_check",
+      "dmNarrative": "玩家開口解釋。官員抬起頭，等著聽完。[TODO: 描述辯解的過程，官員是否有任何回應]",
+      "statCheck": {
+        "stat": "primaryStats.knowledge",
+        "threshold": 4,
+        "successNodeId": "excuse_accepted",
+        "failNodeId": "fined"
+      }
+    },
+    "excuse_accepted": {
+      "id": "excuse_accepted",
+      "dmNarrative": "官員沉默了一會，在紀錄上寫了什麼，然後揮手讓玩家離開。這次逃過了。[TODO: 描述僥倖脫身的感受]",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "fined": {
+      "id": "fined",
+      "dmNarrative": "官員將罰款金額告知玩家，並在紀錄冊上留下記號。沒有商量的餘地。[TODO: 描述被罰款的壓迫感、罰款金額說明]",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "melphinChange": -10,
+        "statChanges": {
+          "statusStats.stress": 2
+        }
+      }
+    }
+  }
+}

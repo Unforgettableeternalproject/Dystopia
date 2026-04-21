@@ -1,0 +1,19 @@
+{
+  "id": "crambell_delth",
+  "name": "戴司 Delth",
+  "regionId": "crambell",
+  "description": "坎貝爾第四象限，三區最主要的居住與工作區。公有宿舍林立，工人與其家人被強制遷入此處居住，人口密度極高。這裡同時也是主要礦脈的藏區，礦坑與工廠並存，事故頻繁。南方設有經濟資源倉庫，用於管理需要長途運輸的重要資源。空氣中常飄散著礦場的粉塵與工廠的煙霧，生活條件在三區中屬於最惡劣的一區。",
+  "ambience": ["礦粉", "煙塵", "簡陋", "高密度", "疲憊", "監視"],
+  "hasCheckpoint": false,
+  "locationIds": [
+    "delth_dormitory",
+    "delth_forest",
+    "delth_mine_path",
+    "delth_mining_shafts",
+    "delth_warehouse",
+    "delth_patrol_zone",
+    "delth_quota_post",
+    "delth_transit_hub",
+    "delth_south_ground"
+  ]
+}

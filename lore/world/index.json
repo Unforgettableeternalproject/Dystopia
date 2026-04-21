@@ -1,0 +1,56 @@
+{
+  "version": "0.1",
+  "name": "Undocumented Story — Area Divided Era",
+  "regions": [
+    {
+      "id": "nanashi",
+      "name": "無名之地",
+      "path": "regions/nanashi"
+    },
+    {
+      "id": "aerendir",
+      "name": "艾倫狄爾",
+      "path": "regions/aerendir"
+    },
+    {
+      "id": "crambell",
+      "name": "坎貝爾",
+      "path": "regions/crambell"
+    },
+    {
+      "id": "kirnaya",
+      "name": "克爾納亞",
+      "path": "regions/kirnaya"
+    },
+    {
+      "id": "mahlos",
+      "name": "瑪扈洛",
+      "path": "regions/mahlos"
+    },
+    {
+      "id": "celestria",
+      "name": "瑟雷斯提亞",
+      "path": "regions/celestria"
+    },
+    {
+      "id": "valorneth",
+      "name": "瓦洛內斯",
+      "path": "regions/valorneth"
+    },
+    {
+      "id": "lumina",
+      "name": "盧米納",
+      "path": "regions/lumina"
+    },
+    {
+      "id": "murielius",
+      "name": "穆爾伊琉斯",
+      "path": "regions/murielius"
+    },
+    {
+      "id": "void",
+      "name": "虛空",
+      "path": "regions/void"
+    }
+  ]
+}

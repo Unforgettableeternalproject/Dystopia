@@ -1,0 +1,82 @@
+[
+  {
+    "flagId": "crambell_quota_done_today",
+    "description": "玩家今日已達成工作量目標，等待任務系統確認完成",
+    "setCondition": "玩家在工作岡位完成工作行動，DM 確認工作量達標後設置（由 crambell_worker_daily_quota 任務監聽）",
+    "unsetCondition": "crambell_worker_daily_quota 任務 onComplete 自動清除，同時設置 crambell_quota_met_today",
+    "proximity": {
+      "locationIds": ["delth_mine_worksite"],
+      "questIds": ["crambell_worker_daily_quota"],
+      "timePeriod": ["work"],
+      "notFlags": ["crambell_quota_done_today", "crambell_quota_met_today"]
+    }
+  },
+  {
+    "flagId": "crambell_quota_met_today",
+    "description": "玩家今日已完成工作配額，配額卡顯示綠燈狀態",
+    "setCondition": "玩家在持有配額任務的情況下達成今日工作量目標，DM 確認任務完成條件達到時設置",
+    "unsetCondition": "每次新的作業時段開始時自動清除（由 crambell_work_period_start 事件觸發）",
+    "proximity": {
+      "questIds": ["crambell_worker_daily_quota"],
+      "timePeriod": ["work"],
+      "notFlags": ["crambell_quota_met_today"]
+    }
+  },
+  {
+    "flagId": "crambell_player_quota_checked_today",
+    "description": "玩家已在今日作業時段前往配額站完成點名",
+    "setCondition": "玩家到達配額申報站（delth_quota_post），完成身分識別碼掃描並取得今日工作授權",
+    "unsetCondition": "每次新的作業時段開始時自動清除（由 crambell_work_period_start 事件觸發）",
+    "proximity": {
+      "locationIds": ["delth_quota_post"],
+      "questIds": ["crambell_worker_daily_quota"],
+      "timePeriod": ["work"],
+      "notFlags": ["crambell_player_quota_checked_today"]
+    }
+  },
+  {
+    "flagId": "crambell_player_quota_exempted",
+    "description": "玩家取得今日配額豁免，不需到配額站點名",
+    "setCondition": "玩家通過賄賂、情報交換或特殊關係取得凱恩簽發的豁免條",
+    "unsetCondition": "新作業時段開始時清除",
+    "proximity": {
+      "questIds": ["crambell_worker_daily_quota"],
+      "timePeriod": ["work"],
+      "flags": ["crambell_kane_corruption_suspected"],
+      "notFlags": ["crambell_player_quota_exempted", "crambell_player_quota_checked_today"]
+    }
+  },
+  {
+    "flagId": "crambell_player_patrol_checked",
+    "description": "玩家在廣場被巡邏隊掃描過身分識別碼",
+    "setCondition": "巡邏事件觸發時玩家在廣場，士兵完成掃描動作",
+    "unsetCondition": "（永久記錄，此次值班期間不重複觸發詳細掃描）",
+    "proximity": {
+      "locationIds": ["delth_patrol_zone"],
+      "timePeriod": ["work"],
+      "notFlags": ["crambell_player_patrol_checked"]
+    }
+  },
+  {
+    "flagId": "crambell_punishment_scheduled",
+    "description": "廣場今日有公開懲戒，違規礦工即將被押上高台",
+    "setCondition": "玩家在廣場附近聽到相關廣播或有 NPC 低聲提及今日有處決，且玩家有反應（好奇、靠近、詢問）",
+    "unsetCondition": "公開懲戒事件完成後自動清除",
+    "proximity": {
+      "locationIds": ["delth_patrol_zone", "delth_dormitory_common"],
+      "timePeriod": ["work"],
+      "flags": ["crambell_broadcast_quota_heard"],
+      "notFlags": ["crambell_punishment_scheduled", "crambell_public_punishment_witnessed"]
+    }
+  },
+  {
+    "flagId": "crambell_special_period_active",
+    "description": "特殊時段：某些重大事件導致正常作業與休息時段的規則被臨時覆蓋",
+    "setCondition": "政府宣布戒嚴、公開懲戒進行中、或其他高強度全域事件期間，玩家目睹並理解情況的異常",
+    "unsetCondition": "特殊事件結束、廣播宣告恢復正常後清除",
+    "proximity": {
+      "anyFlags": ["crambell_broadcast_curfew_heard", "crambell_public_punishment_witnessed"],
+      "notFlags": ["crambell_special_period_active"]
+    }
+  }
+]

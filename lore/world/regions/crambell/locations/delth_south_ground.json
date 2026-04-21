@@ -1,0 +1,33 @@
+{
+  "id": "delth_south_ground",
+  "name": "南方空地",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "open", "peripheral"],
+  "base": {
+    "description": "戴司象限南端的未規劃用地，夾在倉庫外牆與廢棄圍欄之間。地面坑洞不平，積水在低處形成死水坑。官方沒有在此設置監控，但這並不代表安全——無燈、無人、也無人來管。偶爾有人在此交換不便公開的東西。",
+    "ambience": ["死水氣味", "無燈", "空曠", "灰塵", "邊緣感"],
+    "connections": [
+      {
+        "targetLocationId": "delth_patrol_zone",
+        "description": "返回管制區"
+      },
+      {
+        "targetLocationId": "delth_warehouse",
+        "description": "靠近倉庫外圍",
+        "access": {
+          "knowledgeIds": ["crambell_warehouse_access"],
+          "lockedMessage": "倉庫外圍有巡邏，你可能還是沒辦法溜進去。",
+          "bypass": {
+            "knowledgeIds": ["crambell_warehouse_secret"],
+            "bypassMessage": "你知道在邊緣森林裡有個秘密入口可以通往倉庫，雖然花點時間，但是從那裡過去比較安全。"
+          }
+        }
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

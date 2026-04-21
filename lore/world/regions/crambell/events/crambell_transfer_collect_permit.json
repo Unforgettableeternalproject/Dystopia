@@ -1,0 +1,29 @@
+{
+  "id": "crambell_transfer_collect_permit",
+  "name": "領取轉移通行證",
+  "_comment": [
+    "三天配額審核通過後，玩家在工作時段前往配額站領取通行證。",
+    "純敘事事件，無遭遇。觸發後直接發放通行證並設置領取旗標。",
+    "DM 應在敘事中提示玩家可持通行證前往傳送點離開第四象限。"
+  ],
+  "locationId": "delth_quota_post",
+  "condition": {
+    "timePeriod": ["work"],
+    "questActiveId": "crambell_transfer_opportunity",
+    "questStageId": "collect_permit",
+    "flags": ["crambell_transfer_permit_ready"],
+    "notFlags": ["crambell_transfer_permit_collected"]
+  },
+  "description": "配額站官員已備妥審核通過的轉移文件，玩家可在此領取前往瓦爾的通行證。領取後，官員提醒玩家須在規定時段內前往第四象限傳送點使用通行證。",
+  "outcomes": [
+    {
+      "id": "collect_permit",
+      "description": "玩家在配額站窗口完成身分驗證，官員遞出蓋章的轉移通行證（目的地：瓦爾）。官員低聲說明：通行證僅限在象限傳送點使用，請在凌晨休息時段前往，逾期無效。",
+      "flagsSet": ["crambell_transfer_permit_collected"],
+      "grantItems": [{ "itemId": "transit_pass", "variantId": "wyar" }]
+    }
+  ],
+  "isRepeatable": false,
+  "notification": true,
+  "notificationVariant": "rare"
+}

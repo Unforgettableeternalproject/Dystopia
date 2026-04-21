@@ -1,0 +1,57 @@
+[
+  {
+    "id": "grace_period",
+    "name": "寬限期",
+    "description": "World is stable. Peace agreements hold. Corporate ethics still apply. Players can move freely across zones.",
+    "triggerFlag": null,
+    "effects": []
+  },
+  {
+    "id": "phase_1",
+    "name": "起源",
+    "description": "The Void begins to affect the world. Regional tensions rise. Zone crossing is restricted to those with lord permits. Utopia forces become visible.",
+    "triggerFlag": "world_phase_1",
+    "effects": [
+      {
+        "type": "region_lock",
+        "regionId": "*",
+        "condition": "has_lord_permit"
+      },
+      {
+        "type": "faction_activate",
+        "factionId": "utopia"
+      }
+    ]
+  },
+  {
+    "id": "phase_2",
+    "name": "進展",
+    "description": "Anomalies appear. Interpersonal conflicts escalate. Faction alignment becomes critical. Some areas open; others are sealed.",
+    "triggerFlag": "world_phase_2",
+    "effects": []
+  },
+  {
+    "id": "phase_3",
+    "name": "加劇",
+    "description": "Major disasters and anomalies erupt. Reality-distorting extreme events in varied forms. Title Bearers activate. Utopia personnel appear extensively.",
+    "triggerFlag": "world_phase_3",
+    "effects": [
+      {
+        "type": "faction_activate",
+        "factionId": "entitled"
+      }
+    ]
+  },
+  {
+    "id": "phase_4",
+    "name": "終局",
+    "description": "The Void fully manifests. Atmospheric dark matter surges. Some areas are eroded. Dark matter entities appear rarely but are extremely dangerous. Human society collapses into infighting.",
+    "triggerFlag": "world_phase_4",
+    "effects": [
+      {
+        "type": "flag_set",
+        "flag": "void_manifest"
+      }
+    ]
+  }
+]

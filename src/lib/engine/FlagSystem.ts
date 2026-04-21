@@ -1,6 +1,5 @@
-// ── FlagSystem ────────────────────────────────────────────────
-// 管理遊戲旗標（已達成的條件、事件觸發紀錄等）。
-// 旗標是字串 ID，系統只負責 set/unset/check，不持有語義。
+// FlagSystem — manages game flags (achieved conditions, event triggers, etc.)
+// Flags are string IDs; semantics are owned by the lore/engine layers.
 
 import { EventBus, GameEvents } from './EventBus';
 
@@ -31,27 +30,39 @@ export class FlagSystem {
     return this.flags.has(flagId);
   }
 
-  /** 所有旗標都滿足 */
   hasAll(flagIds: string[]): boolean {
     return flagIds.every((id) => this.flags.has(id));
   }
 
-  /** 至少一個旗標滿足 */
   hasAny(flagIds: string[]): boolean {
     return flagIds.some((id) => this.flags.has(id));
   }
 
-  /** 評估條件字串，格式：'flag1 & flag2 | flag3' */
+  /**
+   * Evaluate a condition string.
+   * Supports both symbol form ('flag1 & flag2 | !flag3') and word form ('flag1 AND flag2 OR NOT flag3').
+   * - '|' / 'OR'  = OR (lowest precedence)
+   * - '&' / 'AND' = AND
+   * - '!' / 'NOT' prefix = NOT (true when flag is absent)
+   */
   evaluate(condition: string): boolean {
     if (!condition.trim()) return true;
-    // 簡單解析：先處理 | 再處理 &
-    return condition
+    // Normalise word-form operators to symbol form so lore files can use either style.
+    const normalised = condition
+      .replace(/\bOR\b/g, '|')
+      .replace(/\bAND\b/g, '&')
+      .replace(/\bNOT\s+/g, '!');
+    return normalised
       .split('|')
       .some((orPart) =>
         orPart
           .trim()
           .split('&')
-          .every((flag) => this.flags.has(flag.trim()))
+          .every((token) => {
+            const t = token.trim();
+            if (t.startsWith('!')) return !this.flags.has(t.slice(1).trim());
+            return this.flags.has(t);
+          })
       );
   }
 

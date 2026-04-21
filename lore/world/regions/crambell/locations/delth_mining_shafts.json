@@ -1,0 +1,104 @@
+{
+  "id": "delth_mining_shafts",
+  "name": "戴司礦坑",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
+  "base": {
+    "description": "廣闊的工業礦區，塵土、壓力與持續不斷的勞動是這裡的日常。",
+    "ambience": ["工業", "粉塵", "壓迫", "危險", "勞動"],
+    "connections": [
+      {
+        "targetLocationId": "delth_mine_path",
+        "description": "返回礦道"
+      }
+    ],
+    "npcIds": [],
+    "eventIds": ["crambell_transfer_trigger"],
+    "isAccessible": true
+  },
+  "sublocations": [
+    {
+      "id": "delth_mine_worksite",
+      "name": "礦場作業區",
+      "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
+      "base": {
+        "description": "玩家的工作崗位，配額在此完成，監視也在此最為嚴密的作業區。",
+        "ambience": ["工業", "粉塵", "壓迫", "危險", "勞動"],
+        "connections": [
+          {
+            "targetLocationId": "delth_mine_plaza",
+            "description": "前往礦場廣場"
+          },
+          {
+            "targetLocationId": "delth_mine_storage",
+            "description": "前往礦場倉庫",
+            "access": {
+              "knowledgeIds": ["crambell_mine_storage_access"],
+              "lockedMessage": "倉庫區為管制區域，需取得相關知識才能進入。"
+            }
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_mine_plaza",
+      "name": "礦場中央廣場",
+      "tags": ["outdoor", "industrial", "gathering_spot"],
+      "base": {
+        "description": "礦坑內的集散地，礦工在任務之間穿越此處。",
+        "ambience": ["工業", "人潮", "躁動", "粉塵", "監視"],
+        "connections": [
+          {
+            "targetLocationId": "delth_mine_worksite",
+            "description": "前往作業區"
+          },
+          {
+            "targetLocationId": "delth_mine_storage",
+            "description": "前往礦場倉庫",
+            "access": {
+              "knowledgeIds": ["crambell_mine_storage_access"],
+              "lockedMessage": "倉庫區為管制區域，需取得相關知識才能進入。"
+            }
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_mine_storage",
+      "name": "礦場貯存倉",
+      "tags": ["indoor", "industrial", "storage"],
+      "base": {
+        "description": "存放礦場物資與補給品的管制倉儲區。",
+        "ambience": ["密閉", "儲存", "物資", "監視"],
+        "connections": [
+          {
+            "targetLocationId": "delth_mine_worksite",
+            "description": "前往作業區"
+          },
+          {
+            "targetLocationId": "delth_mine_plaza",
+            "description": "前往礦場廣場"
+          },
+          {
+            "targetLocationId": "delth_mine_path",
+            "description": "前往礦道"
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "isAccessible": true
+      },
+      "localVariants": []
+    }
+  ],
+  "localVariants": []
+}

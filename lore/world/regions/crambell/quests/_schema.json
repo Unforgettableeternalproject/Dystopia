@@ -1,0 +1,116 @@
+{
+  "_schema": "QuestDefinition — one file per quest",
+
+  "_comment_source": [
+    "source = 'origin'  — 出身自帶，autoAccept: true，遊戲開始時自動授予",
+    "source = 'npc'     — NPC 賦予，可手動接受或自動（autoAccept: true）",
+    "source = 'event'   — 事件觸發，通常有時間限制（timeLimit）"
+  ],
+
+  "_comment_ditch": [
+    "canDitch: true → 玩家可主動出賣此任務給 beneficiaryFactionId",
+    "ditch 不是普通放棄：是將派系秘密暴露給對立陣營的背叛行為",
+    "reputationOverrides: 直接設值（強制歸負，如 -50）",
+    "reputationChanges: 增量（受益陣營大幅提升）",
+    "ditch 後進入 completedQuestIds，不可再接；被出賣派系永久敵對"
+  ],
+
+  "_comment_stages": [
+    "每個 stage 所有 objectives 完成後執行 onComplete",
+    "onComplete.nextStageId: null = 任務完成，結算 rewards",
+    "isRepeatable: true → 完成後重置回 entryStageId（不進 completedQuestIds）",
+    "onDitch: 玩家在此階段執行 ditch 時的額外 stage 層級效果"
+  ],
+
+  "_comment_onComplete_fields": [
+    "onComplete / onDitch 可用欄位：",
+    "  flagsSet / flagsUnset",
+    "  statChanges            — dot-path 格式，如 statusStats.stress: -1",
+    "  reputationChanges      — key = factionId",
+    "  affinityChanges        — key = npcId（新增）",
+    "  grantItems             — [{ itemId, variantId? }]（新增）",
+    "  grantQuestId           — 完成此階段時自動授予另一個任務（新增）",
+    "  nextStageId            — null = 任務完成"
+  ],
+
+  "_comment_objective_types": [
+    "type 可用值：",
+    "  flag_check         — flag: '旗標名'",
+    "  flag_expression    — flagExpression: 'flag_a AND flag_b'",
+    "  quest_flag         — questFlag: '本地旗標名'（DM <<QUEST>> 信號設置）",
+    "  location_visit     — locationId: '地點 ID'",
+    "  npc_talk           — npcId: 'NPC ID'",
+    "  item_collect       — itemId: '道具 ID'",
+    "  reputation         — factionId + minReputation",
+    "  encounter_completed — encounterCompletedId: '遭遇 ID'",
+    "                        requiredOutcomeType: 'success' | 'failure' | 'neutral'（可選）"
+  ],
+
+  "id": "crambell_quest_id",
+  "name": "任務顯示名稱",
+  "type": "main | side | hidden",
+  "source": "origin | npc | event",
+  "giverNpcId": "crambell_npc_id (source=npc 時填)",
+  "regionId": "crambell",
+  "factionId": "crambell_faction_id (派系任務填)",
+  "isFactionQuest": false,
+  "isRepeatable": false,
+  "autoAccept": false,
+  "canDitch": false,
+  "originFilter": ["worker"],
+  "timeLimit": 480,
+
+  "ditchConsequences": {
+    "beneficiaryFactionId": "crambell_government",
+    "reputationOverrides": { "crambell_treffen": -50 },
+    "reputationChanges": { "crambell_government": 30 },
+    "flagsSet": ["crambell_treffen_betrayed"],
+    "flagsUnset": ["crambell_treffen_trust_gained"]
+  },
+
+  "entryStageId": "stage_1",
+  "stages": {
+    "stage_1": {
+      "id": "stage_1",
+      "description": "玩家可見的階段目標描述",
+      "objectives": [
+        {
+          "id": "obj_1",
+          "type": "flag_check | flag_expression | quest_flag | location_visit | npc_talk | item_collect | reputation | encounter_completed",
+          "description": "玩家可見的具體目標",
+          "flag": "required_flag (flag_check 用)",
+          "flagExpression": "flag_a AND flag_b (flag_expression 用)",
+          "questFlag": "local_flag_name (quest_flag 用)",
+          "locationId": "target_location (location_visit 用)",
+          "npcId": "target_npc (npc_talk 用)",
+          "itemId": "target_item (item_collect 用)",
+          "factionId": "target_faction (reputation 用)",
+          "minReputation": 10,
+          "encounterCompletedId": "encounter_id (encounter_completed 用)",
+          "requiredOutcomeType": "success | failure | neutral (encounter_completed 用，可省略)"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["stage_1_complete"],
+        "reputationChanges": { "crambell_treffen": 5 },
+        "affinityChanges": { "crambell_kach": 2 },
+        "grantItems": [{ "itemId": "item_id", "variantId": "optional_variant" }],
+        "grantQuestId": "next_quest_id (可省略)",
+        "nextStageId": "stage_2"
+      },
+      "onDitch": {
+        "flagsSet": ["crambell_quest_ditched_stage_1"],
+        "reputationChanges": { "crambell_government": 5 }
+      }
+    }
+  },
+
+  "rewards": {
+    "experience": 100,
+    "items": [{ "itemId": "item_id", "variantId": "optional_variant" }],
+    "skillIds": ["skill_id"],
+    "reputationChanges": { "crambell_treffen": 15 },
+    "affinityChanges": { "crambell_kach": 5 },
+    "flagsSet": ["crambell_joined_treffen"]
+  }
+}

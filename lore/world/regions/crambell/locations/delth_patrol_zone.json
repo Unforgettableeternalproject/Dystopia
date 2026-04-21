@@ -1,0 +1,92 @@
+{
+  "id": "delth_patrol_zone",
+  "name": "巡邏管制區",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "public", "surveillance", "government_controlled"],
+  "base": {
+    "description": "戴司象限的行政與公共管制核心。廣播柱、禁閉架、掃描站分布其間，巡邏士兵定時穿梭。通往各工作區的道路均從此地發出，配額站與象限傳點作為附屬設施嵌入周圍建築。監控攝影機的紅燈在高處不間斷閃爍，所有人的移動都被記錄。",
+    "ambience": ["監視", "廣播聲", "軍靴聲", "人流", "管制"],
+    "connections": [
+      {
+        "targetLocationId": "delth_dormitory",
+        "description": "前往宿舍區"
+      },
+      {
+        "targetLocationId": "delth_mine_path",
+        "description": "前往礦場通路"
+      },
+      {
+        "targetLocationId": "delth_south_ground",
+        "description": "前往南方空地",
+        "access": {
+          "knowledgeIds": ["crambell_south_ground_access"],
+          "lockedMessage": "南方空地被鐵柵欄圍起來，沒有明顯的入口。"
+        }
+      },
+      {
+        "targetLocationId": "delth_warehouse",
+        "description": "前往經濟資源倉庫",
+        "access": {
+          "knowledgeIds": ["crambell_warehouse_access"],
+          "lockedMessage": "西邊的建築很多，但你從來不知道那些是為什麼而建的。",
+          "bypass": {
+            "knowledgeIds": ["crambell_warehouse_secret"],
+            "bypassMessage": "你無法用正當手段進入，所幸你知道在邊緣森林裡有個秘密入口可以通往倉庫。"
+          }
+        }
+      },
+      {
+        "targetLocationId": "delth_transit_hub",
+        "description": "前往象限傳點",
+        "access": {
+          "timeRanges": [
+            { "startHour": 4, "startMinute": 0, "endHour": 5, "endMinute": 59 }
+          ],
+          "itemRequirements": [
+            { "itemId": "transit_pass" }
+          ],
+          "lockedMessage": "象限傳點的班次只在凌晨四點至六點開放，且需持有轉移通行證才能通過守衛。"
+        }
+      }
+    ],
+    "npcIds": ["crambell_mildore"],
+    "eventIds": ["crambell_patrol_delth", "crambell_public_punishment", "crambell_permit_check"],
+    "isAccessible": true
+  },
+  "sublocations": [
+    {
+      "id": "delth_quota_post",
+      "name": "配額站",
+      "tags": ["outdoor", "government_controlled", "work_zone"],
+      "base": {
+        "description": "位於管制區東側的一個小亭子，工人們在這裡報到、領取工作配額並接受檢查。配額員坐在裡面，手中拿著配額板和記錄冊，仔細核對每個人的身份和工作狀況。工人們需要在規定時間內完成配額，否則會受到扣分或處置。",
+        "ambience": ["排隊", "檢查", "緊張氣氛", "官僚主義"],
+        "connections": [
+          {
+            "targetLocationId": "delth_patrol_zone",
+            "description": "返回管制區"
+          },
+          {
+            "targetLocationId": "delth_mine_path",
+            "description": "前往礦場通路"
+          }
+        ],
+        "npcIds": [],
+        "eventIds": ["crambell_transfer_apply", "crambell_transfer_collect_permit"],
+        "isAccessible": true
+      },
+      "localVariants": []
+    }
+  ],
+  "localVariants": [
+    {
+      "id": "delth_patrol_zone_mildore_freed",
+      "label": "米爾多雷被釋放後",
+      "condition": "crambell_quest_mildore_freed",
+      "priority": 10,
+      "removeNpcIds": ["crambell_mildore"],
+      "transitionNote": "禁閉架已空，廣場角落多了一些低聲議論，人們似乎在談論那個消失的女人。"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "id": "delth_forest",
+  "name": "邊緣森林",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["outdoor", "natural", "secluded"],
+  "base": {
+    "description": "宿舍區外圍的一片稀疏林帶，樹木多為枯木與雜灌，夾雜著礦渣傾倒後留下的灰白色土地。政府對這塊地沒有明確用途，偶爾有人在此處進行不想被看到的事。林間沒有燈光，入夜後幾乎全黑。",
+    "ambience": ["寂靜", "枯木", "礦渣氣味", "隱蔽", "黑暗"],
+    "connections": [
+      {
+        "targetLocationId": "delth_dormitory",
+        "description": "返回宿舍區"
+      },
+      {
+        "targetLocationId": "delth_warehouse",
+        "description": "通往經濟資源倉庫的密道",
+        "access": {
+          "knowledgeIds": ["crambell_warehouse_secret"],
+          "lockedMessage": "你並沒有發現什麼不尋常之處。"
+        }
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": [],
+  "sublocations": [
+      {
+        "id": "delth_forest_clearing",
+        "name": "林間空地",
+        "tags": ["outdoor", "natural", "secluded"],
+        "base": {
+          "description": "森林深處的一處小空地，地面上散落著一些廢棄的工具和容器，顯然是有人在這裡面進行過某些活動。空地被幾棵大樹包圍著，從外面看不太清裡面在做什麼。",
+          "ambience": ["寂靜", "廢棄物", "隱蔽", "神秘"],
+          "connections": [
+            {
+              "targetLocationId": "delth_forest",
+              "description": "返回森林"
+            },
+            {
+              "targetLocationId": "delth_forest_deep",
+              "description": "繼續往森林深處走"
+            }
+          ],
+          "npcIds": [],
+          "eventIds": [],
+          "isAccessible": true
+        },
+        "localVariants": []
+      },
+      {
+        "id": "delth_forest_deep",
+        "name": "森林深處",
+        "tags": ["outdoor", "natural", "secluded"],
+        "base": {
+          "description": "森林深處的一片密林，樹木高大且茂密，光線難以穿透。這裡幾乎沒有任何人跡，只有偶爾的動物聲響打破寂靜。",
+          "ambience": ["寂靜", "密林", "陰暗", "神秘"],
+          "connections": [
+            {
+              "targetLocationId": "delth_forest_clearing",
+              "description": "返回林間空地"
+            }
+          ],
+          "npcIds": [],
+          "eventIds": [],
+          "isAccessible": true
+        },
+        "localVariants": []
+      }
+    ]
+}

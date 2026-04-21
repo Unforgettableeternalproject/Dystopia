@@ -1,0 +1,75 @@
+{
+  "id": "crambell_mildore_plaza",
+  "npcId": "crambell_mildore",
+
+  "defaultContext": "TODO: 米爾多雷的說話模式。輕鬆、話多，習慣用玩笑話掩蓋不安。不主動談工作或政府，但對人很快熟絡。對有好感的人偶爾透露真心話。",
+
+  "nodes": {
+    "first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "TODO: 第一次見到米爾多雷時的場景描述。她在廣場的某處，刻意迴避工時中。" },
+        { "speaker": "npc", "text": "TODO: 米爾多雷第一次見到玩家時說的話。她會先開口，輕鬆搭訕，顯示她擅長打破陌生感。" }
+      ],
+      "choices": [
+        {
+          "id": "friendly",
+          "text": "TODO: 友善回應",
+          "nextNodeId": "mildore_friendly_response",
+          "effects": { "affinity": 1 }
+        },
+        {
+          "id": "ask_quota",
+          "text": "TODO: 問她為什麼不去配額站",
+          "nextNodeId": "mildore_quota_dodge"
+        },
+        {
+          "id": "ignore",
+          "text": "（繼續走，沒有回應）",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "mildore_friendly_response": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 米爾多雷對友善態度的輕鬆回應。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「先這樣，有機會再聊。」", "nextNodeId": null }
+      ]
+    },
+    "mildore_quota_dodge": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 米爾多雷搪塞配額問題的回答，帶戲謔感。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「好吧。」", "nextNodeId": null },
+        {
+          "id": "push",
+          "text": "「這樣沒事嗎？」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1 }
+        }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "first_meeting",
+      "firstMeetingOnly": true
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "米爾多雷被捕",
+      "condition": "crambell_mildore_arrested",
+      "context": "TODO: 米爾多雷被捕後，若玩家再次接觸她，她的心態與處境。"
+    },
+    {
+      "label": "玩家協助救出米爾多雷",
+      "condition": "crambell_mildore_rescued",
+      "context": "TODO: 被救後米爾多雷對玩家的感激或複雜情緒。"
+    }
+  ]
+}

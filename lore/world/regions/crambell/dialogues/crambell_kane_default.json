@@ -1,0 +1,80 @@
+{
+  "id": "crambell_kane_default",
+  "npcId": "crambell_kane",
+
+  "defaultContext": "一位相當高傲自大的人，做為負責三四象限治安的警監，他不容許有任何違規出現在他的眼前，對於違規者他沒有任何同情心，認為反抗政府的人不過是找死。他的說話方式帶有職業性的冷淡和評估意味，不友善也不敵對。",
+
+  "nodes": {
+    "first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "從警察群中，一隻手伸了出來，周遭的人趕忙讓開。一位藍衣服，身上別著兩顆金星的男人就這麼緩慢地走了出來，他用另一隻手取下了嘴中叼著的菸蒂，並對著前方的空氣大口吐出肺中的煙霧。" },
+        { "speaker": "npc", "text": "你，有甚麼事? 不對，先給我報上名號來。" }
+      ],
+      "choices": [
+        {
+          "id": "cooperative",
+          "text": "（直接報上名號，表明來意）",
+          "nextNodeId": "kane_pass_check"
+        },
+        {
+          "id": "bribe_hint",
+          "text": "TODO: 試探性地暗示可以談條件",
+          "nextNodeId": "kane_interested",
+          "condition": "!crambell_kane_bribed"
+        },
+        {
+          "id": "silent",
+          "text": "（什麼都不說，等他先開口）",
+          "nextNodeId": "kane_impatient"
+        }
+      ]
+    },
+    "kane_pass_check": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 凱恩確認玩家配額或身份後的反應，放行但留有餘地。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "（離開）", "nextNodeId": null }
+      ]
+    },
+    "kane_interested": {
+      "lines": [
+        { "speaker": "narrator", "text": "他的眼神稍微變化，但臉上沒有任何表情。" },
+        { "speaker": "npc", "text": "TODO: 凱恩對交易暗示的回應。他不排斥，但不會先說出條件。" }
+      ],
+      "choices": [
+        {
+          "id": "negotiate",
+          "text": "TODO: 提出具體條件",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kane_bribe_initiated"] }
+        },
+        { "id": "retreat", "text": "「算了，沒什麼事。」", "nextNodeId": null }
+      ]
+    },
+    "kane_impatient": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 凱恩對沉默的反應，施壓。" }
+      ],
+      "choices": [
+        { "id": "cooperate_now", "text": "TODO: 趕快配合", "nextNodeId": "kane_pass_check" },
+        { "id": "end", "text": "（保持沉默）", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "first_meeting",
+      "firstMeetingOnly": true
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家曾賄賂凱恩",
+      "condition": "crambell_kane_bribed",
+      "context": "TODO: 被賄賂後凱恩與玩家的默契關係，以及他預期的持續利益。他把玩家當成資源，而非威脅。"
+    }
+  ]
+}

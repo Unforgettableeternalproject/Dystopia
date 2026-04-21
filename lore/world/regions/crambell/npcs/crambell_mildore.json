@@ -1,0 +1,32 @@
+{
+  "id": "crambell_mildore",
+  "name": "米爾多雷·艾米爾",
+  "type": "quest",
+  "baseLocationId": "delth_patrol_zone",
+  "factionId": "crambell_peoples_alliance",
+  "publicDescription": "在廣場禁閉架上被公開懲戒的女人，身材不高但眼神銳利。她是個逃離工時的慣犯，屢次試圖抵制工作額度制，屢次被抓回來示眾。大多數人離她遠一點，怕惹麻煩。",
+  "secretLayers": [
+    {
+      "id": "mildore_network",
+      "label": "暗中的組織能力",
+      "condition": "crambell_mildore_talked_once",
+      "context": "她比外表顯示的要更有組織能力，知道誰在哪裡、什麼時候可以溝通。她說的話比抱怨更接近情報。"
+    },
+    {
+      "id": "mildore_peoples_alliance",
+      "label": "人民自助聯盟的核心聯繫人",
+      "condition": "crambell_mildore_trusted",
+      "context": "她是人民自助聯盟在戴司象限最重要的聯繫人之一，雖然組織鬆散沒有核心，但她掌握著很多工人之間的非正式網路。",
+      "dialogueId": "crambell_mildore_alliance"
+    }
+  ],
+  "dialogueId": "crambell_mildore_plaza",
+  "questIds": [],
+  "isVisible": true,
+  "phaseOverrides": {
+    "crambell_quest_mildore_freed": {
+      "baseLocationId": "delth_warehouse",
+      "dialogueId": "crambell_mildore_freed"
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "id": "delth_transit_hub",
+  "name": "象限傳點 - 戴司",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "locationType": "sublocation",
+  "parentId": "delth_patrol_zone",
+  "tags": ["outdoor", "transit", "checkpoint"],
+  "base": {
+    "description": "第四象限的管制轉移場，連接戴司與其他象限的中轉站。守衛在此嚴格追蹤通行證與人員流動。很少工人會隨意進出此處。",
+    "ambience": ["檢查哨", "軌道", "迴盪的腳步聲", "行政壓力"],
+    "connections": [
+      {
+        "targetLocationId": "delth_patrol_zone",
+        "description": "返回巡邏管制區"
+      },
+      {
+        "targetLocationId": "famein_transit_hub",
+        "description": "前往費敏(第一象限)的轉移路線，這裡能見到幾個普通人正從門的另一側走出來",
+        "travelNote": "通過轉移門前往第一象限的象限傳點。",
+        "access": {
+          "itemRequirements": [ 
+            { "itemId": "transit_pass", "variantId": "famein" }
+          ],
+          "lockedMessage": "需持有費敏通行證。"
+        }
+      },
+      {
+        "targetLocationId": "pestilens_transit_hub",
+        "description": "前往帕絲蒂蘭斯(第二象限)的轉移路線，這裡被嚴格的把關著，看得出來他們並不希望讓任何人通過",
+        "travelNote": "通過轉移門前往第二象限的象限傳點。",
+        "access": {
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "pestilens" }
+          ],
+          "lockedMessage": "需持有帕絲蒂蘭斯通行證。"
+        }
+      },
+      {
+        "targetLocationId": "wyar_transit_hub",
+        "description": "前往瓦爾(第三象限)的轉移路線，在這個區塊的人很多都穿著工廠制服，而且也是整個傳點大廳最多人聚集之處",
+        "travelNote": "通過轉移門前往第三象限的象限傳點。",
+        "access": {
+          "timeRanges": [
+            {
+              "startHour": 0,
+              "startMinute": 0,
+              "endHour": 5,
+              "endMinute": 59
+            }
+          ],
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "wyar" }
+          ],
+          "lockedMessage": "需持有瓦爾通行證。"
+        }
+      },
+      {
+        "targetLocationId": "konquer_outer_gate",
+        "description": "前往中央政府的通道路線，看樣子是被很多道金屬門厚厚的保護著。",
+        "travelNote": "另有一條通道通往康庫爾，但是想也知道很難有機會從這裡過去。",
+        "access": {
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "konquer" }
+          ],
+          "lockedMessage": "需持有政府發行的特殊憑證。"
+        }
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

@@ -1,4 +1,7 @@
 // ── Player Types ──────────────────────────────────────────────
+import type { InventoryItem } from './item';
+import type { PlayerCondition } from './condition';
+export type { PlayerCondition } from './condition';
 
 /** 主要技能數值 */
 export interface PrimaryStats {
@@ -9,10 +12,10 @@ export interface PrimaryStats {
   luck: number;         // 運氣 — 機率、奇遇判定
 }
 
-/** 次要內部（設定）數值 */
+/** 內部數值 — 玩家對世界三大領域的理解程度 */
 export interface SecondaryStats {
   consciousness: number; // 意識 — 與精神學領域相關
-  arcane: number;        // 奧秘 — 與魔法領域相關
+  mysticism: number;     // 奧秘 — 與魔法領域相關
   technology: number;    // 科技 — 與科學領域相關
 }
 
@@ -22,8 +25,8 @@ export interface StatusStats {
   staminaMax: number;
   stress: number;        // 壓力 — 越高越不穩定
   stressMax: number;
-  mana: number;          // 魔力 — 魔法使用量
-  manaMax: number;
+  endo: number;          // Endo (Endovis) — 體內魔素，魔法使用量
+  endoMax: number;
   experience: number;    // 經驗 — 影響技能成長方向
 }
 
@@ -41,13 +44,16 @@ export interface ExternalStats {
 export interface PlayerState {
   id: string;
   name: string;
-  origin: string;           // 出身背景 ID，影響初始數值與劇情
+  origin: string;              // 出身背景 ID，影響初始數值與劇情
   currentLocationId: string;
   primaryStats: PrimaryStats;
   secondaryStats: SecondaryStats;
   statusStats: StatusStats;
   externalStats: ExternalStats;
-  inventory: string[];      // item ID 列表
-  activeFlags: Set<string>; // 已達成的旗標
-  titles: string[];         // 已獲得的稱號
+  inventory: InventoryItem[];  // 物品欄
+  activeFlags: Set<string>;    // 已達成的旗標
+  titles: string[];            // 已獲得的稱號
+  conditions: PlayerCondition[]; // 當前生效的暫時性狀態
+  knownIntelIds: string[];     // 已發現的情報 ID（對應 lore/intel/ 資料）
+  melphin: number;             // 梅分 (Melphin) — 持有貨幣
 }

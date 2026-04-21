@@ -1,0 +1,82 @@
+{
+  "id": "crambell_orland_default",
+  "npcId": "crambell_orland",
+
+  "defaultContext": "TODO: 奧蘭的說話模式。務實、路線熟悉、略顯風霜，說話直接不繞彎。對陌生人保持友善的距離，聊天大多在路況、貨物、各象限的表面消息。身份敏感的話題他會自然地帶過去，不動聲色。",
+
+  "nodes": {
+    "first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "TODO: 第一次見到奧蘭的場景。他是物流司機，出現在某個合理的位置——轉運站或廣場附近。" },
+        { "speaker": "npc", "text": "TODO: 奧蘭對玩家的開場白。友善、隨意，像是在路上碰到鄰居的打招呼方式。" }
+      ],
+      "choices": [
+        {
+          "id": "chat",
+          "text": "「你是跑物流的？」",
+          "nextNodeId": "orland_route_talk"
+        },
+        {
+          "id": "ask_news",
+          "text": "「最近其他象限那邊有什麼動靜嗎？」",
+          "nextNodeId": "orland_surface_news"
+        },
+        {
+          "id": "nod_end",
+          "text": "（點頭打個招呼，繼續走）",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "orland_route_talk": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 奧蘭聊路線的方式——輕鬆、熟悉，但不提某些路段（有原因）。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「瞭解，有機會再聊。」", "nextNodeId": null },
+        {
+          "id": "restricted_routes",
+          "text": "「有沒有什麼地方是現在過不去的？」",
+          "nextNodeId": "orland_careful_deflect"
+        }
+      ]
+    },
+    "orland_surface_news": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 奧蘭分享一些各象限的表面消息，無害但足夠有趣。沒有實質情報，但顯示他消息靈通。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「謝謝消息。」", "nextNodeId": null }
+      ]
+    },
+    "orland_careful_deflect": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 奧蘭對敏感路線問題的自然帶過。不顯露緊張，但話題就這樣結束了。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "（點頭，不追問）", "nextNodeId": null },
+        {
+          "id": "push",
+          "text": "「你聽起來像是很清楚那些限制。」",
+          "nextNodeId": null,
+          "effects": { "affinity": -1 }
+        }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "first_meeting",
+      "firstMeetingOnly": true
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家得知奧蘭的真實身份（舊會議成員）",
+      "condition": "intel:orland_treffen_member",
+      "context": "TODO: 身份揭露後奧蘭對玩家的態度轉變。他背後有深厚的政府關係，如果玩家對他不友善會相當危險。"
+    }
+  ]
+}

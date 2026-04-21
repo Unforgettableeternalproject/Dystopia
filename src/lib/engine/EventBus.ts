@@ -1,5 +1,4 @@
-// ── EventBus ──────────────────────────────────────────────────
-// 簡單的發布/訂閱系統，用於引擎內各模組的解耦通訊。
+// EventBus — simple pub/sub for decoupled engine communication.
 
 type Listener<T = unknown> = (payload: T) => void;
 
@@ -11,8 +10,6 @@ export class EventBus {
       this.listeners.set(event, []);
     }
     this.listeners.get(event)!.push(listener as Listener);
-
-    // 回傳取消訂閱函式
     return () => this.off(event, listener as Listener);
   }
 
@@ -28,15 +25,29 @@ export class EventBus {
   }
 }
 
-// 遊戲系統事件常數
 export const GameEvents = {
-  STATE_UPDATED: 'state:updated',
-  FLAG_SET: 'flag:set',
-  FLAG_UNSET: 'flag:unset',
-  LOCATION_CHANGED: 'location:changed',
-  NPC_INTERACTED: 'npc:interacted',
-  EVENT_TRIGGERED: 'event:triggered',
-  ACTION_REJECTED: 'action:rejected',
-  NARRATIVE_STREAM: 'narrative:stream',
-  NARRATIVE_COMPLETE: 'narrative:complete',
+  STATE_UPDATED:        'state:updated',
+  FLAG_SET:             'flag:set',
+  FLAG_UNSET:           'flag:unset',
+  LOCATION_CHANGED:     'location:changed',
+  NPC_INTERACTED:       'npc:interacted',
+  GAME_EVENT_TRIGGERED: 'gameevent:triggered',
+  ACTION_REJECTED:      'action:rejected',
+  NARRATIVE_STREAM:     'narrative:stream',
+  NARRATIVE_COMPLETE:   'narrative:complete',
+  PHASE_ADVANCED:       'phase:advanced',
+  QUEST_STARTED:        'quest:started',
+  QUEST_STAGE_ADVANCED: 'quest:stage_advanced',
+  QUEST_COMPLETED:      'quest:completed',
+  QUEST_GRANTED:        'quest:granted',    // 任務被授予（系統/NPC/事件）
+  QUEST_DITCHED:        'quest:ditched',    // 玩家主動放棄
+  QUEST_FAILED:         'quest:failed',     // 逾時或條件不符失敗
+  ITEM_EXPIRED:         'item:expired',     // 時限道具失效
+  ITEM_ACQUIRED:        'item:acquired',    // 道具入手 { itemId, variantId? }
+  STAT_CHANGED:         'stat:changed',     // 數值變動 { key, delta, newValue }
+  REPUTATION_CHANGED:   'reputation:changed', // 聲望變動 { factionId, delta }
+  AFFINITY_CHANGED:     'affinity:changed', // 好感變動 { npcId, delta }
+  ENCOUNTER_STARTED:    'encounter:started',   // 遭遇開始
+  ENCOUNTER_OUTCOME:    'encounter:outcome',   // 遭遇結局確定（帶 outcomeType）
+  ENCOUNTER_ENDED:      'encounter:ended',     // 遭遇結束（恢復 exploring）
 } as const;

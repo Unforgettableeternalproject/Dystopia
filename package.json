@@ -9,7 +9,12 @@
     "tauri": "tauri",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint src --ext .ts,.svelte",
-    "format": "prettier --write src"
+    "format": "prettier --write src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lore:setup": "npx tsx scripts/setup-notebooklm.ts",
+    "lore:update": "npx tsx scripts/update-notebooklm.ts",
+    "lore:query": "npx tsx scripts/query-lore.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.0",
@@ -26,11 +31,14 @@
     "svelte-check": "^3.0.0",
     "tslib": "^2.0.0",
     "typescript": "^5.0.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
-    "@tauri-apps/api": "^2.0.0"
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.5.0",
+    "notebooklm-client": "^0.2.0"
   },
   "type": "module"
 }

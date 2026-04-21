@@ -1,97 +1,275 @@
-// ── Regulator ─────────────────────────────────────────────────
-// 強制限制玩家只能執行其能力範圍內的動作。
-// 判定邏輯以玩家數值為主，LLM 只負責語意解析與原因生成。
+// Regulator — action validation and Thought generation.
+// Hard rules run first (no LLM). LLM only handles semantic edge cases.
 
 import type { PlayerAction, PlayerState, RegulatorResult, Thought } from '../types';
-import { AnthropicClient } from './AnthropicClient';
+import type { ILLMClient } from './ILLMClient';
+import type { ConditionDefinition } from '../types/condition';
 
-const SYSTEM_PROMPT = `你是一個 RPG 遊戲的行動規制器。
-你的任務是判斷玩家的輸入是否在其角色能力範圍內。
+const VALIDATE_SYSTEM = `You are an action validator for a grounded RPG.
+Each stat arrives with a parenthetical label that tells you its meaning — use those labels to judge feasibility.
 
-規則：
-1. 根據玩家數值判斷動作可行性。
-2. 若動作不可行，給出簡短的理由（用第三人稱，以世界觀語言表達，不要說「你的數值不足」）。
-3. 若動作可行但超過能力，可以降級調整（例如：想要完美說服改為嘗試說服）。
-4. 回應格式為 JSON：{ "allowed": boolean, "reason": string | null, "modifiedInput": string | null }
+Rules:
+1. Read the descriptors, not just the numbers. "0/50 (no concept)" means the player literally cannot do anything in that domain.
+2. Active conditions may restrict or modify possible actions (e.g., injured_arm limits heavy lifting).
+3. If impossible, give a short in-world reason — never say "your stat is too low".
+4. If possible but overreaching, downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
+5. The "reason" and "modifiedInput" fields must be written in Traditional Chinese (繁體中文).
+6. Classify the action intent into actionType: "move" | "interact" | "examine" | "use" | "rest" | "combat" | "free".
+   - "interact": player wants to talk to / approach / interact with a specific NPC. Set targetId to that NPC's id from sceneNpcs.
+   - "move": player wants to travel to a different location.
+   - "examine": player inspects something in the environment.
+   - "use": player uses an item.
+   - "rest": player rests or sleeps.
+   - "combat": player attempts a hostile action.
+   - "free": anything else (general statements, reactions, vague actions).
+7. If the input already has an actionType other than "free", keep it unless overriding is clearly necessary.
+8. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
 
-不要在 JSON 以外輸出任何文字。`;
+// Patterns that indicate prompt injection attempts.
+// Checked case-insensitively; order does not matter.
+const INJECTION_PATTERNS: RegExp[] = [
+  /ignore\s+(all\s+)?previous\s+instructions?/i,
+  /forget\s+(all\s+)?previous/i,
+  /you\s+are\s+now\s+/i,
+  /pretend\s+(you\s+are|to\s+be)/i,
+  /system\s*prompt/i,
+  /jailbreak/i,
+  /無視.{0,10}(指令|規則|設定)/,
+  /忽略.{0,10}(之前|指令|規則)/,
+  /你(現在)?(是|要扮演)/,
+];
 
 export class Regulator {
-  private client: AnthropicClient;
+  private client: ILLMClient;
+  private getConditionDef: (id: string) => ConditionDefinition | undefined;
 
-  constructor(client: AnthropicClient) {
+  constructor(client: ILLMClient, getConditionDef?: (id: string) => ConditionDefinition | undefined) {
     this.client = client;
+    this.getConditionDef = getConditionDef ?? (() => undefined);
   }
+
+  // ── Validation ──────────────────────────────────────────────
 
   async validate(
     action: PlayerAction,
-    player: PlayerState
+    player: PlayerState,
+    sceneNpcs: { id: string; name: string }[] = [],
   ): Promise<RegulatorResult> {
-    // 先做基礎數值邊界檢查（不需要 LLM）
-    const hardCheck = this.hardCheck(action, player);
-    if (hardCheck !== null) return hardCheck;
+    const hard = this.hardCheck(action);
+    if (hard !== null) return hard;
 
-    // 語意層判斷（LLM）
+    const staminaCheck = this.hardCheckStats(action, player);
+    if (staminaCheck !== null) return staminaCheck;
+
+    const conditionSummary = player.conditions
+      .filter(c => {
+        const hidden = this.getConditionDef(c.id)?.isHidden ?? c.isHidden;
+        return !hidden;
+      })
+      .map(c => {
+        const def = this.getConditionDef(c.id);
+        const description = def?.description ?? c.description ?? '';
+        return c.id + (description ? ': ' + description : '');
+      })
+      .join('; ');
+
+    const s = player.statusStats;
+    const d = player.secondaryStats;
+    const p = player.primaryStats;
     const userMessage = JSON.stringify({
-      action: action.input,
+      action:     action.input,
       actionType: action.type,
-      stats: {
-        strength: player.primaryStats.strength,
-        knowledge: player.primaryStats.knowledge,
-        talent: player.primaryStats.talent,
-        spirit: player.primaryStats.spirit,
-        luck: player.primaryStats.luck,
+      sceneNpcs:  sceneNpcs.length ? sceneNpcs : undefined,
+      traits: {
+        strength:  this.describeTrait(p.strength),
+        knowledge: this.describeTrait(p.knowledge),
+        talent:    this.describeTrait(p.talent),
+        spirit:    this.describeTrait(p.spirit),
+        luck:      this.describeTrait(p.luck),
       },
-      stamina: player.statusStats.stamina,
-      stress: player.statusStats.stress,
+      stamina:        this.describeStamina(s.stamina, s.staminaMax),
+      stress:         this.describeStress(s.stress, s.stressMax),
+      endo:           this.describeEndo(s.endo, s.endoMax),
+      domainKnowledge: {
+        mysticism:     this.describeDomain(d.mysticism),
+        technology:    this.describeDomain(d.technology),
+        consciousness: this.describeDomain(d.consciousness),
+      },
+      conditions: conditionSummary || 'none',
     });
 
     try {
-      const raw = await this.client.complete(SYSTEM_PROMPT, userMessage, 256);
-      const parsed = JSON.parse(raw) as {
+      // 1024 tokens: thinking models spend budget on internal reasoning before emitting JSON.
+      const raw     = await this.client.complete(VALIDATE_SYSTEM, userMessage, 1024);
+      // Local models (e.g. Gemma via Ollama) often wrap JSON in markdown code fences.
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      const parsed = JSON.parse(cleaned) as {
         allowed: boolean;
         reason: string | null;
         modifiedInput: string | null;
+        actionType: string | null;
+        targetId: string | null;
       };
+
+      // Resolve the action type: use LLM's classification if it changed from the original,
+      // otherwise keep the original (explicit Thought clicks always arrive with correct type).
+      const resolvedType = (parsed.actionType && parsed.actionType !== action.type)
+        ? parsed.actionType as PlayerAction['type']
+        : action.type;
+      const resolvedTargetId = parsed.targetId ?? action.targetId;
+
+      const needsModifiedAction =
+        parsed.modifiedInput ||
+        resolvedType !== action.type ||
+        resolvedTargetId !== action.targetId;
 
       return {
         allowed: parsed.allowed,
         reason: parsed.reason ?? undefined,
-        modifiedAction: parsed.modifiedInput
-          ? { ...action, input: parsed.modifiedInput }
+        modifiedAction: needsModifiedAction
+          ? {
+              ...action,
+              input:    parsed.modifiedInput ?? action.input,
+              type:     resolvedType,
+              targetId: resolvedTargetId,
+            }
           : undefined,
       };
     } catch {
-      // 解析失敗時預設放行，避免卡住遊戲
       return { allowed: true };
     }
   }
 
-  /** 硬邊界檢查：不需要 LLM 的明確限制 */
-  private hardCheck(
-    action: PlayerAction,
-    player: PlayerState
-  ): RegulatorResult | null {
-    // 體力耗盡時禁止戰鬥類動作
+  /**
+   * Hard rules that do not require player stats — pure input sanitisation.
+   * Returns a rejection result if the input is blocked, or null to continue.
+   */
+  hardCheck(action: PlayerAction): RegulatorResult | null {
+    // Block DM signal impersonation (e.g. <<FLAG: ...>>, <<NPC: ...>>)
+    if (/<<[^>]*>>/.test(action.input)) {
+      return { allowed: false, reason: '（無效的輸入）' };
+    }
+
+    // Block prompt injection attempts
+    if (INJECTION_PATTERNS.some(p => p.test(action.input))) {
+      return { allowed: false, reason: '（無效的輸入）' };
+    }
+
+    return null;
+  }
+
+  /**
+   * Hard rules that depend on player stats/status.
+   * Split from hardCheck() so tests can exercise each set independently.
+   */
+  hardCheckStats(action: PlayerAction, player: PlayerState): RegulatorResult | null {
     if (action.type === 'combat' && player.statusStats.stamina <= 0) {
-      return {
-        allowed: false,
-        reason: '精疲力竭，連站穩都費力，更別說戰鬥了。',
-      };
+      return { allowed: false, reason: '精疲力竭，連站穩都費力，更別說戰鬥了。' };
     }
     return null;
   }
 
-  /** 產生建議的 Thought 列表（根據當前位置與狀態） */
-  async generateThoughts(
-    locationContext: string,
-    player: PlayerState
-  ): Promise<Thought[]> {
-    // TODO: Sprint 1 實作 — 目前回傳預設建議
-    return [
-      { id: 'examine', text: '觀察周圍環境', actionType: 'examine' },
-      { id: 'move', text: '查看可以去的地方', actionType: 'move' },
-      { id: 'interact', text: '嘗試與人交談', actionType: 'interact' },
-    ];
+  // ── Stat descriptors ────────────────────────────────────────
+  // Converts raw numbers to labelled strings so the LLM understands the scale.
+
+  /** Traits (primaryStats): scale 1–20. */
+  private describeTrait(val: number): string {
+    let label: string;
+    if (val <= 5)       label = 'layman — can barely manage basic tasks in this domain';
+    else if (val <= 8)  label = 'some knowledge — handles simple tasks';
+    else if (val <= 11) label = 'capable — reliable for standard tasks';
+    else if (val <= 15) label = 'mastered — handles complex tasks well';
+    else if (val <= 19) label = 'expert — excels at nearly everything';
+    else                label = 'near-perfect — exceptional, rarely fails';
+    return `${val}/20 (${label})`;
+  }
+
+  /** Internal values (secondaryStats): scale 0–50. */
+  private describeDomain(val: number): string {
+    let label: string;
+    if (val === 0)      label = 'no concept — completely clueless, cannot apply this domain at all';
+    else if (val <= 15) label = 'basic understanding — limited application, struggles with anything non-trivial';
+    else if (val <= 24) label = 'knows a thing or two — can attempt simple tasks with effort';
+    else if (val <= 34) label = 'familiar — comfortable with standard tasks in this domain';
+    else if (val <= 44) label = 'proficient — handles complex tasks reliably';
+    else if (val <= 49) label = 'highly proficient — masters nearly all of the domain';
+    else                label = 'transcendent — beyond normal limits';
+    return `${val}/50 (${label})`;
+  }
+
+  /** Stamina: scale 5–50, thresholds based on consumption ratio. */
+  private describeStamina(stamina: number, staminaMax: number): string {
+    if (staminaMax <= 0) return `${stamina}/? (unknown)`;
+    const remaining = stamina / staminaMax;
+    let label: string;
+    if (remaining <= 0.10)      label = 'near death — can barely breathe';
+    else if (remaining <= 0.25) label = 'can barely move';
+    else if (remaining <= 0.40) label = 'weakened — limited to light actions';
+    else if (remaining <= 0.55) label = 'fatigued — tiring quickly';
+    else if (remaining <= 0.80) label = 'slightly unwell — minor hindrance';
+    else                        label = 'fine';
+    return `${stamina}/${staminaMax} (${Math.round(remaining * 100)}% — ${label})`;
+  }
+
+  /** Stress: scale 0–50, thresholds based on accumulation ratio. */
+  private describeStress(stress: number, stressMax: number): string {
+    if (stressMax <= 0) return `${stress}/? (unknown)`;
+    const ratio = stress / stressMax;
+    let label: string;
+    if (ratio >= 0.90)      label = 'complete breakdown — barely functional';
+    else if (ratio >= 0.80) label = 'panicking — erratic behaviour likely';
+    else if (ratio >= 0.60) label = 'anxious — concentration impaired';
+    else if (ratio >= 0.40) label = 'tense — noticeable but manageable';
+    else if (ratio >= 0.20) label = 'uneasy — slightly on edge';
+    else                    label = 'calm';
+    return `${stress}/${stressMax} (${Math.round(ratio * 100)}% — ${label})`;
+  }
+
+  /** Endo (Endovis): scale 0–100. endoMax=0 means no magical capacity at all. */
+  private describeEndo(endo: number, endoMax: number): string {
+    if (endoMax === 0) return '0/0 (no magical capacity — magic is impossible)';
+    const ratio = endo / endoMax;
+    let label: string;
+    if (ratio <= 0)         label = 'fully depleted — cannot cast anything';
+    else if (ratio <= 0.20) label = 'nearly depleted — only trivial effects possible';
+    else if (ratio <= 0.50) label = 'low — limited to minor magic';
+    else if (ratio <= 0.80) label = 'sufficient — can sustain moderate magic';
+    else                    label = 'fully charged';
+    return `${endo}/${endoMax} (${Math.round(ratio * 100)}% — ${label})`;
+  }
+
+  // ── Thought processing ──────────────────────────────────────
+
+  /**
+   * Filter and optionally manipulate a pre-built thought list based on player state.
+   * Called by GameController after buildBaseThoughts().
+   */
+  processThoughts(thoughts: Thought[], player: PlayerState): Thought[] {
+    // Filter out thoughts the player cannot attempt
+    const filtered = thoughts.filter(t => {
+      if (t.actionType === 'combat' && player.statusStats.stamina <= 0) return false;
+      return true;
+    });
+
+    // Check for mind-control or manipulation conditions
+    const isMindControlled = player.conditions.some(c =>
+      c.id.includes('mind_control') || c.id.includes('possessed') || c.id.includes('manipulated')
+    );
+
+    if (isMindControlled) {
+      // Randomly mark thoughts as manipulated (player cannot fully trust their own instincts)
+      return filtered.map((t, i) => ({ ...t, isManipulated: i % 2 === 0 }));
+    }
+
+    // High stress: combat/aggressive thoughts may feel more urgent than they should
+    const stressRatio = player.statusStats.stress / Math.max(player.statusStats.stressMax, 1);
+    if (stressRatio >= 0.8) {
+      return filtered.map(t => ({
+        ...t,
+        isManipulated: t.actionType === 'combat',
+      }));
+    }
+
+    return filtered;
   }
 }

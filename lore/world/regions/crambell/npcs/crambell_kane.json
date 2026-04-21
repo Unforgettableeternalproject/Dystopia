@@ -1,0 +1,40 @@
+{
+  "id": "crambell_kane",
+  "name": "凱恩·梅西斯",
+  "type": "quest",
+  "baseLocationId": "delth_mining_shafts",
+  "factionId": "crambell_government",
+  "publicDescription": "負責第三到第四象限治安的地區警監（內勤2★），高挑，面容嚴肅，制服永遠整潔。對違規者沒有同情心，對反抗政府的人認為那不過是找死。一般會叼著一根菸。",
+  "secretLayers": [
+    {
+      "id": "kane_selective_enforcement",
+      "label": "選擇性執法的跡象",
+      "condition": "crambell_kane_observed_twice",
+      "context": "凱恩在處理某些案件時有明顯的選擇性：某些違規被嚴格追究，另一些則被刻意忽視，沒有明顯的規律可循，除非你假設背後有利益交換。"
+    },
+    {
+      "id": "kane_corrupt_nature",
+      "label": "腐敗本質",
+      "condition": "crambell_kane_corruption_suspected",
+      "context": "凱恩極度腐敗貪婪，手握調查權卻把它當成晉升的工具。對能給他帶來好處的人態度截然不同——笑容、方便、違規的默許都可以用利益換取。他在積累可以用來談條件的籌碼。"
+    },
+    {
+      "id": "kane_leverage_network",
+      "label": "情報與把柄網絡",
+      "condition": "crambell_kane_deeply_known",
+      "context": "凱恩掌握著大量工人、低階官員、甚至部分高層的把柄，這是他真正的護身符。他的晉升路徑依賴的不是工作表現，而是讓上面的人需要他、又怕他開口。",
+      "dialogueId": "crambell_kane_deal"
+    }
+  ],
+  "dialogueId": "crambell_kane_default",
+  "questIds": [],
+  "isVisible": true,
+  "phaseOverrides": {
+    "crambell_player_allied_government": {
+      "dialogueId": "crambell_kane_cooperative"
+    },
+    "crambell_player_exposed_kane": {
+      "isVisible": false
+    }
+  }
+}

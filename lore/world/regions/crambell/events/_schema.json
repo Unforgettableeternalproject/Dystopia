@@ -1,0 +1,88 @@
+{
+  "_schema": "GameEvent — one file per event",
+  "id": "region_event_name",
+  "locationId": "optional_location_id (省略 = 全域事件，由 RegionIndex.globalEventIds 掛載)",
+
+  "_comment_condition": [
+    "flags:          這些旗標全部存在才觸發",
+    "anyFlags:       至少一個旗標存在才觸發",
+    "notFlags:       這些旗標全部不存在才觸發（適合自我標記設計）",
+    "minStats:       玩家數值門檻，如 { 'statusStats.stamina': 3 }",
+    "timePeriod:     限定時段觸發，如 ['work']、['work','rest']",
+    "cooldownMinutes:可重複事件的冷卻（遊戲內分鐘），0 或省略 = 不限次數",
+    "npcIds:         至少一個 NPC 在場才觸發",
+    "triggerHours:   時鐘跨越這些整點時觸發，例如 [6, 22]",
+    "questActiveId:  指定任務必須進行中（非完成、非失敗）才觸發",
+    "questStageId:   需同時填 questActiveId，玩家必須在此任務階段才觸發",
+    "",
+    "自我標記設計（period transition 慣用）：",
+    "  condition.notFlags: ['event_fired_flag']",
+    "  outcome.flagsSet:   ['event_fired_flag']",
+    "  -> 同一時段只觸發一次，下一次條件重設時再觸發"
+  ],
+
+  "condition": {
+    "flags": ["required_flag"],
+    "anyFlags": ["any_of_these"],
+    "notFlags": ["must_be_absent"],
+    "minStats": { "statusStats.stamina": 3 },
+    "timePeriod": ["work", "rest", "special"],
+    "cooldownMinutes": 120,
+    "npcIds": ["npc_id_at_least_one_present"],
+    "triggerHours": [6, 22],
+    "questActiveId": "quest_id",
+    "questStageId": "stage_id",
+    "minEventCounters": { "transfer_progress": 2 },
+    "maxEventCounters": { "transfer_progress": 5 },
+    "exactEventCounters": { "transfer_progress": 3 }
+  },
+
+  "description": "DM-facing 事件描述。向 DM 說明此刻世界發生了什麼，DM 自行決定如何融入敘事。",
+
+  "_comment_outcomes": [
+    "outcomes 陣列按順序選取第一個 condition 為 true 的結果（條件省略 = 永遠成立）。",
+    "可用欄位：",
+    "  flagsSet / flagsUnset   設定或清除旗標",
+    "  statChanges             數值 delta，dot-path 格式（如 statusStats.stress: 2）",
+    "  reputationChanges       派系聲望 delta，key = factionId（如 government: -5）",
+    "  affinityChanges         NPC 好感 delta，key = npcId（如 cain: 3）",
+    "  grantItems              給予物品，陣列元素 { itemId, variantId? }",
+    "  grantQuestId            授予任務 ID（由引擎轉交 QuestEngine）",
+    "  startEncounterId        開啟遭遇 ID（由引擎轉交 EncounterEngine，尚未實作）"
+  ],
+
+  "outcomes": [
+    {
+      "id": "outcome_1",
+      "condition": "flag_expression (省略 = 無條件選用)",
+      "description": "DM-facing 結果描述。",
+      "flagsSet": ["event_outcome_1_done"],
+      "flagsUnset": ["event_precondition_flag"],
+      "statChanges": {
+        "statusStats.stress": 2,
+        "statusStats.stamina": -1
+      },
+      "reputationChanges": {
+        "government": -5,
+        "miners_union": 3
+      },
+      "affinityChanges": {
+        "npc_id": 2
+      },
+      "eventCounterSet": {
+        "transfer_progress": 3
+      },
+      "eventCounterChanges": {
+        "transfer_progress": 1
+      },
+      "eventCounterReset": ["transfer_progress"],
+      "grantItems": [
+        { "itemId": "work_permit" },
+        { "itemId": "travel_permit", "variantId": "val" }
+      ],
+      "grantQuestId": "quest_id_to_grant",
+      "startEncounterId": "encounter_id_to_start"
+    }
+  ],
+  "isRepeatable": false
+}

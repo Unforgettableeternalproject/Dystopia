@@ -1,0 +1,37 @@
+{
+  "_comment": "在MVP中，這個地方只是為了作為結局而設立的節點，沒有實際作用。",
+  "id": "wyar_transit_hub",
+  "name": "象限傳點 - 瓦爾",
+  "regionId": "crambell",
+  "districtId": "crambell_wyar",
+  "tags": ["outdoor", "transit", "checkpoint", "wyar"],
+  "base": {
+    "description": "瓦爾象限的管制入口。與戴司的陰暗走廊不同，這裡的燈光更亮，空氣中帶著機油與金屬的氣味。你踏入瓦爾的那一刻，背後的閘門緩緩關閉。",
+    "ambience": ["工廠轟鳴", "明亮燈光", "機械運轉", "新的起點"],
+    "connections": [
+      {
+        "targetLocationId": "delth_transit_hub",
+        "description": "前往戴司的轉移路線，通道看上去使用多年，有些老舊跟歲月的痕跡。",
+        "travelNote": "搭乘前往戴司中轉站的管制班次。",
+        "access": {
+          "timeRanges": [
+            {
+              "startHour": 0,
+              "startMinute": 0,
+              "endHour": 5,
+              "endMinute": 59
+            }
+          ],
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "delth" }
+          ],
+          "lockedMessage": "需持有戴司通行證。"
+        }
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": []
+}

@@ -1,0 +1,10 @@
+{
+  "id": "crambell_konquer",
+  "name": "康庫爾 Konquer",
+  "regionId": "crambell",
+  "description": "坎貝爾中央，三區的政治核心。中央政府與四方軍營據點設於此，領主的主要據地。六個政府部門以五角星形式環繞中央政府：紀錄部、控制部、訓練部、調查部、還原部、處置部。地面通道之外另有地下網路連接各部門，原點下方設有領主審判專用的議事廳。只有高層與特定人員方可進入，治安極為嚴密。地下設有四層叛亂者監獄（Rebel's Prison），越深層關押者罪刑越重、人權越少，第四層完全不為人知。",
+  "ambience": ["肅殺", "權力", "嚴密", "秩序", "壓迫"],
+  "hasCheckpoint": true,
+  "checkpointFlag": "crambell_konquer_access_granted",
+  "locationIds": []
+}

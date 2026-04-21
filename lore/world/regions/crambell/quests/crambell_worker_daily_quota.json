@@ -1,0 +1,40 @@
+{
+  "id": "crambell_worker_daily_quota",
+  "name": "每日配額",
+  "type": "main",
+  "source": "origin",
+  "regionId": "crambell",
+  "originFilter": ["worker"],
+  "autoAccept": true,
+  "isRepeatable": true,
+  "canDitch": false,
+
+  "_comment": [
+    "出身任務：礦工出身玩家自動獲得，每日循環。",
+    "玩家在作業時段於工作岡位進行工作行動，DM 確認完成後發送 <<FLAG: crambell_quota_done_today>>。",
+    "任務完成後立即重置，等待下一日。",
+    "與 crambell_transfer_trigger 事件聯動：crambell_quota_met_today 旗標為觸發條件之一。",
+    "失敗情境由全域事件 crambell_quota_failure 處理（於休息時段若未設 crambell_quota_met_today 則觸發）。"
+  ],
+
+  "entryStageId": "working",
+  "stages": {
+    "working": {
+      "id": "working",
+      "description": "在作業時段內，於工作岡位完成今日配額",
+      "objectives": [
+        {
+          "id": "complete_quota",
+          "type": "flag_check",
+          "description": "今日配額已達成（由 DM 確認工作行動後觸發）",
+          "flag": "crambell_quota_done_today"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_quota_met_today"],
+        "flagsUnset": ["crambell_quota_done_today"],
+        "nextStageId": null
+      }
+    }
+  }
+}

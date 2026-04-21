@@ -1,0 +1,59 @@
+{
+  "id": "crambell_enc_transfer_apply",
+  "name": "轉移申請",
+  "type": "event",
+  "description": "玩家出現在配額站並遞交正式的轉移申請，等待審核。",
+  "entryNodeId": "at_post",
+  "nodes": {
+    "at_post": {
+      "id": "at_post",
+      "dmNarrative": "書記員核對申請書，要求玩家說明申請轉移的理由。房間裡很安靜，只有筆尖刮過紙面的聲音和帳冊翻動的聲音。",
+      "choices": [
+        {
+          "id": "apply_formally",
+          "text": "遞交申請，等待審核。",
+          "nextNodeId": "review_check"
+        },
+        {
+          "id": "leave",
+          "text": "暫時放棄，離開辦理台。",
+          "nextNodeId": "left_end"
+        }
+      ]
+    },
+    "review_check": {
+      "id": "review_check",
+      "dmNarrative": "書記員仔細查閱玩家的檔案，考量是否值得將申請往上呈報。",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "threshold": 3,
+        "successNodeId": "approved",
+        "failNodeId": "rejected"
+      }
+    },
+    "approved": {
+      "id": "approved",
+      "dmNarrative": "申請被蓋章受理。書記員告知玩家，能否取得通行證，取決於後續的配額達成情況。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": []
+      }
+    },
+    "rejected": {
+      "id": "rejected",
+      "dmNarrative": "申請遭到駁回，書記員揮手示意玩家離開。若要再次嘗試，須等待下一次轉移名額開放。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "failQuestId": "crambell_transfer_opportunity"
+      }
+    },
+    "left_end": {
+      "id": "left_end",
+      "dmNarrative": "玩家在審核完成前便離開了。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

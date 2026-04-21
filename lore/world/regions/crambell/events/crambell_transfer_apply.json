@@ -1,0 +1,25 @@
+{
+  "id": "crambell_transfer_apply",
+  "name": "轉移申請窗口",
+  "_comment": [
+    "配額站的位置事件，於休息時段觸發。",
+    "僅在轉移機會任務進行中且當前階段為申請階段時可用。"
+  ],
+  "locationId": "delth_quota_post",
+  "condition": {
+    "timePeriod": ["rest"],
+    "questActiveId": "crambell_transfer_opportunity",
+    "questStageId": "apply",
+    "notFlags": ["crambell_transfer_application_approved"]
+  },
+  "description": "玩家可在配額站提交轉移申請。",
+  "outcomes": [
+    {
+      "id": "start_application",
+      "description": "玩家走向辦理台，展開申請審核流程。",
+      "startEncounterId": "crambell_enc_transfer_apply"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": true
+}

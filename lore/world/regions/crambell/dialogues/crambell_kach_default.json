@@ -1,0 +1,131 @@
+{
+  "id": "crambell_kach_default",
+  "npcId": "crambell_kach",
+
+  "defaultContext": "一個相當耿直的男人，比較少說話，但是對人都很和善，光是處於他身邊就能夠感覺到安心，似乎對當前坎貝爾正在發生的事情很有興趣。",
+
+  "nodes": {
+    "first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "在你面前的是一位熟悉的面孔，其名為凱奇·巴頓，你與他已經認識了好一段時間了，也曾一起度過各式各樣的時光。" },
+        { "speaker": "npc", "text": "啊...又該開始工作了，對吧，{user}? *整理著地板上的幾件雜物* 最近想去附近的森林走走，不然每天悶在這裡挺難受的...哈哈。" }
+      ],
+      "choices": [
+        {
+          "id": "friendly_agree",
+          "text": "「的確，如果有辦法找個時間走走就太好了。」",
+          "nextNodeId": "kach_intro_follow_up",
+          "effects": { "affinity": 1 }
+        },
+        {
+          "id": "practical",
+          "text": "「不過還是得工作啊...依照我們的身分可能短期內不能想著偷懶吧。」",
+          "nextNodeId": "kach_quota_info"
+        },
+        {
+          "id": "cold",
+          "text": "（點點頭，沒有回應）",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "kach_intro_follow_up": {
+      "lines": [
+        { "speaker": "npc", "text": "對阿對阿，不過話說休息周也快到了，說不定我們那時可以找個時間走走?" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「可以啊，正合我意。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1, "flagsSet": ["kach_hangout_accepted"] }
+        },
+        {
+          "id": "push_forest",
+          "text": "「你是說森林嗎? 我倒是還沒什麼去過。」",
+          "nextNodeId": "kach_forest_comment"
+        },
+        {
+          "id": "decline",
+          "text": "「可能再看看吧，我也不太確定那個時候會不會有什麼事情。」",
+          "nextNodeId": "kach_general_disappoint"
+        }
+      ]
+    },
+    "kach_forest_comment": {
+      "lines": [
+        { "speaker": "npc", "text": "其實也就只是一般的森林而已? 也是可以去其他地方啦，不過去點充滿大自然的地方會讓人更加身心舒暢。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「可以啊，正合我意。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1, "flagsSet": ["kach_hangout_accepted"] }
+        },
+        {
+          "id": "decline",
+          "text": "「可能再看看吧，我也不太確定那個時候會不會有什麼事情。」",
+          "nextNodeId": "kach_general_disappoint"
+        }
+      ]
+    },
+    "kach_quota_info": {
+      "lines": [
+        { "speaker": "npc", "text": "其實...好吧，我可以偷偷告訴你一件事，你其實沒有必要這麼擔心每日的配額，這是很少人知道的事，如果你一天的工作額度超過那一天的配額，很多人會以為超出去的部分就這樣被浪費了，實際上其實是會有一部分被移轉到隔天的配額的。" }
+      ],
+      "choices": [
+        {
+          "id": "thanks_for_info",
+          "text": "「喔天啊! 這個資訊太棒了，謝謝你告訴我!」",
+          "nextNodeId": "kach_general_netural",
+          "effects": { "affinity": 1 }
+        },
+        {
+          "id": "more_info_request",
+          "text": "「還有什麼要注意的嗎？」",
+          "nextNodeId": "kach_warning_first"
+        }
+      ]
+    },
+    "kach_warning_first": {
+      "lines": [
+        { "speaker": "npc", "text": "可以的話...不要把這件事大肆宣揚。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「我知道了。」", "nextNodeId": null}
+      ]
+    },
+    "kach_general_disappoint": {
+      "lines": [
+        { "speaker": "npc", "text": "哦...好吧，沒關係的，我們下次還有機會。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「我知道了。」", "nextNodeId": null}
+      ]
+    },
+    "kach_general_netural": {
+      "lines": [
+        { "speaker": "npc", "text": "嗯嗯。 *向著{user}微笑著*" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「那就先這樣好了。」", "nextNodeId": null}
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "first_meeting",
+      "firstMeetingOnly": true
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家得知凱奇是舊會議成員",
+      "condition": "intel:kach_treffen_member",
+      "context": "凱奇是舊會議的成員，對大部分三區所發生的事瞭若指掌。他的說話方式變得比較直接，並且會願意對玩家透漏更多內部資訊。"
+    }
+  ]
+}

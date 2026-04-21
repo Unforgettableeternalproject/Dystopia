@@ -1,0 +1,70 @@
+{
+  "_comment": "這名NPC於MVP版本中還不會出現。",
+  "id": "crambell_elowan_default",
+  "npcId": "crambell_elowan",
+
+  "defaultContext": "一位總是笑臉常開的中年男子，總是神祕地出現在各種地方，政府的人對他視而不見，神秘且帶勸誘的說話方式讓一般人不太願意去與其互動。",
+
+  "nodes": {
+    "first_meeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "TODO: 第一次見到艾洛安的場景。她在某個角落展示著各象限的商品。" },
+        { "speaker": "npc", "text": "TODO: 艾洛安對新顧客的開場白。好奇而謹慎，快速評估玩家的購買力與可信度。" }
+      ],
+      "choices": [
+        {
+          "id": "browse",
+          "text": "「讓我看看你有什麼。」",
+          "nextNodeId": "elowan_show_goods"
+        },
+        {
+          "id": "info",
+          "text": "「我在找消息，不是商品。」",
+          "nextNodeId": "elowan_intel_price"
+        },
+        {
+          "id": "greeting_only",
+          "text": "「只是隨便看看。」",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "elowan_show_goods": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 艾洛安介紹她的商品，帶有推銷語氣但不強迫。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「等我有需要再來找你。」", "nextNodeId": null }
+      ]
+    },
+    "elowan_intel_price": {
+      "lines": [
+        { "speaker": "npc", "text": "TODO: 艾洛安回應情報請求——她有消息，但價格不菲，且要先確認玩家是什麼人。" }
+      ],
+      "choices": [
+        {
+          "id": "negotiate",
+          "text": "TODO: 談情報的條件",
+          "nextNodeId": null,
+          "effects": { "affinity": 1 }
+        },
+        { "id": "end", "text": "「讓我考慮一下。」", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "first_meeting",
+      "firstMeetingOnly": true
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家曾向艾洛安透露秘密",
+      "condition": "crambell_elowan_trusted",
+      "context": "TODO: 知道玩家秘密後艾洛安的態度——這增加了她對玩家的籌碼，也可能加深她的協助意願。"
+    }
+  ]
+}

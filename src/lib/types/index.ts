@@ -1,3 +1,9 @@
+export type * from './item';
+export type * from './condition';
 export type * from './player';
 export type * from './world';
 export type * from './game';
+export type * from './dialogue';
+export type * from './quest';
+export type * from './phase';
+export type * from './encounter';

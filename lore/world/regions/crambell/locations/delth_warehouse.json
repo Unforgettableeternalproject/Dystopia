@@ -1,0 +1,46 @@
+{
+  "id": "delth_warehouse",
+  "name": "經濟資源倉庫",
+  "regionId": "crambell",
+  "districtId": "crambell_delth",
+  "tags": ["indoor", "industrial", "government_controlled"],
+  "base": {
+    "description": "戴司象限南部的大型倉儲設施，用於存放需要長途運輸的重要礦產與加工原料。高聳的金屬架子延伸至天花板，堆滿了各種箱條與容器，標上編號卻沒有說明內容。燈光昏黃，偶爾有叉車的聲音從深處傳來。入口由衛兵把守，需出示工作證件才能進入，但某些時候偏僻的角落會有人進行非正式的交易。",
+    "ambience": ["昏暗", "龐大", "冰冷金屬", "機器聲", "秘密角落"],
+    "connections": [
+      {
+        "targetLocationId": "delth_mining_shafts",
+        "description": "返回礦區"
+      },
+      {
+        "targetLocationId": "delth_forest",
+        "description": "前往邊緣森林",
+        "access": {
+          "knowledgeIds": ["crambell_warehouse_secret"],
+          "lockedMessage": "你在樹叢間並沒有發現什麼不尋常之處。"
+        }
+      },
+      {
+        "targetLocationId": "delth_patrol_zone",
+        "description": "從正門前往管制區"
+      },
+      {
+        "targetLocationId": "delth_south_ground",
+        "description": "從倉庫後門前往南方空地"
+      }
+    ],
+    "npcIds": [],
+    "eventIds": [],
+    "isAccessible": true
+  },
+  "localVariants": [
+    {
+      "id": "delth_warehouse_mildore_nearby",
+      "label": "米爾多雷在倉庫附近活動",
+      "condition": "crambell_quest_mildore_freed",
+      "priority": 10,
+      "addNpcIds": ["crambell_mildore"],
+      "transitionNote": "倉庫外圍的空地多了一個不起眼的身影，在人群中低調地存在著。"
+    }
+  ]
+}
