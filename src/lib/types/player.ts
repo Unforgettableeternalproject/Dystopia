@@ -1,6 +1,7 @@
 // ── Player Types ──────────────────────────────────────────────
 import type { InventoryItem } from './item';
 import type { PlayerCondition } from './condition';
+export type { PlayerCondition } from './condition';
 
 /** 主要技能數值 */
 export interface PrimaryStats {

@@ -117,7 +117,7 @@ export async function decode(code: string): Promise<DecodeResult> {
     // Patch localFlags for saves from before quest-local flags were added
     activeQuests: Object.fromEntries(
       Object.entries(snapshot.activeQuests).map(([id, q]) => [
-        id, { localFlags: [], ...q },
+        id, { ...q, localFlags: q.localFlags ?? [] },
       ])
     ),
     completedQuestIds:     snapshot.completedQuestIds,
@@ -141,14 +141,16 @@ async function gzip(text: string): Promise<Uint8Array> {
   // Pipe through CompressionStream with read/write in parallel (required for TransformStream).
   const stream = new ReadableStream<Uint8Array>({
     start(c) { c.enqueue(input); c.close(); },
-  }).pipeThrough(new CompressionStream('gzip'));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }).pipeThrough(new CompressionStream('gzip') as any) as ReadableStream<Uint8Array>;
   return collectStream(stream);
 }
 
 async function gunzip(data: Uint8Array): Promise<string> {
   const stream = new ReadableStream<Uint8Array>({
     start(c) { c.enqueue(data); c.close(); },
-  }).pipeThrough(new DecompressionStream('gzip'));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }).pipeThrough(new DecompressionStream('gzip') as any) as ReadableStream<Uint8Array>;
   const raw = await collectStream(stream);
   return new TextDecoder().decode(raw);
 }

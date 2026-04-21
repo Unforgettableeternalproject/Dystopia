@@ -359,6 +359,7 @@ export interface EventOutcome {
 
 export interface GameEvent {
   id: string;
+  name?: string;
   locationId?: string;
   condition: EventCondition;
   description: string;

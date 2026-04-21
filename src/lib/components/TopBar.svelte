@@ -3,6 +3,7 @@
 
   export let onSave: (() => void) | undefined = undefined;
   export let onLoadMenu: (() => void) | undefined = undefined;
+  export let onReturnToTitle: (() => void) | undefined = undefined;
 </script>
 
 <header class="top-bar">
@@ -36,6 +37,13 @@
       disabled={!onLoadMenu}
       title="讀取存檔"
     >讀</button>
+    {#if $isDebugMode && onReturnToTitle}
+      <button
+        class="topbar-btn debug-return-btn"
+        on:click={onReturnToTitle}
+        title="返回標題畫面"
+      >返回標題</button>
+    {/if}
   </div>
 </header>
 

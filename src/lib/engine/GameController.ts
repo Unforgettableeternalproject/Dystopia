@@ -85,8 +85,8 @@ export class GameController {
     const regulatorClient = config?.regulator ?? auto?.regulator ?? null!;
     this.dmClient  = dmClient  ?? null;
     this.dm        = new DMAgent(dmClient);
-    this.regulator = new Regulator(regulatorClient);
     this.lore      = new LoreVault();
+    this.regulator = new Regulator(regulatorClient, (id) => this.lore.getCondition(id));
     this.bus       = new EventBus();
     this.timeMgr   = new TimeManager();
 
@@ -222,7 +222,7 @@ export class GameController {
           finalAction.targetId, npc.dialogueId, this.state.flags, interactionCount,
         );
         if (scripted) {
-          this.activateScriptedNode(
+          await this.activateScriptedNode(
             finalAction.targetId, npc.dialogueId, npc.name,
             scripted.nodeId, scripted.node,
           );
@@ -278,6 +278,15 @@ export class GameController {
     }
 
     // 4. DM narration
+    // For NPC interact: route to isolated dialogue DM — full scene context is not injected.
+    // The dialogue DM only receives NPC profile + session history, preventing hallucination.
+    if (finalAction.type === 'interact' && finalAction.targetId && get(activeNpcUI)) {
+      await this.handleDialogueInput(finalAction.input, finalAction.targetId);
+      this.discoverSceneNpcs();
+      inputDisabled.set(false);
+      return;
+    }
+
     const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
     const { signaledMinutes, suggestions } = await this.runDM(finalAction, sceneCtx);
 
@@ -439,8 +448,9 @@ export class GameController {
     const choice = current.currentChoices.find(c => c.id === choiceId);
     if (!choice) return;
 
-    // Show the player's choice in the narrative
+    // Show the player's choice in the narrative and log to session
     pushLine('> ' + choice.text, 'player');
+    appendEncounterLog('player', choice.text);
 
     // Apply basic side effects (affinity, rep, flags, attitude, intel)
     this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
@@ -473,14 +483,14 @@ export class GameController {
 
     if (targetNodeId === null) {
       activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
-      this.endScriptedDialogue();
+      await this.endScriptedDialogue();
       return;
     }
 
     const nextNode = this.dialogueMgr.getNode(current.npcId, current.dialogueId, targetNodeId);
     if (!nextNode) {
       activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
-      this.endScriptedDialogue();
+      await this.endScriptedDialogue();
       return;
     }
 
@@ -489,21 +499,17 @@ export class GameController {
 
     // transitionLines: show these instead of target node's lines (return/back pattern)
     let addedNarrative: string;
+    isStreaming.set(true);
     if (choice.transitionLines && choice.transitionLines.length > 0) {
       const transLines = this.renderNodeLines(choice.transitionLines, current.npcName, ctx);
-      for (let i = 0; i < transLines.length; i++) {
-        const line = choice.transitionLines[i];
-        pushLine(transLines[i], line.speaker === 'player' ? 'player' : line.speaker === 'npc' ? 'dialogue' : 'narrative');
-      }
+      await this.streamScriptedLines(transLines, choice.transitionLines);
       addedNarrative = transLines.join('\n');
     } else {
       const nextLines = this.renderNodeLines(nextNode.lines, current.npcName, ctx);
-      for (let i = 0; i < nextLines.length; i++) {
-        const line = nextNode.lines[i];
-        pushLine(nextLines[i], line.speaker === 'player' ? 'player' : line.speaker === 'npc' ? 'dialogue' : 'narrative');
-      }
+      await this.streamScriptedLines(nextLines, nextNode.lines);
       addedNarrative = nextLines.join('\n');
     }
+    isStreaming.set(false);
 
     activeScriptedDialogue.set({
       ...current,
@@ -514,7 +520,9 @@ export class GameController {
 
     // Auto-end if the node has no choices
     if (filteredChoices.length === 0) {
-      setTimeout(() => this.endScriptedDialogue(), 600);
+      setTimeout(() => {
+        this.endScriptedDialogue().catch(err => log.warn('endScriptedDialogue error', err));
+      }, 600);
     }
   }
 
@@ -634,8 +642,8 @@ export class GameController {
     );
 
     const visibleConditions = gs.player.conditions
-      .filter(c => !c.isHidden)
-      .map(c => c.label)
+      .filter(c => !(this.lore.getCondition(c.id)?.isHidden ?? c.isHidden))
+      .map(c => this.lore.getCondition(c.id)?.label ?? c.label ?? c.id)
       .join(', ');
 
     parts.push([
@@ -820,7 +828,11 @@ export class GameController {
    * Handle player input while in a dialogue encounter with npcId.
    * Bypasses Regulator; routes straight to DM in dialogue mode.
    */
-  private async handleDialogueInput(text: string, npcId: string): Promise<void> {
+  /**
+   * @param opener  true = NPC opens conversation (post-scripted or encounter start), skip scripted
+   *                trigger re-check and don't log a player line.
+   */
+  private async handleDialogueInput(text: string, npcId: string, opener = false): Promise<void> {
     const npc = this.lore.getNPC(npcId);
     if (!npc) {
       // NPC gone — exit encounter silently
@@ -829,26 +841,29 @@ export class GameController {
       return;
     }
 
-    // Check for scripted trigger before LLM dialogue (special nodes can fire mid-encounter)
-    const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
-    const scripted = this.dialogueMgr.checkScriptedTrigger(
-      npcId, npc.dialogueId, this.state.flags, interactionCount,
-    );
-    if (scripted) {
-      this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
-      return;
+    // Check for scripted trigger before LLM dialogue (skip in opener mode — already checked)
+    if (!opener) {
+      const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
+      const scripted = this.dialogueMgr.checkScriptedTrigger(
+        npcId, npc.dialogueId, this.state.flags, interactionCount,
+      );
+      if (scripted) {
+        await this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
+        return;
+      }
     }
 
     const npcContext = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.dialogueId, this.state.flags);
     // Snapshot log BEFORE appending current player turn (playerInput is passed separately to DM)
     const sessionLog = get(encounterSessionLog) as DialogueLogEntry[];
 
-    // Stream DM dialogue response
+    // Stream DM dialogue response — start line with NPC name prefix (DM formats 「」 itself)
     isStreaming.set(true);
-    pushLine('', 'narrative');
+    pushLine(npc.name + '：', 'dialogue', true);
 
     let fullText    = '';
     let signalCutoff = -1;
+    let streamError  = false;
     try {
       for await (const chunk of this.dm.narrateDialogue(npcContext, sessionLog, text)) {
         const prevLen = fullText.length;
@@ -864,11 +879,15 @@ export class GameController {
         }
       }
     } catch (err) {
+      streamError = true;
       log.error('Dialogue DM narration failed', err);
       appendToLastLine('\n[narration error -- please retry]');
+      finishLastLine();
     } finally {
       isStreaming.set(false);
     }
+
+    if (streamError) return;
 
     // Extract TIME and THOUGHTS before signal parsing
     let signaledMinutes: number | null = null;
@@ -904,19 +923,20 @@ export class GameController {
 
     const cleanNarrative = dialogueSignals.cleanNarrative;
 
-    // Patch displayed line
-    if (cleanNarrative !== fullText) {
-      narrativeLines.update(lines => {
-        if (lines.length === 0) return lines;
-        const last = lines[lines.length - 1];
-        return [...lines.slice(0, -1), { ...last, text: cleanNarrative, isStreaming: false }];
-      });
-    } else {
-      finishLastLine();
-    }
+    // Always patch displayed line with NPC name prefix, finalize as dialogue type
+    narrativeLines.update(lines => {
+      if (lines.length === 0) return lines;
+      const last = lines[lines.length - 1];
+      return [...lines.slice(0, -1), {
+        ...last,
+        text: npc.name + '：' + cleanNarrative,
+        type: 'dialogue' as const,
+        isStreaming: false,
+      }];
+    });
 
-    // Append this turn (player + NPC) to session log
-    appendEncounterLog('player', text);
+    // Append this turn to session log (skip player entry in opener mode)
+    if (!opener) appendEncounterLog('player', text);
     appendEncounterLog('npc', cleanNarrative);
 
     // Advance time
@@ -930,8 +950,9 @@ export class GameController {
       this.state.advanceTime(newTime, newPeriod);
     }
 
-    // Append to global history
-    const action: PlayerAction = { type: 'interact', input: text, targetId: npcId };
+    // Append to global history (opener turns log as NPC continuing rather than player action)
+    const histInput = opener ? `（${npc.name} 開口）` : text;
+    const action: PlayerAction = { type: 'interact', input: histInput, targetId: npcId };
     this.state.appendHistory(action, cleanNarrative.slice(0, 200));
 
     // Refresh NPC panel with updated affinity/attitude
@@ -943,6 +964,8 @@ export class GameController {
       encounterSessionLog.set([]);
       log.info('Encounter ended naturally', { npcId });
     }
+
+    this.syncUIState(this.state.getState());
 
     // Refresh thoughts (dialogue mode suggestions or post-encounter exploration)
     await this.refreshThoughts(suggestions);
@@ -1281,7 +1304,9 @@ export class GameController {
       };
     }
 
-    const visibleConditions = gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label }));
+    const visibleConditions = gs.player.conditions
+      .filter(c => !(this.lore.getCondition(c.id)?.isHidden ?? c.isHidden))
+      .map(c => ({ label: this.lore.getCondition(c.id)?.label ?? c.label ?? c.id }));
 
     playerUI.set({
       name:            gs.player.name,
@@ -1296,7 +1321,7 @@ export class GameController {
       turn:            gs.turn,
       worldPhase:      gs.worldPhase.currentPhase,
       activeQuestCount,
-      conditionCount:  gs.player.conditions.filter(c => !c.isHidden).length,
+      conditionCount:  gs.player.conditions.filter(c => !(this.lore.getCondition(c.id)?.isHidden ?? c.isHidden)).length,
       time:            this.timeMgr.formatTime(gs.time),
       timePeriod:      this.timeMgr.formatPeriod(gs.timePeriod),
       topFactions:     topFactions.length > 0 ? topFactions : undefined,
@@ -1320,7 +1345,9 @@ export class GameController {
         endoMax:    gs.player.statusStats.endoMax,
         experience: gs.player.statusStats.experience,
       },
-      conditions:  gs.player.conditions.filter(c => !c.isHidden).map(c => ({ label: c.label })),
+      conditions:  gs.player.conditions
+        .filter(c => !(this.lore.getCondition(c.id)?.isHidden ?? c.isHidden))
+        .map(c => ({ label: this.lore.getCondition(c.id)?.label ?? c.label ?? c.id })),
       titles:      gs.player.titles,
       inventory:   gs.player.inventory,
       reputation:    { ...gs.player.externalStats.reputation },
@@ -1365,19 +1392,52 @@ export class GameController {
     });
   }
 
-  private activateScriptedNode(
+  /**
+   * Stream rendered dialogue lines character-by-character, mimicking DM typewriter output.
+   * Choices are NOT set until all lines finish streaming.
+   */
+  private async streamScriptedLines(
+    rendered:    string[],
+    sourceLines: import('../types/dialogue').ScriptedLine[],
+  ): Promise<void> {
+    for (let i = 0; i < rendered.length; i++) {
+      const src  = sourceLines[i];
+      const type = src.speaker === 'player' ? 'player' as const
+                 : src.speaker === 'npc'    ? 'dialogue' as const
+                 :                            'narrative' as const;
+      pushLine('', type, true);
+      for (const char of rendered[i]) {
+        appendToLastLine(char);
+        await sleep(16);
+      }
+      finishLastLine();
+      if (i < rendered.length - 1) await sleep(220);
+
+      // Log scripted lines to session log so LLM has dialogue history when taking over
+      if (src.speaker === 'npc') {
+        appendEncounterLog('npc', rendered[i]);
+      } else if (src.speaker === 'player') {
+        appendEncounterLog('player', rendered[i].replace(/^> /, ''));
+      }
+    }
+  }
+
+  private async activateScriptedNode(
     npcId:      string,
     dialogueId: string,
     npcName:    string,
     nodeId:     string,
     node:       import('../types/dialogue').ScriptedNode,
-  ): void {
+  ): Promise<void> {
     const ctx      = this.buildInterpolationCtx();
     const rendered = this.renderNodeLines(node.lines, npcName, ctx);
-    for (let i = 0; i < rendered.length; i++) {
-      const line = node.lines[i];
-      pushLine(rendered[i], line.speaker === 'player' ? 'player' : line.speaker === 'npc' ? 'dialogue' : 'narrative');
-    }
+
+    // Clear any dangling streaming cursor from a previous LLM turn
+    finishLastLine();
+
+    isStreaming.set(true);
+    await this.streamScriptedLines(rendered, node.lines);
+    isStreaming.set(false);
 
     const filteredChoices = this.dialogueMgr.filterChoices(node.choices, this.state.flags);
 
@@ -1389,27 +1449,39 @@ export class GameController {
     });
 
     if (filteredChoices.length === 0) {
-      setTimeout(() => this.endScriptedDialogue(), 600);
+      setTimeout(() => {
+        this.endScriptedDialogue().catch(err => log.warn('endScriptedDialogue error', err));
+      }, 600);
     }
   }
 
-  private endScriptedDialogue(): void {
+  private async endScriptedDialogue(): Promise<void> {
     const current = get(activeScriptedDialogue);
     if (!current) return;
 
+    const { npcId, npcName } = current;
+
     // Increment NPC interaction count
-    this.state.recordNPCInteraction(current.npcId);
+    this.state.recordNPCInteraction(npcId);
 
     // Record to history for DM context in future turns
     this.state.appendHistory(
-      { type: 'interact', input: `與 ${current.npcName} 交談`, targetId: current.npcId },
+      { type: 'interact', input: `與 ${npcName} 交談`, targetId: npcId },
       current.collectedNarrative.slice(0, 400),
     );
 
     activeScriptedDialogue.set(null);
 
+    // Scripted segment done — NPC continues conversation via LLM opener.
+    // (Next player input will re-check for scripted triggers naturally via handleDialogueInput.)
+    const npc = this.lore.getNPC(npcId);
+    if (npc && get(activeNpcUI)) {
+      await this.handleDialogueInput('(opener)', npcId, true);
+      return;
+    }
+
     this.syncUIState(this.state.getState());
-    this.refreshThoughts();
+    await this.refreshThoughts();
     this.autoSave().catch(err => log.warn('Auto-save after scripted dialogue failed', err));
   }
 
@@ -1509,8 +1581,8 @@ export class GameController {
     await this.renderEncounterNode(resolved);
   }
 
-  /** Open the NPC dialogue panel for npcId, as if the player had interacted. */
-  debugStartNpcDialogue(npcId: string): void {
+  /** Open the NPC dialogue panel for npcId and immediately fire any matching scripted trigger. */
+  async debugStartNpcDialogue(npcId: string): Promise<void> {
     const npc = this.lore.getNPC(npcId);
     if (!npc) {
       pushLine(`[Debug] 找不到 NPC：${npcId}`, 'system');
@@ -1519,7 +1591,18 @@ export class GameController {
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
     this.updateActiveNpcUI(npcId);
-    pushLine(`[Debug] 開啟 NPC 對話：${npc.name}（直接輸入文字開始）`, 'system');
+
+    // Fire scripted trigger immediately (same logic as interact action flow)
+    const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
+    const scripted = this.dialogueMgr.checkScriptedTrigger(
+      npcId, npc.dialogueId, this.state.flags, interactionCount,
+    );
+    if (scripted) {
+      await this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
+    } else {
+      // No scripted trigger — NPC opens the conversation via LLM
+      await this.handleDialogueInput('(opener)', npcId, true);
+    }
   }
 
   /** Grant a quest directly, regardless of conditions. */
@@ -1547,7 +1630,7 @@ export class GameController {
   }
 
   /** Teleport player to locationId, reset NPC panel, refresh UI. */
-  debugTeleport(locationId: string): void {
+  async debugTeleport(locationId: string): Promise<void> {
     const loc = this.lore.getLocation(locationId);
     if (!loc) {
       pushLine(`[Debug] 找不到地點：${locationId}`, 'system');
@@ -1559,7 +1642,27 @@ export class GameController {
     this.discoverSceneNpcs();
     this.syncUIState(this.state.getState());
     pushLine(`[Debug] 傳送至：${loc.name}`, 'system');
-    this.refreshThoughts();
+
+    // Run DM narration for the new location — this also calls appendHistory with the new locationId,
+    // ensuring subsequent DM calls see correct location context in recent history.
+    const arrivalAction: PlayerAction = { type: 'move', input: `（傳送至 ${loc.name}）` };
+    const sceneCtx = this.buildSceneCtx([]);
+    const { suggestions } = await this.runDM(arrivalAction, sceneCtx);
+    await this.refreshThoughts(suggestions);
+  }
+
+  /** Discard all progress and restart (equivalent to a fresh new game in debug mode). */
+  async debugResetGame(): Promise<void> {
+    this.loadState(this.buildInitialState(), []);
+    if (this.starterConfig) {
+      this.loadStarter(this.starterConfig);
+    }
+    narrativeLines.set([]);
+    activeNpcUI.set(null);
+    activeScriptedDialogue.set(null);
+    activeEncounterUI.set(null);
+    encounterSessionLog.set([]);
+    await this.start('DEBUG');
   }
 
   // -- Initial state ----------------------------------------------------

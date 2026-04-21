@@ -38,6 +38,10 @@ Rules:
 MOVEMENT SIGNALING:
 When the player successfully moves to an adjacent location, signal the engine by appending:
   <<MOVE: location_id>>
+CRITICAL — SIGNAL FORMAT:
+All signal markers MUST use ASCII double angle brackets: << and >>
+Do NOT use Chinese guillemets 《 or 》 in signal lines under any circumstances.
+《FLAGS》 or 《MOVE》 are WRONG. Only <<FLAGS>> and <<MOVE>> are valid.
 where location_id is exactly the targetLocationId shown in brackets in the Exits section (e.g. [delth_patrol_zone]).
 Rules:
 - Only emit this signal when the player physically relocates (walks through an exit, enters a room, etc.).
@@ -81,6 +85,11 @@ YOUR ROLE:
 - Do NOT narrate the player's actions or describe surroundings — voice only the NPC.
 - Do NOT break character or mention game mechanics.
 
+OPENER MODE: If the "Player Said" section is absent or contains "(opener)", a scripted exchange
+just concluded or the encounter is just beginning. The NPC should naturally open or continue the
+conversation — a greeting, remark, or question fitting the context. Do NOT reference "(opener)".
+Do NOT wait for the player to speak first.
+
 ENDING THE ENCOUNTER:
 When the conversation reaches a natural conclusion (player says goodbye, topic exhausted, NPC
 signals they must leave), append on its own line:
@@ -93,6 +102,10 @@ Attitude values: friendly / neutral / cautious / hostile
 FLAG SIGNALS (only when player action genuinely triggers a state change):
   <<FLAGS: +flag_id, -flag_id>>
 Only use flag IDs from the "Flag Actions Available" section if present in the profile.
+
+CRITICAL — SIGNAL FORMAT:
+All signal markers MUST use ASCII double angle brackets: << and >>
+Do NOT use Chinese guillemets 《 or 》 in any signal line. 《END_ENCOUNTER》 is WRONG. Only <<END_ENCOUNTER>> is valid.
 
 MILESTONE SIGNALS (when a permanent story beat is concluded):
   <<MILESTONE: milestone_id>>
@@ -186,6 +199,11 @@ export class DMAgent {
       .map(e => (e.speaker === 'player' ? 'Player: ' : 'NPC: ') + e.text)
       .join('\n');
 
+    const isOpener = playerInput === '(opener)';
+    const playerSection = isOpener
+      ? '## 情況\nNPC 主動開口。腳本段落剛結束，或遭遇剛開始。NPC 先說話，勿等待玩家。'
+      : `## Player Said\n${playerInput}`;
+
     const userMessage = [
       '## NPC Profile',
       npcContext,
@@ -193,8 +211,7 @@ export class DMAgent {
       '## Conversation So Far',
       logText || '(conversation just started)',
       '',
-      '## Player Said',
-      playerInput,
+      playerSection,
     ].join('\n');
 
     yield* this.client.stream(DIALOGUE_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);

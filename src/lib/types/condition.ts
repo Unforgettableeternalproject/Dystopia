@@ -72,6 +72,9 @@ export interface ConditionTickState {
  * 玩家身上的狀態條件 runtime 實例。
  * 靜態定義（效果、標籤、說明等）由 ConditionDefinition 提供；
  * 此型別只記錄個別實例的生命週期與 tick 進度。
+ *
+ * label / description / isHidden 為選用內嵌欄位，主要供測試直接建構條件使用；
+ * 正式遊戲邏輯應透過 LoreVault.getCondition(id) 取得完整定義。
  */
 export interface PlayerCondition {
   /** 對應 ConditionDefinition.id */
@@ -87,4 +90,10 @@ export interface PlayerCondition {
    * 由 StateManager.addCondition 根據定義自動初始化。
    */
   tickState?: ConditionTickState;
+  /** 可選：從 ConditionDefinition 內嵌的顯示標籤（測試/舊版路徑用） */
+  label?: string;
+  /** 可選：從 ConditionDefinition 內嵌的效果說明（測試/舊版路徑用） */
+  description?: string;
+  /** 可選：是否對玩家隱藏（測試/舊版路徑用） */
+  isHidden?: boolean;
 }

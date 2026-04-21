@@ -58,20 +58,33 @@
     if (flagAction === 'set') controller.debugSetFlag(f);
     else controller.debugUnsetFlag(f);
   }
+
+  let resetting = false;
+  async function handleReset() {
+    resetting = true;
+    try {
+      await controller.debugResetGame();
+    } finally {
+      resetting = false;
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-<div class="debug-overlay" role="dialog" aria-label="Debug Launcher">
+<div class="debug-overlay" role="dialog" aria-label="除錯介面">
   <div class="debug-panel">
 
     <div class="debug-header">
-      <span class="debug-title">◇ Debug Launcher</span>
+      <span class="debug-title">◇ 除錯介面</span>
       <input
         class="debug-search"
         type="text"
         placeholder="搜尋 ID 或名稱..."
         bind:value={filter}
       />
+      <button class="reset-btn" on:click={handleReset} disabled={resetting}>
+        {resetting ? '重置中…' : '⟳ 重置遊戲'}
+      </button>
       <button class="close-btn" on:click={onClose}>✕</button>
     </div>
 
@@ -167,7 +180,7 @@
                 <span class="item-name">{loc.name}</span>
                 <span class="item-id">{loc.id}</span>
               </div>
-              <button class="trigger-btn" on:click={() => controller.debugTeleport(loc.id)}>
+              <button class="trigger-btn" on:click={() => controller.debugTeleport(loc.id).catch(console.error)}>
                 傳送
               </button>
             </div>
@@ -257,6 +270,30 @@
 
   .debug-search:focus {
     border-color: #5fa8d3;
+  }
+
+  .reset-btn {
+    background: none;
+    border: 1px solid #c9a96e55;
+    color: #c9a96e;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    padding: 2px 9px;
+    cursor: pointer;
+    border-radius: 2px;
+    flex-shrink: 0;
+    transition: border-color 0.1s, background 0.1s;
+  }
+
+  .reset-btn:hover:not(:disabled) {
+    border-color: #c9a96e;
+    background: rgba(201, 169, 110, 0.1);
+  }
+
+  .reset-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .close-btn {

@@ -3,6 +3,7 @@
 
 import type { PlayerAction, PlayerState, RegulatorResult, Thought } from '../types';
 import type { ILLMClient } from './ILLMClient';
+import type { ConditionDefinition } from '../types/condition';
 
 const VALIDATE_SYSTEM = `You are an action validator for a grounded RPG.
 Each stat arrives with a parenthetical label that tells you its meaning — use those labels to judge feasibility.
@@ -31,9 +32,11 @@ const INJECTION_PATTERNS: RegExp[] = [
 
 export class Regulator {
   private client: ILLMClient;
+  private getConditionDef: (id: string) => ConditionDefinition | undefined;
 
-  constructor(client: ILLMClient) {
+  constructor(client: ILLMClient, getConditionDef?: (id: string) => ConditionDefinition | undefined) {
     this.client = client;
+    this.getConditionDef = getConditionDef ?? (() => undefined);
   }
 
   // ── Validation ──────────────────────────────────────────────
@@ -46,8 +49,15 @@ export class Regulator {
     if (staminaCheck !== null) return staminaCheck;
 
     const conditionSummary = player.conditions
-      .filter(c => !c.isHidden)
-      .map(c => c.id + ': ' + c.description)
+      .filter(c => {
+        const hidden = this.getConditionDef(c.id)?.isHidden ?? c.isHidden;
+        return !hidden;
+      })
+      .map(c => {
+        const def = this.getConditionDef(c.id);
+        const description = def?.description ?? c.description ?? '';
+        return c.id + (description ? ': ' + description : '');
+      })
       .join('; ');
 
     const s = player.statusStats;

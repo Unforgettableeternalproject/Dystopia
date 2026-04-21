@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -104,6 +104,17 @@
       isDebugMode.set(false);
       gamePhase.set('title');
     }
+  }
+
+  function handleReturnToTitle() {
+    isDebugMode.set(false);
+    narrativeLines.set([]);
+    activeNpcUI.set(null);
+    activeScriptedDialogue.set(null);
+    activeEncounterUI.set(null);
+    encounterSessionLog.set([]);
+    inputDisabled.set(false);
+    gamePhase.set('title');
   }
 
   // ── Load game ─────────────────────────────────────────────────
@@ -254,7 +265,7 @@
 <!-- Game layout (always rendered once playing, hidden before) -->
 {#if $gamePhase === 'playing'}
 <div class="game-layout">
-  <TopBar onSave={openSaveMenu} onLoadMenu={openLoadMenu} />
+  <TopBar onSave={openSaveMenu} onLoadMenu={openLoadMenu} onReturnToTitle={handleReturnToTitle} />
 
   <div class="main-area" class:npc-active={$activeNpcUI !== null}>
     <LeftSidebar />

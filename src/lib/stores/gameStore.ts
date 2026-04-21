@@ -21,11 +21,15 @@ export interface NarrativeLine {
 export const narrativeLines = writable<NarrativeLine[]>([]);
 export const isStreaming = writable(false);
 
-export function pushLine(text: string, type: NarrativeLine['type'] = 'narrative'): string {
+export function pushLine(
+  text:      string,
+  type:      NarrativeLine['type'] = 'narrative',
+  streaming?: boolean,
+): string {
   const id = 'line-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   narrativeLines.update((lines) => [
     ...lines,
-    { id, text, type, isStreaming: type === 'narrative' },
+    { id, text, type, isStreaming: streaming ?? (type === 'narrative') },
   ]);
   return id;
 }

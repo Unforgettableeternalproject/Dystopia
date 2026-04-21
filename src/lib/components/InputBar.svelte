@@ -36,10 +36,12 @@
   </button>
 
   <!-- Input area -->
-  <div class="input-area" class:encounter={inEncounter}>
-    <span class="prefix" class:enc-prefix={inEncounter} aria-hidden="true">
-      {inEncounter ? '「' : '>'}
-    </span>
+  <div class="input-area" class:encounter={inEncounter && !inScriptedDialogue}>
+    {#if !inScriptedDialogue}
+      <span class="prefix" class:enc-prefix={inEncounter} aria-hidden="true">
+        {inEncounter ? '「' : '>'}
+      </span>
+    {/if}
     <input
       bind:value={inputValue}
       on:keydown={handleKeydown}

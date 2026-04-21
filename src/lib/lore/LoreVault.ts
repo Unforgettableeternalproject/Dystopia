@@ -447,7 +447,7 @@ export class LoreVault {
     return {
       encounters: Object.values(this.data.encounters).map(e => ({ id: e.id, name: e.name, type: e.type ?? 'event' })),
       npcs:       Object.values(this.data.npcs).map(n => ({ id: n.id, name: n.name, type: n.type })),
-      events:     Object.values(this.data.events).map(e => ({ id: e.id, name: e.name })),
+      events:     Object.values(this.data.events).map(e => ({ id: e.id, name: e.name ?? e.id })),
       quests:     Object.values(this.data.quests).map(q => ({ id: q.id, name: q.name })),
       locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
     };
