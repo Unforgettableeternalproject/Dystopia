@@ -90,11 +90,7 @@
   </div>
 
   {#if $eventToast}
-    <div
-      class="event-toast"
-      class:toast--warning={$eventToast.color === 'warning'}
-      class:toast--danger={$eventToast.color === 'danger'}
-    >
+    <div class="event-toast">
       {$eventToast.label}
     </div>
   {/if}
@@ -213,16 +209,6 @@
     z-index: 10;
     pointer-events: none;
     animation: toastIn 0.18s ease-out, toastOut 0.3s ease-in 4.7s forwards;
-  }
-
-  .event-toast.toast--warning {
-    border-color: #c9a96e55;
-    color: #c9a96e;
-  }
-
-  .event-toast.toast--danger {
-    border-color: #d35f5f55;
-    color: #d35f5f;
   }
 
   @keyframes toastIn {

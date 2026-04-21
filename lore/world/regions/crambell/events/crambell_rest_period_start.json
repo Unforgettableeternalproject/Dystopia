@@ -16,5 +16,5 @@
     }
   ],
   "isRepeatable": true,
-  "notification": {}
+  "notification": true
 }

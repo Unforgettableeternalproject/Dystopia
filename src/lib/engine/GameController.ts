@@ -292,7 +292,7 @@ export class GameController {
         }
       }
       if (t.event.notification) {
-        showEventToast(t.event.name ?? t.event.id, t.event.notification.color);
+        showEventToast(t.event.name ?? t.event.id);
       }
     }
 
@@ -306,7 +306,15 @@ export class GameController {
       return;
     }
 
-    const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
+    // 4.1. Narrate triggered events in a separate DM pass BEFORE the player-action DM.
+    // This keeps event narration and action response from bleeding together.
+    if (triggered.length > 0) {
+      const eventCtx = this.buildSceneCtx(triggered, periodChanged);
+      await this.runEventDM(eventCtx);
+    }
+
+    // 4.2. Player action DM — events already narrated above, so triggered is empty here.
+    const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction);
     const navHint  = this.buildNavHint(finalAction);
     const { signaledMinutes, suggestions, encounterSignal } = await this.runDM(finalAction, sceneCtx + navHint);
 
@@ -702,9 +710,10 @@ export class GameController {
     }
 
     if (triggered.length > 0) {
-      const evLines = triggered.map(
-        ({ event, outcome }) => '- ' + event.description + ' -> ' + outcome.description
-      );
+      const evLines = triggered.map(({ event, outcome }) => [
+        '- [觸發] ' + event.description,
+        '  [結果] ' + outcome.description,
+      ].join('\n'));
       parts.push('\n### Events This Turn\n' + evLines.join('\n'));
     }
 
@@ -802,6 +811,38 @@ export class GameController {
   }
 
   // -- DM narration -----------------------------------------------------
+
+  /**
+   * Narrate world events that fired this turn as a separate DM pass.
+   * Runs BEFORE the player-action DM so their outputs stay distinct in the narrative.
+   * No signal processing — state changes were already applied by EventEngine.
+   */
+  private async runEventDM(sceneCtx: string): Promise<void> {
+    isStreaming.set(true);
+    pushLine('', 'narrative');
+    let fullText = '';
+    let signalCutoff = -1;
+    try {
+      for await (const chunk of this.dm.narrateWorldEvent(sceneCtx, this.state.getState().history)) {
+        const prevLen = fullText.length;
+        fullText += chunk;
+        if (signalCutoff === -1) {
+          const idx = fullText.indexOf('<<');
+          if (idx !== -1) {
+            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            signalCutoff = idx;
+          } else {
+            appendToLastLine(chunk);
+          }
+        }
+      }
+    } catch (err) {
+      log.error('Event DM narration failed', err);
+      appendToLastLine('\n[event narration error]');
+    } finally {
+      isStreaming.set(false);
+    }
+  }
 
   private async runDM(
     action: PlayerAction,
@@ -1861,7 +1902,7 @@ export class GameController {
     }
     pushLine(`[Debug] 強制觸發事件：${triggered.event.description ?? eventId}`, 'system');
     if (triggered.event.notification) {
-      showEventToast(triggered.event.name ?? triggered.event.id, triggered.event.notification.color);
+      showEventToast(triggered.event.name ?? triggered.event.id);
     }
 
     // Apply side effects (same as normal event flow)

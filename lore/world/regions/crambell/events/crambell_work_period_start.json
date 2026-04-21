@@ -24,7 +24,5 @@
     }
   ],
   "isRepeatable": true,
-  "notification": {
-    "color": "warning"
-  }
+  "notification": true
 }

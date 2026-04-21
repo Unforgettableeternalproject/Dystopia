@@ -10,7 +10,7 @@
     {
       "id": "broadcast_quota_reminder",
       "condition": "crambell_work_period_active",
-      "description": "「本月配額完成率：73%。低於標準的象限將在月底進行稽核。各位礦工請把握時間。」廣播完畢。人群沒有任何反應。",
+      "description": "「本月配額完成率：73%。低於標準的象限將在月底進行稽核。各位同志請把握時間。」廣播完畢。人群沒有任何反應。",
       "flagsSet": ["crambell_broadcast_quota_heard"]
     },
     {
@@ -21,5 +21,5 @@
     }
   ],
   "isRepeatable": true,
-  "notification": {}
+  "notification": true
 }

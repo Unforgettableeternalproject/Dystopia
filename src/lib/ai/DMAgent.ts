@@ -237,6 +237,35 @@ export class DMAgent {
   }
 
   /**
+   * Stream narration for world events that fired this turn, BEFORE the player action is narrated.
+   * This keeps event narration and action response separate so they don't bleed together.
+   * No signals are emitted — the engine has already applied all state changes.
+   */
+  async *narrateWorldEvent(
+    sceneContext: string,
+    history: HistoryEntry[],
+  ): AsyncGenerator<string> {
+    const historyText = history
+      .slice(-3)
+      .map(h => `Turn ${h.turn}: ${h.action.input} → ${h.narrative.slice(0, 80)}`)
+      .join('\n\n');
+
+    const userMessage = [
+      '## Scene Data',
+      sceneContext,
+      '',
+      '## Recent History',
+      historyText || '(game start)',
+      '',
+      '## World Event',
+      '（背景世界事件在此刻觸發。請根據上方「Events This Turn」中的觸發內容，以沉浸式第二人稱描述正在發生的事，2–4句，語氣配合場景氛圍。' +
+      '請勿回應任何玩家行動。請勿輸出任何 <<>> 訊號標記。）',
+    ].join('\n');
+
+    yield* this.client.stream(DM_SYSTEM_PROMPT, [{ role: 'user', content: userMessage }]);
+  }
+
+  /**
    * Stream an NPC's response in a dialogue encounter.
    * npcContext: built by DialogueManager.buildNPCDialogueContext().
    */

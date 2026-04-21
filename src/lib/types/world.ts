@@ -348,6 +348,11 @@ export interface EventGrantItem {
 export interface EventOutcome {
   id: string;
   condition?: string;
+  /**
+   * 無條件 outcome 的抽選權重（僅在同一事件有多個無條件 outcome 時生效）。
+   * 預設為 1。有條件的 outcome 不受此欄位影響。
+   */
+  weight?: number;
   description: string;
   flagsSet?: string[];
   flagsUnset?: string[];
@@ -381,15 +386,8 @@ export interface GameEvent {
   description: string;
   outcomes: EventOutcome[];
   isRepeatable: boolean;
-  /**
-   * 若有此欄位，事件觸發時會在敘事框右上角閃現一個短暫提示。
-   * 沉默事件（背景旗標更新等）不需設此欄位。
-   */
-  /** 若有此欄位，觸發時以事件 name（或 id）為標題閃現短暫提示。沉默事件不設此欄位。 */
-  notification?: {
-    /** 'warning' = 琥珀色, 'danger' = 紅色, 省略 = 預設藍 */
-    color?: 'warning' | 'danger';
-  };
+  /** 若為 true，觸發時以事件 name（或 id）為標題閃現短暫提示。沉默事件不設此欄位。 */
+  notification?: boolean;
 }
 
 // ── Faction ──────────────────────────────────────────────────────

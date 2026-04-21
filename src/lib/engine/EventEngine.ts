@@ -230,11 +230,29 @@ export class EventEngine {
     };
   }
 
-  // Select the first outcome whose condition is met (or the first unconditional one).
+  // Select an outcome via weighted random:
+  // 1. Collect all conditional outcomes whose condition passes.
+  //    If any exist, weighted-random among them (conditions take priority over fallbacks).
+  // 2. Otherwise, weighted-random among all unconditional outcomes.
+  // weight defaults to 1 for all outcomes.
   private selectOutcome(event: GameEvent): EventOutcome | undefined {
-    return event.outcomes.find(
-      o => !o.condition || this.state.flags.evaluate(o.condition)
+    const pool = event.outcomes.filter(
+      o => o.condition && this.state.flags.evaluate(o.condition)
     );
+    const candidates = pool.length > 0
+      ? pool
+      : event.outcomes.filter(o => !o.condition);
+
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+
+    const total = candidates.reduce((sum, o) => sum + (o.weight ?? 1), 0);
+    let roll = Math.random() * total;
+    for (const o of candidates) {
+      roll -= o.weight ?? 1;
+      if (roll <= 0) return o;
+    }
+    return candidates[candidates.length - 1];
   }
 
   private applyOutcome(outcome: EventOutcome): void {

@@ -284,16 +284,15 @@ export const questCompletionBanner = writable<string | null>(null);
 
 export interface EventToastState {
   label: string;
-  color?: 'warning' | 'danger';
 }
 
 export const eventToast = writable<EventToastState | null>(null);
 
 let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function showEventToast(label: string, color?: 'warning' | 'danger'): void {
+export function showEventToast(label: string): void {
   if (_toastTimer) clearTimeout(_toastTimer);
-  eventToast.set({ label, color });
+  eventToast.set({ label });
   _toastTimer = setTimeout(() => {
     eventToast.set(null);
     _toastTimer = null;

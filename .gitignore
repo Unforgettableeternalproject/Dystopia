@@ -39,3 +39,4 @@ CLAUDE.md
 # Local
 docs/hidden/*
 scripts/*
+*.db

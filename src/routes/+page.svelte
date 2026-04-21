@@ -33,6 +33,7 @@
   let saveMenuOpen = false;
   let showCloseConfirm = false;
   let debugPanelOpen = false;
+  $: if (!$isDebugMode) debugPanelOpen = false;
 
   // Auto-dismiss the quest completion banner after 3.5 s
   let _bannerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -56,7 +57,7 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
       e.preventDefault();
-      if ($gamePhase === 'playing') debugPanelOpen = !debugPanelOpen;
+      if ($gamePhase === 'playing' && $isDebugMode) debugPanelOpen = !debugPanelOpen;
     }
   }
 
