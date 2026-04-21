@@ -2,6 +2,8 @@
   import { playerUI } from '$lib/stores/gameStore';
   import MiniMap    from './MiniMap.svelte';
   import RegionMap  from './RegionMap.svelte';
+  import { fly }    from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
 
   const PHASE_LABEL: Record<string, string> = {
     grace_period: '寬限期',
@@ -37,6 +39,21 @@
       </div>
     {/if}
   </div>
+
+  <!-- Faction reputation (appears on first reputation change) -->
+  {#if $playerUI.topFactions && $playerUI.topFactions.length > 0}
+    <div class="faction-section" in:fly={{ y: -10, duration: 350, easing: cubicOut }}>
+      <span class="section-header">派系</span>
+      {#each $playerUI.topFactions as f}
+        <div class="faction-row">
+          <span class="faction-name">{f.name}</span>
+          <span class="faction-rep" class:pos={f.rep > 0} class:neg={f.rep < 0}>
+            {f.rep > 0 ? '+' : ''}{f.rep}
+          </span>
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Spacer pushes phase to bottom -->
   <div class="flex-spacer"></div>
@@ -111,6 +128,54 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  /* ── Faction ─────────────────────────────────────── */
+  @keyframes faction-reveal {
+    0%   {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 10px 2px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+    65%  {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 10px 2px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+    100% {
+      border-color: var(--border);
+      box-shadow: none;
+    }
+  }
+
+  .faction-section {
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    animation: faction-reveal 2.2s ease-out 1 forwards;
+  }
+
+  .faction-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+  }
+
+  .faction-name {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .faction-rep {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .faction-rep.pos { color: #4a7a4a; }
+  .faction-rep.neg { color: var(--accent-red); }
 
   /* ── Spacer + phase ─────────────────────────────── */
   .flex-spacer { flex: 1; }

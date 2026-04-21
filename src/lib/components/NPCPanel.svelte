@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { activeNpcUI } from '$lib/stores/gameStore';
+  import { activeNpcUI, activeScriptedDialogue, isStreaming } from '$lib/stores/gameStore';
+
+  export let onLeave: () => void = () => {};
 
   const ATTITUDE_COLOR: Record<string, string> = {
     friendly: '#4a7a4a',
@@ -63,6 +65,13 @@
         </div>
       {/if}
     </div>
+
+    <!-- Exit button: hidden during scripted dialogue, disabled while DM is streaming -->
+    {#if !$activeScriptedDialogue}
+      <div class="exit-section">
+        <button class="exit-btn" on:click={onLeave} disabled={$isStreaming}>結束對話</button>
+      </div>
+    {/if}
   </aside>
 {/if}
 
@@ -165,4 +174,35 @@
 
   .rel-val.pos { color: #4a7a4a; }
   .rel-val.neg { color: var(--accent-red); }
+
+  /* Exit */
+  .exit-section {
+    padding: 8px 10px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+  }
+
+  .exit-btn {
+    width: 100%;
+    padding: 5px 0;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.12s, color 0.12s;
+  }
+
+  .exit-btn:hover:not(:disabled) {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+  }
+
+  .exit-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
 </style>

@@ -273,6 +273,7 @@ export class DMAgent {
     npcContext: string,
     sessionLog: DialogueLogEntry[],
     playerInput: string,
+    options?: { wrapUp?: boolean },
   ): AsyncGenerator<string> {
     const logText = sessionLog
       .map(e => (e.speaker === 'player' ? 'Player: ' : 'NPC: ') + e.text)
@@ -283,7 +284,7 @@ export class DMAgent {
       ? '## 情況\nNPC 主動開口。腳本段落剛結束，或遭遇剛開始。NPC 先說話，勿等待玩家。'
       : `## Player Said\n${playerInput}`;
 
-    const userMessage = [
+    const parts = [
       '## NPC Profile',
       npcContext,
       '',
@@ -291,9 +292,17 @@ export class DMAgent {
       logText || '(conversation just started)',
       '',
       playerSection,
-    ].join('\n');
+    ];
 
-    yield* this.client.stream(buildEncounterPrompt('dialogue'), [{ role: 'user', content: userMessage }]);
+    if (options?.wrapUp) {
+      parts.push(
+        '',
+        '## 系統提示',
+        '對話已進行多輪。請在本回應中自然收尾，說一句合理的場面話或告別語，並在結尾加上 <<END_ENCOUNTER>>。',
+      );
+    }
+
+    yield* this.client.stream(buildEncounterPrompt('dialogue'), [{ role: 'user', content: parts.join('\n') }]);
   }
 
   /**

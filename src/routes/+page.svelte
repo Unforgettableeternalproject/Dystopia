@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questCompletionBanner, statCheckOverlay } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, questCompletionBanner, statCheckOverlay } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -18,6 +18,7 @@
   import SelfCheckModal    from '$lib/components/SelfCheckModal.svelte';
   import InventoryModal    from '$lib/components/InventoryModal.svelte';
   import QuestDetailModal  from '$lib/components/QuestDetailModal.svelte';
+  import QuestListModal    from '$lib/components/QuestListModal.svelte';
   import TitleScreen          from '$lib/components/TitleScreen.svelte';
   import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
   import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
@@ -312,7 +313,7 @@
     </div>
 
     {#if $activeNpcUI}
-      <NPCPanel />
+      <NPCPanel onLeave={() => controller.exitDialogue()} />
     {/if}
 
     <PlayerPanel />
@@ -327,6 +328,10 @@
 
 {#if $inventoryOpen}
   <InventoryModal />
+{/if}
+
+{#if $questListOpen}
+  <QuestListModal />
 {/if}
 
 {#if $questDetailOpen}

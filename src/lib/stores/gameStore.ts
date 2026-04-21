@@ -129,6 +129,15 @@ export interface PlayerUIState {
     stageSummary: string;
     objectives: Array<{ id: string; description: string; completed: boolean }>;
   }>;
+  /** Full list (all active quests, not capped at 3). Used by the quest list modal. */
+  allActiveQuestSummaries?: Array<{
+    questId:    string;
+    name:       string;
+    type:       QuestType;
+    stageSummary: string;
+    objectives: Array<{ id: string; description: string; completed: boolean }>;
+  }>;
+  totalActiveQuestCount?: number;
   conditions?:      Array<{ label: string }>;
   melphin?:         number;
   /** Structured data for the SVG mini-map (current area). */
@@ -275,7 +284,10 @@ export const isSaving      = writable(false);
 
 // Quest detail modal — set to a quest summary to open, null to close
 export type QuestDetailEntry = NonNullable<PlayerUIState['activeQuestSummaries']>[number];
-export const questDetailOpen    = writable<QuestDetailEntry | null>(null);
+export const questDetailOpen = writable<QuestDetailEntry | null>(null);
+
+// Quest list modal — shows all active quests when sidebar is capped at 3
+export const questListOpen = writable(false);
 
 // Quest completion banner — set to quest name to trigger, cleared by the banner component
 export const questCompletionBanner = writable<string | null>(null);

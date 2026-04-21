@@ -1,14 +1,57 @@
 <script lang="ts">
   import type { GameController } from '$lib/engine/GameController';
+  import { playerUI, detailedPlayer } from '$lib/stores/gameStore';
 
   export let controller: GameController;
   export let onClose: () => void;
 
-  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag';
+  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player';
   let activeTab: Tab = 'encounter';
   let filter = '';
   let flagInput = '';
   let flagAction: 'set' | 'unset' = 'set';
+
+  // -- Player state tab --------------------------------------------------
+  let targetYear   = 1498;
+  let targetMonth  = 6;
+  let targetDay    = 12;
+  let targetHour   = 21;
+  let targetMinute = 23;
+  let melphinInput = 0;
+
+  // Stat inputs keyed by dotPath
+  let statInputs: Record<string, number> = {};
+
+  function initStatInputs() {
+    const dp = $detailedPlayer;
+    if (!dp) return;
+    for (const [k, v] of Object.entries(dp.statusStats))   statInputs['statusStats.'   + k] = v;
+    for (const [k, v] of Object.entries(dp.primaryStats))  statInputs['primaryStats.'  + k] = v;
+    for (const [k, v] of Object.entries(dp.secondaryStats)) statInputs['secondaryStats.' + k] = v;
+    melphinInput = $playerUI.melphin ?? 0;
+    const t = controller.debugGetCurrentTime();
+    targetYear = t.year; targetMonth = t.month; targetDay = t.day;
+    targetHour = t.hour; targetMinute = t.minute;
+  }
+
+  function applyStatSet(dotPath: string) {
+    const val = statInputs[dotPath];
+    if (val === undefined || isNaN(val)) return;
+    controller.debugSetStat(dotPath, Math.max(0, Math.floor(val)));
+  }
+
+  const STATUS_LABELS: Record<string, string> = {
+    stamina: '體力', staminaMax: '體力上限',
+    stress: '壓力', stressMax: '壓力上限',
+    endo: 'Endo', endoMax: 'Endo 上限',
+    experience: '經驗',
+  };
+  const PRIMARY_LABELS: Record<string, string> = {
+    strength: '力量', knowledge: '知識', talent: '才能', spirit: '靈性', luck: '運氣',
+  };
+  const SECONDARY_LABELS: Record<string, string> = {
+    consciousness: '意識', mysticism: '神秘', technology: '技術',
+  };
 
   const catalog = controller.getDebugCatalog();
 
@@ -19,6 +62,7 @@
     quest:     `任務 (${catalog.quests.length})`,
     location:  `地點 (${catalog.locations.length})`,
     flag:      '旗標',
+    player:    '玩家狀態',
   };
 
   $: q = filter.toLowerCase();
@@ -218,6 +262,134 @@
               印出當前場景 Context（探索模式）
             </button>
           </div>
+        </div>
+
+      {:else if activeTab === 'player'}
+        <div class="player-panel-debug">
+
+          <!-- ── 時間調整 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 時間調整</div>
+            <div class="player-section">
+              <div class="time-row">
+                <label class="time-field wide">
+                  <span class="time-field-label">年</span>
+                  <input class="num-input wide" type="number" min="1498" max="1504" bind:value={targetYear} />
+                </label>
+                <label class="time-field">
+                  <span class="time-field-label">月</span>
+                  <input class="num-input" type="number" min="1" max="12" bind:value={targetMonth} />
+                </label>
+                <label class="time-field">
+                  <span class="time-field-label">日</span>
+                  <input class="num-input" type="number" min="1" max="31" bind:value={targetDay} />
+                </label>
+              </div>
+              <div class="time-row" style="margin-top:5px">
+                <label class="time-field">
+                  <span class="time-field-label">時</span>
+                  <input class="num-input" type="number" min="0" max="23" bind:value={targetHour} />
+                </label>
+                <label class="time-field">
+                  <span class="time-field-label">分</span>
+                  <input class="num-input" type="number" min="0" max="59" bind:value={targetMinute} />
+                </label>
+                <button class="trigger-btn" style="margin-left:auto" on:click={() => controller.debugSetTime(
+                  Math.max(1498,Math.min(1504,Math.floor(targetYear))),
+                  Math.max(1,Math.min(12,Math.floor(targetMonth))),
+                  Math.max(1,Math.min(31,Math.floor(targetDay))),
+                  Math.max(0,Math.min(23,Math.floor(targetHour))),
+                  Math.max(0,Math.min(59,Math.floor(targetMinute)))
+                )}>
+                  跳到
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 角色數值 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 角色數值</div>
+
+            <!-- Status stats -->
+            <div class="player-section">
+              <div class="player-section-label">狀態數值</div>
+              {#each Object.entries(STATUS_LABELS) as [key, label]}
+                <div class="stat-edit-row">
+                  <span class="stat-edit-label">{label}</span>
+                  <input
+                    class="num-input"
+                    type="number"
+                    min="0"
+                    bind:value={statInputs['statusStats.' + key]}
+                    on:focus={initStatInputs}
+                  />
+                  <button class="trigger-btn small" on:click={() => applyStatSet('statusStats.' + key)}>套用</button>
+                </div>
+              {/each}
+            </div>
+
+            <!-- Primary stats -->
+            <div class="player-section">
+              <div class="player-section-label">主要屬性</div>
+              {#each Object.entries(PRIMARY_LABELS) as [key, label]}
+                <div class="stat-edit-row">
+                  <span class="stat-edit-label">{label}</span>
+                  <input
+                    class="num-input"
+                    type="number"
+                    min="0"
+                    bind:value={statInputs['primaryStats.' + key]}
+                    on:focus={initStatInputs}
+                  />
+                  <button class="trigger-btn small" on:click={() => applyStatSet('primaryStats.' + key)}>套用</button>
+                </div>
+              {/each}
+            </div>
+
+            <!-- Secondary stats -->
+            <div class="player-section">
+              <div class="player-section-label">次要屬性</div>
+              {#each Object.entries(SECONDARY_LABELS) as [key, label]}
+                <div class="stat-edit-row">
+                  <span class="stat-edit-label">{label}</span>
+                  <input
+                    class="num-input"
+                    type="number"
+                    min="0"
+                    bind:value={statInputs['secondaryStats.' + key]}
+                    on:focus={initStatInputs}
+                  />
+                  <button class="trigger-btn small" on:click={() => applyStatSet('secondaryStats.' + key)}>套用</button>
+                </div>
+              {/each}
+            </div>
+
+            <!-- Melphin -->
+            <div class="player-section">
+              <div class="player-section-label">所持金額</div>
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">Melphin ₘ</span>
+                <input
+                  class="num-input"
+                  type="number"
+                  min="0"
+                  bind:value={melphinInput}
+                  on:focus={initStatInputs}
+                />
+                <button class="trigger-btn small" on:click={() => controller.debugSetMelphin(Math.max(0, Math.floor(melphinInput)))}>套用</button>
+              </div>
+            </div>
+
+            <!-- Init button -->
+            <div class="player-section">
+              <button class="trigger-btn secondary" style="width:100%" on:click={initStatInputs}>
+                從當前狀態填入數值
+              </button>
+            </div>
+
+          </div>
+
         </div>
       {/if}
 
@@ -490,5 +662,99 @@
     color: var(--text-dim);
     margin: 0;
     line-height: 1.5;
+  }
+
+  /* Player state tab */
+  .debug-group {
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 0;
+  }
+
+  .debug-group-header {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: #5fa8d3;
+    padding: 6px 14px 4px;
+    background: color-mix(in srgb, #5fa8d3 5%, var(--bg-secondary));
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+
+  .player-panel-debug {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+  }
+
+  .player-section {
+    padding: 8px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .player-section-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .time-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .time-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .time-field-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .stat-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat-edit-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 60px;
+  }
+
+  .num-input {
+    width: 64px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    outline: none;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .num-input.wide { width: 80px; }
+  .time-field.wide { flex: 1; }
+
+  .num-input:focus {
+    border-color: #5fa8d3;
+  }
+
+  .trigger-btn.small {
+    font-size: 9px;
+    padding: 2px 7px;
   }
 </style>

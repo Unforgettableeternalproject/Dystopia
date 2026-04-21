@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, isSaving } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, isSaving } from '$lib/stores/gameStore';
 
   $: inScriptedDialogue = $activeScriptedDialogue !== null;
   $: inEncounter        = $activeNpcUI !== null;
+  $: inEventEncounter   = $activeEncounterUI !== null;
 
   export let onSubmit: (input: string) => void;
 
@@ -45,12 +46,14 @@
     <input
       bind:value={inputValue}
       on:keydown={handleKeydown}
-      disabled={$inputDisabled || $isStreaming || inScriptedDialogue}
+      disabled={$inputDisabled || $isStreaming || inScriptedDialogue || inEventEncounter}
       placeholder={inScriptedDialogue
         ? '對話進行中...'
-        : inEncounter
-          ? `對 ${$activeNpcUI?.name} 說...`
-          : $isStreaming ? '' : '輸入行動...'}
+        : inEventEncounter
+          ? '請從選項中做出選擇...'
+          : inEncounter
+            ? `對 ${$activeNpcUI?.name} 說...`
+            : $isStreaming ? '' : '輸入行動...'}
       class="text-input"
       autocomplete="off"
       spellcheck="false"
@@ -61,7 +64,7 @@
     <button
       class="submit-btn"
       on:click={handleSubmit}
-      disabled={$inputDisabled || $isStreaming || inScriptedDialogue || !inputValue.trim()}
+      disabled={$inputDisabled || $isStreaming || inScriptedDialogue || inEventEncounter || !inputValue.trim()}
       aria-label="送出"
     >
       ↵

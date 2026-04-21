@@ -75,6 +75,9 @@ export class GameController {
   /** ID of the region the player is currently in. Updated on region change. */
   private currentRegionId = 'crambell';
 
+  /** Maximum NPC dialogue turns before controller forces a wrap-up. */
+  private static readonly MAX_DIALOGUE_TURNS = 8;
+
   private starterConfig: StarterConfig | null = null;
 
   /** Track which quests were active last sync to detect newly-completed quests. */
@@ -196,6 +199,11 @@ export class GameController {
     //    (guard: skip if scripted dialogue is currently showing choices)
     const currentEncounter = get(activeNpcUI);
     if (currentEncounter && !get(activeScriptedDialogue)) {
+      if (this.detectLeaveIntent(input.trim())) {
+        await this.forceCloseDialogue(currentEncounter.npcId);
+        inputDisabled.set(false);
+        return;
+      }
       await this.handleDialogueInput(input.trim(), currentEncounter.npcId);
       inputDisabled.set(false);
       return;
@@ -263,13 +271,24 @@ export class GameController {
     this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
     const crossedHours   = this.timeMgr.computeCrossedHours(initialTime, newTime);
 
+    // Guard: Day 0 suppression.
+    // The player starts mid-day-zero (e.g., 21:43). No lore events fire until the clock
+    // first crosses midnight (hour 0), which marks the start of Day 1.
+    // forceEvent() (debug) bypasses this guard independently.
+    if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
+      this.state.flags.set('game_day1_started');
+    }
+    const eventsEnabled = this.state.flags.has('game_day1_started');
+
     // 3. Check global events (period transitions, broadcasts, hour-based triggers)
-    const globalTriggered = this.events.checkGlobalEvents(this.currentRegionId, crossedHours);
+    const globalTriggered = eventsEnabled
+      ? this.events.checkGlobalEvents(this.currentRegionId, crossedHours)
+      : [];
 
     // 3.5. Check location events
-    const locationTriggered = this.events.checkAndApply(
-      this.state.getState().player.currentLocationId, crossedHours,
-    );
+    const locationTriggered = eventsEnabled
+      ? this.events.checkAndApply(this.state.getState().player.currentLocationId, crossedHours)
+      : [];
     const triggered = [...globalTriggered, ...locationTriggered];
 
     const eventEncounter = this.processTriggeredEvents(triggered);
@@ -322,7 +341,13 @@ export class GameController {
       // Fire time-based global events for any additional hours crossed during extended sleep
       const extraCrossed = this.timeMgr.computeCrossedHours(lateStartTime, laterTime);
       if (extraCrossed.length > 0) {
-        const lateTriggered = this.events.checkGlobalEvents(this.currentRegionId, extraCrossed);
+        // Also check for first midnight crossing during extended sleep
+        if (!this.state.flags.has('game_day1_started') && extraCrossed.includes(0)) {
+          this.state.flags.set('game_day1_started');
+        }
+        const lateTriggered = this.state.flags.has('game_day1_started')
+          ? this.events.checkGlobalEvents(this.currentRegionId, extraCrossed)
+          : [];
         const lateEventEncounter = this.processTriggeredEvents(lateTriggered);
 
         if (lateTriggered.length > 0) {
@@ -933,10 +958,7 @@ export class GameController {
       suggestions = thoughtsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3);
     }
 
-    const preParsed = fullText
-      .replace(/<<TIME:\s*\d+>>\s*\n?/gi, '')
-      .replace(/<<THOUGHTS:[^>]+?>>\s*\n?/gi, '')
-      .trimEnd();
+    const preParsed = this.sanitizeDMOutput(fullText);
 
     // 1. Parse and apply DM flag signals
     const proxCtx = this.buildProximityContext(this.state.getState());
@@ -978,8 +1000,11 @@ export class GameController {
       .replace(/\n{3,}/g, '\n\n')
       .trimEnd();
 
-    // Apply MOVE signal — validate via findPath so multi-hop navigation is supported.
-    if (moveTarget) {
+    // Apply MOVE signal — only for actual movement actions.
+    // Guard on action.type prevents spurious MOVE signals emitted by the DM during
+    // examine/talk turns (e.g. player asks "what places are nearby?" and the DM
+    // mistakenly signals an exit it just described).
+    if (moveTarget && action.type === 'move') {
       const gs = this.state.getState();
       const discovered = new Set(gs.discoveredLocationIds);
       // Always include current location as traversable even if not yet in discovered list.
@@ -1042,6 +1067,44 @@ export class GameController {
    * @param opener  true = NPC opens conversation (post-scripted or encounter start), skip scripted
    *                trigger re-check and don't log a player line.
    */
+  /**
+   * Detect whether the player's input expresses clear intent to leave the conversation.
+   * Patterns must be unambiguous — avoid bare words that appear in normal questions
+   * (e.g. "離開" alone would match "離開這裡要多久？").
+   */
+  private detectLeaveIntent(input: string): boolean {
+    const patterns = [
+      /告辭/, /我先走/, /我走了/, /我得走/, /先告辭/, /不打擾/, /我回去了/, /再見/, /掰掰/,
+      /\bbye\b/i, /\bgoodbye\b/i, /\bfarewell\b/i,
+    ];
+    return patterns.some(p => p.test(input));
+  }
+
+  /**
+   * Immediately close the NPC dialogue without waiting for DM.
+   * Used when player expresses clear leave intent or clicks the exit button.
+   */
+  async forceCloseDialogue(npcId: string): Promise<void> {
+    const npc  = this.lore.getNPC(npcId);
+    const name = npc?.name ?? 'NPC';
+    pushLine(`（你結束了與 ${name} 的對話。）`, 'system');
+    this.state.appendHistory(
+      { type: 'interact', input: `（與 ${name} 交談）`, targetId: npcId },
+      '（對話結束）',
+    );
+    activeNpcUI.set(null);
+    encounterSessionLog.set([]);
+    this.syncUIState(this.state.getState());
+    await this.refreshThoughts([]);
+  }
+
+  /** Public alias for the UI exit button in NPCPanel. */
+  exitDialogue(): void {
+    const enc = get(activeNpcUI);
+    if (!enc) return;
+    void this.forceCloseDialogue(enc.npcId);
+  }
+
   private async handleDialogueInput(text: string, npcId: string, opener = false): Promise<void> {
     const npc = this.lore.getNPC(npcId);
     if (!npc) {
@@ -1067,6 +1130,11 @@ export class GameController {
     // Snapshot log BEFORE appending current player turn (playerInput is passed separately to DM)
     const sessionLog = get(encounterSessionLog) as DialogueLogEntry[];
 
+    // Turn budget: each completed turn = 2 log entries (player + NPC).
+    // On the second-to-last turn, hint DM to wrap up; after max turns, force-close.
+    const completedTurns = Math.floor(sessionLog.length / 2);
+    const wrapUp = completedTurns >= GameController.MAX_DIALOGUE_TURNS - 1;
+
     // Stream DM dialogue response — start line with NPC name prefix (DM formats 「」 itself)
     isStreaming.set(true);
     pushLine(npc.name + '：', 'dialogue', true);
@@ -1075,7 +1143,7 @@ export class GameController {
     let signalCutoff = -1;
     let streamError  = false;
     try {
-      for await (const chunk of this.dm.narrateDialogue(npcContext, sessionLog, text)) {
+      for await (const chunk of this.dm.narrateDialogue(npcContext, sessionLog, text, { wrapUp })) {
         const prevLen = fullText.length;
         fullText += chunk;
         if (signalCutoff === -1) {
@@ -1099,6 +1167,10 @@ export class GameController {
 
     if (streamError) return;
 
+    // Guard: if the encounter was force-closed during streaming (e.g. player clicked exit),
+    // discard the in-flight response and do not reopen the NPC panel.
+    if (get(activeNpcUI) === null) return;
+
     // Extract TIME and THOUGHTS before signal parsing
     let signaledMinutes: number | null = null;
     const timeMatch = /<<TIME:\s*(\d+)>>/i.exec(fullText);
@@ -1110,10 +1182,7 @@ export class GameController {
       suggestions = thoughtsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3);
     }
 
-    const preParsed = fullText
-      .replace(/<<TIME:\s*\d+>>\s*\n?/gi, '')
-      .replace(/<<THOUGHTS:[^>]+?>>\s*\n?/gi, '')
-      .trimEnd();
+    const preParsed = this.sanitizeDMOutput(fullText);
 
     // Parse flag signals
     const proxCtx = this.buildProximityContext(this.state.getState());
@@ -1163,14 +1232,21 @@ export class GameController {
     // Handle natural encounter end — must happen BEFORE updateActiveNpcUI to prevent
     // interaction count increment from triggering a scripted dialogue restart.
     // Append ONE compact summary entry for the entire encounter (not per-turn).
-    if (dialogueSignals.endEncounter) {
+    const forceClose = !dialogueSignals.endEncounter
+      && Math.floor(get(encounterSessionLog).length / 2) >= GameController.MAX_DIALOGUE_TURNS;
+
+    if (dialogueSignals.endEncounter || forceClose) {
+      if (forceClose) {
+        log.info('Dialogue force-closed: turn budget exhausted', { npcId });
+      } else {
+        log.info('Encounter ended naturally', { npcId });
+      }
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
       this.state.appendHistory(
         { type: 'interact', input: `（與 ${npc.name} 交談）`, targetId: npcId },
         cleanNarrative.slice(0, 200),
       );
-      log.info('Encounter ended naturally', { npcId });
     } else {
       // Refresh NPC panel with updated affinity/attitude only if encounter is still active
       this.updateActiveNpcUI(npcId);
@@ -1438,6 +1514,23 @@ export class GameController {
     inputDisabled.set(false);
   }
 
+  /**
+   * Normalise raw DM output before signal parsing.
+   * Strips known meta-tokens (TIME, THOUGHTS) and malformed pseudo-signals
+   * such as 》(stage direction) or >>(stage direction) that some models emit
+   * in place of the expected <<SIGNAL>> format.
+   */
+  private sanitizeDMOutput(text: string): string {
+    return text
+      // Legitimate signals handled separately — strip scheduling meta-tokens
+      .replace(/<<TIME:\s*\d+>>\s*\n?/gi, '')
+      .replace(/<<THOUGHTS:[^>]+?>>\s*\n?/gi, '')
+      // Malformed pseudo-signals: 》(...) or >>(...)  — fullwidth or ASCII angle brackets
+      // followed by a parenthetical in either half-width () or fullwidth （）
+      .replace(/[》»]{1,2}[（(][^）)]*[）)]\s*/g, '')
+      .trimEnd();
+  }
+
   private async handleEncounterInput(_input: string): Promise<void> {
     pushLine('請選擇一個選項。', 'system');
   }
@@ -1515,9 +1608,8 @@ export class GameController {
         return { id: fid, name: f?.name ?? fid, rep };
       });
 
-    const activeQuestSummaries = Object.values(gs.activeQuests)
+    const allActiveQuestSummaries = Object.values(gs.activeQuests)
       .filter(q => !q.isCompleted && !q.isFailed && q.currentStageId)
-      .slice(0, 3)
       .flatMap(q => {
         const def   = this.lore.getQuest(q.questId);
         const stage = def?.stages[q.currentStageId!];
@@ -1534,6 +1626,7 @@ export class GameController {
           })),
         }];
       });
+    const activeQuestSummaries = allActiveQuestSummaries.slice(0, 3);
     log.debug('syncUIState quests', { count: activeQuestSummaries.length, summaries: activeQuestSummaries });
 
     // Detect newly completed quests and trigger banner notification
@@ -1655,7 +1748,9 @@ export class GameController {
       timePeriod:      this.timeMgr.formatPeriod(gs.timePeriod),
       topFactions:     topFactions.length > 0 ? topFactions : undefined,
       titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
-      activeQuestSummaries: activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
+      activeQuestSummaries:    activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
+      allActiveQuestSummaries: allActiveQuestSummaries.length > 0 ? allActiveQuestSummaries : undefined,
+      totalActiveQuestCount:   allActiveQuestSummaries.length > 0 ? allActiveQuestSummaries.length : undefined,
       conditions:      visibleConditions,
       melphin:         gs.player.melphin,
       miniMap,
@@ -1804,8 +1899,24 @@ export class GameController {
 
     const { npcId, npcName } = current;
 
-    // Increment NPC interaction count
+    // Increment NPC interaction count first — this creates npcMemory entry if first contact.
     this.state.recordNPCInteraction(npcId);
+
+    // Build a topic summary from the player choices recorded in collectedNarrative.
+    // "[玩家]: <choice text>" lines are appended by selectDialogueChoice().
+    const playerChoices = current.collectedNarrative
+      .split('\n')
+      .filter(l => l.startsWith('[玩家]:'))
+      .map(l => l.replace(/^\[玩家\]:\s*/, '').trim())
+      .filter(Boolean);
+
+    if (playerChoices.length > 0) {
+      const topicSummary = playerChoices.join('、');
+      // Persist as lastTopic so DM's npcContext reflects this scripted exchange
+      this.state.updateNPCDialogueState(npcId, topicSummary);
+      // Inject a boundary marker into the session log so the DM sees the transition clearly
+      appendEncounterLog('npc', `（劇情固定對話結束，話題：${topicSummary}）`);
+    }
 
     // Record to history for DM context in future turns
     this.state.appendHistory(
@@ -2060,6 +2171,77 @@ export class GameController {
       const ctx = this.buildSceneCtx([]);
       pushLine(`[Debug] 場景 context:\n\n${ctx}`, 'system');
     }
+  }
+
+  /**
+   * Set a player stat to an exact value by dot-path (e.g. "statusStats.stamina").
+   * Clamps at 0. Syncs UI immediately.
+   */
+  debugSetStat(dotPath: string, value: number): void {
+    const gs = this.state.getState();
+    const [group, stat] = dotPath.split('.');
+    const statsGroup = (gs.player as unknown as Record<string, Record<string, number>>)[group];
+    if (!statsGroup || !(stat in statsGroup)) return;
+    const delta = value - statsGroup[stat];
+    this.state.modifyStat(dotPath, delta);
+    this.syncUIState(this.state.getState());
+  }
+
+  /**
+   * Jump game time forward to a specific date + time (always advances, never goes back).
+   * Max date: 1504-12-31. Resolves the new time period from the region schedule and syncs UI.
+   */
+  debugSetTime(year: number, month: number, day: number, hour: number, minute: number): void {
+    const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const EPOCH_YEAR = 1498;
+    const MAX = { year: 1504, month: 12, day: 31 };
+
+    // Clamp to max date
+    if (year > MAX.year || (year === MAX.year && month > MAX.month) ||
+        (year === MAX.year && month === MAX.month && day > MAX.day)) {
+      year = MAX.year; month = MAX.month; day = MAX.day;
+    }
+    // Clamp month/day
+    month = Math.max(1, Math.min(12, month));
+    day   = Math.max(1, Math.min(DAYS_IN_MONTH[month], day));
+    hour   = Math.max(0, Math.min(23, hour));
+    minute = Math.max(0, Math.min(59, minute));
+
+    // Minutes since epoch (EPOCH_YEAR-01-01 00:00)
+    const toMins = (y: number, mo: number, d: number, h: number, mi: number): number => {
+      let days = 0;
+      for (let yr = EPOCH_YEAR; yr < y; yr++) days += 365;
+      for (let m = 1; m < mo; m++) days += DAYS_IN_MONTH[m];
+      days += d - 1;
+      return days * 1440 + h * 60 + mi;
+    };
+
+    const gs      = this.state.getState();
+    const cur     = gs.time;
+    const delta   = toMins(year, month, day, hour, minute)
+                  - toMins(cur.year, cur.month, cur.day, cur.hour, cur.minute);
+    if (delta <= 0) return; // target is in the past or same moment
+
+    const newTime   = this.timeMgr.advance(cur, delta);
+    const schedule  = this.lore.getSchedule(this.currentRegionId) ?? null;
+    const newPeriod = schedule
+      ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
+      : gs.timePeriod;
+    this.state.advanceTime(newTime, newPeriod);
+    this.syncUIState(this.state.getState());
+  }
+
+  /** Set melphin (currency) to an exact value. */
+  debugSetMelphin(value: number): void {
+    const gs = this.state.getState();
+    this.state.modifyMelphin(value - gs.player.melphin);
+    this.syncUIState(this.state.getState());
+  }
+
+  /** Return the current in-game date/time for debug display. */
+  debugGetCurrentTime(): { year: number; month: number; day: number; hour: number; minute: number } {
+    const { year, month, day, hour, minute } = this.state.getState().time;
+    return { year, month, day, hour, minute };
   }
 
   // -- Initial state ----------------------------------------------------

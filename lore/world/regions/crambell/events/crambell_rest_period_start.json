@@ -3,7 +3,7 @@
   "name": "報時鐘 — 休息時段",
   "_comment": "全域事件。休息時段開始時觸發一次（自我標記設計）。",
   "condition": {
-    "timePeriod": ["rest"],
+    "triggerHours": [18],
     "notFlags": ["crambell_rest_period_active"]
   },
   "description": "報時鐘再次鳴響，作業時段結束，進入休息時段。礦工們從礦坑和倉庫返回第四象限宿舍區，配額站燈號切換為紅色。",

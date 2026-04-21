@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen } from '$lib/stores/gameStore';
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -88,23 +88,16 @@
           <div class="quest-stage">{q.stageSummary}</div>
         </div>
       {/each}
+      {#if ($playerUI.totalActiveQuestCount ?? 0) > 3}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div class="quest-more" on:click={() => questListOpen.set(true)}>
+          查看全部 {$playerUI.totalActiveQuestCount} 個任務 ▸
+        </div>
+      {/if}
     </div>
   {/if}
 
-  <!-- Faction reputation -->
-  {#if $playerUI.topFactions && $playerUI.topFactions.length > 0}
-    <div class="section">
-      <div class="section-label">派系</div>
-      {#each $playerUI.topFactions as f}
-        <div class="faction-row">
-          <span class="faction-name">{f.name}</span>
-          <span class="faction-rep" class:pos={f.rep > 0} class:neg={f.rep < 0}>
-            {f.rep > 0 ? '+' : ''}{f.rep}
-          </span>
-        </div>
-      {/each}
-    </div>
-  {/if}
 
 </aside>
 
@@ -294,32 +287,6 @@
     letter-spacing: 0.02em;
   }
 
-  /* ── Faction ──────────────────────────────────────── */
-  .faction-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 3px;
-  }
-
-  .faction-name {
-    font-size: 10px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 90px;
-  }
-
-  .faction-rep {
-    font-size: 10px;
-    font-family: var(--font-mono);
-    color: var(--text-dim);
-  }
-
-  .faction-rep.pos { color: #4a7a4a; }
-  .faction-rep.neg { color: var(--accent-red); }
-
   /* ── Quests ───────────────────────────────────────── */
   .quest-row {
     margin-bottom: 6px;
@@ -369,5 +336,21 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .quest-more {
+    margin-top: 5px;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 2px;
+    transition: color 0.12s;
+    text-align: right;
+  }
+
+  .quest-more:hover {
+    color: var(--text-secondary);
   }
 </style>
