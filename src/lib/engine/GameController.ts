@@ -87,9 +87,6 @@ export class GameController {
 
   private starterConfig: StarterConfig | null = null;
 
-  /** Track which quests were active last sync to detect newly-completed quests. */
-  private _prevActiveQuestIds = new Set<string>();
-
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
     const auto = autoClients();
     this.mockMode = !config?.dm && !config?.regulator && !auto;
@@ -115,6 +112,10 @@ export class GameController {
     const doAutoSave = () => this.autoSave().catch(err => log.warn('Auto-save failed', err));
     this.bus.on(GameEvents.QUEST_COMPLETED,      doAutoSave);
     this.bus.on(GameEvents.GAME_EVENT_TRIGGERED, doAutoSave);
+    this.bus.on(GameEvents.QUEST_COMPLETED, ({ questId }: { questId: string }) => {
+      const def = this.lore.getQuest(questId);
+      if (def) questCompletionBanner.set(def.name);
+    });
 
   }
 
@@ -1088,8 +1089,14 @@ export class GameController {
       const discovered = new Set(gs.discoveredLocationIds);
       // Always include current location as traversable even if not yet in discovered list.
       discovered.add(gs.player.currentLocationId);
-      // Always include the move target so first-time arrivals are reachable.
-      // Intermediate nodes still require discovery (can't shortcut through unknown territory).
+      // Expand by one hop: neighbors of every discovered node are visible for routing.
+      // This lets the player move through undiscovered-but-adjacent intermediate nodes
+      // (e.g. dormitory_room → dormitory → patrol_zone when only dormitory_room is known).
+      for (const locId of [...discovered]) {
+        const loc = this.lore.resolveLocation(locId, this.state.flags);
+        if (loc) for (const conn of loc.connections) discovered.add(conn.targetLocationId);
+      }
+      // Always include the destination regardless of discovery distance.
       discovered.add(moveTarget);
 
       const pathResult = this.lore.findPath(
@@ -1108,6 +1115,8 @@ export class GameController {
       );
 
       if (pathResult) {
+        // Discover all intermediate nodes traversed on the path.
+        for (const nodeId of pathResult.path) this.state.discoverLocation(nodeId);
         this.state.movePlayer(moveTarget);
         // For multi-hop paths, override TIME with the computed path cost so in-game
         // time accurately reflects the full journey (DM may only estimate one hop).
@@ -1716,23 +1725,6 @@ export class GameController {
       });
     const activeQuestSummaries = allActiveQuestSummaries.slice(0, 3);
     log.debug('syncUIState quests', { count: activeQuestSummaries.length, summaries: activeQuestSummaries });
-
-    // Detect newly completed quests and trigger banner notification
-    const currentActiveIds = new Set(
-      Object.values(gs.activeQuests)
-        .filter(q => !q.isCompleted && !q.isFailed)
-        .map(q => q.questId)
-    );
-    for (const prevId of this._prevActiveQuestIds) {
-      if (!currentActiveIds.has(prevId)) {
-        const inst = gs.activeQuests[prevId];
-        if (inst?.isCompleted) {
-          const def = this.lore.getQuest(prevId);
-          if (def) questCompletionBanner.set(def.name);
-        }
-      }
-    }
-    this._prevActiveQuestIds = currentActiveIds;
 
     // Build mini-map data (current area + sublocations)
     const currentLocId   = gs.player.currentLocationId;

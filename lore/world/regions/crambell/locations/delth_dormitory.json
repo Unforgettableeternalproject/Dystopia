@@ -18,7 +18,11 @@
       },
       {
         "targetLocationId": "delth_mine_path",
-        "description": "往礦場的通道，只在早上開放"
+        "description": "往礦場的通道，只在早上開放",
+        "access": {
+          "timePeriods": ["morning"],
+          "lockedMessage": "通往礦場的通道只在早上開放，現在已经關閉了。"
+        }
       }
     ],
     "npcIds": [],

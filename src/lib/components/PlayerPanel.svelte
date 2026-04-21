@@ -4,7 +4,31 @@
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
     : '?';
+
+  const statDefs: Record<string, { name: string; desc: string }> = {
+    sta: { name: '體力　Stamina', desc: '代表你能持續行動的能耐。\n降至 0 將無法繼續行動。' },
+    str: { name: '壓力　Stress',  desc: '心理承受的負擔。\n過高會影響判斷，崩潰時觸發危機狀態。' },
+    end: { name: '靈能　Endo',    desc: '特殊能力的驅動燃料。\n耗盡時無法使用靈能技能。' },
+  };
+
+  let activeStatPopup: { key: string; name: string; desc: string; px: number; py: number } | null = null;
+
+  function toggleStatPopup(e: MouseEvent, key: string) {
+    e.stopPropagation();
+    if (activeStatPopup?.key === key) { activeStatPopup = null; return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    activeStatPopup = {
+      key,
+      ...statDefs[key],
+      px: rect.left,
+      py: rect.top,
+    };
+  }
+
+  function closeStatPopup() { activeStatPopup = null; }
 </script>
+
+<svelte:window on:click={closeStatPopup} />
 
 <aside class="player-panel">
 
@@ -26,7 +50,9 @@
     <div class="section-label">狀態</div>
     <div class="stats">
       <div class="stat-row" class:flash-good={$barFlash.stamina === 'good'} class:flash-bad={$barFlash.stamina === 'bad'}>
-        <span class="stat-label has-tooltip" data-tooltip="體力 Stamina&#10;代表你能持續行動的能耐。&#10;降至 0 將無法繼續行動。">STA</span>
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <span class="stat-label clickable" class:active={activeStatPopup?.key === 'sta'} on:click={(e) => toggleStatPopup(e, 'sta')}>STA</span>
         <div class="bar-wrap">
           <div class="bar stamina" style="width:{$staminaPercent}%"></div>
         </div>
@@ -34,7 +60,9 @@
       </div>
 
       <div class="stat-row" class:flash-good={$barFlash.stress === 'good'} class:flash-bad={$barFlash.stress === 'bad'}>
-        <span class="stat-label has-tooltip" data-tooltip="壓力 Stress&#10;心理承受的負擔。&#10;過高會影響判斷，崩潰時觸發危機狀態。">STR</span>
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <span class="stat-label clickable" class:active={activeStatPopup?.key === 'str'} on:click={(e) => toggleStatPopup(e, 'str')}>STR</span>
         <div class="bar-wrap">
           <div class="bar stress" style="width:{$stressPercent}%"></div>
         </div>
@@ -42,7 +70,9 @@
       </div>
 
       <div class="stat-row" class:flash-good={$barFlash.endo === 'good'} class:flash-bad={$barFlash.endo === 'bad'}>
-        <span class="stat-label has-tooltip" data-tooltip="靈能 Endo&#10;特殊能力的驅動燃料。&#10;耗盡時無法使用靈能技能。">END</span>
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <span class="stat-label clickable" class:active={activeStatPopup?.key === 'end'} on:click={(e) => toggleStatPopup(e, 'end')}>END</span>
         <div class="bar-wrap">
           <div class="bar endo" style="width:{$endoPercent}%"></div>
         </div>
@@ -98,8 +128,20 @@
     </div>
   {/if}
 
-
 </aside>
+
+{#if activeStatPopup}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    class="stat-popup"
+    style="top:{Math.max(4, activeStatPopup.py - 10)}px; right:{Math.max(4, window.innerWidth - activeStatPopup.px + 8)}px;"
+    on:click|stopPropagation
+  >
+    <div class="stat-popup-name">{activeStatPopup.name}</div>
+    <div class="stat-popup-desc">{activeStatPopup.desc}</div>
+  </div>
+{/if}
 
 <style>
   .player-panel {
@@ -109,8 +151,6 @@
     overflow-y: auto;
     border-left: 1px solid var(--border);
     background: var(--bg-secondary);
-    position: relative;
-    z-index: 20;
   }
 
   /* ── Identity ─────────────────────────────────────── */
@@ -203,37 +243,16 @@
     width: 24px;
     flex-shrink: 0;
     text-align: right;
-    position: relative;
   }
 
-  .stat-label.has-tooltip {
-    cursor: help;
+  .stat-label.clickable {
+    cursor: pointer;
+    transition: color 0.12s;
   }
 
-  .stat-label.has-tooltip::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 5px);
-    left: 0;
-    white-space: pre;
-    background: var(--bg-primary, #111);
-    border: 1px solid var(--border-accent, #444);
-    color: var(--text-secondary, #ccc);
-    font-size: 9px;
-    line-height: 1.6;
-    letter-spacing: 0.02em;
-    padding: 5px 8px;
-    border-radius: 3px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    z-index: 9999;
-    width: max-content;
-    max-width: 180px;
-  }
-
-  .stat-label.has-tooltip:hover::after {
-    opacity: 1;
+  .stat-label.clickable:hover,
+  .stat-label.clickable.active {
+    color: var(--text-secondary);
   }
 
   .bar-wrap {
@@ -411,5 +430,39 @@
 
   .quest-more:hover {
     color: var(--text-secondary);
+  }
+
+  /* ── Stat info popup ──────────────────────────────── */
+  .stat-popup {
+    position: fixed;
+    background: var(--bg-primary, #111);
+    border: 1px solid var(--border-accent, #444);
+    border-radius: 4px;
+    padding: 8px 10px;
+    z-index: 9999;
+    pointer-events: auto;
+    animation: popupIn 0.1s ease-out;
+    max-width: 200px;
+  }
+
+  @keyframes popupIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat-popup-name {
+    font-size: 10px;
+    color: var(--text-primary, #eee);
+    letter-spacing: 0.05em;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+
+  .stat-popup-desc {
+    font-size: 9px;
+    color: var(--text-secondary, #aaa);
+    line-height: 1.7;
+    white-space: pre-line;
+    letter-spacing: 0.02em;
   }
 </style>

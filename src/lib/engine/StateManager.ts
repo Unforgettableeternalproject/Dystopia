@@ -361,6 +361,7 @@ export class StateManager {
   resetQuest(questId: string, entryStageId: string): void {
     const instance = this.state.activeQuests[questId];
     if (instance) {
+      this.bus.emit(GameEvents.QUEST_COMPLETED, { questId });
       instance.currentStageId        = entryStageId;
       instance.completedObjectiveIds = [];
       instance.localFlags            = [];

@@ -23,7 +23,7 @@
       "name": "礦場作業區",
       "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
       "base": {
-        "description": "配額在此完成，監視也在此最為嚴密的作業區。",
+        "description": "玩家的工作崗位，配額在此完成，監視也在此最為嚴密的作業區。",
         "ambience": ["工業", "粉塵", "壓迫", "危險", "勞動"],
         "connections": [
           {
@@ -47,7 +47,7 @@
     },
     {
       "id": "delth_mine_plaza",
-      "name": "礦場廣場",
+      "name": "礦場中央廣場",
       "tags": ["outdoor", "industrial", "gathering_spot"],
       "base": {
         "description": "礦坑內的集散地，礦工在任務之間穿越此處。",
@@ -74,7 +74,7 @@
     },
     {
       "id": "delth_mine_storage",
-      "name": "礦場倉庫",
+      "name": "礦場貯存倉",
       "tags": ["indoor", "industrial", "storage"],
       "base": {
         "description": "存放礦場物資與補給品的管制倉儲區。",

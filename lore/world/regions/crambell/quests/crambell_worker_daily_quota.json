@@ -33,7 +33,7 @@
       "onComplete": {
         "flagsSet": ["crambell_quota_met_today"],
         "flagsUnset": ["crambell_quota_done_today"],
-        "nextStageId": "working"
+        "nextStageId": null
       }
     }
   }
