@@ -185,10 +185,13 @@ export class StateManager {
     }
   }
 
-  /** Grant intel and mirror to FlagSystem as `know_<intelId>` for flag-condition use. */
+  /**
+   * Grant intel and mirror to FlagSystem as `intel:<intelId>`.
+   * This allows contextSnippets and other conditions to use `intel:<id>` syntax.
+   */
   grantIntel(intelId: string): void {
     this.addKnownIntel(intelId);
-    this.flags.set('know_' + intelId);
+    this.flags.set('intel:' + intelId);
   }
 
   // ── NPC Memory ───────────────────────────────────────────────
@@ -202,11 +205,10 @@ export class StateManager {
     if (!existing) {
       this.state.npcMemory[npcId] = {
         npcId,
-        firstMetTurn:         this.state.turn,
-        lastInteractedTurn:   this.state.turn,
-        interactionCount:     1,
-        playerAttitude:       'neutral',
-        permanentMilestoneIds: [],
+        firstMetTurn:       this.state.turn,
+        lastInteractedTurn: this.state.turn,
+        interactionCount:   1,
+        playerAttitude:     'neutral',
       };
     } else {
       existing.lastInteractedTurn = this.state.turn;
@@ -217,27 +219,14 @@ export class StateManager {
 
   /**
    * Update NPC dialogue state after an interaction.
-   * Called by DialogueManager when a DM <<NPC: ...>> signal is parsed.
+   * Called by DialogueManager when a DM <<NPC_STATE: ...>> signal is parsed.
    */
   updateNPCDialogueState(npcId: string, topic?: string, attitude?: PlayerAttitude): void {
     const mem = this.state.npcMemory[npcId];
     if (!mem) return;
-    if (topic)    mem.lastTopic       = topic;
-    if (attitude) mem.playerAttitude  = attitude;
+    if (topic)    mem.lastTopic      = topic;
+    if (attitude) mem.playerAttitude = attitude;
     this.notifyUpdate();
-  }
-
-  /**
-   * Record a permanent dialogue milestone for an NPC.
-   * Called by DialogueManager when a DM <<MILESTONE: id>> signal is parsed.
-   */
-  recordPermanentMilestone(npcId: string, milestoneId: string): void {
-    const mem = this.state.npcMemory[npcId];
-    if (!mem) return;
-    if (!mem.permanentMilestoneIds.includes(milestoneId)) {
-      mem.permanentMilestoneIds.push(milestoneId);
-      this.notifyUpdate();
-    }
   }
 
   // ── Dialogue ─────────────────────────────────────────────────

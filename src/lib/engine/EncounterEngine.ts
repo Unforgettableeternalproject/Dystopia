@@ -37,6 +37,11 @@ export interface ResolvedNode {
 export interface EncounterPendingEffects {
   questGrant?: string;
   questFail?: string;
+  /**
+   * 當 isOutcome 節點被選中時設置。
+   * GameController 渲染完成後應呼叫 conclude() 完成遭遇結束流程。
+   */
+  outcomeType?: 'success' | 'failure' | 'neutral';
 }
 
 export class EncounterEngine {
@@ -148,20 +153,37 @@ export class EncounterEngine {
 
     const resolved = this.resolveNode(def, nextNode);
 
-    // Auto-end if outcome node
+    // Outcome node: apply effects and signal, but do NOT call endEncounter() yet.
+    // GameController will render the node via DM first, then call conclude().
     if (resolved.isOutcome) {
       if (nextNode.effects) {
         this.applyEffects(nextNode.effects);
       }
-      const finalNarrative = updatedNarrative + '\n' + (nextNode.displayText ?? nextNode.dmNarrative);
+      const outcomeType = nextNode.outcomeType ?? 'neutral';
       this.state.emit(
         GameEvents.ENCOUNTER_OUTCOME,
-        { encounterId: active.encounterId, outcomeType: nextNode.outcomeType ?? 'neutral' },
+        { encounterId: active.encounterId, outcomeType },
       );
-      this.endEncounter(finalNarrative, nextNode.outcomeType ?? 'neutral');
+      // Append outcome narrative to collectedNarrative so DM context is complete
+      this.state.setActiveEncounter({
+        ...active,
+        currentNodeId: choice.nextNodeId,
+        collectedNarrative: updatedNarrative + '\n' + (nextNode.displayText ?? nextNode.dmNarrative ?? ''),
+      });
+      this.pending.outcomeType = outcomeType;
     }
 
     return resolved;
+  }
+
+  /**
+   * 在 GameController 渲染 outcome 節點後呼叫，正式完成遭遇結束流程。
+   * outcomeType 由 GameController 從 flushPendingEffects() 的結果中取得並傳入。
+   */
+  conclude(outcomeType?: 'success' | 'failure' | 'neutral'): void {
+    const active = this.state.getState().activeEncounter;
+    if (!active) return;
+    this.endEncounter(active.collectedNarrative, outcomeType);
   }
 
   /**

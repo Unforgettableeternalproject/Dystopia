@@ -70,14 +70,11 @@
     }
   ],
 
-  "milestones": [
+  "contextSnippets": [
     {
-      "id": "kane_bribed",
       "label": "玩家曾賄賂凱恩",
       "condition": "crambell_kane_bribed",
-      "context": "TODO: 被賄賂後凱恩與玩家的默契關係，以及他預期的持續利益。他把玩家當成資源，而非威脅。",
-      "isPermanent": true,
-      "permanentSummary": "TODO: 例如「玩家曾向凱恩行賄，雙方建立了非正式協議」"
+      "context": "TODO: 被賄賂後凱恩與玩家的默契關係，以及他預期的持續利益。他把玩家當成資源，而非威脅。"
     }
   ]
 }

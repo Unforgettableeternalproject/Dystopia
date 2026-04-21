@@ -6,6 +6,7 @@ import type { HistoryEntry } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
 import type { EncounterChoice, EncounterType } from '../types/encounter';
 import type { InventoryItem } from '../types/item';
+import type { QuestType } from '../types/quest';
 
 // ── Narrative Lines ────────────────────────────────────────────
 
@@ -120,7 +121,13 @@ export interface PlayerUIState {
   timePeriod?:      string;   // "休息時段"
   topFactions?:     Array<{ id: string; name: string; rep: number }>;
   titles?:          string[];
-  activeQuestSummaries?: Array<{ name: string; stageSummary: string }>;
+  activeQuestSummaries?: Array<{
+    questId:    string;
+    name:       string;
+    type:       QuestType;
+    stageSummary: string;
+    objectives: Array<{ id: string; description: string; completed: boolean }>;
+  }>;
   conditions?:      Array<{ label: string }>;
   melphin?:         number;
   /** Structured data for the SVG mini-map (current area). */
@@ -183,16 +190,28 @@ export const playerUI = writable<PlayerUIState>({
 
 // ── Detailed player state (for Self-check modal) ───────────────
 
+export interface ResolvedInventoryItem {
+  instanceId:   string;
+  itemId:       string;
+  name:         string;
+  description:  string;
+  type:         string;
+  variantLabel?: string;
+  quantity:     number;
+  isExpired:    boolean;
+}
+
 export interface DetailedPlayerState {
-  primaryStats:   Record<string, number>;
-  secondaryStats: Record<string, number>;
-  statusStats:    Record<string, number>;
-  conditions:     Array<{ label: string }>;
-  titles:         string[];
-  inventory:      InventoryItem[];
-  reputation:     Record<string, number>;
-  affinity:       Record<string, number>;
-  knownIntelIds:  string[];
+  primaryStats:      Record<string, number>;
+  secondaryStats:    Record<string, number>;
+  statusStats:       Record<string, number>;
+  conditions:        Array<{ label: string }>;
+  titles:            string[];
+  inventory:         InventoryItem[];
+  resolvedInventory: ResolvedInventoryItem[];
+  reputation:        Record<string, number>;
+  affinity:          Record<string, number>;
+  knownIntelIds:     string[];
 }
 
 export const detailedPlayer = writable<DetailedPlayerState | null>(null);
@@ -246,6 +265,13 @@ export const activeEncounterUI = writable<ActiveEncounterUI | null>(null);
 export const selfCheckOpen = writable(false);
 export const inventoryOpen = writable(false);
 export const isSaving      = writable(false);
+
+// Quest detail modal — set to a quest summary to open, null to close
+export type QuestDetailEntry = NonNullable<PlayerUIState['activeQuestSummaries']>[number];
+export const questDetailOpen    = writable<QuestDetailEntry | null>(null);
+
+// Quest completion banner — set to quest name to trigger, cleared by the banner component
+export const questCompletionBanner = writable<string | null>(null);
 
 // ── Derived ────────────────────────────────────────────────────
 

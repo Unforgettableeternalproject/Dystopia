@@ -1,7 +1,6 @@
 // -- Game State & AI Types ---
 
 import type { PlayerState } from "./player";
-import type { InventoryItem } from "./item";
 import type { QuestInstance } from "./quest";
 import type { WorldPhaseState } from "./phase";
 import type { TimePeriod } from "./world";
@@ -123,9 +122,7 @@ export interface HistoryEntry {
  * 單一 NPC 的互動記憶。
  * DM 透過此結構了解玩家與該角色的關係狀態，確保對話的連貫性與真實感。
  *
- * 更新時機：
- *   - 每次 NPC 互動後由 DialogueManager 根據 DM 信號更新
- *   - 永久里程碑由 <<MILESTONE: id>> 信號確認後寫入
+ * 更新時機：每次 NPC 互動後由 DialogueManager 根據 DM 信號更新。
  */
 export interface NPCMemoryEntry {
   npcId: string;
@@ -134,23 +131,15 @@ export interface NPCMemoryEntry {
   interactionCount: number;
 
   /**
-   * 玩家對此 NPC 的態度（由 DM <<NPC: ...>> 信號更新）。
-   * DM 在對話生成時參考此欄位判斷玩家的言行傾向。
+   * 玩家對此 NPC 的態度（由 DM <<NPC_STATE: ...>> 信號更新）。
    */
   playerAttitude: PlayerAttitude;
 
   /**
-   * 上次對話的核心主題（DM <<NPC: ...>> 信號更新，1 句話）。
+   * 上次對話的核心主題（DM <<NPC_STATE: ...>> 信號更新，1 句話）。
    * DM 用於避免重複相同的對話內容。
    */
   lastTopic?: string;
-
-  /**
-   * 永久里程碑 ID 列表。
-   * 一旦記錄，對應里程碑的 permanentSummary 在未來所有對話中始終可見。
-   * 由 DM <<MILESTONE: id>> 信號觸發，DialogueManager 寫入。
-   */
-  permanentMilestoneIds: string[];
 }
 
 /**
@@ -173,6 +162,7 @@ export interface StarterConfig {
     secondaryStats: { consciousness: number; mysticism: number; technology: number };
     statusStats: { stamina: number; staminaMax: number; stress: number; stressMax: number; endo: number; endoMax: number };
     knownIntelIds: string[];
-    inventory: InventoryItem[];
+    /** 初始物品 ID 列表，引擎會在 loadStarter 時轉換成完整 InventoryItem 物件 */
+    inventory: string[];
   };
 }

@@ -177,6 +177,14 @@ export class EventEngine {
       }
     }
 
+    // Not-item condition — blocked if player holds any of these items (non-expired)
+    if (condition.notItemIds?.length) {
+      const hasAny = condition.notItemIds.some(id =>
+        gs.player.inventory.some(i => i.itemId === id && !i.isExpired)
+      );
+      if (hasAny) return false;
+    }
+
     // Melphin minimum — player must hold at least this amount
     if (condition.minMelphin !== undefined && gs.player.melphin < condition.minMelphin) {
       return false;

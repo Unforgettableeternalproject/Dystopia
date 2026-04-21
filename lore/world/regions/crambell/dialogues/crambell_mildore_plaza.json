@@ -60,22 +60,16 @@
     }
   ],
 
-  "milestones": [
+  "contextSnippets": [
     {
-      "id": "mildore_arrested",
-      "label": "米爾多雷被逮捕/帶走",
+      "label": "米爾多雷被捕",
       "condition": "crambell_mildore_arrested",
-      "context": "TODO: 米爾多雷被捕後，若玩家再次接觸她，她的心態與處境。",
-      "isPermanent": true,
-      "permanentSummary": "TODO: 例如「米爾多雷曾被捕，玩家知道此事」"
+      "context": "TODO: 米爾多雷被捕後，若玩家再次接觸她，她的心態與處境。"
     },
     {
-      "id": "mildore_rescued",
       "label": "玩家協助救出米爾多雷",
       "condition": "crambell_mildore_rescued",
-      "context": "TODO: 被救後米爾多雷對玩家的感激或複雜情緒。",
-      "isPermanent": true,
-      "permanentSummary": "TODO: 例如「玩家曾冒險救出米爾多雷」"
+      "context": "TODO: 被救後米爾多雷對玩家的感激或複雜情緒。"
     }
   ]
 }

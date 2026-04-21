@@ -65,6 +65,10 @@ const conditionsMod = import.meta.glob(
 const starterMod = import.meta.glob(
   '../../../lore/world/starter.json', { eager: true }
 ) as Record<string, any>;
+
+const itemMods = import.meta.glob(
+  '../../../lore/items/*.json', { eager: true }
+) as Record<string, any>;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -149,6 +153,10 @@ export function loadCrambellLore(controller: GameController): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     controller.loadLore({ conditions: conds as any });
   }
+
+  // Items (global, keyed by id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  controller.loadLore({ items: byId(itemMods) as any });
 
   // Starter config
   const starter = single(starterMod);

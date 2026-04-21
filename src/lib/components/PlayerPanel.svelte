@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, endoPercent } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen } from '$lib/stores/gameStore';
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -54,7 +54,7 @@
   <!-- Melphin (貨幣) -->
   <div class="section melphin-section">
     <div class="melphin-row">
-      <span class="melphin-label">MEL</span>
+      <span class="melphin-label">所持金額</span>
       <span class="melphin-val">{$playerUI.melphin ?? 0}<span class="melphin-unit"> ₘ</span></span>
     </div>
   </div>
@@ -78,8 +78,13 @@
     <div class="section">
       <div class="section-label">任務</div>
       {#each $playerUI.activeQuestSummaries as q}
-        <div class="quest-row">
-          <div class="quest-name">{q.name}</div>
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div class="quest-row" on:click={() => questDetailOpen.set(q)}>
+          <div class="quest-name">
+            <span class="quest-type-badge quest-type-{q.type}">{q.type === 'main' ? '主' : q.type === 'side' ? '支' : '隱'}</span>
+            {q.name}
+          </div>
           <div class="quest-stage">{q.stageSummary}</div>
         </div>
       {/each}
@@ -318,9 +323,19 @@
   /* ── Quests ───────────────────────────────────────── */
   .quest-row {
     margin-bottom: 6px;
+    padding: 4px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border: 1px solid transparent;
   }
 
   .quest-row:last-child { margin-bottom: 0; }
+
+  .quest-row:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+  }
 
   .quest-name {
     font-size: 10px;
@@ -328,7 +343,23 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
+
+  .quest-type-badge {
+    font-size: 8px;
+    padding: 0px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    border: 1px solid;
+  }
+
+  .quest-type-main  { color: var(--accent);     border-color: var(--accent);     opacity: 0.85; }
+  .quest-type-side  { color: var(--text-dim);   border-color: var(--border);     opacity: 0.75; }
+  .quest-type-hidden { color: #8b6a9a;           border-color: #8b6a9a;           opacity: 0.75; }
 
   .quest-stage {
     font-size: 9px;

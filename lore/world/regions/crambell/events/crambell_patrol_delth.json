@@ -10,7 +10,7 @@
   "outcomes": [
     {
       "id": "patrol_pass_quota_met",
-      "condition": "crambell_player_quota_met",
+      "condition": "crambell_quota_met_today",
       "description": "掃描器掃過你的配額卡，顯示綠燈，士兵繼續前進，沒有任何言語。",
       "flagsSet": []
     },

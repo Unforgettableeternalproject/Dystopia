@@ -144,29 +144,27 @@ export interface DialogueTrigger {
   probability?: number;
 }
 
-// ── Milestones ────────────────────────────────────────────────
+// ── Context Snippets ──────────────────────────────────────────
 
 /**
- * A milestone injects extra context into the DM when its condition is met.
- * Permanent milestones enter NPC long-term memory after a DM signal confirms them.
+ * A context snippet injects extra DM guidance when its condition is met.
+ * Condition supports flag expressions and `intel:<id>` syntax:
+ *   "crambell_elowan_trusted"          — flag is set
+ *   "intel:kach_treffen_member"        — player holds this intel
+ *   "intel:kach_treffen_member & ..."  — combined
+ * Use intel: for knowledge the player gained about the NPC (secret layers, hidden identity, etc.).
+ * Use flags for world-state changes (relationship shifts, events, etc.).
  */
-export interface DialogueMilestone {
-  id: string;
-  /** Design note (not injected into prompts). */
-  label: string;
-  /** Flag expression; milestone is active when true. */
+export interface ContextSnippet {
+  /** Optional design note — not injected into prompts. */
+  label?: string;
+  /** Condition expression; snippet is active when true. */
   condition: string;
   /**
-   * Context injected into DM prompt when active.
+   * Context text injected into DM prompt when active.
    * Should describe what the NPC knows/feels/plans in this situation.
    */
   context: string;
-  isPermanent: boolean;
-  /**
-   * Short summary for permanent memory. Used after the milestone is confirmed.
-   * One sentence max. Only relevant when isPermanent = true.
-   */
-  permanentSummary?: string;
 }
 
 // ── Profile ───────────────────────────────────────────────────
@@ -200,8 +198,9 @@ export interface DialogueProfile {
   triggers: DialogueTrigger[];
 
   /**
-   * Milestones that provide extra context to the DM for LLM-mode dialogue.
-   * Permanent milestones enter NPC long-term memory once confirmed by DM signal.
+   * Conditional context snippets injected into the DM prompt for LLM-mode dialogue.
+   * Each snippet is active when its condition evaluates true.
+   * Supports flag expressions and `intel:<id>` syntax.
    */
-  milestones: DialogueMilestone[];
+  contextSnippets?: ContextSnippet[];
 }

@@ -52,7 +52,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, questCompletionBanner } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
@@ -76,6 +76,9 @@ export class GameController {
   private currentRegionId = 'crambell';
 
   private starterConfig: StarterConfig | null = null;
+
+  /** Track which quests were active last sync to detect newly-completed quests. */
+  private _prevActiveQuestIds = new Set<string>();
 
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
     const auto = autoClients();
@@ -124,7 +127,13 @@ export class GameController {
     Object.assign(s.player.secondaryStats, config.player.secondaryStats);
     Object.assign(s.player.statusStats, { ...config.player.statusStats, experience: 0 });
     s.player.knownIntelIds = [...config.player.knownIntelIds];
-    s.player.inventory     = [...config.player.inventory];
+    s.player.inventory     = config.player.inventory.map((itemId: string) => ({
+      instanceId:       `${itemId}_0`,
+      itemId,
+      obtainedAtMinute: 0,
+      quantity:         1,
+      isExpired:        false,
+    }));
     if (config.player.title) s.player.titles = [config.player.title];
     s.time = { ...config.world.startTime, totalMinutes: 0 };
     s.timePeriod = config.world.startPeriod;
@@ -179,7 +188,7 @@ export class GameController {
     const gs0pre = this.state.getState();
     if (gs0pre.phase === 'event' && gs0pre.activeEncounter) {
       await this.handleEncounterInput(input.trim());
-      inputDisabled.set(false);
+      this.releaseInput();
       return;
     }
 
@@ -194,7 +203,13 @@ export class GameController {
 
     // 2. Regulator validation
     log.debug('Action submitted', { input });
-    const result = await this.regulator.validate(action, this.state.getState().player);
+    const gs0reg = this.state.getState();
+    const resolvedForReg = this.lore.resolveLocation(gs0reg.player.currentLocationId, this.state.flags);
+    const sceneNpcsForReg = (resolvedForReg?.npcIds ?? []).map(id => ({
+      id,
+      name: this.lore.getNPC(id)?.name ?? id,
+    }));
+    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg);
     if (!result.allowed) {
       log.info('Action rejected', { input, reason: result.reason });
       pushLine(result.reason ?? 'That is not possible.', 'rejected');
@@ -267,9 +282,10 @@ export class GameController {
         log.info('Quest fail applied by event', { questId: t.failQuestId, eventId: t.event.id });
       }
       if (t.startEncounterId) {
+        const encDef   = this.lore.getEncounter(t.startEncounterId);
         const resolved = this.encounterMgr.start(t.startEncounterId);
         if (resolved) {
-          await this.renderEncounterNode(resolved);
+          await this.renderEncounterNode(resolved, encDef ?? undefined);
           log.info('Encounter started by event', {
             encounterId: t.startEncounterId, eventId: t.event.id,
           });
@@ -288,7 +304,7 @@ export class GameController {
     }
 
     const sceneCtx = this.buildSceneCtx(triggered, periodChanged, finalAction);
-    const { signaledMinutes, suggestions } = await this.runDM(finalAction, sceneCtx);
+    const { signaledMinutes, suggestions, encounterSignal } = await this.runDM(finalAction, sceneCtx);
 
     // 4.5. Apply extra time if DM signaled more than default (e.g., sleeping 8 h)
     if (signaledMinutes !== null && signaledMinutes > defaultMinutes) {
@@ -322,12 +338,25 @@ export class GameController {
     this.syncUIState(this.state.getState());
     await this.refreshThoughts(suggestions);
 
+    // Handle DM-triggered encounter signal (after normal post-DM processing completes)
+    if (encounterSignal) {
+      if (encounterSignal.type === 'dialogue') {
+        this.updateActiveNpcUI(encounterSignal.npcId);
+        await this.handleDialogueInput('(opener)', encounterSignal.npcId, true);
+        inputDisabled.set(false);
+      } else if (encounterSignal.type === 'event') {
+        const resolved = this.encounterMgr.start(encounterSignal.id);
+        if (resolved) await this.renderEncounterNode(resolved);
+        this.releaseInput();
+      }
+    }
+
     // Auto-save on day change
     if (this.state.getState().time.day !== gs0.time.day) {
       this.autoSave().catch(err => log.warn('Auto-save (day change) failed', err));
     }
 
-    inputDisabled.set(false);
+    if (!encounterSignal) this.releaseInput();
   }
 
   acceptQuest(questId: string): boolean {
@@ -712,7 +741,7 @@ export class GameController {
   private async runDM(
     action: PlayerAction,
     sceneCtx: string,
-  ): Promise<{ signaledMinutes: number | null; suggestions: string[] }> {
+  ): Promise<{ signaledMinutes: number | null; suggestions: string[]; encounterSignal?: { type: 'dialogue'; npcId: string } | { type: 'event'; id: string } }> {
     isStreaming.set(true);
     pushLine('', 'narrative');
 
@@ -772,38 +801,42 @@ export class GameController {
       }
     }
 
-    // 2. Parse and apply DM dialogue signals (<<NPC: ...>> and <<MILESTONE: ...>>)
-    const dialogueSignals = this.dialogueMgr.parseSignals(afterFlags);
-    const resolvedScene   = this.lore.resolveLocation(
-      this.state.getState().player.currentLocationId,
-      this.state.flags,
-    );
-    const sceneNpcIds = resolvedScene?.npcIds ?? [];
-    if (dialogueSignals.npcUpdates.length > 0 || dialogueSignals.milestones.length > 0) {
-      log.debug('DM dialogue signals', {
-        npcUpdates: dialogueSignals.npcUpdates,
-        milestones: dialogueSignals.milestones,
-      });
-      this.dialogueMgr.applySignals(dialogueSignals, sceneNpcIds);
-    }
+    // 2. Parse MOVE and ENCOUNTER signals from the DM output
+    type EncounterSignal = { type: 'dialogue'; npcId: string } | { type: 'event'; id: string };
+    let moveTarget: string | undefined;
+    let encounterSignal: EncounterSignal | undefined;
 
-    // Apply DM quest signals (flag or objective completion)
-    for (const qs of dialogueSignals.questSignals) {
-      this.quests.applyQuestSignal(qs.questId, qs.type, qs.value);
-    }
+    const moveMatch = /<<MOVE:\s*([^>>]+)>>/i.exec(afterFlags);
+    if (moveMatch) moveTarget = moveMatch[1].trim();
 
-    // Apply DM move signal (player relocated to adjacent location)
-    if (dialogueSignals.moveSignal) {
-      const newLocId = dialogueSignals.moveSignal;
-      if (this.lore.resolveLocation(newLocId, this.state.flags)) {
-        this.state.movePlayer(newLocId);
-        log.info('Player moved', { to: newLocId });
-      } else {
-        log.warn('DM MOVE signal references unknown location', { locationId: newLocId });
+    const encounterMatch = /<<ENCOUNTER:\s*([^>>]+)>>/i.exec(afterFlags);
+    if (encounterMatch) {
+      const parts = encounterMatch[1].split('|').map((s: string) => s.trim());
+      const encType = parts[0]?.toLowerCase();
+      if (encType === 'dialogue') {
+        const npcPart = parts.find((p: string) => /^npc:/i.test(p));
+        if (npcPart) encounterSignal = { type: 'dialogue', npcId: npcPart.replace(/^npc:\s*/i, '') };
+      } else if (encType === 'event') {
+        const idPart = parts.find((p: string) => /^id:/i.test(p));
+        if (idPart) encounterSignal = { type: 'event', id: idPart.replace(/^id:\s*/i, '') };
       }
     }
 
-    const cleanNarrative = dialogueSignals.cleanNarrative;
+    const cleanNarrative = afterFlags
+      .replace(/<<MOVE:\s*[^>>]+>>/gi, '')
+      .replace(/<<ENCOUNTER:\s*[^>>]+>>/gi, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trimEnd();
+
+    // Apply MOVE signal
+    if (moveTarget) {
+      if (this.lore.resolveLocation(moveTarget, this.state.flags)) {
+        this.state.movePlayer(moveTarget);
+        log.info('Player moved', { to: moveTarget });
+      } else {
+        log.warn('DM MOVE signal references unknown location', { locationId: moveTarget });
+      }
+    }
 
     // 3. Patch displayed narrative line if any signals were stripped
     if (cleanNarrative !== fullText) {
@@ -819,7 +852,7 @@ export class GameController {
     this.state.appendHistory(action, cleanNarrative.slice(0, 200));
     this.state.setLastNarrative(cleanNarrative);
 
-    return { signaledMinutes, suggestions };
+    return { signaledMinutes, suggestions, encounterSignal };
   }
 
   // -- Dialogue encounter -----------------------------------------------
@@ -916,7 +949,7 @@ export class GameController {
 
     // Parse dialogue signals (NPC attitude, milestones, quests, END_ENCOUNTER)
     const dialogueSignals = this.dialogueMgr.parseSignals(afterFlags);
-    this.dialogueMgr.applySignals(dialogueSignals, [npcId]);
+    this.dialogueMgr.applySignals(dialogueSignals, npcId);
     for (const qs of dialogueSignals.questSignals) {
       this.quests.applyQuestSignal(qs.questId, qs.type, qs.value);
     }
@@ -955,14 +988,15 @@ export class GameController {
     const action: PlayerAction = { type: 'interact', input: histInput, targetId: npcId };
     this.state.appendHistory(action, cleanNarrative.slice(0, 200));
 
-    // Refresh NPC panel with updated affinity/attitude
-    this.updateActiveNpcUI(npcId);
-
-    // Handle natural encounter end
+    // Handle natural encounter end — must happen BEFORE updateActiveNpcUI to prevent
+    // interaction count increment from triggering a scripted dialogue restart.
     if (dialogueSignals.endEncounter) {
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
       log.info('Encounter ended naturally', { npcId });
+    } else {
+      // Refresh NPC panel with updated affinity/attitude only if encounter is still active
+      this.updateActiveNpcUI(npcId);
     }
 
     this.syncUIState(this.state.getState());
@@ -979,7 +1013,16 @@ export class GameController {
    */
   async selectEncounterChoice(choiceId: string): Promise<void> {
     inputDisabled.set(true);
+
+    // Pre-capture encounter state and definition BEFORE selectChoice() may clear them.
+    // This is needed for (a) passing def to renderEncounterNode so outcome DM narration
+    // works correctly, and (b) building the closing summary if the encounter ends.
+    const preState   = this.state.getState();
+    const preActive  = preState.activeEncounter;
+    const preDef     = preActive ? this.lore.getEncounter(preActive.encounterId) : null;
+
     const resolved = this.encounterMgr.selectChoice(choiceId);
+
     // Handle high-level effects that EncounterEngine stored for us
     const pending = this.encounterMgr.flushPendingEffects();
     if (pending.questGrant) {
@@ -990,24 +1033,43 @@ export class GameController {
       this.quests.applyQuestFail(pending.questFail);
       log.info('Quest fail applied by encounter choice', { questId: pending.questFail });
     }
+
     if (resolved) {
-      await this.renderEncounterNode(resolved);
+      // Render node via DM (passing def explicitly so it works even after endEncounter clears state)
+      await this.renderEncounterNode(resolved, preDef ?? undefined);
+
+      if (pending.outcomeType !== undefined) {
+        // Outcome node rendered — now conclude the encounter
+        this.encounterMgr.conclude(pending.outcomeType);
+        activeEncounterUI.set(null);
+        this.syncUIState(this.state.getState());
+        await this.refreshThoughts();
+      }
     } else {
-      // Encounter ended
+      // Encounter ended without an outcome node (nextNodeId === null or __continue__).
+      // Generate a DM closing summary before returning to exploration.
+      if (preDef && preActive && !this.mockMode) {
+        await this.streamEncounterClose(preDef, preActive.collectedNarrative);
+      }
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
       await this.refreshThoughts();
     }
-    inputDisabled.set(false);
+
+    this.releaseInput();
   }
 
   /**
    * Renders a ResolvedNode to the narrative log and updates activeEncounterUI.
    * If the node has a dmNarrative (no hardcoded displayText), streams DM-generated narration.
    */
-  private async renderEncounterNode(resolved: ResolvedNode): Promise<void> {
-    const gs  = this.state.getState();
-    const def = this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
+  private async renderEncounterNode(
+    resolved: ResolvedNode,
+    def?: EncounterDefinition,
+  ): Promise<void> {
+    const gs = this.state.getState();
+    // Use the explicitly-passed def when available (e.g., after endEncounter clears state).
+    const effectiveDef = def ?? this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
 
     // Stat check result prefix — always shown as a system line
     if (resolved.statCheckResult) {
@@ -1029,24 +1091,24 @@ export class GameController {
       pushLine(nodeText, 'narrative');
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
-        encounterName:   def?.name ?? '遭遇',
-        type:            def?.type ?? 'event',
+        encounterName:   effectiveDef?.name ?? '遭遇',
+        type:            effectiveDef?.type ?? 'event',
         nodeText,
         choices:         resolved.visibleChoices,
         statCheckResult: resolved.statCheckResult,
       });
-    } else if (resolved.node.dmNarrative && def && !this.mockMode) {
+    } else if (resolved.node.dmNarrative && effectiveDef && !this.mockMode) {
       // DM-generated narration — show encounter frame immediately (no choices yet)
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
-        encounterName:   def.name,
-        type:            def.type ?? 'event',
+        encounterName:   effectiveDef.name,
+        type:            effectiveDef.type ?? 'event',
         nodeText:        '',
         choices:         [],
         statCheckResult: resolved.statCheckResult,
       });
       // Stream narration
-      const ctx = this.buildEncounterContext(def, resolved);
+      const ctx = this.buildEncounterContext(effectiveDef, resolved);
       nodeText = '';
       isStreaming.set(true);
       pushLine('', 'narrative');
@@ -1066,8 +1128,8 @@ export class GameController {
       // Reveal choices after narration completes
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
-        encounterName:   def.name,
-        type:            def.type ?? 'event',
+        encounterName:   effectiveDef.name,
+        type:            effectiveDef.type ?? 'event',
         nodeText,
         choices:         resolved.visibleChoices,
         statCheckResult: resolved.statCheckResult,
@@ -1078,12 +1140,48 @@ export class GameController {
       pushLine(nodeText, 'narrative');
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
-        encounterName:   def?.name ?? '遭遇',
-        type:            def?.type ?? 'event',
+        encounterName:   effectiveDef?.name ?? '遭遇',
+        type:            effectiveDef?.type ?? 'event',
         nodeText,
         choices:         resolved.visibleChoices,
         statCheckResult: resolved.statCheckResult,
       });
+    }
+  }
+
+  /**
+   * Streams a DM closing narration when an encounter ends without an explicit outcome node.
+   * Called when selectChoice() returns null (nextNodeId === null or __continue__).
+   */
+  private async streamEncounterClose(
+    def: EncounterDefinition,
+    collectedNarrative: string,
+  ): Promise<void> {
+    const gs = this.state.getState();
+    const parts: string[] = [];
+    parts.push(`## 遭遇名稱：${def.name}`);
+    if (def.description) parts.push(def.description);
+    parts.push('');
+    if (collectedNarrative.trim()) {
+      parts.push('## 遭遇經過摘要');
+      parts.push(collectedNarrative.trim().slice(0, 400));
+      parts.push('');
+    }
+    parts.push('## 當前環境');
+    parts.push(`地點：${gs.player.currentLocationId} ／ 時段：${gs.timePeriod}`);
+    const closeCtx = parts.join('\n');
+
+    isStreaming.set(true);
+    pushLine('', 'narrative');
+    try {
+      for await (const chunk of this.dm.narrateEncounterClose(closeCtx, gs.history)) {
+        appendToLastLine(chunk);
+      }
+    } catch (err) {
+      log.error('Encounter close narration failed', err);
+    } finally {
+      isStreaming.set(false);
+      finishLastLine();
     }
   }
 
@@ -1137,6 +1235,17 @@ export class GameController {
    * Guard called from submitAction when phase === 'event'.
    * Free-text input is disabled during encounters — choices are button-driven.
    */
+  /**
+   * Re-enables text input only when no encounter choice panel is blocking it.
+   * If an active encounter has pending choices, the input stays locked until
+   * the player selects one — preventing out-of-order free-text submissions.
+   */
+  private releaseInput(): void {
+    const encUI = get(activeEncounterUI);
+    if (encUI && encUI.choices.length > 0) return;
+    inputDisabled.set(false);
+  }
+
   private async handleEncounterInput(_input: string): Promise<void> {
     pushLine('請選擇一個選項。', 'system');
   }
@@ -1220,9 +1329,37 @@ export class GameController {
       .flatMap(q => {
         const def   = this.lore.getQuest(q.questId);
         const stage = def?.stages[q.currentStageId!];
-        return stage ? [{ name: def!.name, stageSummary: stage.description }] : [];
+        if (!def || !stage) return [];
+        return [{
+          questId:      q.questId,
+          name:         def.name,
+          type:         def.type,
+          stageSummary: stage.description,
+          objectives:   stage.objectives.map(o => ({
+            id:          o.id,
+            description: o.description,
+            completed:   q.completedObjectiveIds.includes(o.id),
+          })),
+        }];
       });
     log.debug('syncUIState quests', { count: activeQuestSummaries.length, summaries: activeQuestSummaries });
+
+    // Detect newly completed quests and trigger banner notification
+    const currentActiveIds = new Set(
+      Object.values(gs.activeQuests)
+        .filter(q => !q.isCompleted && !q.isFailed)
+        .map(q => q.questId)
+    );
+    for (const prevId of this._prevActiveQuestIds) {
+      if (!currentActiveIds.has(prevId)) {
+        const inst = gs.activeQuests[prevId];
+        if (inst?.isCompleted) {
+          const def = this.lore.getQuest(prevId);
+          if (def) questCompletionBanner.set(def.name);
+        }
+      }
+    }
+    this._prevActiveQuestIds = currentActiveIds;
 
     // Build mini-map data (current area + sublocations)
     const currentLocId   = gs.player.currentLocationId;
@@ -1350,6 +1487,20 @@ export class GameController {
         .map(c => ({ label: this.lore.getCondition(c.id)?.label ?? c.label ?? c.id })),
       titles:      gs.player.titles,
       inventory:   gs.player.inventory,
+      resolvedInventory: gs.player.inventory.map(inv => {
+        const node    = this.lore.getItem(inv.itemId);
+        const variant = node?.variants?.find(v => v.id === inv.variantId);
+        return {
+          instanceId:   inv.instanceId,
+          itemId:       inv.itemId,
+          name:         node?.name ?? inv.itemId,
+          description:  variant?.description ?? node?.description ?? '',
+          type:         node?.type ?? 'key',
+          variantLabel: variant?.label,
+          quantity:     inv.quantity,
+          isExpired:    inv.isExpired,
+        };
+      }),
       reputation:    { ...gs.player.externalStats.reputation },
       affinity:      { ...gs.player.externalStats.affinity },
       knownIntelIds: [...gs.player.knownIntelIds],
@@ -1663,6 +1814,29 @@ export class GameController {
     activeEncounterUI.set(null);
     encounterSessionLog.set([]);
     await this.start('DEBUG');
+  }
+
+  /**
+   * Print the assembled DM context for the current scene and all nearby NPCs.
+   * Useful for verifying secretLayers, contextSnippets, and scene data are injected correctly.
+   *
+   * Usage: type `debug context` or `debug context <npcId>` in the debug input.
+   */
+  debugInspectContext(npcId?: string): void {
+    if (npcId) {
+      // Dialogue context for a specific NPC
+      const npc = this.lore.getNPC(npcId);
+      if (!npc) {
+        pushLine(`[Debug] 找不到 NPC：${npcId}`, 'system');
+        return;
+      }
+      const ctx = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.dialogueId, this.state.flags);
+      pushLine(`[Debug] 對話 context — ${npcId}:\n\n${ctx || '（空）'}`, 'system');
+    } else {
+      // Scene context (what the exploration DM receives)
+      const ctx = this.buildSceneCtx([]);
+      pushLine(`[Debug] 場景 context:\n\n${ctx}`, 'system');
+    }
   }
 
   // -- Initial state ----------------------------------------------------

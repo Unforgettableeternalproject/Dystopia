@@ -7,11 +7,13 @@
 //   LLM       — buildNPCDialogueContext() injects profile into DM prompt.
 //               Fires when no scripted trigger matches.
 //
-// DM signal formats stripped after LLM narration:
+// DM signal formats valid inside a dialogue encounter:
 //   <<FLAGS: +flag_a, -flag_b>>        (handled by FlagRegistry)
-//   <<NPC: npc_id | topic: ... | attitude: neutral>>
-//   <<MILESTONE: milestone_id>>
-//   <<MOVE: location_id>>              (player relocated to adjacent location)
+//   <<NPC_STATE: attitude:neutral | topic: ...>>
+//   <<QUEST: questId | objective:id>>
+//   <<END_ENCOUNTER>>                  (DM closes the dialogue naturally)
+//
+// Signals NOT available inside encounters: <<ENCOUNTER>>, <<MOVE>>
 
 import type { LoreVault }         from '../lore/LoreVault';
 import type { StateManager }      from './StateManager';
@@ -19,21 +21,19 @@ import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from
 import type { FlagSystem }        from './FlagSystem';
 import type { InventoryItem }     from '../types/item';
 
-const NPC_SIGNAL_PATTERN          = /<<NPC:\s*([^|>>]+)\|([^>>]+)>>/gi;
-const MILESTONE_SIGNAL_PATTERN    = /<<MILESTONE:\s*([^>>]+)>>/gi;
-const QUEST_SIGNAL_PATTERN        = /<<QUEST:\s*([^|>>]+)\|([^>>]+)>>/gi;
-const MOVE_SIGNAL_PATTERN         = /<<MOVE:\s*([^>>]+)>>/gi;
+// <<NPC_STATE: attitude:neutral | topic:...>> — updates NPC state within a dialogue encounter.
+// npcId is NOT in the signal; it's supplied by the calling context.
+const NPC_STATE_SIGNAL_PATTERN     = /<<NPC_STATE:\s*([^>>]+)>>/gi;
+const QUEST_SIGNAL_PATTERN         = /<<QUEST:\s*([^|>>]+)\|([^>>]+)>>/gi;
 const END_ENCOUNTER_SIGNAL_PATTERN = /<<END_ENCOUNTER>>/gi;
 
 export interface ParsedDialogueSignals {
-  npcUpdates:    Array<{ npcId: string; topic?: string; attitude?: PlayerAttitude }>;
-  milestones:    Array<{ milestoneId: string }>;
-  questSignals:  Array<{ questId: string; type: 'flag' | 'objective'; value: string }>;
-  /** Location ID to move the player to, if DM signaled a location change. */
-  moveSignal?:   string;
+  /** NPC state update from <<NPC_STATE: ...>>. Applied to the NPC supplied by calling context. */
+  npcStateUpdate?: { topic?: string; attitude?: PlayerAttitude };
+  questSignals:    Array<{ questId: string; type: 'flag' | 'objective'; value: string }>;
   /** True if DM signaled the dialogue encounter should end naturally. */
-  endEncounter:  boolean;
-  cleanNarrative: string;
+  endEncounter:    boolean;
+  cleanNarrative:  string;
 }
 
 /** Result of a scripted trigger check. */
@@ -187,39 +187,17 @@ export class DialogueManager {
     ].filter(Boolean).join(' | ');
     if (statLine) parts.push(statLine);
 
-    // ── Permanent milestone memory ────────────────────────────
-    if (memory && memory.permanentMilestoneIds.length > 0) {
-      parts.push('**NPC permanent memory** (always remembered):');
-      for (const msId of memory.permanentMilestoneIds) {
-        const ms = profile.milestones?.find(m => m.id === msId);
-        if (ms?.permanentSummary) parts.push(`  - ${ms.permanentSummary}`);
-      }
-    }
-
-    // ── Active milestone contexts ─────────────────────────────
-    const activeMilestones = (profile.milestones ?? []).filter(ms => {
-      if (memory?.permanentMilestoneIds.includes(ms.id)) return false;
-      return flags.evaluate(ms.condition);
-    });
-    if (activeMilestones.length > 0) {
+    // ── Active context snippets ───────────────────────────────
+    // Snippets whose condition evaluates true (supports flag and intel: expressions)
+    const activeSnippets = (profile.contextSnippets ?? []).filter(s => flags.evaluate(s.condition));
+    if (activeSnippets.length > 0) {
       parts.push('**Current situation context:**');
-      for (const ms of activeMilestones) {
-        parts.push(ms.context);
-        if (ms.isPermanent) {
-          parts.push(`(Signal <<MILESTONE: ${ms.id}>> if this exchange is concluded.)`);
-        }
-      }
+      for (const s of activeSnippets) parts.push(s.context);
     }
 
     // ── Speech style context ──────────────────────────────────
     parts.push('**Speech style / dialogue context:**');
     parts.push(profile.defaultContext);
-
-    // ── Signal reminder ───────────────────────────────────────
-    parts.push(
-      '(After narrating this interaction, signal: ' +
-      `<<NPC: ${npcId} | topic: <one-line summary> | attitude: neutral/friendly/cautious/hostile>>)`
-    );
 
     return parts.join('\n');
   }
@@ -242,26 +220,19 @@ export class DialogueManager {
   // ── Signal Parsing (LLM mode) ─────────────────────────────────
 
   parseSignals(narrative: string): ParsedDialogueSignals {
-    const npcUpdates:   ParsedDialogueSignals['npcUpdates']   = [];
-    const milestones:   ParsedDialogueSignals['milestones']   = [];
     const questSignals: ParsedDialogueSignals['questSignals'] = [];
     let   clean = narrative;
-    let   moveSignal: string | undefined;
+    let   npcStateUpdate: ParsedDialogueSignals['npcStateUpdate'];
 
-    for (const match of narrative.matchAll(NPC_SIGNAL_PATTERN)) {
-      const npcId    = match[1].trim();
-      const kvString = match[2];
+    // NPC_STATE signal — only the last occurrence wins (DM may emit multiple in one turn)
+    for (const match of narrative.matchAll(NPC_STATE_SIGNAL_PATTERN)) {
+      const kvString = match[1];
       const topic    = this.extractKV(kvString, 'topic');
       const rawAtt   = this.extractKV(kvString, 'attitude');
       const attitude = this.parseAttitude(rawAtt);
-      npcUpdates.push({ npcId, topic: topic ?? undefined, attitude });
+      npcStateUpdate = { topic: topic ?? undefined, attitude };
     }
-    clean = clean.replace(NPC_SIGNAL_PATTERN, '');
-
-    for (const match of narrative.matchAll(MILESTONE_SIGNAL_PATTERN)) {
-      milestones.push({ milestoneId: match[1].trim() });
-    }
-    clean = clean.replace(MILESTONE_SIGNAL_PATTERN, '');
+    clean = clean.replace(NPC_STATE_SIGNAL_PATTERN, '');
 
     for (const match of narrative.matchAll(QUEST_SIGNAL_PATTERN)) {
       const questId  = match[1].trim();
@@ -273,28 +244,22 @@ export class DialogueManager {
     }
     clean = clean.replace(QUEST_SIGNAL_PATTERN, '');
 
-    // MOVE signal — only the first occurrence is used
-    const moveMatch = clean.match(/<<MOVE:\s*([^>>]+)>>/i);
-    if (moveMatch) moveSignal = moveMatch[1].trim();
-    clean = clean.replace(MOVE_SIGNAL_PATTERN, '');
-
     // END_ENCOUNTER signal
     const endEncounter = END_ENCOUNTER_SIGNAL_PATTERN.test(clean);
     clean = clean.replace(END_ENCOUNTER_SIGNAL_PATTERN, '');
 
     clean = clean.replace(/\n{3,}/g, '\n\n').trimEnd();
-    return { npcUpdates, milestones, questSignals, moveSignal, endEncounter, cleanNarrative: clean };
+    return { npcStateUpdate, questSignals, endEncounter, cleanNarrative: clean };
   }
 
-  applySignals(signals: ParsedDialogueSignals, activeNpcIds: string[]): void {
-    for (const { npcId, topic, attitude } of signals.npcUpdates) {
-      if (!activeNpcIds.includes(npcId)) continue;
+  /**
+   * Apply dialogue signals to state.
+   * npcId must be supplied by the calling context (it is NOT in the signal).
+   */
+  applySignals(signals: ParsedDialogueSignals, npcId: string): void {
+    if (signals.npcStateUpdate) {
       this.state.recordNPCInteraction(npcId);
-      this.state.updateNPCDialogueState(npcId, topic, attitude);
-    }
-    for (const { milestoneId } of signals.milestones) {
-      const npcId = this.findMilestoneOwner(milestoneId);
-      if (npcId) this.state.recordPermanentMilestone(npcId, milestoneId);
+      this.state.updateNPCDialogueState(npcId, signals.npcStateUpdate.topic, signals.npcStateUpdate.attitude);
     }
   }
 
@@ -310,16 +275,5 @@ export class DialogueManager {
     const valid: PlayerAttitude[] = ['friendly', 'neutral', 'cautious', 'hostile'];
     const lower = raw.toLowerCase().trim();
     return valid.includes(lower as PlayerAttitude) ? (lower as PlayerAttitude) : undefined;
-  }
-
-  private findMilestoneOwner(milestoneId: string): string | null {
-    const gs = this.state.getState();
-    for (const npcId of Object.keys(gs.npcMemory)) {
-      const npc = this.lore.getNPC(npcId);
-      if (!npc) continue;
-      const profile = this.lore.getDialogueProfile(npcId, npc.dialogueId);
-      if (profile?.milestones?.some(m => m.id === milestoneId)) return npcId;
-    }
-    return null;
   }
 }

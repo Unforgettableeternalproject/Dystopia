@@ -318,6 +318,11 @@ export interface EventCondition {
    */
   itemRequirements?: ItemRequirement[];
   /**
+   * 反向物品條件：玩家未持有其中任何物品時才觸發（持有任一則封鎖）。
+   * 直接比對 itemId，不考慮 variantId 與過期狀態。
+   */
+  notItemIds?: string[];
+  /**
    * 最低梅分門檻。玩家持有梅分需大於等於此數值才能觸發。
    */
   minMelphin?: number;

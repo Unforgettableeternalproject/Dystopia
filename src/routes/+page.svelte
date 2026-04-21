@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questCompletionBanner } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -15,8 +15,9 @@
   import NPCPanel        from '$lib/components/NPCPanel.svelte';
   import PlayerPanel     from '$lib/components/PlayerPanel.svelte';
   import InputBar        from '$lib/components/InputBar.svelte';
-  import SelfCheckModal  from '$lib/components/SelfCheckModal.svelte';
-  import InventoryModal  from '$lib/components/InventoryModal.svelte';
+  import SelfCheckModal    from '$lib/components/SelfCheckModal.svelte';
+  import InventoryModal    from '$lib/components/InventoryModal.svelte';
+  import QuestDetailModal  from '$lib/components/QuestDetailModal.svelte';
   import TitleScreen          from '$lib/components/TitleScreen.svelte';
   import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
   import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
@@ -31,6 +32,13 @@
   let saveMenuOpen = false;
   let showCloseConfirm = false;
   let debugPanelOpen = false;
+
+  // Auto-dismiss the quest completion banner after 3.5 s
+  let _bannerTimer: ReturnType<typeof setTimeout> | null = null;
+  $: if ($questCompletionBanner) {
+    if (_bannerTimer) clearTimeout(_bannerTimer);
+    _bannerTimer = setTimeout(() => questCompletionBanner.set(null), 3500);
+  }
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
@@ -305,6 +313,18 @@
 
 {#if $inventoryOpen}
   <InventoryModal />
+{/if}
+
+{#if $questDetailOpen}
+  <QuestDetailModal />
+{/if}
+
+<!-- Quest completion banner -->
+{#if $questCompletionBanner}
+  <div class="quest-banner">
+    <span class="quest-banner-icon">◆</span>
+    <span class="quest-banner-text">任務完成：{$questCompletionBanner}</span>
+  </div>
 {/if}
 
 {#if debugPanelOpen}
@@ -709,5 +729,42 @@
   .confirm-btn.danger:hover {
     background: var(--accent-red);
     color: var(--text-primary);
+  }
+
+  /* ── Quest completion banner ──────────────────────── */
+  .quest-banner {
+    position: fixed;
+    top: calc(var(--top-bar-h) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 20px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    animation: bannerIn 0.2s ease-out;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .quest-banner-icon {
+    font-size: 9px;
+    color: var(--accent);
+  }
+
+  .quest-banner-text {
+    font-size: 12px;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+    font-family: var(--font-mono);
+  }
+
+  @keyframes bannerIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 </style>

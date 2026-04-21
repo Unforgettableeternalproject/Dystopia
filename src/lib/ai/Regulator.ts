@@ -14,7 +14,16 @@ Rules:
 3. If impossible, give a short in-world reason — never say "your stat is too low".
 4. If possible but overreaching, downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
 5. The "reason" and "modifiedInput" fields must be written in Traditional Chinese (繁體中文).
-6. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null }`;
+6. Classify the action intent into actionType: "move" | "interact" | "examine" | "use" | "rest" | "combat" | "free".
+   - "interact": player wants to talk to / approach / interact with a specific NPC. Set targetId to that NPC's id from sceneNpcs.
+   - "move": player wants to travel to a different location.
+   - "examine": player inspects something in the environment.
+   - "use": player uses an item.
+   - "rest": player rests or sleeps.
+   - "combat": player attempts a hostile action.
+   - "free": anything else (general statements, reactions, vague actions).
+7. If the input already has an actionType other than "free", keep it unless overriding is clearly necessary.
+8. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
 
 // Patterns that indicate prompt injection attempts.
 // Checked case-insensitively; order does not matter.
@@ -41,7 +50,11 @@ export class Regulator {
 
   // ── Validation ──────────────────────────────────────────────
 
-  async validate(action: PlayerAction, player: PlayerState): Promise<RegulatorResult> {
+  async validate(
+    action: PlayerAction,
+    player: PlayerState,
+    sceneNpcs: { id: string; name: string }[] = [],
+  ): Promise<RegulatorResult> {
     const hard = this.hardCheck(action);
     if (hard !== null) return hard;
 
@@ -66,6 +79,7 @@ export class Regulator {
     const userMessage = JSON.stringify({
       action:     action.input,
       actionType: action.type,
+      sceneNpcs:  sceneNpcs.length ? sceneNpcs : undefined,
       traits: {
         strength:  this.describeTrait(p.strength),
         knowledge: this.describeTrait(p.knowledge),
@@ -93,12 +107,32 @@ export class Regulator {
         allowed: boolean;
         reason: string | null;
         modifiedInput: string | null;
+        actionType: string | null;
+        targetId: string | null;
       };
+
+      // Resolve the action type: use LLM's classification if it changed from the original,
+      // otherwise keep the original (explicit Thought clicks always arrive with correct type).
+      const resolvedType = (parsed.actionType && parsed.actionType !== action.type)
+        ? parsed.actionType as PlayerAction['type']
+        : action.type;
+      const resolvedTargetId = parsed.targetId ?? action.targetId;
+
+      const needsModifiedAction =
+        parsed.modifiedInput ||
+        resolvedType !== action.type ||
+        resolvedTargetId !== action.targetId;
+
       return {
         allowed: parsed.allowed,
         reason: parsed.reason ?? undefined,
-        modifiedAction: parsed.modifiedInput
-          ? { ...action, input: parsed.modifiedInput }
+        modifiedAction: needsModifiedAction
+          ? {
+              ...action,
+              input:    parsed.modifiedInput ?? action.input,
+              type:     resolvedType,
+              targetId: resolvedTargetId,
+            }
           : undefined,
       };
     } catch {

@@ -1,5 +1,16 @@
 [
   {
+    "flagId": "crambell_quota_met_today",
+    "description": "玩家今日已完成工作配額，配額卡顯示綠燈狀態",
+    "setCondition": "玩家在持有配額任務的情況下達成今日工作量目標，DM 確認任務完成條件達到時設置",
+    "unsetCondition": "每次新的作業時段開始時自動清除（由 crambell_work_period_start 事件觸發）",
+    "proximity": {
+      "questIds": ["crambell_worker_daily_quota"],
+      "timePeriod": ["work"],
+      "notFlags": ["crambell_quota_met_today"]
+    }
+  },
+  {
     "flagId": "crambell_player_quota_checked_today",
     "description": "玩家已在今日作業時段前往配額站完成點名",
     "setCondition": "玩家到達配額申報站（delth_quota_post），完成身分識別碼掃描並取得今日工作授權",

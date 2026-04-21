@@ -72,14 +72,11 @@
     }
   ],
 
-  "milestones": [
+  "contextSnippets": [
     {
-      "id": "orland_identity_revealed",
-      "label": "奧蘭真實身份（舊會議成員）揭露給玩家",
-      "condition": "crambell_orland_identity_revealed",
-      "context": "TODO: 身份揭露後奧蘭對玩家的態度轉變。他背後有深厚的政府關係，如果玩家對他不友善會相當危險。",
-      "isPermanent": true,
-      "permanentSummary": "TODO: 例如「玩家知道奧蘭是舊會議成員奧克利·尼可羅」"
+      "label": "玩家得知奧蘭的真實身份（舊會議成員）",
+      "condition": "intel:orland_treffen_member",
+      "context": "TODO: 身份揭露後奧蘭對玩家的態度轉變。他背後有深厚的政府關係，如果玩家對他不友善會相當危險。"
     }
   ]
 }

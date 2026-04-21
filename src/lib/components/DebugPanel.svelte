@@ -131,6 +131,9 @@
                 <span class="item-name">{npc.name}</span>
                 <span class="item-id">{npc.id}</span>
               </div>
+              <button class="trigger-btn secondary" on:click={() => controller.debugInspectContext(npc.id)}>
+                Context
+              </button>
               <button class="trigger-btn" on:click={() => controller.debugStartNpcDialogue(npc.id)}>
                 對話
               </button>
@@ -208,6 +211,11 @@
             <button class="trigger-btn" on:click={applyFlag}>執行</button>
           </div>
           <p class="flag-hint">也可以直接在遊戲的 debug route (/debug) 查看目前所有 active flags。</p>
+          <div class="flag-row" style="margin-top:8px">
+            <button class="trigger-btn secondary" style="width:100%" on:click={() => controller.debugInspectContext()}>
+              印出當前場景 Context（探索模式）
+            </button>
+          </div>
         </div>
       {/if}
 
@@ -411,6 +419,17 @@
   .trigger-btn:hover {
     border-color: #5fa8d3;
     color: #5fa8d3;
+  }
+
+  .trigger-btn.secondary {
+    opacity: 0.6;
+    font-size: 9px;
+  }
+
+  .trigger-btn.secondary:hover {
+    border-color: #c9a96e;
+    color: #c9a96e;
+    opacity: 1;
   }
 
   .note-text {

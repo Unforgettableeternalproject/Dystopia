@@ -59,14 +59,11 @@
     }
   ],
 
-  "milestones": [
+  "contextSnippets": [
     {
-      "id": "elowan_trusted_with_secret",
-      "label": "玩家向艾洛安透露了重要秘密",
+      "label": "玩家曾向艾洛安透露秘密",
       "condition": "crambell_elowan_trusted",
-      "context": "TODO: 知道玩家秘密後艾洛安的態度——這增加了她對玩家的籌碼，也可能加深她的協助意願。",
-      "isPermanent": true,
-      "permanentSummary": "TODO: 例如「艾洛安持有玩家的秘密，雙方關係更複雜」"
+      "context": "TODO: 知道玩家秘密後艾洛安的態度——這增加了她對玩家的籌碼，也可能加深她的協助意願。"
     }
   ]
 }
