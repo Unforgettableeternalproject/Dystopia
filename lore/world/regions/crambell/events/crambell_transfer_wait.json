@@ -14,7 +14,7 @@
     ],
     "notFlags": [
       "crambell_transfer_wait_processed",
-      "crambell_transfer_permit_granted"
+      "crambell_transfer_permit_ready"
     ],
     "questActiveId": "crambell_transfer_opportunity"
   },

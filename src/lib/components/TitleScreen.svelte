@@ -2,8 +2,10 @@
   import { gamePhase } from '$lib/stores/gameStore';
   import { getCurrentWindow } from '@tauri-apps/api/window';
 
+  export let initialMode: 'menu' | 'naming' = 'menu';
+
   // mode: 'menu' | 'naming' | 'continue'
-  let mode: 'menu' | 'naming' | 'continue' = 'menu';
+  let mode: 'menu' | 'naming' | 'continue' = initialMode;
   let playerName = '';
   let nameError = '';
 

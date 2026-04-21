@@ -1,5 +1,17 @@
 [
   {
+    "flagId": "crambell_quota_done_today",
+    "description": "玩家今日已達成工作量目標，等待任務系統確認完成",
+    "setCondition": "玩家在工作岡位完成工作行動，DM 確認工作量達標後設置（由 crambell_worker_daily_quota 任務監聽）",
+    "unsetCondition": "crambell_worker_daily_quota 任務 onComplete 自動清除，同時設置 crambell_quota_met_today",
+    "proximity": {
+      "locationIds": ["delth_mine_worksite"],
+      "questIds": ["crambell_worker_daily_quota"],
+      "timePeriod": ["work"],
+      "notFlags": ["crambell_quota_done_today", "crambell_quota_met_today"]
+    }
+  },
+  {
     "flagId": "crambell_quota_met_today",
     "description": "玩家今日已完成工作配額，配額卡顯示綠燈狀態",
     "setCondition": "玩家在持有配額任務的情況下達成今日工作量目標，DM 確認任務完成條件達到時設置",

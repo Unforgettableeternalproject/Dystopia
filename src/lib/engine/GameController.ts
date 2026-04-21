@@ -52,10 +52,17 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, questCompletionBanner, showEventToast } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, questCompletionBanner, showEventToast, showAcquisitionNotif, triggerBarFlash, gamePhase, endingType } from '../stores/gameStore';
+import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
+
+const STAT_LABELS: Record<string, Record<string, string>> = {
+  statusStats:   { stamina: '體力', staminaMax: '體力上限', stress: '壓力', stressMax: '壓力上限', endo: 'Endo', endoMax: 'Endo 上限', experience: '經驗' },
+  primaryStats:  { strength: '力量', knowledge: '知識', talent: '才能', spirit: '靈性', luck: '運氣' },
+  secondaryStats: { consciousness: '意識', mysticism: '神秘', technology: '技術' },
+};
 
 export class GameController {
   private dm:          DMAgent;
@@ -108,6 +115,39 @@ export class GameController {
     const doAutoSave = () => this.autoSave().catch(err => log.warn('Auto-save failed', err));
     this.bus.on(GameEvents.QUEST_COMPLETED,      doAutoSave);
     this.bus.on(GameEvents.GAME_EVENT_TRIGGERED, doAutoSave);
+
+  }
+
+  /** 將 StateManager 積累的獲取記錄轉成通知顯示。在每段敘事結束後呼叫。 */
+  private flushAcquisitions(): void {
+    for (const rec of this.state.drainAcquisitions()) {
+      if (rec.type === 'item') {
+        const item = this.lore.getItem(rec.itemId);
+        const baseName = item?.name ?? rec.itemId;
+        const variantLabel = rec.variantId ? item?.variants?.find(v => v.id === rec.variantId)?.label : undefined;
+        showAcquisitionNotif(`獲得：${variantLabel ? `${baseName} - ${variantLabel}` : baseName}`, true);
+      } else if (rec.type === 'stat') {
+        const [group, stat] = rec.key.split('.');
+        if (group === 'statusStats') {
+          // 狀態數值（體力/壓力/Endo）→ 條狀抖動閃爍，不顯示 notif
+          if (stat === 'stamina' || stat === 'endo') {
+            triggerBarFlash(stat, rec.delta > 0 ? 'good' : 'bad');
+          } else if (stat === 'stress') {
+            triggerBarFlash(stat, rec.delta > 0 ? 'bad' : 'good');
+          }
+        } else {
+          // 技能數值（primaryStats / secondaryStats）→ 顯示 notif
+          const label = STAT_LABELS[group]?.[stat] ?? stat;
+          showAcquisitionNotif(`${label} ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
+        }
+      } else if (rec.type === 'reputation') {
+        const faction = this.lore.getFaction(rec.factionId);
+        showAcquisitionNotif(`聲望 [${faction?.name ?? rec.factionId}] ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
+      } else if (rec.type === 'affinity') {
+        const npc = this.lore.getNPC(rec.npcId);
+        showAcquisitionNotif(`好感 [${npc?.name ?? rec.npcId}] ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
+      }
+    }
   }
 
   // -- Public API -------------------------------------------------------
@@ -309,6 +349,7 @@ export class GameController {
       const eventCtx = this.buildSceneCtx(triggered, periodChanged);
       const hasNotification = triggered.some(t => t.event.notification);
       await this.runEventDM(eventCtx, hasNotification ? 'event' : 'narrative');
+      this.flushAcquisitions();
     }
 
     // 4.15. Launch event-triggered encounter AFTER narration so event text plays first.
@@ -318,6 +359,7 @@ export class GameController {
         await this.renderEncounterNode(resolved, eventEncounter.def ?? undefined);
         log.info('Encounter started by event', { encounterId: eventEncounter.id });
       }
+      this.flushAcquisitions();
       this.releaseInput();
       return;
     }
@@ -326,6 +368,7 @@ export class GameController {
     const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction);
     const navHint  = this.buildNavHint(finalAction);
     const { signaledMinutes, suggestions, encounterSignal } = await this.runDM(finalAction, sceneCtx + navHint);
+    this.flushAcquisitions();
 
     // 4.5. Apply extra time if DM signaled more than default (e.g., sleeping 8 h)
     if (signaledMinutes !== null && signaledMinutes > defaultMinutes) {
@@ -354,6 +397,7 @@ export class GameController {
           const lateEventCtx = this.buildSceneCtx(lateTriggered, latePeriodChanged);
           const hasNotification = lateTriggered.some(t => t.event.notification);
           await this.runEventDM(lateEventCtx, hasNotification ? 'event' : 'narrative');
+          this.flushAcquisitions();
         }
 
         if (lateEventEncounter) {
@@ -362,6 +406,7 @@ export class GameController {
             await this.renderEncounterNode(resolved, lateEventEncounter.def ?? undefined);
             log.info('Encounter started by delayed event', { encounterId: lateEventEncounter.id });
           }
+          this.flushAcquisitions();
           this.releaseInput();
           return;
         }
@@ -381,6 +426,7 @@ export class GameController {
     this.quests.checkPendingRepeats();
     this.phases.checkAdvance();
     this.syncUIState(this.state.getState());
+    this.flushAcquisitions();
     await this.refreshThoughts(suggestions);
 
     // Handle DM-triggered encounter signal (after normal post-DM processing completes)
@@ -392,6 +438,7 @@ export class GameController {
       } else if (encounterSignal.type === 'event') {
         const resolved = this.encounterMgr.start(encounterSignal.id);
         if (resolved) await this.renderEncounterNode(resolved);
+        this.flushAcquisitions();
         this.releaseInput();
       }
     }
@@ -401,7 +448,7 @@ export class GameController {
       this.autoSave().catch(err => log.warn('Auto-save (day change) failed', err));
     }
 
-    if (!encounterSignal) this.releaseInput();
+    if (!this.checkEndingConditions() && !encounterSignal) this.releaseInput();
   }
 
   acceptQuest(questId: string): boolean {
@@ -656,6 +703,38 @@ export class GameController {
     this.encounterMgr = new EncounterEngine(this.lore, this.state);
     this.syncUIState(gs);
     log.info('State loaded from save', { turn: gs.turn });
+  }
+
+  // -- Ending conditions ------------------------------------------------
+
+  /**
+   * Check whether the current game state satisfies any ending condition.
+   * Called at the end of each turn, after syncUIState.
+   * Returns true if an ending was triggered (caller should not release input).
+   */
+  private checkEndingConditions(): boolean {
+    const gs = this.state.getState();
+    const { stamina, stress, stressMax } = gs.player.statusStats;
+
+    if (stamina <= 0) {
+      this.triggerEnding('death');
+      return true;
+    }
+    if (stress >= stressMax) {
+      this.triggerEnding('collapse');
+      return true;
+    }
+    if (gs.player.currentLocationId === 'wyar_transit_hub') {
+      this.triggerEnding('mvp_complete');
+      return true;
+    }
+    return false;
+  }
+
+  private triggerEnding(type: EndingType): void {
+    endingType.set(type);
+    gamePhase.set('ending');
+    log.info('Game ending triggered', { type });
   }
 
   // -- Context builder --------------------------------------------------
@@ -1009,6 +1088,9 @@ export class GameController {
       const discovered = new Set(gs.discoveredLocationIds);
       // Always include current location as traversable even if not yet in discovered list.
       discovered.add(gs.player.currentLocationId);
+      // Always include the move target so first-time arrivals are reachable.
+      // Intermediate nodes still require discovery (can't shortcut through unknown territory).
+      discovered.add(moveTarget);
 
       const pathResult = this.lore.findPath(
         gs.player.currentLocationId,
@@ -1290,6 +1372,7 @@ export class GameController {
     if (resolved) {
       // Render node via DM (passing def explicitly so it works even after endEncounter clears state)
       await this.renderEncounterNode(resolved, preDef ?? undefined);
+      this.flushAcquisitions();
 
       if (pending.outcomeType !== undefined) {
         // Outcome node rendered — now conclude the encounter
@@ -1304,6 +1387,7 @@ export class GameController {
       if (preDef && preActive && !this.mockMode) {
         await this.streamEncounterClose(preDef, preActive.collectedNarrative);
       }
+      this.flushAcquisitions();
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
       await this.refreshThoughts();
@@ -1517,7 +1601,7 @@ export class GameController {
   /**
    * Normalise raw DM output before signal parsing.
    * Strips known meta-tokens (TIME, THOUGHTS) and malformed pseudo-signals
-   * such as 》(stage direction) or >>(stage direction) that some models emit
+   * such as 》(stage direction) or 《(stage direction) that some models emit
    * in place of the expected <<SIGNAL>> format.
    */
   private sanitizeDMOutput(text: string): string {
@@ -1525,9 +1609,13 @@ export class GameController {
       // Legitimate signals handled separately — strip scheduling meta-tokens
       .replace(/<<TIME:\s*\d+>>\s*\n?/gi, '')
       .replace(/<<THOUGHTS:[^>]+?>>\s*\n?/gi, '')
-      // Malformed pseudo-signals: 》(...) or >>(...)  — fullwidth or ASCII angle brackets
-      // followed by a parenthetical in either half-width () or fullwidth （）
-      .replace(/[》»]{1,2}[（(][^）)]*[）)]\s*/g, '')
+      // Malformed pseudo-signals: any CJK/ASCII angle bracket (《«》») + parenthetical
+      // e.g.  》(stage direction)  or  《（stage direction）
+      .replace(/[《«》»]{1,2}[（(][^）)]*[）)]\s*/g, '')
+      // Malformed 《SIGNAL》 where the model used CJK book-title brackets instead of <<>>.
+      // Only strips when bracketed content contains no CJK characters, so legitimate
+      // book titles like 《三國演義》 are preserved.
+      .replace(/《[^\u4e00-\u9fff\n《》]{1,100}》\s*/g, '')
       .trimEnd();
   }
 
@@ -1730,8 +1818,15 @@ export class GameController {
       .filter(c => !(this.lore.getCondition(c.id)?.isHidden ?? c.isHidden))
       .map(c => ({ label: this.lore.getCondition(c.id)?.label ?? c.label ?? c.id }));
 
+    // Preserve the displayed name if the state name reverts to the unset default.
+    // This prevents debug stat edits (or any syncUIState call before setPlayerName)
+    // from wiping a name that was already established.
+    const resolvedName = (gs.player.name && gs.player.name !== '???')
+      ? gs.player.name
+      : get(playerUI).name;
+
     playerUI.set({
-      name:            gs.player.name,
+      name:            resolvedName,
       location:        resolved?.name ?? gs.player.currentLocationId,
       regionName:      region?.name   ?? this.currentRegionId,
       stamina:         gs.player.statusStats.stamina,
@@ -2128,12 +2223,16 @@ export class GameController {
     this.syncUIState(this.state.getState());
     pushLine(`[Debug] 傳送至：${loc.name}`, 'system');
 
-    // Run DM narration for the new location — this also calls appendHistory with the new locationId,
-    // ensuring subsequent DM calls see correct location context in recent history.
-    const arrivalAction: PlayerAction = { type: 'move', input: `（傳送至 ${loc.name}）` };
-    const sceneCtx = this.buildSceneCtx([]);
-    const { suggestions } = await this.runDM(arrivalAction, sceneCtx);
-    await this.refreshThoughts(suggestions);
+    // Check ending conditions after teleport (e.g. reaching wyar_transit_hub).
+    if (this.checkEndingConditions()) return;
+
+    // Anchor the teleport in history so subsequent DM calls see the correct location.
+    // We do NOT call runDM here — the DM is fed this as a completed move and may emit
+    // a spurious <<MOVE:>> signal based on stale history, which would undo the teleport.
+    this.state.appendHistory(
+      { type: 'move', input: `（傳送至 ${loc.name}）` },
+      `[Debug] 傳送至 ${loc.name}。`,
+    );
   }
 
   /** Discard all progress and restart (equivalent to a fresh new game in debug mode). */
@@ -2185,6 +2284,7 @@ export class GameController {
     const delta = value - statsGroup[stat];
     this.state.modifyStat(dotPath, delta);
     this.syncUIState(this.state.getState());
+    this.checkEndingConditions();
   }
 
   /**
@@ -2242,6 +2342,11 @@ export class GameController {
   debugGetCurrentTime(): { year: number; month: number; day: number; hour: number; minute: number } {
     const { year, month, day, hour, minute } = this.state.getState().time;
     return { year, month, day, hour, minute };
+  }
+
+  /** Directly trigger an ending screen for UI testing. */
+  debugTriggerEnding(type: EndingType): void {
+    this.triggerEnding(type);
   }
 
   // -- Initial state ----------------------------------------------------

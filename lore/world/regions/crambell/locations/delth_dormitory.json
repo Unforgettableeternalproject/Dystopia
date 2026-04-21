@@ -3,7 +3,6 @@
   "name": "綜合宿舍區",
   "regionId": "crambell",
   "districtId": "crambell_delth",
-  "locationType": "area",
   "tags": ["indoor", "residential", "government_controlled"],
   "base": {
     "description": "政府為工人所建的集體宿舍群，由數棟低矮混凝土建築組成。外牆佈滿裂縫與積垢，走廊燈常有幾盞不亮。入口處有佈告欄貼著工作額度通知與管制規定。宿舍管理員的辦公室在走廊盡頭，平時門都是開著的。",

@@ -1,24 +1,34 @@
 {
   "id": "transit_pass",
-  "name": "轉移通行證",
+  "name": "移動許可證",
   "description": "由行政機關發放的管制轉移許可證，用於各象限中轉站。許可證的目的地欄位決定持有人可前往的區域。",
   "type": "key",
   "obtainedFrom": "透過正式核准的轉移或遷置程序取得。",
   "variants": [
     {
       "id": "famein",
-      "label": "Famein",
+      "label": "費敏",
       "description": "費敏中轉站的通行授權。"
     },
     {
       "id": "pestilens",
-      "label": "Pestilens",
+      "label": "帕絲蒂蘭斯",
       "description": "帕絲蒂蘭斯中轉站的通行授權。"
     },
     {
       "id": "wyar",
-      "label": "Wyar",
+      "label": "瓦爾",
       "description": "瓦爾中轉站的通行授權。"
+    },
+    {
+      "id": "delth",
+      "label": "戴司",
+      "description": "戴司中轉站的通行授權。"
+    },
+    {
+      "id": "konquer",
+      "label": "特殊授權",
+      "description": "往康庫爾的特殊政府授權。"
     }
   ]
 }

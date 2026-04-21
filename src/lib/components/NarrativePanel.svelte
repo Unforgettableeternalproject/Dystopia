@@ -1,6 +1,6 @@
 <script lang="ts">
   import { afterUpdate } from 'svelte';
-  import { narrativeLines, isStreaming, eventToast } from '$lib/stores/gameStore';
+  import { narrativeLines, isStreaming, eventToast, acquisitionNotifs } from '$lib/stores/gameStore';
 
   let scrollEl: HTMLDivElement;
   let autoScroll  = true;
@@ -92,6 +92,16 @@
   {#if $eventToast}
     <div class="event-toast toast--{$eventToast.variant}">
       {$eventToast.label}
+    </div>
+  {/if}
+
+  {#if $acquisitionNotifs.length > 0}
+    <div class="acq-notif-stack">
+      {#each $acquisitionNotifs as notif (notif.id)}
+        <div class="acq-notif" class:acq-notif--gain={notif.gain} class:acq-notif--loss={!notif.gain}>
+          {notif.label}
+        </div>
+      {/each}
     </div>
   {/if}
 
@@ -252,6 +262,51 @@
   @keyframes rarePulse {
     0%, 100% { box-shadow: 0 0 4px #c9a22730; }
     50%       { box-shadow: 0 0 12px #c9a22780, 0 0 24px #c9a22740; }
+  }
+
+  /* Acquisition notification stack — bottom-right, stacks upward */
+  .acq-notif-stack {
+    position: absolute;
+    bottom: 44px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 9;
+  }
+
+  .acq-notif {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    padding: 4px 12px;
+    border-radius: 2px;
+    border-left: 2px solid transparent;
+    background: var(--bg-tertiary);
+    animation: acqIn 0.15s ease-out, acqOut 0.25s ease-in 3.2s forwards;
+    white-space: nowrap;
+  }
+
+  .acq-notif--gain {
+    color: #5fd38a;
+    border-color: #5fd38a;
+  }
+
+  .acq-notif--loss {
+    color: #d4a017;
+    border-color: #d4a017;
+  }
+
+  @keyframes acqIn {
+    from { opacity: 0; transform: translateX(8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes acqOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
   }
 
   /* "Back to latest" button */

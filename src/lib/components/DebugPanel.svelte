@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { GameController } from '$lib/engine/GameController';
-  import { playerUI, detailedPlayer } from '$lib/stores/gameStore';
+  import { playerUI, detailedPlayer, type EndingType } from '$lib/stores/gameStore';
 
   export let controller: GameController;
   export let onClose: () => void;
 
-  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player';
+  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending';
   let activeTab: Tab = 'encounter';
   let filter = '';
   let flagInput = '';
@@ -63,6 +63,7 @@
     location:  `地點 (${catalog.locations.length})`,
     flag:      '旗標',
     player:    '玩家狀態',
+    ending:    '結局測試',
   };
 
   $: q = filter.toLowerCase();
@@ -112,6 +113,12 @@
       resetting = false;
     }
   }
+
+  const ENDINGS: { type: EndingType; label: string; color: string }[] = [
+    { type: 'death',        label: '死亡結局',     color: '#d35f5f' },
+    { type: 'collapse',     label: '精神崩潰結局', color: '#c9a96e' },
+    { type: 'mvp_complete', label: 'MVP 完成結局', color: '#7ec8a0' },
+  ];
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
@@ -388,6 +395,86 @@
               </button>
             </div>
 
+          </div>
+
+        </div>
+
+      {:else if activeTab === 'ending'}
+        <div class="player-panel-debug">
+
+          <!-- ── 當前數值快照 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 當前觸發數值</div>
+            {#if $detailedPlayer}
+              {@const ss = $detailedPlayer.statusStats}
+              <div class="player-section">
+                <div class="ending-stat-row">
+                  <span class="stat-edit-label">體力</span>
+                  <span class="ending-stat-val" class:ending-danger={ss.stamina <= 0}>
+                    {ss.stamina} / {ss.staminaMax}
+                  </span>
+                  <span class="ending-condition">{ss.stamina <= 0 ? '⚠ 觸發死亡' : '正常'}</span>
+                </div>
+                <div class="ending-stat-row">
+                  <span class="stat-edit-label">壓力</span>
+                  <span class="ending-stat-val" class:ending-danger={ss.stress >= ss.stressMax}>
+                    {ss.stress} / {ss.stressMax}
+                  </span>
+                  <span class="ending-condition">{ss.stress >= ss.stressMax ? '⚠ 觸發崩潰' : '正常'}</span>
+                </div>
+              </div>
+            {:else}
+              <div class="player-section">
+                <span class="flag-hint">尚無玩家資料</span>
+              </div>
+            {/if}
+          </div>
+
+          <!-- ── 直接觸發結局 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 直接觸發結局畫面</div>
+            <div class="player-section">
+              {#each ENDINGS as e (e.type)}
+                <div class="ending-trigger-row">
+                  <div class="ending-trigger-info">
+                    <span class="item-name">{e.label}</span>
+                    <span class="item-id">{e.type}</span>
+                  </div>
+                  <button
+                    class="trigger-btn"
+                    style="border-color: {e.color}44; color: {e.color}"
+                    on:click={() => controller.debugTriggerEnding(e.type)}
+                  >
+                    觸發
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- ── 位置捷徑 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 位置捷徑（MVP 路徑驗證）</div>
+            <div class="player-section">
+              <div class="ending-trigger-row">
+                <div class="ending-trigger-info">
+                  <span class="item-name">象限傳點 - 瓦爾</span>
+                  <span class="item-id">wyar_transit_hub → mvp_complete</span>
+                </div>
+                <button class="trigger-btn" on:click={() => controller.debugTeleport('wyar_transit_hub').catch(console.error)}>
+                  傳送
+                </button>
+              </div>
+              <div class="ending-trigger-row">
+                <div class="ending-trigger-info">
+                  <span class="item-name">象限傳點 - 戴司</span>
+                  <span class="item-id">delth_transit_hub</span>
+                </div>
+                <button class="trigger-btn" on:click={() => controller.debugTeleport('delth_transit_hub').catch(console.error)}>
+                  傳送
+                </button>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -756,5 +843,45 @@
   .trigger-btn.small {
     font-size: 9px;
     padding: 2px 7px;
+  }
+
+  /* Ending tab */
+  .ending-stat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ending-stat-val {
+    font-size: 11px;
+    color: var(--text-primary);
+    min-width: 60px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .ending-stat-val.ending-danger {
+    color: #d35f5f;
+  }
+
+  .ending-condition {
+    font-size: 9px;
+    color: var(--text-dim);
+    flex: 1;
+    text-align: right;
+  }
+
+  .ending-trigger-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ending-trigger-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
   }
 </style>

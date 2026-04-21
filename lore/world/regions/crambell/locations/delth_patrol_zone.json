@@ -35,6 +35,19 @@
             "bypassMessage": "你無法用正當手段進入，所幸你知道在邊緣森林裡有個秘密入口可以通往倉庫。"
           }
         }
+      },
+      {
+        "targetLocationId": "delth_transit_hub",
+        "description": "前往象限傳點",
+        "access": {
+          "timeRanges": [
+            { "startHour": 4, "startMinute": 0, "endHour": 5, "endMinute": 59 }
+          ],
+          "itemRequirements": [
+            { "itemId": "transit_pass" }
+          ],
+          "lockedMessage": "象限傳點的班次只在凌晨四點至六點開放，且需持有轉移通行證才能通過守衛。"
+        }
       }
     ],
     "npcIds": ["crambell_mildore"],
@@ -60,7 +73,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": ["crambell_transfer_apply"],
+        "eventIds": ["crambell_transfer_apply", "crambell_transfer_collect_permit"],
         "isAccessible": true
       },
       "localVariants": []

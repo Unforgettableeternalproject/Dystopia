@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, questCompletionBanner, statCheckOverlay } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, questCompletionBanner, statCheckOverlay, endingType } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -19,6 +19,7 @@
   import InventoryModal    from '$lib/components/InventoryModal.svelte';
   import QuestDetailModal  from '$lib/components/QuestDetailModal.svelte';
   import QuestListModal    from '$lib/components/QuestListModal.svelte';
+  import EndingScreen      from '$lib/components/EndingScreen.svelte';
   import TitleScreen          from '$lib/components/TitleScreen.svelte';
   import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
   import ScriptedChoicePanel  from '$lib/components/ScriptedChoicePanel.svelte';
@@ -129,7 +130,10 @@
     }
   }
 
+  let endingRestartMode: 'menu' | 'naming' = 'menu';
+
   function handleReturnToTitle() {
+    endingRestartMode = 'menu';
     isDebugMode.set(false);
     narrativeLines.set([]);
     activeNpcUI.set(null);
@@ -137,7 +141,25 @@
     activeEncounterUI.set(null);
     encounterSessionLog.set([]);
     inputDisabled.set(false);
+    endingType.set(null);
     gamePhase.set('title');
+  }
+
+  function handleEndingRestart() {
+    endingRestartMode = 'naming';
+    isDebugMode.set(false);
+    narrativeLines.set([]);
+    activeNpcUI.set(null);
+    activeScriptedDialogue.set(null);
+    activeEncounterUI.set(null);
+    encounterSessionLog.set([]);
+    inputDisabled.set(false);
+    endingType.set(null);
+    gamePhase.set('title');
+  }
+
+  function handleEndingToTitle() {
+    handleReturnToTitle();
   }
 
   // ── Load game ─────────────────────────────────────────────────
@@ -271,6 +293,7 @@
 {#if $gamePhase === 'title'}
   <TitleScreen
     {saveSlots}
+    initialMode={endingRestartMode}
     onNewGame={handleNewGame}
     onLoadSlot={handleLoadSlot}
     onExportSlot={handleExportSlot}
@@ -429,6 +452,14 @@
     </div>
   </div>
 {/if}
+{/if}
+
+<!-- Ending screen (death / collapse / mvp_complete) -->
+{#if $gamePhase === 'ending'}
+  <EndingScreen
+    on:restart={handleEndingRestart}
+    on:toTitle={handleEndingToTitle}
+  />
 {/if}
 
 <!-- Close confirmation — shown regardless of game phase -->

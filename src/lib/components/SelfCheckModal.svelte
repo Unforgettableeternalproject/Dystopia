@@ -8,7 +8,7 @@
     consciousness: '意識', mysticism: '奧秘', technology: '科技',
     stamina: '體力', staminaMax: '體力上限',
     stress: '壓力', stressMax: '壓力上限',
-    endo: 'Endo', endoMax: 'Endo 上限',
+    endo: '魔力', endoMax: '魔力上限',
     experience: '經驗值',
   };
 

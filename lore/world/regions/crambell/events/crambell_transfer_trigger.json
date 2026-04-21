@@ -14,7 +14,7 @@
     "notFlags": [
       "crambell_transfer_trigger_checked",
       "crambell_transfer_opportunity:active",
-      "crambell_route1_complete"
+      "crambell_transfer_permit_collected"
     ]
   },
   "description": "玩家在礦場完成當日配額後，可能出現轉移機會。若未出現，機率將在之後的日子累積提升。",

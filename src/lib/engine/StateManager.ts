@@ -11,10 +11,17 @@ import type { PlayerAttitude } from '../types/dialogue';
 import { EventBus, GameEvents } from './EventBus';
 import { FlagSystem } from './FlagSystem';
 
+export type AcquisitionRecord =
+  | { type: 'item';       itemId: string; variantId?: string }
+  | { type: 'stat';       key: string; delta: number }
+  | { type: 'reputation'; factionId: string; delta: number }
+  | { type: 'affinity';   npcId: string; delta: number };
+
 export class StateManager {
   private state: GameState;
   private bus: EventBus;
   readonly flags: FlagSystem;
+  private _acquisitions: AcquisitionRecord[] = [];
 
   constructor(initialState: GameState, bus: EventBus) {
     this.state = initialState;
@@ -69,6 +76,7 @@ export class StateManager {
     if (stats && stat in stats) {
       stats[stat] = Math.max(0, stats[stat] + delta);
       this.notifyUpdate();
+      if (delta !== 0) this._acquisitions.push({ type: 'stat', key, delta });
     }
   }
 
@@ -78,12 +86,14 @@ export class StateManager {
     const current = this.state.player.externalStats.reputation[factionId] ?? 0;
     this.state.player.externalStats.reputation[factionId] = current + delta;
     this.notifyUpdate();
+    if (delta !== 0) this._acquisitions.push({ type: 'reputation', factionId, delta });
   }
 
   modifyAffinity(npcId: string, delta: number): void {
     const current = this.state.player.externalStats.affinity[npcId] ?? 0;
     this.state.player.externalStats.affinity[npcId] = current + delta;
     this.notifyUpdate();
+    if (delta !== 0) this._acquisitions.push({ type: 'affinity', npcId, delta });
   }
 
   addItem(itemId: string, totalMinutes: number, variantId?: string): void {
@@ -100,6 +110,7 @@ export class StateManager {
         isExpired: false,
       });
       this.notifyUpdate();
+      this._acquisitions.push({ type: 'item', itemId, variantId });
     }
   }
 
@@ -595,6 +606,13 @@ export class StateManager {
   /** Forward an arbitrary event to the bus (for use by sub-engines). */
   emit(event: string, payload: unknown): void {
     this.bus.emit(event, payload);
+  }
+
+  /** 取出並清空所有待顯示的獲取通知（由 GameController 在敘事結束後呼叫）。 */
+  drainAcquisitions(): AcquisitionRecord[] {
+    const records = this._acquisitions;
+    this._acquisitions = [];
+    return records;
   }
 
   private notifyUpdate(): void {

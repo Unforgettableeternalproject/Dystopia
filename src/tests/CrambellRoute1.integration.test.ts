@@ -94,6 +94,7 @@ function loadRoute1Lore() {
     events: {
       crambell_transfer_trigger: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_trigger.json'),
       crambell_transfer_apply: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_apply.json'),
+      crambell_transfer_collect_permit: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_collect_permit.json'),
       crambell_transfer_wait: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_wait.json'),
       crambell_quota_failure: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_quota_failure.json'),
       crambell_work_period_start: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_work_period_start.json'),
@@ -225,9 +226,20 @@ describe('Crambell route1 integration', () => {
       expect(day3Events.some(t => t.event.id === 'crambell_transfer_wait')).toBe(true);
       quests.checkObjectives();
 
+      // After day3 stage completes, quest advances to collect_permit stage
+      expect(state.getState().activeQuests.crambell_transfer_opportunity?.currentStageId).toBe('collect_permit');
+      expect(state.flags.has('crambell_transfer_permit_ready')).toBe(true);
+
+      // Advance to next work period and go to quota post to collect permit
+      crossHour(state, events, 19, 6, 'work');
+      state.getState().player.currentLocationId = 'delth_quota_post';
+      const collectEvents = events.checkAndApply('delth_quota_post');
+      expect(collectEvents.some(e => e.event.id === 'crambell_transfer_collect_permit')).toBe(true);
+
+      quests.checkObjectives();
       expect(state.getState().activeQuests.crambell_transfer_opportunity).toBeUndefined();
       expect(state.getState().completedQuestIds).toContain('crambell_transfer_opportunity');
-      expect(state.flags.has('crambell_route1_complete')).toBe(true);
+      expect(state.flags.has('crambell_transfer_permit_collected')).toBe(true);
       expect(state.flags.has('crambell_transfer_application_approved')).toBe(false);
       expect(state.getState().player.inventory).toEqual(
         expect.arrayContaining([

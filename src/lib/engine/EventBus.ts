@@ -43,6 +43,10 @@ export const GameEvents = {
   QUEST_DITCHED:        'quest:ditched',    // 玩家主動放棄
   QUEST_FAILED:         'quest:failed',     // 逾時或條件不符失敗
   ITEM_EXPIRED:         'item:expired',     // 時限道具失效
+  ITEM_ACQUIRED:        'item:acquired',    // 道具入手 { itemId, variantId? }
+  STAT_CHANGED:         'stat:changed',     // 數值變動 { key, delta, newValue }
+  REPUTATION_CHANGED:   'reputation:changed', // 聲望變動 { factionId, delta }
+  AFFINITY_CHANGED:     'affinity:changed', // 好感變動 { npcId, delta }
   ENCOUNTER_STARTED:    'encounter:started',   // 遭遇開始
   ENCOUNTER_OUTCOME:    'encounter:outcome',   // 遭遇結局確定（帶 outcomeType）
   ENCOUNTER_ENDED:      'encounter:ended',     // 遭遇結束（恢復 exploring）

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash } from '$lib/stores/gameStore';
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -25,24 +25,24 @@
   <div class="section">
     <div class="section-label">狀態</div>
     <div class="stats">
-      <div class="stat-row">
-        <span class="stat-label">STA</span>
+      <div class="stat-row" class:flash-good={$barFlash.stamina === 'good'} class:flash-bad={$barFlash.stamina === 'bad'}>
+        <span class="stat-label has-tooltip" data-tooltip="體力 Stamina&#10;代表你能持續行動的能耐。&#10;降至 0 將無法繼續行動。">STA</span>
         <div class="bar-wrap">
           <div class="bar stamina" style="width:{$staminaPercent}%"></div>
         </div>
         <span class="stat-val">{$playerUI.stamina}<span class="stat-max">/{$playerUI.staminaMax}</span></span>
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">STR</span>
+      <div class="stat-row" class:flash-good={$barFlash.stress === 'good'} class:flash-bad={$barFlash.stress === 'bad'}>
+        <span class="stat-label has-tooltip" data-tooltip="壓力 Stress&#10;心理承受的負擔。&#10;過高會影響判斷，崩潰時觸發危機狀態。">STR</span>
         <div class="bar-wrap">
           <div class="bar stress" style="width:{$stressPercent}%"></div>
         </div>
         <span class="stat-val">{$playerUI.stress}<span class="stat-max">/{$playerUI.stressMax}</span></span>
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">END</span>
+      <div class="stat-row" class:flash-good={$barFlash.endo === 'good'} class:flash-bad={$barFlash.endo === 'bad'}>
+        <span class="stat-label has-tooltip" data-tooltip="靈能 Endo&#10;特殊能力的驅動燃料。&#10;耗盡時無法使用靈能技能。">END</span>
         <div class="bar-wrap">
           <div class="bar endo" style="width:{$endoPercent}%"></div>
         </div>
@@ -109,6 +109,8 @@
     overflow-y: auto;
     border-left: 1px solid var(--border);
     background: var(--bg-secondary);
+    position: relative;
+    z-index: 20;
   }
 
   /* ── Identity ─────────────────────────────────────── */
@@ -201,6 +203,37 @@
     width: 24px;
     flex-shrink: 0;
     text-align: right;
+    position: relative;
+  }
+
+  .stat-label.has-tooltip {
+    cursor: help;
+  }
+
+  .stat-label.has-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 0;
+    white-space: pre;
+    background: var(--bg-primary, #111);
+    border: 1px solid var(--border-accent, #444);
+    color: var(--text-secondary, #ccc);
+    font-size: 9px;
+    line-height: 1.6;
+    letter-spacing: 0.02em;
+    padding: 5px 8px;
+    border-radius: 3px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 9999;
+    width: max-content;
+    max-width: 180px;
+  }
+
+  .stat-label.has-tooltip:hover::after {
+    opacity: 1;
   }
 
   .bar-wrap {
@@ -220,6 +253,32 @@
   .stamina { background: var(--accent); }
   .stress  { background: var(--accent-red); }
   .endo    { background: var(--accent-blue); }
+
+  /* ── Bar flash animations ─────────────────────────────── */
+  .stat-row.flash-good {
+    animation: barFlashGood 0.6s ease-out forwards;
+    border-radius: 2px;
+  }
+
+  .stat-row.flash-bad {
+    animation: barFlashBad 0.6s ease-out forwards;
+    border-radius: 2px;
+  }
+
+  @keyframes barFlashGood {
+    0%   { box-shadow: 0 0 0 1px #5fd38a99; }
+    40%  { box-shadow: 0 0 0 1px #5fd38a; }
+    100% { box-shadow: 0 0 0 1px transparent; }
+  }
+
+  @keyframes barFlashBad {
+    0%   { box-shadow: 0 0 0 1px #d35f5f99; transform: translateX(0); }
+    15%  { transform: translateX(-3px); box-shadow: 0 0 0 1px #d35f5f; }
+    30%  { transform: translateX(3px); }
+    45%  { transform: translateX(-2px); }
+    60%  { transform: translateX(0); box-shadow: 0 0 0 1px #d35f5f99; }
+    100% { box-shadow: 0 0 0 1px transparent; }
+  }
 
   .stat-val {
     font-size: 10px;

@@ -7,7 +7,7 @@
   "regionId": "crambell",
   "autoAccept": true,
   "isRepeatable": true,
-  "repeatCondition": "!crambell_route1_complete",
+  "repeatCondition": "!crambell_transfer_permit_collected",
   "canDitch": false,
   "_comment": [
     "由 crambell_enc_transfer_trigger 在玩家取得轉移線索後授予。",
@@ -96,7 +96,7 @@
     },
     "day3": {
       "id": "day3",
-      "description": "完成申請核准後的第三天配額。",
+      "description": "完成申請核准後的第三天配額，你感覺應該是時候了。",
       "objectives": [
         {
           "id": "day3_quota",
@@ -106,8 +106,7 @@
         }
       ],
       "onComplete": {
-        "grantItems": [{ "itemId": "transit_pass", "variantId": "wyar" }],
-        "flagsSet": ["crambell_transfer_permit_granted"],
+        "flagsSet": ["crambell_transfer_permit_ready"],
         "flagsUnset": [
           "crambell_transfer_application_approved",
           "crambell_transfer_day1_met",
@@ -115,7 +114,7 @@
           "crambell_transfer_day3_met",
           "crambell_transfer_wait_processed"
         ],
-        "nextStageId": null
+        "nextStageId": "collect_permit"
       },
       "onFail": {
         "flagsUnset": [
@@ -127,9 +126,23 @@
         ],
         "nextStageId": null
       }
+    },
+    "collect_permit": {
+      "id": "collect_permit",
+      "description": "三天審核期已過，前往配額站在工作時段領取批准的轉移通行證。",
+      "objectives": [
+        {
+          "id": "collect_permit_obj",
+          "type": "flag_check",
+          "description": "在工作時段前往配額站領取通行證。",
+          "flag": "crambell_transfer_permit_collected"
+        }
+      ],
+      "onComplete": {
+        "flagsUnset": ["crambell_transfer_permit_ready"],
+        "nextStageId": null
+      }
     }
   },
-  "rewards": {
-    "flagsSet": ["crambell_route1_complete"]
-  }
+  "rewards": {}
 }

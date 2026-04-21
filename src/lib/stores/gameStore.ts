@@ -98,8 +98,10 @@ export const inputDisabled = writable(false);
 
 // ── Game phase ─────────────────────────────────────────────────
 
-export type GamePhase = 'title' | 'naming' | 'loading' | 'playing';
-export const gamePhase    = writable<GamePhase>('title');
+export type GamePhase  = 'title' | 'naming' | 'loading' | 'playing' | 'ending';
+export type EndingType = 'mvp_complete' | 'death' | 'collapse';
+export const gamePhase  = writable<GamePhase>('title');
+export const endingType = writable<EndingType | null>(null);
 export const isDebugMode  = writable(false);
 
 // ── Player UI State ────────────────────────────────────────────
@@ -314,6 +316,41 @@ export function showEventToast(label: string, variant: ToastVariant = 'normal'):
     eventToast.set(null);
     _toastTimer = null;
   }, duration);
+}
+
+// ── Acquisition notifications ──────────────────────────────────
+// 獲得/失去道具、數值、聲望、好感時在右下角顯示的佇列式通知
+
+export interface AcquisitionNotif {
+  id: number;
+  label: string;
+  gain: boolean; // true = 獲得（綠）, false = 失去（琥珀）
+}
+
+export const acquisitionNotifs = writable<AcquisitionNotif[]>([]);
+
+let _notifSeq = 0;
+
+export function showAcquisitionNotif(label: string, gain: boolean): void {
+  const id = ++_notifSeq;
+  acquisitionNotifs.update(list => [...list, { id, label, gain }]);
+  setTimeout(() => {
+    acquisitionNotifs.update(list => list.filter(n => n.id !== id));
+  }, 3500);
+}
+
+// ── Status bar flash ───────────────────────────────────────────
+// 狀態數值變動時在 PlayerPanel 的條上閃爍提示（good=綠/bad=紅+抖動）
+
+export type BarFlashKind = 'good' | 'bad';
+// key = stat name: 'stamina' | 'stress' | 'endo'
+export const barFlash = writable<Partial<Record<string, BarFlashKind>>>({});
+
+export function triggerBarFlash(stat: string, kind: BarFlashKind): void {
+  barFlash.update(s => ({ ...s, [stat]: kind }));
+  setTimeout(() => {
+    barFlash.update(s => { const n = { ...s }; delete n[stat]; return n; });
+  }, 600);
 }
 
 // ── Derived ────────────────────────────────────────────────────

@@ -34,8 +34,12 @@
         {#if q.objectives.length > 0}
           <div class="obj-label">目標</div>
           <ul class="obj-list">
-            {#each q.objectives as obj}
-              <li class="obj-item" class:done={obj.completed}>
+            {#each q.objectives as obj, i}
+              <li
+                class="obj-item"
+                class:done={obj.completed}
+                style={!obj.completed ? `animation-delay: ${i * 90}ms` : undefined}
+              >
                 <span class="obj-check">{obj.completed ? '✓' : '○'}</span>
                 <span class="obj-text">{obj.description}</span>
               </li>
@@ -166,6 +170,12 @@
     gap: 6px;
   }
 
+  @keyframes objNewGlow {
+    0%   { opacity: 0; text-shadow: 0 0 10px rgba(201, 169, 110, 0.8); color: #c9a96e; }
+    30%  { opacity: 1; text-shadow: 0 0 6px rgba(201, 169, 110, 0.5); color: #c9a96e; }
+    100% { opacity: 1; text-shadow: none; color: var(--text-secondary); }
+  }
+
   .obj-item {
     display: flex;
     align-items: flex-start;
@@ -173,6 +183,10 @@
     font-size: 11px;
     color: var(--text-secondary);
     line-height: 1.5;
+  }
+
+  .obj-item:not(.done) {
+    animation: objNewGlow 1.4s ease-out both;
   }
 
   .obj-item.done {
