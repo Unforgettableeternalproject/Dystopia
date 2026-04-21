@@ -1,17 +1,11 @@
 {
   "id": "crambell_quota_failure",
-  "name": "未達標",
-
+  "name": "配額未達",
   "_comment": [
-    "【未達標】",
-    "全域事件：掛載於 index.json globalEventIds。",
-    "作業時段結束（18:00，triggerHours: [18]）且當日未完成配額時觸發。",
-    "開啟遭遇「申報站盤查」，後果：扣錢 / 可能扣聲望（政府）/ 重置調轉機率。",
-    "自我標記設計：設 crambell_quota_failure_processed 防止休息時段內重複觸發；",
-    "  此旗標由 crambell_work_period_start 在次日作業開始時清除。",
-    "MVP 範圍：資金扣除在遭遇結局節點的 statChanges 中處理；聲望扣除暫不實作。"
+    "全域事件，於 18:00 觸發，條件為當日配額未完成。",
+    "固定啟動配額稽核遭遇。",
+    "若轉移申請已核准，則撤銷申請並使可重複任務失敗。"
   ],
-
   "condition": {
     "triggerHours": [18],
     "notFlags": [
@@ -19,13 +13,31 @@
       "crambell_quota_failure_processed"
     ]
   },
-
-  "description": "作業時段結束的警報聲響起，配額站的擴音器開始逐一點名未達標的工人。",
-
+  "description": "作業時段結束，玩家未完成配額。監察部門立即介入。",
   "outcomes": [
     {
-      "id": "quota_audit",
-      "description": "玩家被點名，須前往配額站接受盤查。",
+      "id": "quota_audit_transfer_revoked",
+      "condition": "crambell_transfer_application_approved",
+      "description": "配額未達，待審的轉移申請被撤銷，並觸發配額稽核。",
+      "flagsSet": [
+        "crambell_quota_failure_processed",
+        "crambell_transfer_trigger_checked"
+      ],
+      "flagsUnset": [
+        "crambell_transfer_application_approved",
+        "crambell_transfer_day1_met",
+        "crambell_transfer_day2_met",
+        "crambell_transfer_day3_met",
+        "crambell_transfer_wait_processed"
+      ],
+      "eventCounterReset": ["crambell_transfer_trigger_progress"],
+      "failQuestId": "crambell_transfer_opportunity",
+      "startEncounterId": "crambell_enc_quota_audit"
+    },
+    {
+      "id": "quota_audit_standard",
+      "condition": "!crambell_transfer_application_approved",
+      "description": "配額未達，觸發配額稽核。",
       "flagsSet": [
         "crambell_quota_failure_processed",
         "crambell_transfer_trigger_checked"

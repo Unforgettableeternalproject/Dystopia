@@ -1,30 +1,22 @@
 {
   "id": "crambell_transfer_apply",
-  "name": "遷移申請",
-
+  "name": "轉移申請窗口",
   "_comment": [
-    "【遷移申請觸發】",
-    "位置事件：掛載於 delth_quota_post.base.eventIds（配額站子地點）。",
-    "玩家持有任務「遷移機會」且處於 apply 階段、在休息時段到達配額站時觸發。",
-    "開啟遭遇 crambell_enc_transfer_apply，成功則推進任務（由 encounter_completed 目標偵測）。",
-    "可重複觸發，讓玩家在失敗後能再次嘗試（直到任務進入 day1 階段）。"
+    "配額站的位置事件，於休息時段觸發。",
+    "僅在轉移機會任務進行中且當前階段為申請階段時可用。"
   ],
-
   "locationId": "delth_quota_post",
-
   "condition": {
     "timePeriod": ["rest"],
     "questActiveId": "crambell_transfer_opportunity",
     "questStageId": "apply",
     "notFlags": ["crambell_transfer_application_approved"]
   },
-
-  "description": "配額站的燈還亮著，值班的官員坐在小窗後面翻著文件。玩家可以嘗試提出調轉申請。",
-
+  "description": "玩家可在配額站提交轉移申請。",
   "outcomes": [
     {
       "id": "start_application",
-      "description": "玩家進入配額站，與官員交涉。",
+      "description": "玩家走向辦理台，展開申請審核流程。",
       "startEncounterId": "crambell_enc_transfer_apply"
     }
   ],

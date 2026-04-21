@@ -184,7 +184,10 @@ export class QuestEngine {
       this.applyFailOutcome(stage.onFail);
 
       if (stage.onFail.nextStageId === null) {
-        this.state.failQuest(questId);
+        this.state.failQuest(questId, { recordAsCompleted: !def?.isRepeatable });
+        if (def?.isRepeatable) {
+          this.state.removeEndedQuest(questId);
+        }
       } else if (typeof stage.onFail.nextStageId === 'string') {
         this.state.advanceQuestStage(questId, stage.onFail.nextStageId);
       }
@@ -225,7 +228,11 @@ export class QuestEngine {
       if (instance.isCompleted || instance.isFailed) continue;
       if (instance.expiresAtMinutes !== undefined && totalMinutes >= instance.expiresAtMinutes) {
         this.state.flags.set(questId + ':expired');
-        this.state.failQuest(questId);
+        const def = this.lore.getQuest(questId);
+        this.state.failQuest(questId, { recordAsCompleted: !def?.isRepeatable });
+        if (def?.isRepeatable) {
+          this.state.removeEndedQuest(questId);
+        }
       }
     }
   }

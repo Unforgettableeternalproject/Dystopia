@@ -1,8 +1,9 @@
 {
+  "_comment": "這名NPC於MVP版本中還不會出現。",
   "id": "crambell_elowan_default",
   "npcId": "crambell_elowan",
 
-  "defaultContext": "TODO: 艾洛安的說話模式。商業性、消息靈通，說話中常夾帶價格暗示。保持友善但不透底，對政府話題保持中立的「生意人距離」。對感興趣的玩家主動介紹商品，但情報要另外談。",
+  "defaultContext": "一位總是笑臉常開的中年男子，總是神祕地出現在各種地方，政府的人對他視而不見，神秘且帶勸誘的說話方式讓一般人不太願意去與其互動。",
 
   "nodes": {
     "first_meeting": {

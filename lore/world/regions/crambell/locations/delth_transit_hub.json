@@ -1,53 +1,69 @@
 {
   "id": "delth_transit_hub",
-  "name": "象限傳點",
+  "name": "戴司中轉站",
   "regionId": "crambell",
   "districtId": "crambell_delth",
   "locationType": "sublocation",
   "parentId": "delth_patrol_zone",
   "tags": ["outdoor", "transit", "checkpoint"],
   "base": {
-    "description": "連接各象限的中繼站，是工人與物資在坎貝爾內部移動的主要節點。設施簡單，幾條寬闊的通道匯集於此，通道口各有指示牌標明目的地象限。站內常駐有身穿制服的身分核查人員，所有進出者都需出示工作分配令或通行憑證。牆面掛著坎貝爾的象限地圖，某些通道的出口被鐵閘封鎖，標示著「限制區域」。",
-    "ambience": ["人流", "管制", "等待", "廣播聲", "身分核查"],
+    "description": "管制轉移場，連接戴司與其他象限的中轉站。守衛在此嚴格追蹤通行證與人員流動。",
+    "ambience": ["檢查哨", "軌道", "迴盪的腳步聲", "行政壓力"],
     "connections": [
       {
         "targetLocationId": "delth_patrol_zone",
-        "description": "返回管制區"
+        "description": "返回巡邏管制區"
       },
       {
         "targetLocationId": "famein_transit_hub",
-        "description": "前往費敏象限（第一象限）",
-        "travelNote": "通道口的核查人員仔細核對你的通行憑證，然後放行。",
+        "description": "前往費敏的轉移路線",
+        "travelNote": "搭乘前往費敏中轉站的管制班次。",
         "access": {
-          "itemRequirements": ["famein_transit_pass"],
-          "lockedMessage": "此通道需要有效的費敏通行憑證"
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "famein" }
+          ],
+          "lockedMessage": "需持有費敏通行證。"
         }
       },
       {
         "targetLocationId": "pestilens_transit_hub",
-        "description": "前往帕絲蒂蘭斯象限（第二象限）",
-        "travelNote": "通道口的核查人員核對你的特殊通行許可，並確認你並不存在於政府列管的人員名單中後放行。",
+        "description": "前往帕絲蒂蘭斯的轉移路線",
+        "travelNote": "搭乘前往帕絲蒂蘭斯中轉站的管制班次。",
         "access": {
-          "itemRequirements": ["pestilens_transit_pass"],
-          "lockedMessage": "此通道需要有效的帕絲蒂蘭斯特殊通行許可"
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "pestilens" }
+          ],
+          "lockedMessage": "需持有帕絲蒂蘭斯通行證。"
         }
       },
       {
         "targetLocationId": "wyar_transit_hub",
-        "description": "前往瓦爾象限（第三象限）",
-        "travelNote": "通道口的核查人員核對你的工作分配令，確認與瓦爾的工作調配相符後放行。",
+        "description": "前往瓦爾的轉移路線",
+        "travelNote": "搭乘前往瓦爾中轉站的管制班次。",
         "access": {
-          "itemRequirements": ["wyar_transit_pass"],
-          "lockedMessage": "此通道需要有效的瓦爾工作調配令"
+          "timeRanges": [
+            {
+              "startHour": 0,
+              "startMinute": 0,
+              "endHour": 5,
+              "endMinute": 59
+            }
+          ],
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "wyar" }
+          ],
+          "lockedMessage": "需持有瓦爾通行證。"
         }
       },
       {
         "targetLocationId": "konquer_outer_gate",
-        "description": "前往康庫爾（中央政府）",
-        "travelNote": "前往中央需要高層許可，守衛格外嚴格地核查你的身分鎖資料。",
+        "description": "前往康庫爾的通道路線",
+        "travelNote": "另有一條通道通往康庫爾。",
         "access": {
-          "itemRequirements": ["konquer_access_pass"],
-          "lockedMessage": "前往中央政府需要高層通行授權"
+          "itemRequirements": [
+            { "itemId": "konquer_access_pass" }
+          ],
+          "lockedMessage": "需持有康庫爾通行證。"
         }
       }
     ],

@@ -35,6 +35,7 @@ secrets.json
 
 # Agent Rules
 CLAUDE.md
+AGENTS.md
 
 # Local
 docs/hidden/*

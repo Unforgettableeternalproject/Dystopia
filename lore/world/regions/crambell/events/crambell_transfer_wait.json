@@ -1,46 +1,40 @@
 {
   "id": "crambell_transfer_wait",
-  "name": "等待期計日",
-
+  "name": "轉移等待期",
   "_comment": [
-    "【遷移等待期 — 日計數】",
-    "全域事件：掛載於 index.json globalEventIds。",
-    "在遷移機會申請通過後（crambell_transfer_application_approved），",
-    "  每日作業時段結束（triggerHours: [18]）且當日配額達成（crambell_quota_met_today）時觸發。",
-    "按現有進度逐步設置 day1 → day2 → day3 旗標，供任務 crambell_transfer_opportunity 追蹤。",
-    "三個 outcome 按條件順序選取第一個符合的。",
-    "自我標記：設 crambell_transfer_wait_processed 防止當日重複；",
-    "  此旗標由 crambell_work_period_start 次日清除。"
+    "每天 18:00 觸發，條件為申請已核准。",
+    "每一個配額達成日會讓等待天數推進一天。",
+    "配額未達的情況由 crambell_quota_failure 單獨處理，該事件會撤銷申請。"
   ],
-
   "condition": {
     "triggerHours": [18],
     "flags": [
       "crambell_transfer_application_approved",
       "crambell_quota_met_today"
     ],
-    "notFlags": ["crambell_transfer_wait_processed", "crambell_transfer_permit_granted"],
+    "notFlags": [
+      "crambell_transfer_wait_processed",
+      "crambell_transfer_permit_granted"
+    ],
     "questActiveId": "crambell_transfer_opportunity"
   },
-
-  "description": "又一個作業時段結束，配額已達成。等待期的日子一天一天過去。",
-
+  "description": "已核准的轉移案件，需要連續三天完成配額才能通過。",
   "outcomes": [
     {
       "id": "day3_complete",
       "condition": "crambell_transfer_day2_met",
-      "description": "等待期第三日配額達成，明日便可領取許可。",
+      "description": "第三天的配額達成記錄完成。",
       "flagsSet": ["crambell_transfer_day3_met", "crambell_transfer_wait_processed"]
     },
     {
       "id": "day2_complete",
       "condition": "crambell_transfer_day1_met",
-      "description": "等待期第二日配額達成，還有一天。",
+      "description": "第二天的配額達成記錄完成。",
       "flagsSet": ["crambell_transfer_day2_met", "crambell_transfer_wait_processed"]
     },
     {
       "id": "day1_complete",
-      "description": "等待期第一日配額達成，還有兩天。",
+      "description": "第一天的配額達成記錄完成。",
       "flagsSet": ["crambell_transfer_day1_met", "crambell_transfer_wait_processed"]
     }
   ],

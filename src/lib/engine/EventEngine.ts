@@ -49,8 +49,20 @@ export class EventEngine {
   checkAndApply(locationId: string, crossedHours: number[] = []): TriggeredEvent[] {
     const resolved = this.lore.resolveLocation(locationId, this.state.flags);
     if (!resolved) return [];
+
+    // Collect eventIds from current location and all ancestor locations.
+    // This allows events registered at a parent location to fire in any sublocation.
+    const eventIds = [...resolved.eventIds];
+    let parentId = resolved.parentId;
+    while (parentId) {
+      const parent = this.lore.resolveLocation(parentId, this.state.flags);
+      if (!parent) break;
+      eventIds.push(...parent.eventIds);
+      parentId = parent.parentId;
+    }
+
     this.checkCtx = { sceneNpcIds: resolved.npcIds, crossedHours };
-    return this.processEventIds(resolved.eventIds);
+    return this.processEventIds(eventIds);
   }
 
   /**
@@ -259,16 +271,38 @@ export class EventEngine {
       ? pool
       : event.outcomes.filter(o => !o.condition);
 
-    if (candidates.length === 0) return undefined;
-    if (candidates.length === 1) return candidates[0];
+    const weighted = candidates
+      .map(outcome => ({ outcome, weight: this.resolveOutcomeWeight(outcome) }))
+      .filter(entry => entry.weight > 0);
 
-    const total = candidates.reduce((sum, o) => sum + (o.weight ?? 1), 0);
+    if (weighted.length === 0) return undefined;
+    if (weighted.length === 1) return weighted[0].outcome;
+
+    const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
     let roll = Math.random() * total;
-    for (const o of candidates) {
-      roll -= o.weight ?? 1;
-      if (roll <= 0) return o;
+    for (const entry of weighted) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry.outcome;
     }
-    return candidates[candidates.length - 1];
+    return weighted[weighted.length - 1].outcome;
+  }
+
+  private resolveOutcomeWeight(outcome: EventOutcome): number {
+    const baseWeight = outcome.weight ?? 1;
+    const rule = outcome.weightByEventCounter;
+    if (!rule) return baseWeight;
+
+    const counterValue = this.state.getEventCounter(rule.counterId);
+    const exactWeight = rule.valueWeights[String(counterValue)];
+    if (exactWeight !== undefined) return Math.max(0, exactWeight);
+    if (rule.fallback !== 'nearest_lower') return Math.max(0, baseWeight);
+
+    const nearestLower = Object.entries(rule.valueWeights)
+      .map(([key, weight]) => ({ key: Number(key), weight }))
+      .filter(entry => Number.isFinite(entry.key) && entry.key <= counterValue)
+      .sort((a, b) => b.key - a.key)[0];
+
+    return Math.max(0, nearestLower?.weight ?? baseWeight);
   }
 
   private applyOutcome(outcome: EventOutcome): void {

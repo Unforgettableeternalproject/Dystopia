@@ -1,6 +1,7 @@
 {
-  "id": "crambell_karin_default",
-  "npcId": "crambell_karin",
+  "_comment": "這名NPC於MVP版本中還不會出現。",
+  "id": "crambell_carin_default",
+  "npcId": "crambell_carin",
 
   "defaultContext": "TODO: 卡林的說話模式。克制、字句精確，不多說一個字。習慣先聽再說，說話時眼神會持續評估對方。對威脅保持冷靜，不流露情緒。偶爾的停頓比台詞更有份量。",
 
@@ -14,21 +15,21 @@
         {
           "id": "straightforward",
           "text": "TODO: 直接說明自己是誰、來這裡做什麼",
-          "nextNodeId": "karin_assess_player"
+          "nextNodeId": "carin_assess_player"
         },
         {
           "id": "cautious",
           "text": "TODO: 謹慎回應，不透露太多",
-          "nextNodeId": "karin_probe_further"
+          "nextNodeId": "carin_probe_further"
         },
         {
           "id": "silent",
           "text": "（沉默，反過來打量她）",
-          "nextNodeId": "karin_cold_end"
+          "nextNodeId": "carin_cold_end"
         }
       ]
     },
-    "karin_assess_player": {
+    "carin_assess_player": {
       "lines": [
         { "speaker": "narrator", "text": "她靜靜聽完，臉上看不出任何評判。" },
         { "speaker": "npc", "text": "TODO: 卡林初步評估後的回應。她已記住玩家，但不表態。" }
@@ -38,11 +39,11 @@
         {
           "id": "ask_about_her",
           "text": "「你是負責什麼的？」",
-          "nextNodeId": "karin_minimal_answer"
+          "nextNodeId": "carin_minimal_answer"
         }
       ]
     },
-    "karin_probe_further": {
+    "carin_probe_further": {
       "lines": [
         { "speaker": "npc", "text": "TODO: 卡林對謹慎態度的回應——她能識別這種防衛姿態，並稍微表現出認可。" }
       ],
@@ -50,7 +51,7 @@
         { "id": "end", "text": "（點頭，結束對話）", "nextNodeId": null }
       ]
     },
-    "karin_cold_end": {
+    "carin_cold_end": {
       "lines": [
         { "speaker": "npc", "text": "TODO: 卡林對沉默的回應。簡短，不浪費時間。" }
       ],
@@ -58,7 +59,7 @@
         { "id": "end", "text": "（轉身離開）", "nextNodeId": null }
       ]
     },
-    "karin_minimal_answer": {
+    "carin_minimal_answer": {
       "lines": [
         { "speaker": "npc", "text": "TODO: 卡林對關於自身的問題只給出最低限度的答案。" }
       ],
@@ -78,7 +79,7 @@
   "contextSnippets": [
     {
       "label": "玩家得知卡林曾刺殺前任領主",
-      "condition": "intel:karin_killed_earl",
+      "condition": "intel:carin_killed_earl",
       "context": "TODO: 玩家知道此事後，卡林如何處理這個威脅——是否試圖解釋、警告或沉默以對？"
     }
   ]

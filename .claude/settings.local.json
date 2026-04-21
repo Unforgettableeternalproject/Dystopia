@@ -51,7 +51,22 @@
       "mcp__mempal__mempal_search",
       "mcp__mempal__mempal_taxonomy",
       "mcp__mempal__mempal_ingest",
-      "Bash(mempal:*)"
+      "Bash(mempal:*)",
+      "Bash(cat \"C:\\\\\\\\Users\\\\\\\\Bernie\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\C--Users-Bernie-source-repos-Unforgettableeternalproject-Dystopia-Dystopia\\\\\\\\d3ab084c-0d88-4de3-82eb-8d3a62932e48\\\\\\\\tasks\\\\\\\\bfr0aysyu.output\")",
+      "Bash(python3:*)",
+      "Bash(sqlite3:*)",
+      "Bash(tasklist)",
+      "Bash(taskkill /PID 55248 /F)",
+      "Bash(taskkill /PID 48488 /F)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(MEMPAL_DB=\"C:/Users/Bernie/.mempal/palace.db\" mempal status)",
+      "Bash(MEMPAL_HOME=\"C:/Users/Bernie\" mempal status)",
+      "Bash(git -C \"C:/Users/Bernie/source/repos/Unforgettableeternalproject/Dystopia/Dystopia\" diff --name-only HEAD~1 HEAD -- lore/)",
+      "mcp__mempal__mempal_delete",
+      "mcp__mempal__mempal_peek_partner",
+      "mcp__mempal__mempal_cowork_push",
+      "Bash(npm test:*)"
     ]
   }
 }

@@ -145,21 +145,22 @@ export class EncounterEngine {
       return null;
     }
 
+    const resolved = this.resolveNode(def, nextNode);
+    const resolvedNode = resolved.node;
+
     this.state.setActiveEncounter({
       ...active,
-      currentNodeId: choice.nextNodeId,
+      currentNodeId: resolvedNode.id,
       collectedNarrative: updatedNarrative,
     });
-
-    const resolved = this.resolveNode(def, nextNode);
 
     // Outcome node: apply effects and signal, but do NOT call endEncounter() yet.
     // GameController will render the node via DM first, then call conclude().
     if (resolved.isOutcome) {
-      if (nextNode.effects) {
-        this.applyEffects(nextNode.effects);
+      if (resolvedNode.effects) {
+        this.applyEffects(resolvedNode.effects);
       }
-      const outcomeType = nextNode.outcomeType ?? 'neutral';
+      const outcomeType = resolvedNode.outcomeType ?? 'neutral';
       this.state.emit(
         GameEvents.ENCOUNTER_OUTCOME,
         { encounterId: active.encounterId, outcomeType },
@@ -167,8 +168,8 @@ export class EncounterEngine {
       // Append outcome narrative to collectedNarrative so DM context is complete
       this.state.setActiveEncounter({
         ...active,
-        currentNodeId: choice.nextNodeId,
-        collectedNarrative: updatedNarrative + '\n' + (nextNode.displayText ?? nextNode.dmNarrative ?? ''),
+        currentNodeId: resolvedNode.id,
+        collectedNarrative: updatedNarrative + '\n' + (resolvedNode.displayText ?? resolvedNode.dmNarrative ?? ''),
       });
       this.pending.outcomeType = outcomeType;
     }

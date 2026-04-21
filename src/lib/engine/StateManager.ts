@@ -19,7 +19,13 @@ export class StateManager {
   constructor(initialState: GameState, bus: EventBus) {
     this.state = initialState;
     this.bus = bus;
-    this.flags = new FlagSystem(bus, Array.from(initialState.player.activeFlags));
+    const activeQuestFlags = Object.values(initialState.activeQuests)
+      .filter(q => !q.isCompleted && !q.isFailed && !q.isDitched)
+      .map(q => q.questId + ':active');
+    this.flags = new FlagSystem(bus, [
+      ...Array.from(initialState.player.activeFlags),
+      ...activeQuestFlags,
+    ]);
   }
 
   getState(): Readonly<GameState> {
@@ -305,6 +311,7 @@ export class StateManager {
       acceptedAtMinutes:      options?.acceptedAtMinutes,
       expiresAtMinutes:       options?.expiresAtMinutes,
     };
+    this.flags.set(questId + ':active');
     this.bus.emit(GameEvents.QUEST_STARTED, { questId });
     this.notifyUpdate();
   }
@@ -355,6 +362,7 @@ export class StateManager {
     if (instance) {
       instance.isCompleted    = true;
       instance.currentStageId = null;
+      this.flags.unset(questId + ':active');
       if (!this.state.completedQuestIds.includes(questId)) {
         this.state.completedQuestIds.push(questId);
       }
@@ -400,6 +408,14 @@ export class StateManager {
     }
   }
 
+  removeEndedQuest(questId: string): void {
+    const instance = this.state.activeQuests[questId];
+    if (instance?.isCompleted || instance?.isFailed || instance?.isDitched) {
+      delete this.state.activeQuests[questId];
+      this.notifyUpdate();
+    }
+  }
+
   /** 玩家主動放棄任務。套用當前階段的 ditchConsequences 後移出 activeQuests。 */
   ditchQuest(questId: string, consequences?: QuestDitchConsequences): void {
     const instance = this.state.activeQuests[questId];
@@ -408,6 +424,7 @@ export class StateManager {
     instance.isDitched      = true;
     instance.isFailed       = true;
     instance.currentStageId = null;
+    this.flags.unset(questId + ':active');
 
     if (consequences) {
       consequences.flagsSet?.forEach(f => this.flags.set(f));
@@ -452,12 +469,14 @@ export class StateManager {
     this.notifyUpdate();
   }
 
-  failQuest(questId: string): void {
+  failQuest(questId: string, options?: { recordAsCompleted?: boolean }): void {
     const instance = this.state.activeQuests[questId];
     if (instance) {
       instance.isFailed       = true;
       instance.currentStageId = null;
-      if (!this.state.completedQuestIds.includes(questId)) {
+      this.flags.unset(questId + ':active');
+      const recordAsCompleted = options?.recordAsCompleted ?? true;
+      if (recordAsCompleted && !this.state.completedQuestIds.includes(questId)) {
         this.state.completedQuestIds.push(questId);
       }
       this.bus.emit(GameEvents.QUEST_FAILED, { questId });

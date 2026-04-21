@@ -1,47 +1,56 @@
 {
   "id": "crambell_transfer_trigger",
-  "name": "調轉機會",
-
+  "name": "轉移機會",
   "_comment": [
-    "這是調轉機會的第 1 階機率事件（首次達標後檢查）。",
-    "掛載於 delth_mine_worksite.base.eventIds；同位置另有 tier2/tier3/tier4 事件。",
-    "達成每日配額後，只要當天尚未檢查且未進入調轉任務，就會依當前 counter 決定是否觸發。",
-    "本階只在 counter = 0 時生效；若未觸發則 counter +1，若觸發則 reset counter。",
-    "每日只檢查一次，仍由 crambell_transfer_trigger_checked 控制；其重置由 crambell_work_period_start 處理。"
+    "轉移觸發事件（單次版本）。",
+    "使用 outcome.weightByEventCounter 搭配 crambell_transfer_trigger_progress 調整各結果的抽選權重。",
+    "計數器 0/1/2/3+ 分別對應 25% / 50% / 75% / 100% 的觸發機率。",
+    "crambell_transfer_trigger_checked 僅阻止同一天內重複判定。"
   ],
-
-  "locationId": "delth_mine_worksite",
-
+  "locationId": "delth_mining_shafts",
   "condition": {
     "timePeriod": ["work"],
     "flags": ["crambell_quota_met_today"],
-    "exactEventCounters": {
-      "crambell_transfer_trigger_progress": 0
-    },
     "notFlags": [
       "crambell_transfer_trigger_checked",
       "crambell_transfer_opportunity:active",
       "crambell_route1_complete"
     ]
   },
-
-  "description": "玩家在工作中完成當日配額後，可能遇上一個與調轉有關的契機；若沒有出現，這條機會會繼續累積到下一次。",
-
+  "description": "玩家在礦場完成當日配額後，可能出現轉移機會。若未出現，機率將在之後的日子累積提升。",
   "outcomes": [
     {
       "id": "no_opportunity_today",
-      "description": "今天沒有發生任何調轉契機；玩家錯過一次累積機會，下一次觸發率提高。",
-      "weight": 3,
+      "description": "今日未出現任何轉移線索，但下次觸發的機率將提高。",
       "flagsSet": ["crambell_transfer_trigger_checked"],
+      "weightByEventCounter": {
+        "counterId": "crambell_transfer_trigger_progress",
+        "valueWeights": {
+          "0": 3,
+          "1": 2,
+          "2": 1,
+          "3": 0
+        },
+        "fallback": "nearest_lower"
+      },
       "eventCounterChanges": {
         "crambell_transfer_trigger_progress": 1
       }
     },
     {
       "id": "trigger_encounter",
-      "description": "工作中的細微異動讓玩家接觸到調轉機會，進入對應遭遇。",
+      "description": "工作途中出現轉移線索，玩家進入觸發遭遇。",
       "flagsSet": ["crambell_transfer_trigger_checked"],
-      "weight": 1,
+      "weightByEventCounter": {
+        "counterId": "crambell_transfer_trigger_progress",
+        "valueWeights": {
+          "0": 1,
+          "1": 2,
+          "2": 3,
+          "3": 1
+        },
+        "fallback": "nearest_lower"
+      },
       "eventCounterReset": ["crambell_transfer_trigger_progress"],
       "startEncounterId": "crambell_enc_transfer_trigger"
     }

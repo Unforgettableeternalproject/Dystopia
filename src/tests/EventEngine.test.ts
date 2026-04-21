@@ -246,112 +246,45 @@ describe('EventEngine', () => {
     expect(exactHarness.mgr.getEventCounter('transfer_progress')).toBe(0);
   });
 
-  it('supports tiered probability events driven by event counters', () => {
-    const tier1: GameEvent = {
-      id: 'transfer_tier1',
-      description: 'Tier 1 transfer chance',
+  it('supports single-event probability curves driven by event counters', () => {
+    const transferEvent: GameEvent = {
+      id: 'transfer_event',
+      description: 'Transfer chance',
       condition: {
         flags: ['quota_met_today'],
         notFlags: ['transfer_checked'],
-        exactEventCounters: { transfer_progress: 0 },
       },
       outcomes: [
         {
-          id: 'tier1_miss',
+          id: 'miss',
           description: 'No chance today',
-          weight: 3,
           flagsSet: ['transfer_checked'],
+          weightByEventCounter: {
+            counterId: 'transfer_progress',
+            valueWeights: { '0': 3, '1': 2, '2': 1, '3': 0 },
+            fallback: 'nearest_lower',
+          },
           eventCounterChanges: { transfer_progress: 1 },
         },
         {
-          id: 'tier1_hit',
+          id: 'hit',
           description: 'Chance appears',
-          weight: 1,
           flagsSet: ['transfer_checked'],
+          weightByEventCounter: {
+            counterId: 'transfer_progress',
+            valueWeights: { '0': 1, '1': 2, '2': 3, '3': 1 },
+            fallback: 'nearest_lower',
+          },
           eventCounterReset: ['transfer_progress'],
           startEncounterId: 'enc_transfer',
         },
       ],
-      isRepeatable: true,
-    };
-
-    const tier2: GameEvent = {
-      id: 'transfer_tier2',
-      description: 'Tier 2 transfer chance',
-      condition: {
-        flags: ['quota_met_today'],
-        notFlags: ['transfer_checked'],
-        exactEventCounters: { transfer_progress: 1 },
-      },
-      outcomes: [
-        {
-          id: 'tier2_miss',
-          description: 'Still no chance',
-          weight: 2,
-          flagsSet: ['transfer_checked'],
-          eventCounterChanges: { transfer_progress: 1 },
-        },
-        {
-          id: 'tier2_hit',
-          description: 'Chance appears',
-          weight: 2,
-          flagsSet: ['transfer_checked'],
-          eventCounterReset: ['transfer_progress'],
-          startEncounterId: 'enc_transfer',
-        },
-      ],
-      isRepeatable: true,
-    };
-
-    const tier3: GameEvent = {
-      id: 'transfer_tier3',
-      description: 'Tier 3 transfer chance',
-      condition: {
-        flags: ['quota_met_today'],
-        notFlags: ['transfer_checked'],
-        exactEventCounters: { transfer_progress: 2 },
-      },
-      outcomes: [
-        {
-          id: 'tier3_miss',
-          description: 'Almost there',
-          weight: 1,
-          flagsSet: ['transfer_checked'],
-          eventCounterChanges: { transfer_progress: 1 },
-        },
-        {
-          id: 'tier3_hit',
-          description: 'Chance appears',
-          weight: 3,
-          flagsSet: ['transfer_checked'],
-          eventCounterReset: ['transfer_progress'],
-          startEncounterId: 'enc_transfer',
-        },
-      ],
-      isRepeatable: true,
-    };
-
-    const tier4: GameEvent = {
-      id: 'transfer_tier4',
-      description: 'Guaranteed transfer chance',
-      condition: {
-        flags: ['quota_met_today'],
-        notFlags: ['transfer_checked'],
-        minEventCounters: { transfer_progress: 3 },
-      },
-      outcomes: [{
-        id: 'tier4_hit',
-        description: 'Guaranteed chance',
-        flagsSet: ['transfer_checked'],
-        eventCounterReset: ['transfer_progress'],
-        startEncounterId: 'enc_transfer',
-      }],
       isRepeatable: true,
     };
 
     const { engine, mgr } = makeHarness({
-      locationEventIds: ['transfer_tier1', 'transfer_tier2', 'transfer_tier3', 'transfer_tier4'],
-      events: [tier1, tier2, tier3, tier4],
+      locationEventIds: ['transfer_event'],
+      events: [transferEvent],
     });
     mgr.flags.set('quota_met_today');
 

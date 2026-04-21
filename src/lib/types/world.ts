@@ -348,6 +348,12 @@ export interface EventGrantItem {
   variantId?: string;
 }
 
+export interface EventCounterWeightRule {
+  counterId: string;
+  valueWeights: Record<string, number>;
+  fallback?: 'base' | 'nearest_lower';
+}
+
 export interface EventOutcome {
   id: string;
   condition?: string;
@@ -356,6 +362,7 @@ export interface EventOutcome {
    * 預設為 1。有條件的 outcome 不受此欄位影響。
    */
   weight?: number;
+  weightByEventCounter?: EventCounterWeightRule;
   description: string;
   flagsSet?: string[];
   flagsUnset?: string[];

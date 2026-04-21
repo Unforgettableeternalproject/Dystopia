@@ -1,31 +1,29 @@
 {
   "id": "crambell_transfer_opportunity",
-  "name": "遷移機會",
+  "name": "轉移機會",
   "type": "main",
   "source": "event",
   "parentEventId": "crambell_transfer_trigger",
   "regionId": "crambell",
   "autoAccept": true,
-  "isRepeatable": false,
+  "isRepeatable": true,
+  "repeatCondition": "!crambell_route1_complete",
   "canDitch": false,
-
   "_comment": [
-    "由 crambell_enc_transfer_trigger 遭遇成功後授予（grantQuestId）。",
-    "Stage apply：前往配額站觸發遭遇 crambell_enc_transfer_apply 並通過。",
-    "Stage day1~day3：連續三日完成每日配額，由全域事件 crambell_transfer_wait 逐日設置旗標。",
-    "全部完成後獲得關鍵道具 wyar_transit_pass，任務結束。"
+    "由 crambell_enc_transfer_trigger 在玩家取得轉移線索後授予。",
+    "玩家須通過申請遭遇，再連續三天完成配額。",
+    "若申請失敗或等待期間漏達配額，本次嘗試取消，須等待新的觸發機會。"
   ],
-
   "entryStageId": "apply",
   "stages": {
     "apply": {
       "id": "apply",
-      "description": "在作業時段結束後，前往配額站提出調轉申請",
+      "description": "在休息時段前往配額站提交轉移申請。",
       "objectives": [
         {
           "id": "pass_application",
           "type": "encounter_completed",
-          "description": "在配額站完成調轉申請並通過審核",
+          "description": "在配額站取得核准。",
           "encounterCompletedId": "crambell_enc_transfer_apply",
           "requiredOutcomeType": "success"
         }
@@ -35,58 +33,102 @@
         "nextStageId": "day1"
       },
       "onFail": {
-        "statChanges": { "statusStats.stress": 1 }
+        "flagsUnset": [
+          "crambell_transfer_application_approved",
+          "crambell_transfer_day1_met",
+          "crambell_transfer_day2_met",
+          "crambell_transfer_day3_met",
+          "crambell_transfer_wait_processed"
+        ],
+        "statChanges": { "statusStats.stress": 1 },
+        "nextStageId": null
       }
     },
     "day1": {
       "id": "day1",
-      "description": "等待期第一日：完成今日配額",
+      "description": "完成申請核准後的第一天配額。",
       "objectives": [
         {
           "id": "day1_quota",
           "type": "flag_check",
-          "description": "等待期第一日配額已達成",
+          "description": "完成第一天的配額目標。",
           "flag": "crambell_transfer_day1_met"
         }
       ],
       "onComplete": {
         "nextStageId": "day2"
+      },
+      "onFail": {
+        "flagsUnset": [
+          "crambell_transfer_application_approved",
+          "crambell_transfer_day1_met",
+          "crambell_transfer_day2_met",
+          "crambell_transfer_day3_met",
+          "crambell_transfer_wait_processed"
+        ],
+        "nextStageId": null
       }
     },
     "day2": {
       "id": "day2",
-      "description": "等待期第二日：完成今日配額",
+      "description": "完成申請核准後的第二天配額。",
       "objectives": [
         {
           "id": "day2_quota",
           "type": "flag_check",
-          "description": "等待期第二日配額已達成",
+          "description": "完成第二天的配額目標。",
           "flag": "crambell_transfer_day2_met"
         }
       ],
       "onComplete": {
         "nextStageId": "day3"
+      },
+      "onFail": {
+        "flagsUnset": [
+          "crambell_transfer_application_approved",
+          "crambell_transfer_day1_met",
+          "crambell_transfer_day2_met",
+          "crambell_transfer_day3_met",
+          "crambell_transfer_wait_processed"
+        ],
+        "nextStageId": null
       }
     },
     "day3": {
       "id": "day3",
-      "description": "等待期第三日：完成今日配額後領取許可",
+      "description": "完成申請核准後的第三天配額。",
       "objectives": [
         {
           "id": "day3_quota",
           "type": "flag_check",
-          "description": "等待期第三日配額已達成",
+          "description": "完成第三天的配額目標。",
           "flag": "crambell_transfer_day3_met"
         }
       ],
       "onComplete": {
-        "grantItems": [{ "itemId": "wyar_transit_pass" }],
+        "grantItems": [{ "itemId": "transit_pass", "variantId": "wyar" }],
         "flagsSet": ["crambell_transfer_permit_granted"],
+        "flagsUnset": [
+          "crambell_transfer_application_approved",
+          "crambell_transfer_day1_met",
+          "crambell_transfer_day2_met",
+          "crambell_transfer_day3_met",
+          "crambell_transfer_wait_processed"
+        ],
+        "nextStageId": null
+      },
+      "onFail": {
+        "flagsUnset": [
+          "crambell_transfer_application_approved",
+          "crambell_transfer_day1_met",
+          "crambell_transfer_day2_met",
+          "crambell_transfer_day3_met",
+          "crambell_transfer_wait_processed"
+        ],
         "nextStageId": null
       }
     }
   },
-
   "rewards": {
     "flagsSet": ["crambell_route1_complete"]
   }
