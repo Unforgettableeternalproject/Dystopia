@@ -507,35 +507,50 @@
               <div class="cmp-card" class:cmp-diverged={cmp.divergences.length > 0}>
                 <div class="cmp-meta">
                   <span class="cmp-turn">Turn {cmp.turn}</span>
+                  <span class="cmp-type">{cmp.type === 'dialogue' ? '💬' : '🗺'}</span>
                   {#if cmp.divergences.length > 0}
                     <span class="cmp-badge-diff">⚠ {cmp.divergences.length} 差異</span>
                   {:else}
                     <span class="cmp-badge-ok">✓ 一致</span>
                   {/if}
                 </div>
-                <div class="cmp-action">{cmp.actionInput}</div>
+                <div class="cmp-action">{cmp.type === 'dialogue' ? cmp.playerInput : cmp.actionInput}</div>
 
-                <!-- DM signals -->
-                <div class="cmp-section-label">DM Signals</div>
-                <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val">{cmp.dmSignals.move ?? '—'}</span></div>
-                <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val">{cmp.dmSignals.timeMinutes ?? '—'} min</span></div>
-                <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val">{cmp.dmSignals.flagsSet?.join(', ') || '—'}</span></div>
-                <div class="cmp-row"><span class="cmp-key">FLAGS-</span><span class="cmp-val">{cmp.dmSignals.flagsUnset?.join(', ') || '—'}</span></div>
-                <div class="cmp-row"><span class="cmp-key">ENC</span><span class="cmp-val">{cmp.dmSignals.encounter ? cmp.dmSignals.encounter.type + ':' + (cmp.dmSignals.encounter.npcId ?? cmp.dmSignals.encounter.encounterId ?? '') : '—'}</span></div>
-
-                <!-- DM Proposal -->
+                <!-- DM Proposal (Phase 1) -->
                 <div class="cmp-section-label">DM Proposal (Phase 1)</div>
-                <div class="cmp-summary">{cmp.dmProposal.narrativeSummary ?? '—'}</div>
-                <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val">{cmp.dmProposal.move ?? '—'}</span></div>
-                <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val">{cmp.dmProposal.timeMinutes ?? '—'} min</span></div>
+                {#if cmp.type === 'exploration'}
+                  <div class="cmp-summary">{cmp.dmProposal.narrativeSummary ?? '—'}</div>
+                  <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val">{cmp.dmProposal.move ?? '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val">{cmp.dmProposal.timeMinutes ?? '—'} min</span></div>
+                  <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val">{cmp.dmProposal.flagsSet?.join(', ') || '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">ENC</span><span class="cmp-val">{cmp.dmProposal.encounter ? cmp.dmProposal.encounter.type + ':' + (cmp.dmProposal.encounter.npcId ?? cmp.dmProposal.encounter.encounterId ?? '') : '—'}</span></div>
+                {:else}
+                  <div class="cmp-summary">{cmp.dmProposal.narrativeSummary ?? '—'}</div>
+                  <div class="cmp-row"><span class="cmp-key">NPC</span><span class="cmp-val">{cmp.npcId}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">END</span><span class="cmp-val">{cmp.dmProposal.endEncounter ? '✓' : '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">ATT</span><span class="cmp-val">{cmp.dmProposal.npcState?.attitude ?? '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val">{cmp.dmProposal.timeMinutes ?? '—'} min</span></div>
+                  <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val">{cmp.dmProposal.flagsSet?.join(', ') || '—'}</span></div>
+                {/if}
 
-                <!-- Judge resolution -->
+                <!-- Judge Resolution -->
                 <div class="cmp-section-label">Judge Resolution</div>
-                <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.move ?? '—'}</span></div>
-                <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.timeMinutes ?? '—'} min</span></div>
-                <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.flagsSet?.join(', ') || '—'}</span></div>
-                {#if cmp.judgeResolution.reasoning}
-                  <div class="cmp-row"><span class="cmp-key">WHY</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.reasoning}</span></div>
+                {#if cmp.type === 'exploration'}
+                  <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.move ?? '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.timeMinutes ?? '—'} min</span></div>
+                  <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.flagsSet?.join(', ') || '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">ENC</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.encounter ? cmp.judgeResolution.encounter.type + ':' + (cmp.judgeResolution.encounter.npcId ?? cmp.judgeResolution.encounter.encounterId ?? '') : '—'}</span></div>
+                  {#if cmp.judgeResolution.reasoning}
+                    <div class="cmp-row"><span class="cmp-key">WHY</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.reasoning}</span></div>
+                  {/if}
+                {:else}
+                  <div class="cmp-row"><span class="cmp-key">END</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.endEncounter ? '✓' : '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">ATT</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.npcState?.attitude ?? '—'}</span></div>
+                  <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.timeMinutes ?? '—'} min</span></div>
+                  <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.flagsSet?.join(', ') || '—'}</span></div>
+                  {#if cmp.judgeResolution.reasoning}
+                    <div class="cmp-row"><span class="cmp-key">WHY</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.reasoning}</span></div>
+                  {/if}
                 {/if}
 
                 <!-- Divergences -->

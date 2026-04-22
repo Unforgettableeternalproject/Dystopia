@@ -72,6 +72,8 @@
         <p class="line line--{line.type}" class:streaming={line.isStreaming}>
           {#if line.type === 'player'}
             <span class="prompt">&gt;</span>{line.text.replace(/^> /, '')}
+          {:else if line.type === 'player-dialogue'}
+            {line.text}
           {:else if line.type === 'system'}
             <span class="sys-prefix">—</span>{line.text}
           {:else if line.type === 'rejected'}
@@ -154,6 +156,13 @@
   }
 
   .line--player {
+    color: var(--text-player);
+    margin-top: 1em;
+    margin-bottom: 0.25em;
+    opacity: 0.85;
+  }
+
+  .line--player-dialogue {
     color: var(--text-player);
     margin-top: 1em;
     margin-bottom: 0.25em;

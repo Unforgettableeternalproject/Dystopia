@@ -28,7 +28,7 @@ import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode } from './EncounterEngine';
 import type { EncounterDefinition } from '../types/encounter';
-import type { PlayerAction, ActionType, GameState, StarterConfig, ShadowComparison, ShadowDMSignals, TurnResolution, DialogueResolution } from '../types';
+import type { PlayerAction, ActionType, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
@@ -87,6 +87,9 @@ export class GameController {
 
   /** Maximum NPC dialogue turns before controller forces a wrap-up. */
   private static readonly MAX_DIALOGUE_TURNS = 8;
+
+  /** Scripted trigger nodeIds that have already fired in the current NPC encounter session. */
+  private _sessionFiredTriggers = new Set<string>();
 
   private starterConfig: StarterConfig | null = null;
 
@@ -224,7 +227,8 @@ export class GameController {
 
     const action: PlayerAction = { type: actionType ?? 'free', input: input.trim() };
     inputDisabled.set(true);
-    pushLine('> ' + input, 'player');
+    const inDialogue = !!get(activeNpcUI) && !get(activeScriptedDialogue);
+    pushLine(inDialogue ? '「' + input.trim() + '」' : '> ' + input, inDialogue ? 'player-dialogue' : 'player');
 
     if (this.mockMode) {
       await this.runMockResponse(input);
@@ -276,7 +280,9 @@ export class GameController {
     if (finalAction.type === 'move') {
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
+      this._sessionFiredTriggers.clear();
     } else if (finalAction.type === 'interact' && finalAction.targetId) {
+      this._sessionFiredTriggers.clear();
       this.updateActiveNpcUI(finalAction.targetId);
     }
 
@@ -288,8 +294,10 @@ export class GameController {
           this.state.getState().npcMemory[finalAction.targetId]?.interactionCount ?? 0;
         const scripted = this.dialogueMgr.checkScriptedTrigger(
           finalAction.targetId, npc.dialogueId, this.state.flags, interactionCount,
+          this._sessionFiredTriggers,
         );
         if (scripted) {
+          this._sessionFiredTriggers.add(scripted.nodeId);
           await this.activateScriptedNode(
             finalAction.targetId, npc.dialogueId, npc.name,
             scripted.nodeId, scripted.node,
@@ -1157,38 +1165,32 @@ export class GameController {
 
     // ── Log to shadow comparisons (for DebugPanel / tests) ───────────────
     if (get(shadowModeActive)) {
-      const dmSignals: ShadowDMSignals = {
-        move:        proposal.move,
-        timeMinutes: proposal.timeMinutes ?? null,
-        flagsSet:    proposal.flagsSet   ?? [],
-        flagsUnset:  proposal.flagsUnset ?? [],
-        encounter:   proposal.encounter,
-      };
       const divergences: string[] = [];
       if (proposal.move !== resolution.move) {
-        divergences.push(`MOVE: DM="${proposal.move ?? 'null'}" Judge="${resolution.move ?? 'null'}"`);
+        divergences.push(`MOVE: DM="${proposal.move ?? 'null'}" → Judge="${resolution.move ?? 'null'}"`);
       }
       if (proposal.timeMinutes !== resolution.timeMinutes) {
-        divergences.push(`TIME: DM=${proposal.timeMinutes ?? 'null'} Judge=${resolution.timeMinutes ?? 'null'}`);
+        divergences.push(`TIME: DM=${proposal.timeMinutes ?? 'null'} → Judge=${resolution.timeMinutes ?? 'null'}`);
       }
       const pFlags = [...(proposal.flagsSet   ?? [])].sort();
       const rFlags = [...(resolution.flagsSet  ?? [])].sort();
       if (JSON.stringify(pFlags) !== JSON.stringify(rFlags)) {
-        divergences.push(`FLAGS+: DM=[${pFlags.join(',')}] Judge=[${rFlags.join(',')}]`);
+        divergences.push(`FLAGS+: DM=[${pFlags.join(',')}] → Judge=[${rFlags.join(',')}]`);
       }
-      const pEnc = proposal.encounter  ? `${proposal.encounter.type}:${proposal.encounter.npcId ?? proposal.encounter.encounterId ?? ''}` : 'null';
-      const rEnc = resolution.encounter ? `${resolution.encounter.type}:${resolution.encounter.npcId ?? resolution.encounter.encounterId ?? ''}` : 'null';
-      if (pEnc !== rEnc) {
-        divergences.push(`ENCOUNTER: DM="${pEnc}" Judge="${rEnc}"`);
+      const encKey = (enc: TurnResolution['encounter']) =>
+        enc ? `${enc.type}:${enc.npcId ?? enc.encounterId ?? ''}` : 'null';
+      if (encKey(proposal.encounter) !== encKey(resolution.encounter)) {
+        divergences.push(`ENCOUNTER: DM="${encKey(proposal.encounter)}" → Judge="${encKey(resolution.encounter)}"`);
       }
-      pushShadowComparison({
+      const entry: ExplorationShadowComparison = {
+        type:            'exploration',
         turn:            gs.turn,
         actionInput:     action.input,
-        dmSignals,
         dmProposal:      proposal,
         judgeResolution: resolution,
         divergences,
-      });
+      };
+      pushShadowComparison(entry);
     }
 
     // ── Phase 2: Stream DM narration ─────────────────────────────────────
@@ -1244,181 +1246,11 @@ export class GameController {
     return { resolution, suggestions };
   }
 
-  // -- Shadow mode (Judge pipeline) ------------------------------------
-
-  /**
-   * Run the DM Phase 1 → Judge pipeline for shadow mode comparison.
-   * Fire-and-forget: called from runDM() but does NOT modify game state.
-   * Results are pushed to the shadowComparisons store for DebugPanel display.
-   */
-  private async runShadowPipeline(
-    action: PlayerAction,
-    sceneCtx: string,
-    dmSignals: ShadowDMSignals,
-  ): Promise<void> {
-    const gs = this.state.getState();
-    // getState() returns a live reference — capture scalar values NOW before any
-    // awaits so that state mutations from the main pipeline (e.g. MOVE applied)
-    // don't corrupt our validation context.
-    const sourceLocationId = gs.player.currentLocationId;
-    const sourcePeriod     = gs.timePeriod;
-
-    // Phase 1: DM decides all signals as structured JSON
-    let proposal: TurnResolution;
-    try {
-      proposal = await this.dm.narrateIntent(sceneCtx, action, gs.history);
-    } catch (err) {
-      log.warn('Shadow DM proposal failed', err);
-      proposal = { narrativeSummary: '[proposal error]' };
-    }
-
-    // Judge validates constraints; accepts DM values by default
-    let resolution: TurnResolution;
-    try {
-      resolution = await this.judge.resolve(proposal, action, sceneCtx);
-    } catch (err) {
-      log.warn('Shadow Judge resolve failed', err);
-      resolution = { timeMinutes: 10, reasoning: '[judge error]' };
-    }
-
-    // ── Deterministic post-validation (engine-side) ────────────────────────
-    // The LLM Judge produces a best-effort result; we then apply engine rules
-    // as a deterministic gate so shadow comparisons reflect real game constraints.
-
-    // 1. Move validation: accept direct exits OR multi-hop navigation destination.
-    //    If accepted, override timeMinutes with engine-calculated path time so bypass
-    //    penalties and per-connection travelTimes are always accurate.
-    if (resolution.move) {
-      const resolvedLoc = this.lore.resolveLocation(sourceLocationId, this.state.flags);
-      const isDirectExit = resolvedLoc?.connections.some(c => c.targetLocationId === resolution.move) ?? false;
-      const isNavTarget  = sceneCtx.includes(`Destination: [${resolution.move}]`);
-      if (!isDirectExit && !isNavTarget) {
-        const invalidMove = resolution.move;
-        const connList = resolvedLoc?.connections.map(c => c.targetLocationId).join(',') ?? 'null';
-        resolution.move      = undefined;
-        resolution.reasoning = (resolution.reasoning ? resolution.reasoning + '; ' : '') +
-          `move "${invalidMove}" not in exits or nav route — cleared (src=${sourceLocationId}, conns=[${connList}])`;
-      } else {
-        // Engine is authoritative for travel time — override Judge's guess.
-        const accessCtx = {
-          timePeriod:    sourcePeriod,
-          gameTime:      gs.time,
-          knownIntelIds: gs.player.knownIntelIds,
-          activeQuests:  Object.values(gs.activeQuests),
-          inventory:     gs.player.inventory,
-          melphin:       gs.player.melphin,
-        };
-        const discovered = new Set([...gs.discoveredLocationIds, sourceLocationId]);
-        for (const locId of [...discovered]) {
-          const loc = this.lore.resolveLocation(locId, this.state.flags);
-          if (loc) for (const conn of loc.connections) discovered.add(conn.targetLocationId);
-        }
-        discovered.add(resolution.move);
-        const pathResult = this.lore.findPath(sourceLocationId, resolution.move, this.state.flags, accessCtx, discovered);
-        if (pathResult) {
-          resolution.timeMinutes = pathResult.totalTime;
-        }
-      }
-    }
-
-    // 1b. Non-move time: DM's decided time is authoritative.
-    //     Move time was already overridden above by findPath; this covers all other actions.
-    if (!resolution.move && proposal.timeMinutes) {
-      resolution.timeMinutes = proposal.timeMinutes;
-    }
-
-    // 2. Flag validation: only allow flags that pass proximity + manifest check.
-    const proxCtx = this.buildProximityContext(gs);
-    if (resolution.flagsSet?.length) {
-      const signals = resolution.flagsSet.map(id => ({ action: 'set' as const, flagId: id }));
-      resolution.flagsSet = this.lore.flagRegistry.validateSignals(signals, proxCtx).map(s => s.flagId);
-    }
-    if (resolution.flagsUnset?.length) {
-      const signals = resolution.flagsUnset.map(id => ({ action: 'unset' as const, flagId: id }));
-      resolution.flagsUnset = this.lore.flagRegistry.validateSignals(signals, proxCtx).map(s => s.flagId);
-    }
-
-    // 3. Encounter validation: entity must be present in the current scene.
-    if (resolution.encounter) {
-      const resolvedLoc = this.lore.resolveLocation(sourceLocationId, this.state.flags);
-      const enc = resolution.encounter;
-      if (enc.type === 'dialogue') {
-        // Must be in location's npcIds AND pass resolveNPC (isVisible + availablePeriods filter).
-        // This matches what buildSceneContext passes to the DM via getNPCsByIds(..., timePeriod).
-        const inLocation = enc.npcId && (resolvedLoc?.npcIds.includes(enc.npcId) ?? false);
-        const visibleNow = inLocation && !!this.lore.resolveNPC(enc.npcId!, this.state.flags, sourcePeriod);
-        if (!visibleNow) {
-          const reason = !inLocation
-            ? `NPC ${enc.npcId} is not in location npcIds`
-            : `NPC ${enc.npcId} is not visible in current time period (${sourcePeriod ?? 'unknown'})`;
-          resolution.encounter = undefined;
-          resolution.reasoning = (resolution.reasoning ? resolution.reasoning + '; ' : '') + reason;
-        }
-      } else if (enc.type === 'event') {
-        const encId = enc.encounterId;
-        const reachable = encId && (resolvedLoc?.eventIds ?? []).some(eid => {
-          const evt = this.lore.getEvent(eid);
-          return evt?.outcomes.some(o => o.startEncounterId === encId);
-        });
-        if (!reachable) {
-          resolution.encounter = undefined;
-          resolution.reasoning = (resolution.reasoning ? resolution.reasoning + '; ' : '') + `Event encounter ${encId} not reachable from current location`;
-        }
-      }
-    }
-    // ──────────────────────────────────────────────────────────────────────────
-
-    // Compute divergences
-    const divergences: string[] = [];
-
-    if (dmSignals.move !== resolution.move) {
-      divergences.push(`MOVE: DM="${dmSignals.move ?? 'null'}" Judge="${resolution.move ?? 'null'}"`);
-    }
-    if (dmSignals.timeMinutes !== resolution.timeMinutes) {
-      divergences.push(`TIME: DM=${dmSignals.timeMinutes ?? 'null'} Judge=${resolution.timeMinutes ?? 'null'}`);
-    }
-
-    const dmFlags    = [...(dmSignals.flagsSet   ?? [])].sort();
-    const judgeFlags = [...(resolution.flagsSet  ?? [])].sort();
-    if (JSON.stringify(dmFlags) !== JSON.stringify(judgeFlags)) {
-      divergences.push(`FLAGS+: DM=[${dmFlags.join(',')}] Judge=[${judgeFlags.join(',')}]`);
-    }
-
-    const dmUnsets    = [...(dmSignals.flagsUnset   ?? [])].sort();
-    const judgeUnsets = [...(resolution.flagsUnset  ?? [])].sort();
-    if (JSON.stringify(dmUnsets) !== JSON.stringify(judgeUnsets)) {
-      divergences.push(`FLAGS-: DM=[${dmUnsets.join(',')}] Judge=[${judgeUnsets.join(',')}]`);
-    }
-
-    // Fix: compare full encounter ref (type + entity ID), not just type.
-    const encKey = (enc: ShadowDMSignals['encounter']): string =>
-      enc ? `${enc.type}:${enc.npcId ?? enc.encounterId ?? ''}` : 'null';
-    const dmEncKey    = encKey(dmSignals.encounter);
-    const judgeEncKey = encKey(resolution.encounter);
-    if (dmEncKey !== judgeEncKey) {
-      divergences.push(`ENCOUNTER: DM="${dmEncKey}" Judge="${judgeEncKey}"`);
-    }
-
-    const entry: ShadowComparison = {
-      turn:             gs.turn,
-      actionInput:      action.input,
-      dmSignals,
-      dmProposal:       proposal,
-      judgeResolution:  resolution,
-      divergences,
-    };
-
-    pushShadowComparison(entry);
-    log.debug('Shadow comparison', { divergences, turn: gs.turn });
-  }
-
   // -- Dialogue encounter -----------------------------------------------
 
   /**
    * Handle player input while in a dialogue encounter with npcId.
-   * Bypasses Regulator; routes straight to DM in dialogue mode.
-   */
-  /**
+   * Bypasses Regulator; routes DM Phase 1 → Judge → Phase 2 narration.
    * @param opener  true = NPC opens conversation (post-scripted or encounter start), skip scripted
    *                trigger re-check and don't log a player line.
    */
@@ -1449,6 +1281,7 @@ export class GameController {
     );
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
+    this._sessionFiredTriggers.clear();
     this.syncUIState(this.state.getState());
     await this.refreshThoughts([]);
   }
@@ -1466,6 +1299,7 @@ export class GameController {
       // NPC gone — exit encounter silently
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
+      this._sessionFiredTriggers.clear();
       return;
     }
 
@@ -1474,8 +1308,10 @@ export class GameController {
       const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
       const scripted = this.dialogueMgr.checkScriptedTrigger(
         npcId, npc.dialogueId, this.state.flags, interactionCount,
+        this._sessionFiredTriggers,
       );
       if (scripted) {
+        this._sessionFiredTriggers.add(scripted.nodeId);
         await this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
         return;
       }
@@ -1516,6 +1352,36 @@ export class GameController {
     const forceClose = !resolution.endEncounter
       && completedTurns >= GameController.MAX_DIALOGUE_TURNS;
     const shouldEnd = resolution.endEncounter || forceClose;
+
+    // ── Log to shadow comparisons (for DebugPanel) ─────────────────────
+    if (get(shadowModeActive)) {
+      const dialogueDivergences: string[] = [];
+      if (proposal.endEncounter !== resolution.endEncounter) {
+        dialogueDivergences.push(`END: DM=${proposal.endEncounter} → Judge=${resolution.endEncounter}`);
+      }
+      if (proposal.npcState?.attitude !== resolution.npcState?.attitude) {
+        dialogueDivergences.push(`ATTITUDE: DM="${proposal.npcState?.attitude ?? '—'}" → Judge="${resolution.npcState?.attitude ?? '—'}"`);
+      }
+      if (proposal.timeMinutes !== resolution.timeMinutes) {
+        dialogueDivergences.push(`TIME: DM=${proposal.timeMinutes ?? '—'} → Judge=${resolution.timeMinutes ?? '—'}`);
+      }
+      const pFlags = [...(proposal.flagsSet ?? [])].sort();
+      const rFlags = [...(resolution.flagsSet ?? [])].sort();
+      if (JSON.stringify(pFlags) !== JSON.stringify(rFlags)) {
+        dialogueDivergences.push(`FLAGS+: DM=[${pFlags.join(',')}] → Judge=[${rFlags.join(',')}]`);
+      }
+      const dlgGs = this.state.getState();
+      const dialogueEntry: DialogueShadowComparison = {
+        type:            'dialogue',
+        turn:            dlgGs.turn,
+        npcId,
+        playerInput:     text,
+        dmProposal:      proposal,
+        judgeResolution: resolution,
+        divergences:     dialogueDivergences,
+      };
+      pushShadowComparison(dialogueEntry);
+    }
 
     // ── Phase 2: stream narration ──────────────────────────────────────
     isStreaming.set(true);
@@ -1613,6 +1479,7 @@ export class GameController {
       }
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
+      this._sessionFiredTriggers.clear();
       this.state.appendHistory(
         { type: 'interact', input: `（與 ${npc.name} 交談）`, targetId: npcId },
         cleanNarrative.slice(0, 200),
@@ -2312,6 +2179,7 @@ export class GameController {
     const current = get(activeNpcUI);
     if (!current || current.npcId !== npcId) {
       encounterSessionLog.set([]);
+      this._sessionFiredTriggers.clear();
     }
     const gs  = this.state.getState();
     const mem = gs.npcMemory[npcId];
@@ -2410,14 +2278,17 @@ export class GameController {
     }
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
+    this._sessionFiredTriggers.clear();
     this.updateActiveNpcUI(npcId);
 
     // Fire scripted trigger immediately (same logic as interact action flow)
     const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
     const scripted = this.dialogueMgr.checkScriptedTrigger(
       npcId, npc.dialogueId, this.state.flags, interactionCount,
+      this._sessionFiredTriggers,
     );
     if (scripted) {
+      this._sessionFiredTriggers.add(scripted.nodeId);
       await this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
     } else {
       // No scripted trigger — NPC opens the conversation via LLM
@@ -2490,6 +2361,7 @@ export class GameController {
     this.state.movePlayer(locationId);
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
+    this._sessionFiredTriggers.clear();
     this.discoverSceneNpcs();
     this.syncUIState(this.state.getState());
     pushLine(`[Debug] 傳送至：${loc.name}`, 'system');
@@ -2517,6 +2389,7 @@ export class GameController {
     activeScriptedDialogue.set(null);
     activeEncounterUI.set(null);
     encounterSessionLog.set([]);
+    this._sessionFiredTriggers.clear();
     await this.start('DEBUG');
   }
 

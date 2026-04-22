@@ -60,11 +60,15 @@ export class DialogueManager {
     dialogueId:       string,
     flags:            FlagSystem,
     interactionCount: number,
+    firedNodes?:      ReadonlySet<string>,
   ): ScriptedTriggerResult | null {
     const profile = this.lore.getDialogueProfile(npcId, dialogueId);
     if (!profile || !profile.triggers?.length) return null;
 
     for (const trigger of profile.triggers) {
+      // Skip nodes already fired this session
+      if (firedNodes?.has(trigger.nodeId)) continue;
+
       // firstMeetingOnly check
       if (trigger.firstMeetingOnly && interactionCount !== 0) continue;
 

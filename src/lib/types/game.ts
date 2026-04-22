@@ -215,27 +215,33 @@ export interface TurnResolution {
 }
 
 /**
- * DM signals 的摘要快照（用於 shadow 對比，從 runDM() 提取）。
+ * 自由探索回合的 shadow mode 比對結果。
  */
-export interface ShadowDMSignals {
-  move?: string;
-  timeMinutes?: number | null;
-  flagsSet?: string[];
-  flagsUnset?: string[];
-  encounter?: EncounterRef;
-}
-
-/**
- * 一回合的 shadow mode 比對結果。
- * 儲存在 shadowComparisons store 供 DebugPanel 顯示。
- */
-export interface ShadowComparison {
+export interface ExplorationShadowComparison {
+  type: 'exploration';
   turn: number;
   actionInput: string;
-  dmSignals: ShadowDMSignals;
   /** DM Phase 1 輸出的已決定信號（含 narrativeSummary）。 */
   dmProposal: TurnResolution;
   judgeResolution: TurnResolution;
   /** 人類可讀的差異描述列表（空 = 完全一致）。 */
   divergences: string[];
 }
+
+/**
+ * 對話遭遇回合的 shadow mode 比對結果。
+ */
+export interface DialogueShadowComparison {
+  type: 'dialogue';
+  turn: number;
+  npcId: string;
+  playerInput: string;
+  /** DM Phase 1 輸出的已決定對話信號。 */
+  dmProposal: DialogueResolution;
+  judgeResolution: DialogueResolution;
+  /** 人類可讀的差異描述列表（空 = 完全一致）。 */
+  divergences: string[];
+}
+
+/** 一回合的 shadow mode 比對結果（探索或對話）。 */
+export type ShadowComparison = ExplorationShadowComparison | DialogueShadowComparison;

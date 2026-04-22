@@ -13,10 +13,11 @@ import type { QuestType } from '../types/quest';
 export interface NarrativeLine {
   id: string;
   text: string;
-  /** narrative = DM free text | dialogue = scripted NPC line | player = player input
+  /** narrative = DM free text | dialogue = scripted NPC line | player = player action input
+   *  player-dialogue = player speech inside NPC encounter (rendered with 「」)
    *  system = info message | rejected = regulator rejection | event = game event trigger
    *  scene = story encounter description (gray, stage-direction style) */
-  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'rejected' | 'event' | 'scene';
+  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'player-dialogue' | 'rejected' | 'event' | 'scene';
   isStreaming: boolean;
 }
 

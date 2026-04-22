@@ -8,7 +8,14 @@ import { GameController } from '../lib/engine/GameController';
 import { shadowComparisons, shadowModeActive, activeNpcUI } from '../lib/stores/gameStore';
 import type { ILLMClient } from '../lib/ai/ILLMClient';
 import type { LocationNode, NPCNode, RegionIndex, RegionSchedule } from '../lib/types';
-import type { TurnResolution } from '../lib/types/game';
+import type { TurnResolution, ExplorationShadowComparison } from '../lib/types/game';
+
+/** Assert comparison is an exploration turn and narrow the type. */
+function asExploration(cmp: unknown): ExplorationShadowComparison {
+  const c = cmp as ExplorationShadowComparison;
+  if (c.type !== 'exploration') throw new Error(`Expected exploration comparison, got ${c.type}`);
+  return c;
+}
 
 // ── Mock LLM client ───────────────────────────────────────────────────────────
 // Routes responses by system prompt content:
@@ -148,7 +155,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     const comps = get(shadowComparisons);
     expect(comps.length).toBeGreaterThan(0);
 
-    const latest = comps[0];
+    const latest = asExploration(comps[0]);
     // After deterministic validation: NPC not in 'rest' period → encounter cleared
     expect(latest.judgeResolution.encounter).toBeUndefined();
     // reasoning should note why it was cleared
@@ -175,7 +182,11 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     const comps = get(shadowComparisons);
     expect(comps.length).toBeGreaterThan(0);
 
-    const latest = comps[0];
+    // submitAction triggers handleDialogueInput which pushes a dialogue comparison first;
+    // we want the exploration comparison that contains the encounter decision.
+    const explorationComp = comps.find(c => c.type === 'exploration');
+    expect(explorationComp).toBeDefined();
+    const latest = asExploration(explorationComp!);
     // NPC always available → encounter kept
     expect(latest.judgeResolution.encounter).toBeDefined();
     expect(latest.judgeResolution.encounter?.npcId).toBe(npcId);
@@ -200,7 +211,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
 
     const comps = get(shadowComparisons);
     expect(comps.length).toBeGreaterThan(0);
-    expect(comps[0].judgeResolution.encounter).toBeUndefined();
+    expect(asExploration(comps[0]).judgeResolution.encounter).toBeUndefined();
   });
 
   it('rejects encounter when npcId is not in location npcIds', async () => {
@@ -223,6 +234,6 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
 
     const comps = get(shadowComparisons);
     expect(comps.length).toBeGreaterThan(0);
-    expect(comps[0].judgeResolution.encounter).toBeUndefined();
+    expect(asExploration(comps[0]).judgeResolution.encounter).toBeUndefined();
   });
 });
