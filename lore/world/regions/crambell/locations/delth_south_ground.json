@@ -5,6 +5,7 @@
   "districtId": "crambell_delth",
   "tags": ["outdoor", "open", "peripheral"],
   "base": {
+    "name": "空地入口",
     "description": "戴司象限南端的未規劃用地，夾在倉庫外牆與廢棄圍欄之間。地面坑洞不平，積水在低處形成死水坑。官方沒有在此設置監控，但這並不代表安全——無燈、無人、也無人來管。偶爾有人在此交換不便公開的東西。",
     "ambience": ["死水氣味", "無燈", "空曠", "灰塵", "邊緣感"],
     "connections": [

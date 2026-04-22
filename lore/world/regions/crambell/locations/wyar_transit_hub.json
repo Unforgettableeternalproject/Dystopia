@@ -6,6 +6,7 @@
   "districtId": "crambell_wyar",
   "tags": ["outdoor", "transit", "checkpoint", "wyar"],
   "base": {
+    "name": "設施內部",
     "description": "瓦爾象限的管制入口。與戴司的陰暗走廊不同，這裡的燈光更亮，空氣中帶著機油與金屬的氣味。你踏入瓦爾的那一刻，背後的閘門緩緩關閉。",
     "ambience": ["工廠轟鳴", "明亮燈光", "機械運轉", "新的起點"],
     "connections": [

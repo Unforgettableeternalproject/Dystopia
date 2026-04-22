@@ -7,6 +7,7 @@
   "parentId": "delth_patrol_zone",
   "tags": ["outdoor", "transit", "checkpoint"],
   "base": {
+    "name": "設施內部",
     "description": "第四象限的管制轉移場，連接戴司與其他象限的中轉站。守衛在此嚴格追蹤通行證與人員流動。很少工人會隨意進出此處。",
     "ambience": ["檢查哨", "軌道", "迴盪的腳步聲", "行政壓力"],
     "connections": [

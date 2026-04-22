@@ -56,6 +56,5 @@
     }
   ],
   "isRepeatable": true,
-  "notification": true,
-  "notificationVariant": "rare"
+  "notification": true
 }

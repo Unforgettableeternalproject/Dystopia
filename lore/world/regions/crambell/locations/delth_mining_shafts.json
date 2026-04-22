@@ -5,6 +5,7 @@
   "districtId": "crambell_delth",
   "tags": ["outdoor", "industrial", "hazardous", "work_zone"],
   "base": {
+    "name": "礦坑入口前檢查點",
     "description": "廣闊的工業礦區，塵土、壓力與持續不斷的勞動是這裡的日常。",
     "ambience": ["工業", "粉塵", "壓迫", "危險", "勞動"],
     "connections": [
@@ -35,7 +36,7 @@
             "description": "前往礦場倉庫",
             "access": {
               "knowledgeIds": ["crambell_mine_storage_access"],
-              "lockedMessage": "倉庫區為管制區域，需取得相關知識才能進入。"
+              "lockedMessage": "你看到遠方有幾棟不太一樣的建築，但是沒有理由過去的話可能會引起不必要的麻煩。"
             }
           }
         ],
@@ -62,7 +63,7 @@
             "description": "前往礦場倉庫",
             "access": {
               "knowledgeIds": ["crambell_mine_storage_access"],
-              "lockedMessage": "倉庫區為管制區域，需取得相關知識才能進入。"
+              "lockedMessage": "你看到遠方有幾棟不太一樣的建築，但是沒有理由過去的話可能會引起不必要的麻煩。"
             }
           }
         ],

@@ -5,6 +5,7 @@
   "districtId": "crambell_delth",
   "tags": ["outdoor", "natural", "secluded"],
   "base": {
+    "name": "森林周遭",
     "description": "宿舍區外圍的一片稀疏林帶，樹木多為枯木與雜灌，夾雜著礦渣傾倒後留下的灰白色土地。政府對這塊地沒有明確用途，偶爾有人在此處進行不想被看到的事。林間沒有燈光，入夜後幾乎全黑。",
     "ambience": ["寂靜", "枯木", "礦渣氣味", "隱蔽", "黑暗"],
     "connections": [

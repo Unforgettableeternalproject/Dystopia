@@ -103,10 +103,10 @@ export class LoreVault {
       const autoConnect = parent.enableDefaultConnection !== false;
       if (autoConnect) {
         if (!parent.base.connections.some(c => c.targetLocationId === sub.id)) {
-          parent.base.connections.push({ targetLocationId: sub.id, description: '進入' + child.name });
+          parent.base.connections.push({ targetLocationId: sub.id, description: '進入' + (child.base.name ?? child.name) });
         }
         if (!child.base.connections.some(c => c.targetLocationId === node.id)) {
-          child.base.connections.push({ targetLocationId: node.id, description: '返回' + parent.name });
+          child.base.connections.push({ targetLocationId: node.id, description: '返回' + (parent.base.name ?? parent.name) });
         }
       }
     }
@@ -149,8 +149,12 @@ export class LoreVault {
       if (v.transitionNote) transitionNotes.push(v.transitionNote);
     }
 
+    const effectiveName = node.base.name ?? node.name;
     return {
-      id: node.id, name: node.name, regionId: node.regionId, tags: node.tags,
+      id: node.id,
+      name: effectiveName,
+      areaName: node.base.name ? node.name : undefined,
+      regionId: node.regionId, tags: node.tags,
       description, ambience, connections,
       npcIds: Array.from(npcSet), eventIds: Array.from(evtSet),
       isAccessible, activeVariants, transitionNotes,
@@ -681,19 +685,25 @@ export class LoreVault {
     }
 
     // 上層地點 context：讓 DM 知道玩家身處某建築/街區內部
+    // 顯示父地點的區域概念名稱（areaName），而非節點名稱
     let parentLine = '';
     if (resolved.parentId) {
       const parent = this.resolveLocation(resolved.parentId, flags);
       if (parent) {
-        parentLine = 'Inside: ' + parent.name +
+        const parentAreaLabel = parent.areaName ?? parent.name;
+        parentLine = 'Inside: ' + parentAreaLabel +
           (parent.ambience.length > 0 ? ' (' + parent.ambience.join(', ') + ')' : '');
       }
     }
 
+    // area 節點自身：若有區域名稱（與節點名稱不同），顯示 Area 行
+    const areaLine = resolved.areaName ? 'Area: ' + resolved.areaName : '';
+
     return [
       '## Location: ' + resolved.name,
+      areaLine,
       districtLine ? districtLine : '',
-      parentLine ? 'Inside: ' + parentLine : '',
+      parentLine,
       'Tags: ' + resolved.tags.join(', '),
       'Ambience: ' + resolved.ambience.join(', '),
       '',

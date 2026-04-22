@@ -5,6 +5,7 @@
   "districtId": "crambell_delth",
   "tags": ["outdoor", "public", "surveillance", "government_controlled"],
   "base": {
+    "name": "管制區一般通行廣場",
     "description": "戴司象限的行政與公共管制核心。廣播柱、禁閉架、掃描站分布其間，巡邏士兵定時穿梭。通往各工作區的道路均從此地發出，配額站與象限傳點作為附屬設施嵌入周圍建築。監控攝影機的紅燈在高處不間斷閃爍，所有人的移動都被記錄。",
     "ambience": ["監視", "廣播聲", "軍靴聲", "人流", "管制"],
     "connections": [

@@ -48,6 +48,8 @@
   "tags": ["outdoor", "public", "military_zone"],
 
   "base": {
+    "_comment_name": "節點顯示名稱（選填）。area 節點專用：填寫後取代頂層 name 作為玩家實際站在的具體位置名稱。例：頂層 name='綜合宿舍'，base.name='宿舍大門'。DM context 標題顯示 base.name，Inside 行顯示頂層 name。省略 = 沿用頂層 name。",
+    "name": "節點具體名稱（如：宿舍大門、礦坑入口）",
     "description": "DM scene description — what this place looks like and feels like.",
     "ambience": ["keyword1", "keyword2"],
     "connections": [

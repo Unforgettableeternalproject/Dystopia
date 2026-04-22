@@ -5,6 +5,7 @@
   "districtId": "crambell_delth",
   "tags": ["indoor", "industrial", "government_controlled"],
   "base": {
+    "name": "倉庫外側飛地",
     "description": "戴司象限南部的大型倉儲設施，用於存放需要長途運輸的重要礦產與加工原料。高聳的金屬架子延伸至天花板，堆滿了各種箱條與容器，標上編號卻沒有說明內容。燈光昏黃，偶爾有叉車的聲音從深處傳來。入口由衛兵把守，需出示工作證件才能進入，但某些時候偏僻的角落會有人進行非正式的交易。",
     "ambience": ["昏暗", "龐大", "冰冷金屬", "機器聲", "秘密角落"],
     "connections": [

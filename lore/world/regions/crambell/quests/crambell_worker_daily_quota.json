@@ -7,6 +7,7 @@
   "originFilter": ["worker"],
   "autoAccept": true,
   "isRepeatable": true,
+  "repeatCondition": "!crambell_quota_met_today",
   "canDitch": false,
 
   "_comment": [
@@ -26,7 +27,7 @@
         {
           "id": "complete_quota",
           "type": "flag_check",
-          "description": "今日配額已達成（由 DM 確認工作行動後觸發）",
+          "description": "努力工作，完成今天的配額目標。",
           "flag": "crambell_quota_done_today"
         }
       ],

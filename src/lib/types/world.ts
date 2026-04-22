@@ -163,6 +163,13 @@ export interface LocationConnection {
 }
 
 export interface LocationBase {
+  /**
+   * 節點顯示名稱。設定後取代 LocationNode.name 作為玩家／DM 看到的具體地點名稱。
+   * 適用於 area 節點：LocationNode.name = 區域概念（「綜合宿舍」），
+   * base.name = 玩家實際站在的節點名稱（「宿舍大門」）。
+   * 省略 = 沿用 LocationNode.name。
+   */
+  name?: string;
   description: string;           // DM scene description
   ambience: string[];            // mood keywords for DM tone
   connections: LocationConnection[];
@@ -239,7 +246,13 @@ export interface LocationNode {
 
 export interface ResolvedLocation {
   id: string;
+  /** 有效節點名稱（base.name ?? node.name）。 */
   name: string;
+  /**
+   * 區域概念名稱。只在 base.name 存在時填入（= 原始 node.name）。
+   * 子地點的「Inside:」context 應顯示此值，以呈現「身處哪個區域」。
+   */
+  areaName?: string;
   regionId: string;
   tags: string[];
   description: string;

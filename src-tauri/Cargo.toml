@@ -1,6 +1,6 @@
 [package]
 name = "dystopia"
-version = "0.1.0"
+version = "0.1.2"
 description = "Dystopia — LLM-driven theatrical RPG"
 authors = ["unforgettableeternalproject"]
 edition = "2021"
