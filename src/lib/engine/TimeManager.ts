@@ -10,13 +10,16 @@ import type { ActionType } from '../types/game';
 
 /** Minutes each action type costs in-game. */
 export const ACTION_MINUTES: Record<ActionType, number> = {
-  move:     5,
-  examine:  10,
-  interact: 15,
-  use:      10,
-  rest:     60,   // special — significant time cost
-  combat:   30,   // special — significant time cost
-  free:     10,
+  free:               10,
+  move:               5,
+  interact:           15,
+  use:                10,
+  'examine-item':     10,
+  'examine-location': 10,
+  'examine-people':   15,
+  'examine-self':     5,
+  rest:               60,   // special — significant time cost
+  combat:             30,   // special — significant time cost
 };
 
 /** Days in each month (non-leap; index 0 unused). */

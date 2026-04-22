@@ -74,7 +74,9 @@ export class StateManager {
     const [group, stat] = key.split('.');
     const stats = (this.state.player as unknown as Record<string, Record<string, number>>)[group];
     if (stats && stat in stats) {
-      stats[stat] = Math.max(0, stats[stat] + delta);
+      const maxKey = `${stat}Max`;
+      const max = group === 'statusStats' && maxKey in stats ? stats[maxKey] : Infinity;
+      stats[stat] = Math.min(max, Math.max(0, stats[stat] + delta));
       this.notifyUpdate();
       if (delta !== 0) this._acquisitions.push({ type: 'stat', key, delta });
     }

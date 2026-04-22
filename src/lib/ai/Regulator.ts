@@ -14,11 +14,14 @@ Rules:
 3. If impossible, give a short in-world reason — never say "your stat is too low".
 4. If possible but overreaching, downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
 5. The "reason" and "modifiedInput" fields must be written in Traditional Chinese (繁體中文).
-6. Classify the action intent into actionType: "move" | "interact" | "examine" | "use" | "rest" | "combat" | "free".
-   - "interact": player wants to talk to / approach / interact with a specific NPC. Set targetId to that NPC's id from sceneNpcs.
+6. Classify the action intent into actionType: "free" | "move" | "interact" | "use" | "examine-item" | "examine-location" | "examine-people" | "examine-self" | "rest" | "combat".
    - "move": player wants to travel to a different location.
-   - "examine": player inspects something in the environment.
-   - "use": player uses an item.
+   - "interact": player wants to talk to, approach, or interact with a specific NPC. Set targetId to that NPC's id from sceneNpcs.
+   - "use": player uses or applies an item from their inventory.
+   - "examine-item": player inspects or asks about an item (in inventory or in the scene).
+   - "examine-location": player observes, surveys, or investigates the surrounding environment or area.
+   - "examine-people": player surveys the area to see who is around — an area-level observation, not directed at a specific individual. Do NOT set targetId for this type.
+   - "examine-self": player reflects on their own status, condition, or identity.
    - "rest": player rests or sleeps.
    - "combat": player attempts a hostile action.
    - "free": anything else (general statements, reactions, vague actions).

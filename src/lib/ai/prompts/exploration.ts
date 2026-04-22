@@ -78,7 +78,7 @@ Accept every DM value by default. Only override a field when it violates a hard 
 CONSTRAINT RULES:
 - move: ACCEPT if the targetLocationId appears in the "Exits" section OR as "Destination ID"
   in a "Navigation Route (engine-resolved)" block. Multi-hop destinations are valid.
-  SET TO NULL only if the location appears in neither. Also null if action type is not "move".
+  SET TO NULL only if the location appears in neither.
 - timeMinutes: COPY the DM's value exactly. Do not re-estimate. The engine overrides move time anyway.
 - flagsSet / flagsUnset: REMOVE any IDs not in the "Flag Actions Available" section. Keep the rest.
 - encounter: ACCEPT if the npcId or encounterId appears in the scene. SET TO NULL only if absent.

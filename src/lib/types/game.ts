@@ -74,18 +74,23 @@ export interface Thought {
   id: string;
   text: string;
   actionType: ActionType;
+  /** Pre-resolved NPC id for interact-type thoughts — bypasses LLM targetId inference. */
+  targetId?: string;
   /** true 表示此 Thought 可能被污染（高壓、虛空、心靈控制等情況下） */
   isManipulated?: boolean;
 }
 
 export type ActionType =
+  | "free"
   | "move"
   | "interact"
-  | "examine"
   | "use"
+  | "examine-item"
+  | "examine-location"
+  | "examine-people"
+  | "examine-self"
   | "rest"
-  | "combat"
-  | "free";
+  | "combat";
 
 export interface PlayerAction {
   type: ActionType;

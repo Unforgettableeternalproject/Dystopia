@@ -238,7 +238,7 @@ export class GameController {
     if (this.dmClient) warmUpModel(this.dmClient).catch(() => { /* non-fatal */ });
 
     const sceneCtx = this.buildSceneCtx([]);
-    const { suggestions } = await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
+    const { suggestions } = await this.runDM({ type: 'examine-location', input: '(game start)' }, sceneCtx);
     await this.refreshThoughts(suggestions);
   }
 
@@ -314,10 +314,10 @@ export class GameController {
     this.syncUIState(this.state.getState());
   }
 
-  async submitAction(input: string, actionType?: ActionType): Promise<void> {
+  async submitAction(input: string, actionType?: ActionType, targetId?: string): Promise<void> {
     if (!input.trim()) return;
 
-    const action: PlayerAction = { type: actionType ?? 'free', input: input.trim() };
+    const action: PlayerAction = { type: actionType ?? 'free', input: input.trim(), targetId };
     inputDisabled.set(true);
     const inDialogue = !!get(activeNpcUI) && !get(activeScriptedDialogue);
     pushLine(inDialogue ? '「' + input.trim() + '」' : '> ' + input, inDialogue ? 'player-dialogue' : 'player');
@@ -368,18 +368,21 @@ export class GameController {
 
     const finalAction = result.modifiedAction ?? action;
 
-    // Track active NPC panel
+    // Track active NPC panel — clear when moving
     if (finalAction.type === 'move') {
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
       this._sessionFiredTriggers.clear();
-    } else if (finalAction.type === 'interact' && finalAction.targetId) {
-      this._sessionFiredTriggers.clear();
-      this.updateActiveNpcUI(finalAction.targetId);
     }
 
-    // 1.5. Check for scripted dialogue trigger on interact
-    if (finalAction.type === 'interact' && finalAction.targetId) {
+    // 1.5. Check for scripted dialogue trigger when player interacts with a scene NPC.
+    // Regulator sets type="interact" + targetId when player names a specific NPC.
+    const resolvedSceneNpcIds = this.lore.getNPCsByIds(
+      this.lore.resolveLocation(this.state.getState().player.currentLocationId, this.state.flags)?.npcIds ?? [],
+      this.state.flags,
+      this.state.getState().timePeriod,
+    ).map(n => n.id);
+    if (finalAction.type === 'interact' && finalAction.targetId && resolvedSceneNpcIds.includes(finalAction.targetId)) {
       const npc = this.lore.getNPC(finalAction.targetId);
       if (npc) {
         const interactionCount =
@@ -404,10 +407,12 @@ export class GameController {
     this.state.tickConditions(id => this.lore.getCondition(id));
 
     // 2.5. Advance in-game time (default amount for event/period detection)
+    // action.type is a context hint only — use a neutral default here.
+    // resolution.timeMinutes (from Judge) is the authoritative cost and corrects this later.
     const gs0            = this.state.getState();
     const initialTime    = { ...gs0.time };
     const schedule       = this.lore.getSchedule(this.currentRegionId) ?? null;
-    const defaultMinutes = ACTION_MINUTES[finalAction.type] ?? 10;
+    const defaultMinutes = 10;
     const newTime   = this.timeMgr.advance(gs0.time, defaultMinutes);
     const newPeriod = schedule
       ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs0.player.activeFlags)
@@ -446,14 +451,8 @@ export class GameController {
     const allTriggered = [...triggered, ...extraTriggered];
 
     // 4. DM narration
-    // For NPC interact: route to isolated dialogue DM — full scene context is not injected.
-    // The dialogue DM only receives NPC profile + session history, preventing hallucination.
-    if (finalAction.type === 'interact' && finalAction.targetId && get(activeNpcUI)) {
-      await this.handleDialogueInput(finalAction.input, finalAction.targetId);
-      this.discoverSceneNpcs();
-      inputDisabled.set(false);
-      return;
-    }
+    // NPC dialogue (ongoing) is handled by the early exit at the top of submitAction.
+    // New dialogue encounters are initiated via resolution.encounter (line ~554).
 
     // 4.1. Narrate triggered events in a separate DM pass BEFORE the player-action DM.
     // This keeps event narration and action response from bleeding together.
@@ -482,7 +481,9 @@ export class GameController {
     const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint);
     this.flushAcquisitions();
 
-    // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h)
+    // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
+    // Downward correction (resolution < default) is deferred — TimeManager.advance() only
+    // supports positive values. Over-advance by a few minutes is acceptable for now.
     if (resolution.timeMinutes != null && resolution.timeMinutes > defaultMinutes) {
       const extra       = resolution.timeMinutes - defaultMinutes;
       const gs1         = this.state.getState();
@@ -641,7 +642,7 @@ export class GameController {
       pushLine('（存檔讀取完成）', 'system');
     } else {
       const sceneCtx = this.buildSceneCtx([]);
-      const { suggestions } = await this.runDM({ type: 'examine', input: '(game loaded)' }, sceneCtx);
+      const { suggestions } = await this.runDM({ type: 'examine-location', input: '(game loaded)' }, sceneCtx);
       loadSuggestions = suggestions;
     }
 
@@ -1024,20 +1025,54 @@ export class GameController {
       if (npcStatus) parts.push('\n' + npcStatus);
     }
 
-    // Full dialogue context when interacting with a specific NPC
-    if (action?.type === 'interact' && action.targetId) {
-      const npc = this.lore.getNPC(action.targetId);
-      if (npc && sceneNpcIds.includes(action.targetId)) {
-        const rawDialogueCtx = this.dialogueMgr.buildNPCDialogueContext(
-          action.targetId,
-          npc.dialogueId,
-          this.state.flags,
-        );
-        if (rawDialogueCtx) {
-          const dialogueCtx = interpolate(rawDialogueCtx, this.buildInterpolationCtx());
-          parts.push('\n' + dialogueCtx);
-        }
+    // ── Action-type context gating ────────────────────────────────────────
+    // Each action type injects additional targeted context for the DM.
+    // action.type is a hint, not an authority — world outcomes come from resolution.
+
+    // examine-people: area-level survey — list NPCs visible in the current scene.
+    // NPC-specific context is injected only when an encounter is active (via interact type).
+    if (action?.type === 'examine-people' && sceneNpcIds.length > 0) {
+      const npcLines = this.lore.getNPCsByIds(sceneNpcIds, this.state.flags, gs.timePeriod)
+        .map(n => `- ${n.name}（${n.type}）`);
+      if (npcLines.length > 0) {
+        parts.push('\n### People in Scene\n' + npcLines.join('\n'));
       }
+    }
+
+    // use / examine-item: inject player inventory so DM knows what items are available
+    if (action?.type === 'use' || action?.type === 'examine-item') {
+      const activeInv = gs.player.inventory.filter(i => !i.isExpired);
+      if (activeInv.length > 0) {
+        const invLines = activeInv.map(i => {
+          const def     = this.lore.getItem(i.itemId);
+          const name    = def?.name ?? i.itemId;
+          const variant = i.variantId
+            ? def?.variants?.find(v => v.id === i.variantId)?.label
+            : undefined;
+          const label   = variant ? `${name}（${variant}）` : name;
+          const qty     = i.quantity > 1 ? ` ×${i.quantity}` : '';
+          const uses    = i.usesRemaining !== undefined ? ` [剩 ${i.usesRemaining} 次]` : '';
+          const desc    = def?.description ? ': ' + def.description : '';
+          return `- ${label}${qty}${uses}${desc}`;
+        });
+        parts.push('\n### Player Inventory\n' + invLines.join('\n'));
+      } else {
+        parts.push('\n### Player Inventory\n(空)');
+      }
+    }
+
+    // examine-self: inject extended player stats for self-reflection context
+    if (action?.type === 'examine-self') {
+      const p = gs.player.primaryStats;
+      const d = gs.player.secondaryStats;
+      const s = gs.player.statusStats;
+      parts.push([
+        '\n### Player Detail (self-examine)',
+        `Origin: ${gs.player.origin}`,
+        `Primary — STR: ${p.strength} | KNW: ${p.knowledge} | TLT: ${p.talent} | SPR: ${p.spirit} | LCK: ${p.luck}`,
+        `Domain — Mysticism: ${d.mysticism} | Technology: ${d.technology} | Consciousness: ${d.consciousness}`,
+        `Status — Stamina: ${s.stamina}/${s.staminaMax} | Stress: ${s.stress}/${s.stressMax} | Endo: ${s.endo}/${s.endoMax}`,
+      ].join('\n'));
     }
 
     return parts.join('\n');
@@ -1054,8 +1089,6 @@ export class GameController {
    * If multiple matches exist, the longest name wins (most specific match).
    */
   private buildNavHint(action: PlayerAction): string {
-    if (action.type !== 'move') return '';
-
     const gs = this.state.getState();
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
     if (!resolved) return '';
@@ -1315,9 +1348,10 @@ export class GameController {
     }
 
     // ── Apply MOVE from resolution ────────────────────────────────────────
-    // Guard on action.type: prevents the DM from moving the player during
-    // examine/interact turns where the DM might still describe nearby exits.
-    if (resolution.move && action.type === 'move') {
+    // Once deterministic validation keeps resolution.move, treat it as authoritative.
+    // Raw text turns and DM suggestion clicks often begin as "free" before Judge resolves
+    // them into a concrete movement, so re-gating on action.type can drop valid moves.
+    if (resolution.move) {
       const gsCurrent  = this.state.getState();
       const discovered = new Set(gsCurrent.discoveredLocationIds);
       discovered.add(gsCurrent.player.currentLocationId);
@@ -2077,7 +2111,7 @@ export class GameController {
 
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
 
-    result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine' });
+    result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine-location' });
 
     if (resolved) {
       const exits = resolved.connections
@@ -2091,7 +2125,7 @@ export class GameController {
 
       const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod).slice(0, 2);
       for (const npc of npcs) {
-        result.push({ id: id('talk'), text: 'Talk to ' + npc.name, actionType: 'interact' });
+        result.push({ id: id('talk'), text: 'Talk to ' + npc.name, actionType: 'interact', targetId: npc.id });
       }
     }
 
@@ -2484,9 +2518,9 @@ export class GameController {
 
   private async runMockIntro(): Promise<void> {
     thoughts.set([
-      { id: 'look',  text: 'Observe surroundings', actionType: 'examine'  },
-      { id: 'move',  text: 'Look for an exit',      actionType: 'move'     },
-      { id: 'talk',  text: 'Try talking to someone', actionType: 'interact' },
+      { id: 'look',  text: 'Observe surroundings',   actionType: 'examine-location' },
+      { id: 'move',  text: 'Look for an exit',       actionType: 'move'             },
+      { id: 'talk',  text: 'Try talking to someone', actionType: 'examine-people'   },
     ]);
 
     const lines = [

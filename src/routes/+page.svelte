@@ -185,7 +185,7 @@
 
   function handleThoughtSelect(thought: Thought) {
     if (!controller) return;
-    controller.submitAction(thought.text, thought.actionType).catch(err => {
+    controller.submitAction(thought.text, thought.actionType, thought.targetId).catch(err => {
       pushLine('（動作處理時發生錯誤）', 'system');
       console.error(err);
     });

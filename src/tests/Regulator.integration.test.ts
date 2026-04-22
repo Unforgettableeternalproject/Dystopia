@@ -82,7 +82,7 @@ describe('Regulator × Ollama — 常見遊戲情境', () => {
 
   it.skipIf(!shouldRun())('【允許】與 NPC 對話', async () => {
     const result = await makeRegulator().validate(
-      action('我走向凱奇，詢問他今天宿舍有什麼動靜', 'interact'),
+      action('我走向凱奇，詢問他今天宿舍有什麼動靜', 'examine-people'),
       makePlayer(),
     );
     expect(result.allowed).toBe(true);
