@@ -2,6 +2,16 @@
 
 export type ItemType = 'equipment' | 'consumable' | 'key';
 
+/**
+ * 物品的獲得來源類型。
+ * - 'event'  : 透過事件觸發取得（EventOutcome / DM signal）
+ * - 'npc'    : 向 NPC 購買、交換或接受贈予
+ * - 'prop'   : 從場景中的道具/容器取得（尚未實作）
+ * - 'shop'   : 在商店購買
+ * - 'story'  : 劇情或初始物品（starter.json / 過場給予）
+ */
+export type ItemSource = 'event' | 'npc' | 'prop' | 'shop' | 'story';
+
 /** 物品對主要數值的加成（可為負值） */
 export interface ItemStatBonus {
   strength?: number;
@@ -77,8 +87,18 @@ export interface ItemNode {
   statBonus?: ItemStatBonus;
   /** 變體列表；有變體的物品在 InventoryItem 中需同時指定 variantId */
   variants?: ItemVariant[];
-  /** 獲得來源說明（給 DM/玩家閱讀） */
-  obtainedFrom?: string;
+  /**
+   * 物品的獲得來源類型列表。
+   * 一個物品可有多種取得方式，初始物品填 ['story']。
+   * 供引擎過濾、DM 提示，以及未來商店/事件系統參考。
+   */
+  obtainedFrom?: ItemSource[];
+  /**
+   * 使用後的敘述提示（給 DM 參考，不直接顯示給玩家）。
+   * 描述物品使用後會發生什麼事、有什麼感受或場景變化。
+   * 僅 consumable 有意義；equipment/key 省略。
+   */
+  useNarrative?: string;
   /**
    * 持有後幾分鐘失效（遊戲內分鐘）。
    * 到達時限後由引擎標記 isExpired，失效物品仍保留在 inventory 中作為紀錄。

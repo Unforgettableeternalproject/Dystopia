@@ -1,0 +1,14 @@
+{
+    "id": "3daudiobook",
+    "name": "立體有聲書",
+    "description": "一本別人的有聲書，可能是從費敏那裏帶過來的，看起來有一定的年代了。",
+    "type": "consumable",
+    "obtainedFrom": ["event"],
+    "_comment": "這個道具之後可能要支援條件式的useNarrative",
+    "useNarrative": "你試著拿出書來做點甚麼，想了一時半會，除了打開聽了一下音樂以外，實在是沒有其他的想法。",
+    "stackable": false,
+    "maxStack": 1,
+    "maxUsesPerInstance": 1,
+    "_comment_effect": "目前沒有任何效果，之後可能會有一些劇情相關的效果",
+    "effect": {}
+}

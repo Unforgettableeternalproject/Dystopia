@@ -264,7 +264,10 @@ export class GameController {
     const silentInput = `玩家使用了物品：${itemDef.name}`;
     inputDisabled.set(true);
     try {
-      const sceneCtx = this.buildSceneCtx([]);
+      const baseCtx  = this.buildSceneCtx([]);
+      const sceneCtx = itemDef.useNarrative
+        ? baseCtx + `\n\n## Item Use Narrative\n${itemDef.useNarrative}`
+        : baseCtx;
       const { suggestions } = await this.runDM({ type: 'use', input: silentInput }, sceneCtx);
       this.quests.checkObjectives();
       this.syncUIState(this.state.getState());
@@ -1534,7 +1537,16 @@ export class GameController {
       resolution = { ...proposal };
     }
 
-    // ── Apply flags (Judge-validated) ──────────────────────────────────
+    // ── Apply flags (engine-validated, same whitelist as exploration path) ──
+    const dialogueProxCtx = this.buildProximityContext(this.state.getState());
+    if (resolution.flagsSet?.length) {
+      const signals = resolution.flagsSet.map(id => ({ action: 'set' as const, flagId: id }));
+      resolution.flagsSet = this.lore.flagRegistry.validateSignals(signals, dialogueProxCtx).map(s => s.flagId);
+    }
+    if (resolution.flagsUnset?.length) {
+      const signals = resolution.flagsUnset.map(id => ({ action: 'unset' as const, flagId: id }));
+      resolution.flagsUnset = this.lore.flagRegistry.validateSignals(signals, dialogueProxCtx).map(s => s.flagId);
+    }
     for (const f of (resolution.flagsSet ?? []))   this.state.flags.set(f);
     for (const f of (resolution.flagsUnset ?? [])) this.state.flags.unset(f);
 
@@ -1638,7 +1650,10 @@ export class GameController {
     }
 
     // ── Apply quest signals from resolution ────────────────────────────
+    // Discard any signal whose type is not a known enum value — prevents LLM typos
+    // (e.g. "complete", "fail") from accidentally advancing quest state.
     for (const qs of (resolution.questSignals ?? [])) {
+      if (qs.type !== 'flag' && qs.type !== 'objective') continue;
       this.quests.applyQuestSignal(qs.questId, qs.type, qs.value);
     }
 
@@ -1646,8 +1661,9 @@ export class GameController {
     if (!opener) appendEncounterLog('player', text);
     appendEncounterLog('npc', cleanNarrative);
 
-    // ── Advance time ───────────────────────────────────────────────────
+    // ── Advance time + sweep time-crossing events ──────────────────────
     const timeMinutes = resolution.timeMinutes;
+    let timeTriggeredEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
     if (timeMinutes) {
       const gs       = this.state.getState();
       const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
@@ -1655,7 +1671,30 @@ export class GameController {
       const newPeriod = schedule
         ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
         : gs.timePeriod;
-      this.state.advanceTime(newTime, newPeriod);
+      const periodChanged = this.state.advanceTime(newTime, newPeriod);
+      this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
+
+      // Sweep time-crossing events so dialogue turns don't silently skip quest fails,
+      // broadcasts, or location events (mirrors the exploration main path).
+      const crossedHours = this.timeMgr.computeCrossedHours(gs.time, newTime);
+      if (crossedHours.length > 0) {
+        if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
+          this.state.flags.set('game_day1_started');
+        }
+        const eventsEnabled = this.state.flags.has('game_day1_started');
+        const qfTriggered  = eventsEnabled ? this.checkQuestFailConditions(crossedHours) : [];
+        const glTriggered  = eventsEnabled ? this.events.checkGlobalEvents(this.currentRegionId, crossedHours) : [];
+        const locTriggered = eventsEnabled ? this.events.checkAndApply(gs.player.currentLocationId, crossedHours) : [];
+        const timeTriggered = [...qfTriggered, ...glTriggered, ...locTriggered];
+        if (timeTriggered.length > 0) {
+          const { eventEncounter, extraTriggered } = this.processTriggeredEvents(timeTriggered);
+          const allTimeTriggered = [...timeTriggered, ...extraTriggered];
+          const timeEventCtx = this.buildSceneCtx(allTimeTriggered, periodChanged);
+          await this.runEventDM(timeEventCtx, allTimeTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
+          this.flushAcquisitions();
+          timeTriggeredEncounter = eventEncounter;
+        }
+      }
     }
 
     // ── Handle encounter end ───────────────────────────────────────────
@@ -1680,6 +1719,30 @@ export class GameController {
     }
 
     this.syncUIState(this.state.getState());
+
+    // Launch any encounter triggered by a time event during this dialogue turn.
+    // If dialogue hasn't ended naturally, force-close it first — the encounter takes priority
+    // and cannot run concurrently with an active NPC conversation.
+    if (timeTriggeredEncounter) {
+      if (!shouldEnd) {
+        log.info('Dialogue interrupted by time-triggered encounter', { npcId, encounterId: timeTriggeredEncounter.id });
+        activeNpcUI.set(null);
+        encounterSessionLog.set([]);
+        this._sessionFiredTriggers.clear();
+        this.state.appendHistory(
+          { type: 'interact', input: `（與 ${npc.name} 交談）`, targetId: npcId },
+          cleanNarrative.slice(0, 200),
+        );
+        this.syncUIState(this.state.getState());
+      }
+      const resolved = this.encounterMgr.start(timeTriggeredEncounter.id);
+      if (resolved) {
+        await this.renderEncounterNode(resolved, timeTriggeredEncounter.def ?? undefined);
+        this.flushAcquisitions();
+      }
+      this.releaseInput();
+      return;
+    }
 
     // Refresh thoughts (dialogue mode suggestions or post-encounter exploration)
     await this.refreshThoughts(suggestions);

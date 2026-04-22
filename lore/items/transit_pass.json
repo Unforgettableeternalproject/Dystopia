@@ -3,7 +3,7 @@
   "name": "移動許可證",
   "description": "由行政機關發放的管制轉移許可證，用於各象限中轉站。許可證的目的地欄位決定持有人可前往的區域。",
   "type": "key",
-  "obtainedFrom": "透過正式核准的轉移或遷置程序取得。",
+  "obtainedFrom": ["event"],
   "variants": [
     {
       "id": "famein",
