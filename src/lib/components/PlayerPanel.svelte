@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash, questOutcomeFlash } from '$lib/stores/gameStore';
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -104,20 +104,22 @@
   </div>
 
   <!-- Active quests -->
-  {#if $playerUI.activeQuestSummaries && $playerUI.activeQuestSummaries.length > 0}
+  {#if ($playerUI.activeQuestSummaries && $playerUI.activeQuestSummaries.length > 0) || $questOutcomeFlash.length > 0}
     <div class="section">
       <div class="section-label">任務</div>
-      {#each $playerUI.activeQuestSummaries as q}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div class="quest-row" on:click={() => questDetailOpen.set(q)}>
-          <div class="quest-name">
-            <span class="quest-type-badge quest-type-{q.type}">{q.type === 'main' ? '主' : q.type === 'side' ? '支' : '隱'}</span>
-            {q.name}
+      {#if $playerUI.activeQuestSummaries}
+        {#each $playerUI.activeQuestSummaries as q}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="quest-row" on:click={() => questDetailOpen.set(q)}>
+            <div class="quest-name">
+              <span class="quest-type-badge quest-type-{q.type}">{q.type === 'main' ? '主' : q.type === 'side' ? '支' : '隱'}</span>
+              {q.name}
+            </div>
+            <div class="quest-stage">{q.stageSummary}</div>
           </div>
-          <div class="quest-stage">{q.stageSummary}</div>
-        </div>
-      {/each}
+        {/each}
+      {/if}
       {#if ($playerUI.totalActiveQuestCount ?? 0) > 3}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -125,6 +127,15 @@
           查看全部 {$playerUI.totalActiveQuestCount} 個任務 ▸
         </div>
       {/if}
+      {#each $questOutcomeFlash as flash (flash.questId + flash.outcome)}
+        <div class="quest-row quest-outcome-flash quest-outcome-{flash.outcome}">
+          <div class="quest-name">
+            <span class="quest-type-badge quest-type-{flash.type}">{flash.type === 'main' ? '主' : flash.type === 'side' ? '支' : '隱'}</span>
+            {flash.name}
+          </div>
+          <div class="quest-stage">{flash.outcome === 'completed' ? '已完成' : '已失敗'}</div>
+        </div>
+      {/each}
     </div>
   {/if}
 
@@ -430,6 +441,43 @@
 
   .quest-more:hover {
     color: var(--text-secondary);
+  }
+
+  /* ── Quest outcome flash ───────────────────────────── */
+  @keyframes questOutcomeFade {
+    0%   { opacity: 0.7; }
+    60%  { opacity: 0.5; }
+    100% { opacity: 0; }
+  }
+
+  .quest-outcome-flash {
+    cursor: default;
+    pointer-events: none;
+    animation: questOutcomeFade 3s ease-out forwards;
+  }
+
+  .quest-outcome-flash .quest-name {
+    text-decoration: line-through;
+    color: var(--text-dim);
+  }
+
+  .quest-outcome-flash .quest-stage {
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  .quest-outcome-flash .quest-type-badge {
+    opacity: 0.5;
+  }
+
+  .quest-outcome-completed .quest-stage {
+    color: #4a7a4a;
+    opacity: 0.85;
+  }
+
+  .quest-outcome-failed .quest-stage {
+    color: var(--accent-red);
+    opacity: 0.85;
   }
 
   /* ── Stat info popup ──────────────────────────────── */

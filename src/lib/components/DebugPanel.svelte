@@ -5,7 +5,7 @@
   export let controller: GameController;
   export let onClose: () => void;
 
-  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge';
+  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge' | 'item';
   let activeTab: Tab = 'encounter';
   let filter = '';
   let flagInput = '';
@@ -61,6 +61,7 @@
     event:     `事件 (${catalog.events.length})`,
     quest:     `任務 (${catalog.quests.length})`,
     location:  `地點 (${catalog.locations.length})`,
+    item:      `道具 (${catalog.items.length})`,
     flag:      '旗標',
     player:    '玩家狀態',
     ending:    '結局測試',
@@ -84,6 +85,21 @@
   $: filteredLocations = catalog.locations.filter(
     l => !q || l.id.includes(q) || l.name.toLowerCase().includes(q),
   );
+  $: filteredItems = catalog.items.filter(
+    i => !q || i.id.includes(q) || i.name.toLowerCase().includes(q),
+  );
+  // Non-stackable items already held — disable 加入 button for these
+  $: heldNonStackableIds = new Set(
+    ($detailedPlayer?.resolvedInventory ?? [])
+      .filter(i => !i.isExpired && !catalog.items.find(c => c.id === i.itemId)?.stackable)
+      .map(i => i.itemId),
+  );
+
+  const itemTypeColors: Record<string, string> = {
+    key:        'var(--accent)',
+    equipment:  '#5fa8d3',
+    consumable: '#6a9a6a',
+  };
 
   const encTypeColors: Record<string, string> = {
     narrative: '#c9a96e',
@@ -239,6 +255,35 @@
               </div>
               <button class="trigger-btn" on:click={() => controller.debugTeleport(loc.id).catch(console.error)}>
                 傳送
+              </button>
+            </div>
+          {:else}
+            <div class="empty">無符合項目</div>
+          {/each}
+        </div>
+
+      {:else if activeTab === 'item'}
+        <div class="item-list">
+          {#each filteredItems as itm (itm.id)}
+            {@const addable = itm.stackable || !heldNonStackableIds.has(itm.id)}
+            <div class="item-row">
+              <span class="item-type-badge" style="color:{itemTypeColors[itm.type] ?? '#888'}">
+                {itm.type}
+              </span>
+              <div class="item-info">
+                <span class="item-name">{itm.name}</span>
+                <span class="item-id">
+                  {itm.id}
+                  {#if itm.stackable}<span class="item-stack-label"> ×{itm.maxStack ?? '∞'}</span>{/if}
+                </span>
+              </div>
+              <button
+                class="trigger-btn"
+                class:trigger-btn-disabled={!addable}
+                disabled={!addable}
+                on:click={() => controller.debugAddItem(itm.id)}
+              >
+                加入
               </button>
             </div>
           {:else}
@@ -767,6 +812,18 @@
   .trigger-btn:hover {
     border-color: #5fa8d3;
     color: #5fa8d3;
+  }
+
+  .trigger-btn-disabled,
+  .trigger-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .item-stack-label {
+    color: var(--text-dim);
+    font-size: 9px;
   }
 
   .trigger-btn.secondary {

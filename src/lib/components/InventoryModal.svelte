@@ -1,14 +1,21 @@
 <script lang="ts">
   import { inventoryOpen, detailedPlayer } from '$lib/stores/gameStore';
   import type { ResolvedInventoryItem } from '$lib/stores/gameStore';
+  import type { GameController } from '$lib/engine/GameController';
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
 
+  export let controller: GameController;
+
   let selected: ResolvedInventoryItem | null = null;
+  let discardConfirm = false;
+  let discardCount = 1;
 
   function close() {
     inventoryOpen.set(false);
     selected = null;
+    discardConfirm = false;
+    discardCount = 1;
   }
 
   function handleBg(e: MouseEvent) {
@@ -16,7 +23,32 @@
   }
 
   function select(item: ResolvedInventoryItem) {
+    discardConfirm = false;
+    discardCount = 1;
     selected = selected?.instanceId === item.instanceId ? null : item;
+  }
+
+  function openDiscardConfirm() {
+    discardCount = 1;
+    discardConfirm = true;
+  }
+
+  async function handleUse() {
+    if (!selected) return;
+    const id = selected.instanceId;
+    selected = null;
+    discardConfirm = false;
+    discardCount = 1;
+    await controller.useItem(id);
+  }
+
+  function handleDiscard() {
+    if (!selected) return;
+    const id = selected.instanceId;
+    controller.discardItem(id, discardCount);
+    selected = null;
+    discardConfirm = false;
+    discardCount = 1;
   }
 
   const TYPE_LABEL: Record<string, string> = {
@@ -82,6 +114,34 @@
           {#if selected.description}
             <div class="detail-desc">{selected.description}</div>
           {/if}
+
+          <!-- Action buttons -->
+          <div class="detail-actions">
+            {#if selected.type === 'consumable' && !selected.isExpired}
+              <button class="action-btn use-btn" on:click={handleUse}>使用</button>
+            {/if}
+            {#if selected.type !== 'key'}
+              {#if discardConfirm}
+                {#if selected.quantity > 1}
+                  <span class="discard-confirm-text">丟棄數量：</span>
+                  <input
+                    class="discard-count-input"
+                    type="number"
+                    min="1"
+                    max={selected.quantity}
+                    bind:value={discardCount}
+                  />
+                  <span class="discard-confirm-text">/ {selected.quantity}</span>
+                {:else}
+                  <span class="discard-confirm-text">確定丟棄？</span>
+                {/if}
+                <button class="action-btn confirm-btn" on:click={handleDiscard}>確定</button>
+                <button class="action-btn cancel-btn" on:click={() => { discardConfirm = false; discardCount = 1; }}>取消</button>
+              {:else}
+                <button class="action-btn discard-btn" on:click={openDiscardConfirm}>丟棄</button>
+              {/if}
+            {/if}
+          </div>
         </div>
       {/if}
 
@@ -260,6 +320,71 @@
     margin-top: 2px;
     border-top: 1px solid var(--border);
     padding-top: 6px;
+  }
+
+  .detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.1s, color 0.1s;
+  }
+
+  .use-btn:hover {
+    border-color: #6a9a6a;
+    color: #6a9a6a;
+  }
+
+  .discard-btn:hover {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+  }
+
+  .confirm-btn {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+  }
+
+  .confirm-btn:hover {
+    background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+  }
+
+  .cancel-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+  }
+
+  .discard-confirm-text {
+    font-size: 9px;
+    color: var(--accent-red);
+    letter-spacing: 0.04em;
+  }
+
+  .discard-count-input {
+    width: 40px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    text-align: center;
   }
 
   /* ── Empty ─────────────────────────────────────────── */

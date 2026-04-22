@@ -4,7 +4,14 @@ import type { ILLMClient } from '../lib/ai/ILLMClient';
 import type { GameEvent, LocationNode, QuestDefinition, RegionIndex, RegionSchedule } from '../lib/types';
 
 class ScriptedClient implements ILLMClient {
-  async complete(): Promise<string> {
+  async complete(systemPrompt: string): Promise<string> {
+    // DM Phase 1 (narrateIntent) — return timeMinutes so long sleep crosses hour boundaries.
+    // Initial time is 21:23; clamp is 480 min → ends at 05:23, crossing hours 22,23,0,1,2,3,4,5.
+    // Event must use one of those hours (e.g. 1) to fire correctly.
+    if (systemPrompt.includes('planning layer')) {
+      return JSON.stringify({ timeMinutes: 540 });
+    }
+    // Regulator validation response
     return JSON.stringify({
       allowed: true,
       reason: null,
@@ -22,7 +29,8 @@ class ScriptedClient implements ILLMClient {
       return;
     }
 
-    yield '你睡過了整個夜晚。<<TIME: 540>>';
+    // Time is now sourced from DM Phase 1 timeMinutes, not stream narration
+    yield '你睡過了整個夜晚。';
   }
 }
 
@@ -91,7 +99,7 @@ function makeEvent(): GameEvent {
     id: 'mvp_shift_change_event',
     name: 'Shift Change',
     description: 'Crossing into the next work period grants a quest.',
-    condition: { triggerHours: [6] },
+    condition: { triggerHours: [1] },
     outcomes: [{ id: 'grant_quest', description: 'Quest granted.', grantQuestId: 'mvp_event_quest' }],
     isRepeatable: true,
     notification: false,

@@ -54,7 +54,7 @@
           }
         ],
         "npcIds": ["crambell_kach"],
-        "eventIds": [],
+        "eventIds": ["crambell_dormitory_blackout"],
         "isAccessible": true
       },
       "localVariants": []

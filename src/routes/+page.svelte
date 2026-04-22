@@ -5,7 +5,7 @@
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, questCompletionBanner, statCheckOverlay, endingType } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -37,12 +37,7 @@
   let debugPanelOpen = false;
   $: if (!$isDebugMode) debugPanelOpen = false;
 
-  // Auto-dismiss the quest completion banner after 3.5 s
-  let _bannerTimer: ReturnType<typeof setTimeout> | null = null;
-  $: if ($questCompletionBanner) {
-    if (_bannerTimer) clearTimeout(_bannerTimer);
-    _bannerTimer = setTimeout(() => questCompletionBanner.set(null), 3500);
-  }
+  // Quest banner lifecycle is managed by enqueueQuestBanner() in gameStore — no timer needed here.
 
   // 偵測 activeEncounterUI 變化，若有 statCheckResult 則觸發判定 overlay
   let _prevEncounterRef: typeof $activeEncounterUI = null;
@@ -350,7 +345,7 @@
 {/if}
 
 {#if $inventoryOpen}
-  <InventoryModal />
+  <InventoryModal {controller} />
 {/if}
 
 {#if $questListOpen}
@@ -370,11 +365,13 @@
   />
 {/if}
 
-<!-- Quest completion banner -->
-{#if $questCompletionBanner}
-  <div class="quest-banner">
-    <span class="quest-banner-icon">◆</span>
-    <span class="quest-banner-text">任務完成：{$questCompletionBanner}</span>
+<!-- Quest outcome banner (completion and failure share the same position, queued) -->
+{#if $currentQuestBanner}
+  <div class="quest-banner" class:quest-banner-fail={$currentQuestBanner.outcome === 'failed'}>
+    <span class="quest-banner-icon">{$currentQuestBanner.outcome === 'completed' ? '◆' : '✕'}</span>
+    <span class="quest-banner-text">
+      {$currentQuestBanner.outcome === 'completed' ? '任務完成' : '任務失敗'}：{$currentQuestBanner.name}
+    </span>
   </div>
 {/if}
 
@@ -820,6 +817,14 @@
     color: var(--text-primary);
     letter-spacing: 0.04em;
     font-family: var(--font-mono);
+  }
+
+  .quest-banner-fail {
+    border-color: var(--accent-red);
+  }
+
+  .quest-banner-fail .quest-banner-icon {
+    color: var(--accent-red);
   }
 
   @keyframes bannerIn {

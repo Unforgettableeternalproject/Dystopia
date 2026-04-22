@@ -3,7 +3,8 @@
   "name": "第四象限廣播",
   "_comment": "戴司全域事件。政府廣播，每 240 分鐘觸發一次，無視時段。outccome 依目前時段旗標決定內容。",
   "condition": {
-    "cooldownMinutes": 240
+    "cooldownMinutes": 240,
+    "triggerChance": 0.1
   },
   "description": "三區廣播系統啟動，刺耳的提示音後是一段預錄的男聲公告。",
   "outcomes": [

@@ -218,7 +218,54 @@ export class EventEngine {
       return false;
     }
 
+    // Trigger chance — roll last so all hard conditions pass first
+    if (event.condition.triggerChance !== undefined && event.condition.triggerChance < 1) {
+      if (Math.random() > event.condition.triggerChance) return false;
+    }
+
     return true;
+  }
+
+  /**
+   * Directly trigger an event by ID from an external source (e.g. quest onFail.startEventId).
+   * Skips time-based and cooldown conditions, but still respects notFlags guards
+   * to prevent accidental double-firing.
+   */
+  fireEventById(eventId: string): TriggeredEvent | null {
+    const event = this.lore.getEvent(eventId);
+    if (!event) return null;
+
+    // Respect notFlags guard only
+    if (event.condition.notFlags) {
+      for (const f of event.condition.notFlags) {
+        if (this.state.flags.has(f)) return null;
+      }
+    }
+
+    const gs = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    this.checkCtx = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours: [] };
+
+    const outcome = this.selectOutcome(event);
+    if (!outcome) return null;
+
+    this.applyOutcome(outcome);
+
+    if (!event.isRepeatable) {
+      this.state.flags.set(event.id + ':fired');
+    } else {
+      this.state.setEventCooldown(event.id, gs.time.totalMinutes);
+    }
+
+    this.state.emit(GameEvents.GAME_EVENT_TRIGGERED, { eventId: event.id, outcomeId: outcome.id });
+
+    return {
+      event,
+      outcome,
+      grantQuestId:     outcome.grantQuestId,
+      startEncounterId: outcome.startEncounterId,
+      failQuestId:      outcome.failQuestId,
+    };
   }
 
   /**
@@ -337,11 +384,24 @@ export class EventEngine {
     if (outcome.grantItems?.length) {
       const now = this.state.getState().time.totalMinutes;
       for (const { itemId, variantId } of outcome.grantItems) {
-        this.state.addItem(itemId, now, variantId);
+        const def = this.lore.getItem(itemId);
+        this.state.addItem(itemId, now, variantId, {
+          stackable:          def?.stackable,
+          maxStack:           def?.maxStack,
+          maxUsesPerInstance: def?.maxUsesPerInstance,
+        });
       }
     }
     if (outcome.melphinChange) {
       this.state.modifyMelphin(outcome.melphinChange);
+    }
+    if (outcome.applyConditionId) {
+      this.state.addCondition(outcome.applyConditionId, id => this.lore.getCondition(id));
+    }
+    if (outcome.removeConditionIds?.length) {
+      for (const id of outcome.removeConditionIds) {
+        this.state.removeCondition(id);
+      }
     }
     // grantQuestId, startEncounterId, failQuestId are intentionally NOT applied here.
     // They require higher-level coordination (QuestEngine / EncounterEngine)

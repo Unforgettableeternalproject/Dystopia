@@ -1,0 +1,15 @@
+{
+    "id": "frozensardine",
+    "name": "冰凍的沙丁魚",
+    "description": "奇怪，一般來說沙丁魚不是都是罐裝的嗎? 怎麼會有一條冰凍的沙丁魚? 這是什麼意思?",
+    "type": "consumable",
+    "obtainedFrom": "在坎貝爾的某個秘密地點，或從特定NPC處獲得。",
+    "stackable": false,
+    "maxStack": 1,
+    "maxUsesPerInstance": 1,
+    "effect": {
+        "statusChanges": {
+            "stamina": 1
+        }
+    }
+}

@@ -262,7 +262,12 @@ export class EncounterEngine {
     if (effects.grantItems?.length) {
       const now = this.state.getState().time.totalMinutes;
       for (const { itemId, variantId } of effects.grantItems) {
-        this.state.addItem(itemId, now, variantId);
+        const def = this.lore.getItem(itemId);
+        this.state.addItem(itemId, now, variantId, {
+          stackable:          def?.stackable,
+          maxStack:           def?.maxStack,
+          maxUsesPerInstance: def?.maxUsesPerInstance,
+        });
       }
     }
     if (effects.melphinChange) {

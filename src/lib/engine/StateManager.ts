@@ -96,22 +96,125 @@ export class StateManager {
     if (delta !== 0) this._acquisitions.push({ type: 'affinity', npcId, delta });
   }
 
-  addItem(itemId: string, totalMinutes: number, variantId?: string): void {
-    const exists = this.state.player.inventory.some(
-      i => i.itemId === itemId && i.variantId === variantId && !i.isExpired
-    );
-    if (!exists) {
-      this.state.player.inventory.push({
-        instanceId: itemId + (variantId ? '_' + variantId : '') + '_' + totalMinutes,
-        itemId,
-        variantId,
-        obtainedAtMinute: totalMinutes,
-        quantity: 1,
-        isExpired: false,
-      });
-      this.notifyUpdate();
-      this._acquisitions.push({ type: 'item', itemId, variantId });
+  addItem(
+    itemId: string,
+    totalMinutes: number,
+    variantId?: string,
+    opts?: { stackable?: boolean; maxStack?: number; maxUsesPerInstance?: number },
+  ): void {
+    if (opts?.stackable) {
+      // Stack onto existing non-expired instance
+      const existing = this.state.player.inventory.find(
+        i => i.itemId === itemId && i.variantId === variantId && !i.isExpired,
+      );
+      if (existing) {
+        const limit = opts.maxStack ?? Infinity;
+        if (existing.quantity < limit) {
+          existing.quantity += 1;
+          this.notifyUpdate();
+          this._acquisitions.push({ type: 'item', itemId, variantId });
+          return;
+        }
+        // Stack is full — fall through to create a new stack below.
+      }
+    } else {
+      // Non-stackable: skip if already held (original behaviour)
+      const exists = this.state.player.inventory.some(
+        i => i.itemId === itemId && i.variantId === variantId && !i.isExpired,
+      );
+      if (exists) return;
     }
+
+    const newItem: import('../types/item').InventoryItem = {
+      instanceId: itemId + (variantId ? '_' + variantId : '') + '_' + totalMinutes,
+      itemId,
+      variantId,
+      obtainedAtMinute: totalMinutes,
+      quantity: 1,
+      isExpired: false,
+    };
+    if (opts?.maxUsesPerInstance !== undefined) {
+      newItem.usesRemaining = opts.maxUsesPerInstance;
+    }
+    this.state.player.inventory.push(newItem);
+    this.notifyUpdate();
+    this._acquisitions.push({ type: 'item', itemId, variantId });
+  }
+
+  /**
+   * 消耗一個消耗品物品實例，套用其效果並從物品欄移除/扣除。
+   * 效果由呼叫方（GameController，持有 LoreVault）解析並傳入。
+   * 回傳 true = 成功消耗；false = instanceId 不存在或物品非消耗品。
+   */
+  consumeItem(
+    instanceId: string,
+    effect: import('../types/item').ConsumableEffect,
+    getCondition: (id: string) => import('../types/condition').ConditionDefinition | undefined,
+  ): boolean {
+    const idx = this.state.player.inventory.findIndex(i => i.instanceId === instanceId);
+    if (idx === -1) return false;
+
+    const item = this.state.player.inventory[idx];
+
+    // Apply status changes
+    if (effect.statusChanges) {
+      for (const [key, delta] of Object.entries(effect.statusChanges)) {
+        if (delta !== undefined) this.modifyStat(`statusStats.${key}`, delta);
+      }
+    }
+    // Apply condition
+    if (effect.applyConditionId) {
+      this.addCondition(
+        effect.applyConditionId,
+        getCondition,
+        effect.applyConditionDurationTurns !== undefined
+          ? { expiresOnTurn: this.state.turn + effect.applyConditionDurationTurns }
+          : undefined,
+      );
+    }
+    // Remove conditions
+    effect.removeConditionIds?.forEach(id => this.removeCondition(id));
+    // Flags
+    effect.flagsSet?.forEach(f => this.flags.set(f));
+    effect.flagsUnset?.forEach(f => this.flags.unset(f));
+
+    // Deduct usage
+    if (item.usesRemaining !== undefined) {
+      item.usesRemaining -= 1;
+      if (item.usesRemaining <= 0) {
+        this.state.player.inventory.splice(idx, 1);
+      }
+    } else if (item.quantity > 1) {
+      item.quantity -= 1;
+    } else {
+      this.state.player.inventory.splice(idx, 1);
+    }
+
+    this.notifyUpdate();
+    return true;
+  }
+
+  /** 直接從物品欄移除指定實例（丟棄用）。回傳 true = 成功移除。 */
+  removeItem(instanceId: string): boolean {
+    const idx = this.state.player.inventory.findIndex(i => i.instanceId === instanceId);
+    if (idx === -1) return false;
+    this.state.player.inventory.splice(idx, 1);
+    this.notifyUpdate();
+    return true;
+  }
+
+  /** 從堆疊中減少指定數量。count >= 現有數量時整堆移除。回傳 true = 成功。 */
+  removeItemQuantity(instanceId: string, count: number): boolean {
+    const idx = this.state.player.inventory.findIndex(i => i.instanceId === instanceId);
+    if (idx === -1) return false;
+    const item = this.state.player.inventory[idx];
+    if (count >= item.quantity) {
+      this.state.player.inventory.splice(idx, 1);
+    } else {
+      item.quantity -= count;
+    }
+    this.notifyUpdate();
+    return true;
   }
 
   // ── Conditions ───────────────────────────────────────────────

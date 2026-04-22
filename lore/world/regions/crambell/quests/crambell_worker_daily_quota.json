@@ -31,6 +31,15 @@
           "flag": "crambell_quota_done_today"
         }
       ],
+      "failCondition": {
+        "triggerHours": [18],
+        "_comment": "作業時段結束（18:00）時，若仍在此階段（配額未完成）則自動失敗。"
+      },
+      "onFail": {
+        "nextStageId": null,
+        "startEventId": "crambell_quota_failure",
+        "_comment": "失敗後直接觸發配額稽核事件（由 GameController 呼叫 EventEngine.fireEventById）。"
+      },
       "onComplete": {
         "flagsSet": ["crambell_quota_met_today"],
         "flagsUnset": ["crambell_quota_done_today"],

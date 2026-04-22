@@ -212,6 +212,13 @@ export interface TurnResolution {
   narrativeSummary?: string;
   /** 說明為何覆蓋 DM 的值（Judge 用）或為何清除某欄位（deterministic 用）。 */
   reasoning?: string;
+  /**
+   * DM 確認消耗一個消耗品物品實例。
+   * 填入 InventoryItem.instanceId；引擎套用 ConsumableEffect 並移除/扣除使用次數。
+   * DM 判定物品無效時不填（物品不消耗）。
+   * GRANT / REVOKE 信號規格定義中，暫不實裝。
+   */
+  consumeItemInstanceId?: string;
 }
 
 /**

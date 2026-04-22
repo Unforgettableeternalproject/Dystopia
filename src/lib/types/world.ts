@@ -353,6 +353,11 @@ export interface EventCondition {
    * 最低梅分門檻。玩家持有梅分需大於等於此數值才能觸發。
    */
   minMelphin?: number;
+  /**
+   * 觸發機率（0–1）。條件通過後，依此機率決定是否實際觸發。
+   * 省略或 1.0 = 必定觸發。
+   */
+  triggerChance?: number;
 }
 
 /** 物品發放項目（用於 EventOutcome.grantItems） */
@@ -402,6 +407,13 @@ export interface EventOutcome {
    * 觸發指定任務的 onFail 效果並推進/失敗該任務（由 GameController 轉交 QuestEngine）。
    */
   failQuestId?: string;
+  /**
+   * 套用一個狀態條件（buff / debuff / 受傷等）。
+   * 填入 ConditionDefinition.id，由引擎查表取得完整定義。
+   */
+  applyConditionId?: string;
+  /** 移除指定狀態條件的 ID 列表。 */
+  removeConditionIds?: string[];
 }
 
 export interface GameEvent {

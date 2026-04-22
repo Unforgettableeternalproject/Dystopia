@@ -65,6 +65,23 @@ export interface QuestStageOutcome {
 }
 
 /**
+ * 任務自動失敗條件。
+ * 掛在 QuestDefinition（頂層）或 QuestStage（階段層）。
+ * 條件滿足時由 GameController 自動呼叫 QuestEngine.applyQuestFail()。
+ *
+ * 頂層 failCondition：任何階段都適用，條件達成即失敗整個任務。
+ * 階段層 failCondition：只在此階段有效，條件達成時觸發該階段的 onFail。
+ */
+export interface QuestFailCondition {
+  /** 跨越這些整點小時（0–23）時自動觸發失敗檢查 */
+  triggerHours?: number[];
+  /** 這些旗標全部存在時自動失敗 */
+  flags?: string[];
+  /** 任意一個旗標存在時自動失敗 */
+  anyFlags?: string[];
+}
+
+/**
  * 任務階段失敗後果。由 QuestEngine.applyQuestFail() 套用。
  *
  * nextStageId 語意：
@@ -79,6 +96,11 @@ export interface QuestStageFailOutcome {
   reputationChanges?: Record<string, number>;
   affinityChanges?: Record<string, number>;
   nextStageId?: string | null;
+  /**
+   * 失敗時直接觸發的事件 ID（由 GameController 轉交 EventEngine.fireEventById）。
+   * 事件仍會進行 notFlags 等防衛條件檢查。
+   */
+  startEventId?: string;
 }
 
 export interface QuestStage {
@@ -93,8 +115,14 @@ export interface QuestStage {
   objectives: QuestObjective[];
   onComplete: QuestStageOutcome;
   /**
-   * 外部觸發失敗時的後果（由 EventOutcome.failQuestId 或 EncounterChoiceEffects.failQuestId 啟動）。
-   * 省略 = 無失敗後果（任務停留在當前階段）。
+   * 此階段的自動失敗條件。條件達成時觸發本階段的 onFail。
+   * 與頂層 QuestDefinition.failCondition 並存（頂層優先檢查）。
+   */
+  failCondition?: QuestFailCondition;
+  /**
+   * 外部觸發失敗時的後果（由 EventOutcome.failQuestId、EncounterChoiceEffects.failQuestId
+   * 或 failCondition 自動觸發時啟動）。
+   * 省略時若任務有 onFailDefault 則退回使用該預設值。
    */
   onFail?: QuestStageFailOutcome;
   /**
@@ -214,6 +242,18 @@ export interface QuestDefinition {
    * true = 不需要玩家主動操作，系統自動授予（出身任務、事件任務）。
    */
   autoAccept?: boolean;
+
+  /**
+   * 頂層自動失敗條件。任何階段下條件達成即直接失敗整個任務，
+   * 優先於階段層 failCondition 檢查。
+   */
+  failCondition?: QuestFailCondition;
+  /**
+   * 無 onFail 定義的階段失敗時使用的預設後果。
+   * 若階段有明確 onFail，則忽略此預設值。
+   * 典型用途：循環任務的重置邏輯，避免每個階段都重複定義。
+   */
+  onFailDefault?: QuestStageFailOutcome;
 
   entryStageId: string;
   stages: Record<string, QuestStage>;

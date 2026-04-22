@@ -2,7 +2,7 @@
   "id": "crambell_kach",
   "name": "凱奇·巴頓",
   "type": "quest",
-  "baseLocationId": "delth_dormitory_common",
+  "baseLocationId": "delth_mine_worksite",
   "factionId": "crambell_treffen",
   "publicDescription": "玩家的室友兼工班夥伴，表面上是個普通的礦工，做事沉穩，話不多但可靠。他有一種讓待在他周圍的人莫名安心的氣質，這種特質並非刻意營造。他對整個坎貝爾的地理格局和高層動向的了解似乎超出一個普通工人應有的程度，但從不主動展示這些知識。",
   "secretLayers": [

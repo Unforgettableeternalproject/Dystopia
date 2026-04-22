@@ -54,7 +54,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, questCompletionBanner, showEventToast, showAcquisitionNotif, triggerBarFlash, gamePhase, endingType, shadowModeActive, pushShadowComparison } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, gamePhase, endingType, shadowModeActive, pushShadowComparison } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -84,6 +84,14 @@ export class GameController {
 
   /** ID of the region the player is currently in. Updated on region change. */
   private currentRegionId = 'crambell';
+
+  /**
+   * Quest outcomes that happened THIS turn (accumulated via bus events).
+   * Promoted to _stagedQuestOutcomes at end of processAction so the DM
+   * sees them exactly ONCE — in the NEXT turn's buildSceneCtx — then cleared.
+   */
+  private _pendingQuestOutcomes: Array<{ name: string; outcome: 'completed' | 'failed' }> = [];
+  private _stagedQuestOutcomes:  Array<{ name: string; outcome: 'completed' | 'failed' }> = [];
 
   /** Maximum NPC dialogue turns before controller forces a wrap-up. */
   private static readonly MAX_DIALOGUE_TURNS = 8;
@@ -121,7 +129,19 @@ export class GameController {
     this.bus.on(GameEvents.GAME_EVENT_TRIGGERED, doAutoSave);
     this.bus.on(GameEvents.QUEST_COMPLETED, ({ questId }: { questId: string }) => {
       const def = this.lore.getQuest(questId);
-      if (def) questCompletionBanner.set(def.name);
+      if (def) {
+        enqueueQuestBanner(def.name, 'completed');
+        showQuestOutcomeFlash(questId, def.name, def.type, 'completed');
+        this._pendingQuestOutcomes.push({ name: def.name, outcome: 'completed' });
+      }
+    });
+    this.bus.on(GameEvents.QUEST_FAILED, ({ questId }: { questId: string }) => {
+      const def = this.lore.getQuest(questId);
+      if (def) {
+        enqueueQuestBanner(def.name, 'failed');
+        showQuestOutcomeFlash(questId, def.name, def.type, 'failed');
+        this._pendingQuestOutcomes.push({ name: def.name, outcome: 'failed' });
+      }
     });
 
   }
@@ -220,6 +240,75 @@ export class GameController {
     const sceneCtx = this.buildSceneCtx([]);
     const { suggestions } = await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
     await this.refreshThoughts(suggestions);
+  }
+
+  /**
+   * 使用消耗品物品。立即套用效果，並向 DM 發送沉默行動進行敘述。
+   * MVP 採用樂觀套用（engine-side deterministic），不等待 DM 確認。
+   */
+  async useItem(instanceId: string): Promise<void> {
+    if (get(inputDisabled)) return;
+    const gs      = this.state.getState();
+    const invItem = gs.player.inventory.find(i => i.instanceId === instanceId);
+    if (!invItem) return;
+    const itemDef = this.lore.getItem(invItem.itemId);
+    if (!itemDef || itemDef.type !== 'consumable') return;
+
+    // Apply effect immediately
+    this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
+    showAcquisitionNotif(`使用：${itemDef.name}`, false);
+    this.flushAcquisitions();
+    this.syncUIState(this.state.getState());
+
+    // Send silent action for DM narration (player input not displayed)
+    const silentInput = `玩家使用了物品：${itemDef.name}`;
+    inputDisabled.set(true);
+    try {
+      const sceneCtx = this.buildSceneCtx([]);
+      const { suggestions } = await this.runDM({ type: 'use', input: silentInput }, sceneCtx);
+      this.quests.checkObjectives();
+      this.syncUIState(this.state.getState());
+      this.flushAcquisitions();
+      await this.refreshThoughts(suggestions);
+    } finally {
+      this.releaseInput();
+    }
+  }
+
+  /**
+   * 丟棄物品實例（關鍵物品不可丟棄）。
+   * count 省略或為 1 時整堆移除；堆疊物品可傳入小於 quantity 的數量只移除部分。
+   */
+  discardItem(instanceId: string, count?: number): boolean {
+    const gs      = this.state.getState();
+    const invItem = gs.player.inventory.find(i => i.instanceId === instanceId);
+    if (!invItem) return false;
+    const itemDef = this.lore.getItem(invItem.itemId);
+    if (!itemDef || itemDef.type === 'key') return false;
+
+    const n = count ?? invItem.quantity;
+    const removed = n >= invItem.quantity
+      ? this.state.removeItem(instanceId)
+      : this.state.removeItemQuantity(instanceId, n);
+    if (removed) {
+      showAcquisitionNotif(`丟棄：${itemDef.name}`, false);
+      this.syncUIState(this.state.getState());
+      log.info('Item discarded', { instanceId, itemId: invItem.itemId, count: n });
+    }
+    return removed;
+  }
+
+  /** 除錯用：直接將道具加入物品欄，遵守 stackable/maxStack 規則。 */
+  debugAddItem(itemId: string): void {
+    const def = this.lore.getItem(itemId);
+    if (!def) return;
+    const gs = this.state.getState();
+    this.state.addItem(itemId, gs.time.totalMinutes, undefined, {
+      stackable:           def.stackable ?? false,
+      maxStack:            def.maxStack,
+      maxUsesPerInstance:  def.maxUsesPerInstance,
+    });
+    this.syncUIState(this.state.getState());
   }
 
   async submitAction(input: string, actionType?: ActionType): Promise<void> {
@@ -333,6 +422,11 @@ export class GameController {
     }
     const eventsEnabled = this.state.flags.has('game_day1_started');
 
+    // 2.5. Check quest fail conditions (time-based auto-fail before event sweep)
+    const questFailTriggered = eventsEnabled
+      ? this.checkQuestFailConditions(crossedHours)
+      : [];
+
     // 3. Check global events (period transitions, broadcasts, hour-based triggers)
     const globalTriggered = eventsEnabled
       ? this.events.checkGlobalEvents(this.currentRegionId, crossedHours)
@@ -342,9 +436,11 @@ export class GameController {
     const locationTriggered = eventsEnabled
       ? this.events.checkAndApply(this.state.getState().player.currentLocationId, crossedHours)
       : [];
-    const triggered = [...globalTriggered, ...locationTriggered];
+    const triggered = [...questFailTriggered, ...globalTriggered, ...locationTriggered];
 
-    const eventEncounter = this.processTriggeredEvents(triggered);
+    const { eventEncounter, extraTriggered } = this.processTriggeredEvents(triggered);
+    // Merge sub-events (e.g. from failQuest -> startEventId chains) so DM narration covers them.
+    const allTriggered = [...triggered, ...extraTriggered];
 
     // 4. DM narration
     // For NPC interact: route to isolated dialogue DM — full scene context is not injected.
@@ -358,9 +454,9 @@ export class GameController {
 
     // 4.1. Narrate triggered events in a separate DM pass BEFORE the player-action DM.
     // This keeps event narration and action response from bleeding together.
-    if (triggered.length > 0) {
-      const eventCtx = this.buildSceneCtx(triggered, periodChanged);
-      const hasNotification = triggered.some(t => t.event.notification);
+    if (allTriggered.length > 0) {
+      const eventCtx = this.buildSceneCtx(allTriggered, periodChanged);
+      const hasNotification = allTriggered.some(t => t.event.notification);
       await this.runEventDM(eventCtx, hasNotification ? 'event' : 'narrative');
       this.flushAcquisitions();
     }
@@ -401,14 +497,18 @@ export class GameController {
         if (!this.state.flags.has('game_day1_started') && extraCrossed.includes(0)) {
           this.state.flags.set('game_day1_started');
         }
-        const lateTriggered = this.state.flags.has('game_day1_started')
-          ? this.events.checkGlobalEvents(this.currentRegionId, extraCrossed)
-          : [];
-        const lateEventEncounter = this.processTriggeredEvents(lateTriggered);
+        const lateEventsEnabled = this.state.flags.has('game_day1_started');
+        const lateQuestFail = lateEventsEnabled ? this.checkQuestFailConditions(extraCrossed) : [];
+        const lateGlobal    = lateEventsEnabled ? this.events.checkGlobalEvents(this.currentRegionId, extraCrossed) : [];
+        const lateLocation  = lateEventsEnabled ? this.events.checkAndApply(this.state.getState().player.currentLocationId, extraCrossed) : [];
+        const lateTriggered = [...lateQuestFail, ...lateGlobal, ...lateLocation];
+        const { eventEncounter: lateEventEncounter, extraTriggered: lateExtra } =
+          this.processTriggeredEvents(lateTriggered);
+        const allLateTriggered = [...lateTriggered, ...lateExtra];
 
-        if (lateTriggered.length > 0) {
-          const lateEventCtx = this.buildSceneCtx(lateTriggered, latePeriodChanged);
-          const hasNotification = lateTriggered.some(t => t.event.notification);
+        if (allLateTriggered.length > 0) {
+          const lateEventCtx = this.buildSceneCtx(allLateTriggered, latePeriodChanged);
+          const hasNotification = allLateTriggered.some(t => t.event.notification);
           await this.runEventDM(lateEventCtx, hasNotification ? 'event' : 'narrative');
           this.flushAcquisitions();
         }
@@ -461,6 +561,10 @@ export class GameController {
     if (this.state.getState().time.day !== gs0.time.day) {
       this.autoSave().catch(err => log.warn('Auto-save (day change) failed', err));
     }
+
+    // Promote quest outcomes: pending (this turn) → staged (available for next turn's DM context).
+    this._stagedQuestOutcomes = [...this._stagedQuestOutcomes, ...this._pendingQuestOutcomes];
+    this._pendingQuestOutcomes = [];
 
     if (!this.checkEndingConditions() && !enc) this.releaseInput();
   }
@@ -719,6 +823,57 @@ export class GameController {
     log.info('State loaded from save', { turn: gs.turn });
   }
 
+  // -- Quest fail condition scan ----------------------------------------
+
+  /**
+   * 掃描所有進行中任務的 failCondition，自動觸發符合條件的失敗。
+   * 頂層 failCondition 優先，命中則整個任務失敗；
+   * 未命中頂層時再檢查當前階段的 failCondition。
+   * 回傳因 onFail.startEventId 直接觸發的事件列表（供 processTriggeredEvents 處理）。
+   */
+  private checkQuestFailConditions(crossedHours: number[]): import('./EventEngine').TriggeredEvent[] {
+    const gs      = this.state.getState();
+    const result: import('./EventEngine').TriggeredEvent[] = [];
+
+    for (const [questId, instance] of Object.entries(gs.activeQuests)) {
+      if (instance.isCompleted || instance.isFailed || instance.isDitched) continue;
+
+      const def = this.lore.getQuest(questId);
+      if (!def) continue;
+
+      const matchesFail = (cond: import('../types/quest').QuestFailCondition): boolean => {
+        if (cond.triggerHours?.length && !cond.triggerHours.some(h => crossedHours.includes(h))) return false;
+        if (cond.flags?.length      && !this.state.flags.hasAll(cond.flags))   return false;
+        if (cond.anyFlags?.length   && !this.state.flags.hasAny(cond.anyFlags)) return false;
+        return true;
+      };
+
+      // Top-level failCondition: fail entire quest regardless of stage
+      if (def.failCondition && matchesFail(def.failCondition)) {
+        const r = this.quests.applyQuestFail(questId);
+        log.info('Quest auto-failed by top-level failCondition', { questId });
+        if (r.startEventId) {
+          const ev = this.events.fireEventById(r.startEventId);
+          if (ev) result.push(ev);
+        }
+        continue; // don't also check stage condition
+      }
+
+      // Stage-level failCondition
+      const stage = instance.currentStageId ? def.stages[instance.currentStageId] : undefined;
+      if (stage?.failCondition && matchesFail(stage.failCondition)) {
+        const r = this.quests.applyQuestFail(questId);
+        log.info('Quest auto-failed by stage failCondition', { questId, stageId: instance.currentStageId });
+        if (r.startEventId) {
+          const ev = this.events.fireEventById(r.startEventId);
+          if (ev) result.push(ev);
+        }
+      }
+    }
+
+    return result;
+  }
+
   // -- Ending conditions ------------------------------------------------
 
   /**
@@ -833,6 +988,16 @@ export class GameController {
 
     if (activeQuestLines.length > 0) {
       parts.push('\n### Active Quests\n' + activeQuestLines.join('\n'));
+    }
+
+    // Quest outcomes from the PREVIOUS turn — injected into the player-action DM only
+    // (triggered.length === 0), shown once, then cleared.
+    if (this._stagedQuestOutcomes.length > 0 && triggered.length === 0) {
+      const lines = this._stagedQuestOutcomes.map(
+        o => '- [' + (o.outcome === 'completed' ? 'Completed' : 'Failed') + '] ' + o.name
+      );
+      parts.push('\n### Quest Outcomes (last turn)\n' + lines.join('\n'));
+      this._stagedQuestOutcomes = [];
     }
 
     if (triggered.length > 0) {
@@ -982,8 +1147,9 @@ export class GameController {
 
   private processTriggeredEvents(
     triggered: TriggeredEvent[],
-  ): { id: string; def: ReturnType<LoreVault['getEncounter']> } | null {
+  ): { eventEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null; extraTriggered: TriggeredEvent[] } {
     let eventEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
+    const extraTriggered: TriggeredEvent[] = [];
 
     for (const t of triggered) {
       if (t.grantQuestId) {
@@ -991,8 +1157,21 @@ export class GameController {
         log.info('Quest granted by event', { questId: t.grantQuestId, eventId: t.event.id });
       }
       if (t.failQuestId) {
-        this.quests.applyQuestFail(t.failQuestId);
+        const failResult = this.quests.applyQuestFail(t.failQuestId);
         log.info('Quest fail applied by event', { questId: t.failQuestId, eventId: t.event.id });
+        if (failResult.startEventId) {
+          const sub = this.events.fireEventById(failResult.startEventId);
+          if (sub) {
+            // Collect sub-event so the caller can include it in DM narration.
+            extraTriggered.push(sub);
+            // Recursively process sub-event so its grantQuestId / failQuestId / notification /
+            // startEncounterId are all handled rather than silently dropped.
+            const { eventEncounter: subEncounter, extraTriggered: subExtra } =
+              this.processTriggeredEvents([sub]);
+            extraTriggered.push(...subExtra);
+            if (subEncounter && !eventEncounter) eventEncounter = subEncounter;
+          }
+        }
       }
       if (t.startEncounterId && !eventEncounter) {
         eventEncounter = { id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) };
@@ -1003,7 +1182,7 @@ export class GameController {
       }
     }
 
-    return eventEncounter;
+    return { eventEncounter, extraTriggered };
   }
 
   private async runDM(
@@ -1119,6 +1298,17 @@ export class GameController {
     if (resolution.flagsUnset?.length) {
       log.debug('Resolution flags unset', { flags: resolution.flagsUnset });
       for (const flagId of resolution.flagsUnset) this.state.flags.unset(flagId);
+    }
+
+    // ── Apply CONSUME from resolution ────────────────────────────────────
+    if (resolution.consumeItemInstanceId) {
+      const instanceId = resolution.consumeItemInstanceId;
+      const invItem    = this.state.getState().player.inventory.find(i => i.instanceId === instanceId);
+      const itemDef    = invItem ? this.lore.getItem(invItem.itemId) : undefined;
+      if (itemDef?.type === 'consumable') {
+        const consumed = this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
+        if (consumed) log.info('Item consumed', { instanceId, itemId: invItem!.itemId });
+      }
     }
 
     // ── Apply MOVE from resolution ────────────────────────────────────────
@@ -1519,9 +1709,17 @@ export class GameController {
       this.quests.grantQuest(pending.questGrant);
       log.info('Quest granted by encounter choice', { questId: pending.questGrant });
     }
+    let pendingFailEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
     if (pending.questFail) {
-      this.quests.applyQuestFail(pending.questFail);
+      const failResult = this.quests.applyQuestFail(pending.questFail);
       log.info('Quest fail applied by encounter choice', { questId: pending.questFail });
+      if (failResult.startEventId) {
+        const sub = this.events.fireEventById(failResult.startEventId);
+        if (sub) {
+          const { eventEncounter: failEnc } = this.processTriggeredEvents([sub]);
+          pendingFailEncounter = failEnc;
+        }
+      }
     }
 
     if (resolved) {
@@ -1546,6 +1744,17 @@ export class GameController {
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
       await this.refreshThoughts();
+    }
+
+    // Launch fail-event encounter after the current encounter fully concludes
+    if (pendingFailEncounter) {
+      const failResolved = this.encounterMgr.start(pendingFailEncounter.id);
+      if (failResolved) {
+        await this.renderEncounterNode(failResolved, pendingFailEncounter.def ?? undefined);
+        this.flushAcquisitions();
+      }
+      this.releaseInput();
+      return;
     }
 
     this.releaseInput();
@@ -2304,23 +2513,21 @@ export class GameController {
       return;
     }
     pushLine(`[Debug] 強制觸發事件：${triggered.event.description ?? eventId}`, 'system');
-    if (triggered.event.notification) {
-      showEventToast(triggered.event.name ?? triggered.event.id, triggered.event.notificationVariant ?? 'normal');
-    }
 
-    // Apply side effects — quest grants immediately; encounter deferred until after narration.
-    if (triggered.grantQuestId) this.quests.grantQuest(triggered.grantQuestId);
-    if (triggered.failQuestId)  this.quests.applyQuestFail(triggered.failQuestId);
+    // Apply side effects recursively (handles failQuest -> startEventId chains, notifications, etc.)
+    const { eventEncounter: debugEncounter, extraTriggered: debugExtra } =
+      this.processTriggeredEvents([triggered]);
+    const allDebugTriggered = [triggered, ...debugExtra];
 
-    // Narrate the event first so event text appears before encounter UI.
+    // Narrate the event (and any sub-events) first so event text appears before encounter UI.
     const debugPrefix = `[DEBUG MODE — 此事件由開發人員手動強制觸發，玩家實際位置可能與事件預期地點不符。請直接根據提供的事件 Context 描述情況，模擬此事件的發生，無需顧慮地點一致性。]\n\n`;
-    const eventCtx = debugPrefix + this.buildSceneCtx([triggered]);
-    await this.runEventDM(eventCtx, triggered.event.notification ? 'event' : 'narrative');
+    const eventCtx = debugPrefix + this.buildSceneCtx(allDebugTriggered);
+    await this.runEventDM(eventCtx, allDebugTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
 
-    // Launch encounter after narration completes.
-    if (triggered.startEncounterId) {
-      const encDef  = this.lore.getEncounter(triggered.startEncounterId);
-      const resolved = this.encounterMgr.start(triggered.startEncounterId);
+    // Launch encounter after narration completes (includes encounters from sub-event chains).
+    if (debugEncounter) {
+      const encDef  = this.lore.getEncounter(debugEncounter.id);
+      const resolved = this.encounterMgr.start(debugEncounter.id);
       if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined, true);
     }
     this.syncUIState(this.state.getState());

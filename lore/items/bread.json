@@ -1,0 +1,16 @@
+{
+  "id": "bread",
+  "name": "麵包",
+  "description": "粗糙壓製的配給麵包，口感乾硬，沒什麼味道，但至少能填飽肚子。礦工之間常見的日常食糧。",
+  "type": "consumable",
+  "obtainedFrom": "在一些廣場中能夠時常見到。",
+  "stackable": true,
+  "maxStack": 5,
+  "maxUsesPerInstance": 1,
+  "effect": {
+    "statusChanges": {
+      "stamina": 2,
+      "stress": -1
+    }
+  }
+}

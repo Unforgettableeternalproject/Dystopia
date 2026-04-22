@@ -2,12 +2,12 @@
   "id": "crambell_quota_failure",
   "name": "配額未達",
   "_comment": [
-    "全域事件，於 18:00 觸發，條件為當日配額未完成。",
+    "由 crambell_worker_daily_quota 任務的 onFail.startEventId 直接觸發（非時間觸發）。",
     "固定啟動配額稽核遭遇。",
-    "若轉移申請已核准，則撤銷申請並使可重複任務失敗。"
+    "若轉移申請已核准，則撤銷申請並使可重複任務失敗。",
+    "notFlags 保留作為防重複觸發的保險。"
   ],
   "condition": {
-    "triggerHours": [18],
     "notFlags": [
       "crambell_quota_met_today",
       "crambell_quota_failure_processed"

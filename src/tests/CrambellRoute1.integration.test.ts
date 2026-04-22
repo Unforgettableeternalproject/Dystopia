@@ -78,8 +78,9 @@ function loadRoute1Lore() {
     globalEventIds: [
       'crambell_work_period_start',
       'crambell_rest_period_start',
-      'crambell_quota_failure',
       'crambell_transfer_wait',
+      // crambell_quota_failure is no longer a global event — triggered via
+      // crambell_worker_daily_quota.onFail.startEventId by QuestEngine/GameController
     ],
   };
 
@@ -96,7 +97,6 @@ function loadRoute1Lore() {
       crambell_transfer_apply: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_apply.json'),
       crambell_transfer_collect_permit: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_collect_permit.json'),
       crambell_transfer_wait: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_transfer_wait.json'),
-      crambell_quota_failure: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_quota_failure.json'),
       crambell_work_period_start: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_work_period_start.json'),
       crambell_rest_period_start: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_rest_period_start.json'),
     },

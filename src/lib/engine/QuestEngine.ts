@@ -166,34 +166,43 @@ export class QuestEngine {
   }
 
   /**
-   * 外部觸發任務階段失敗（由 EventOutcome.failQuestId 或 EncounterChoiceEffects.failQuestId 啟動）。
-   * 套用當前階段的 onFail 效果並根據 nextStageId 決定後續：
-   *   nextStageId = null   → 任務完全失敗
-   *   nextStageId = string → 退回指定階段（可重試）
+   * 外部觸發任務階段失敗（由 EventOutcome.failQuestId、EncounterChoiceEffects.failQuestId
+   * 或 failCondition 自動掃描觸發）。
+   * 套用當前階段的 onFail 效果（若無則嘗試 onFailDefault）並根據 nextStageId 決定後續：
+   *   nextStageId = null      → 任務完全失敗
+   *   nextStageId = string    → 退回指定階段（可重試）
    *   nextStageId = undefined → 僅套用效果，停留在當前階段
+   *
+   * 回傳 { startEventId } 讓 GameController 決定是否直接觸發事件。
    */
-  applyQuestFail(questId: string): void {
+  applyQuestFail(questId: string): { startEventId?: string } {
     const gs       = this.state.getState();
     const instance = gs.activeQuests[questId];
-    if (!instance || instance.isCompleted || instance.isFailed) return;
+    if (!instance || instance.isCompleted || instance.isFailed) return {};
 
     const def   = this.lore.getQuest(questId);
     const stage = instance.currentStageId ? def?.stages[instance.currentStageId] : undefined;
 
-    if (stage?.onFail) {
-      this.applyFailOutcome(stage.onFail);
+    // Use stage's onFail, falling back to quest-level onFailDefault
+    const failOutcome = stage?.onFail ?? def?.onFailDefault;
 
-      if (stage.onFail.nextStageId === null) {
+    if (failOutcome) {
+      this.applyFailOutcome(failOutcome);
+
+      if (failOutcome.nextStageId === null) {
         this.state.failQuest(questId, { recordAsCompleted: !def?.isRepeatable });
         if (def?.isRepeatable) {
           this.state.removeEndedQuest(questId);
         }
-      } else if (typeof stage.onFail.nextStageId === 'string') {
-        this.state.advanceQuestStage(questId, stage.onFail.nextStageId);
+      } else if (typeof failOutcome.nextStageId === 'string') {
+        this.state.advanceQuestStage(questId, failOutcome.nextStageId);
       }
       // undefined = stay at current stage; effects already applied
+
+      return { startEventId: failOutcome.startEventId };
     }
-    // No onFail defined = silent, do nothing
+    // No onFail or onFailDefault defined = silent, do nothing
+    return {};
   }
 
   /**
@@ -315,7 +324,12 @@ export class QuestEngine {
     if (outcome.grantItems?.length) {
       const now = this.state.getState().time.totalMinutes;
       for (const { itemId, variantId } of outcome.grantItems) {
-        this.state.addItem(itemId, now, variantId);
+        const def = this.lore.getItem(itemId);
+        this.state.addItem(itemId, now, variantId, {
+          stackable:          def?.stackable,
+          maxStack:           def?.maxStack,
+          maxUsesPerInstance: def?.maxUsesPerInstance,
+        });
       }
     }
     if (outcome.grantQuestId) {

@@ -588,6 +588,7 @@ export class LoreVault {
     events:     { id: string; name: string }[];
     quests:     { id: string; name: string }[];
     locations:  { id: string; name: string }[];
+    items:      { id: string; name: string; type: string; stackable: boolean; maxStack?: number }[];
   } {
     return {
       encounters: Object.values(this.data.encounters).map(e => ({ id: e.id, name: e.name, type: e.type ?? 'event' })),
@@ -595,6 +596,7 @@ export class LoreVault {
       events:     Object.values(this.data.events).map(e => ({ id: e.id, name: e.name ?? e.id })),
       quests:     Object.values(this.data.quests).map(q => ({ id: q.id, name: q.name })),
       locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
+      items:      Object.values(this.data.items).map(i => ({ id: i.id, name: i.name, type: i.type, stackable: i.stackable ?? false, maxStack: i.maxStack })),
     };
   }
 

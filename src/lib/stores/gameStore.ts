@@ -292,8 +292,49 @@ export const questDetailOpen = writable<QuestDetailEntry | null>(null);
 // Quest list modal — shows all active quests when sidebar is capped at 3
 export const questListOpen = writable(false);
 
-// Quest completion banner — set to quest name to trigger, cleared by the banner component
-export const questCompletionBanner = writable<string | null>(null);
+// Quest banner — single queue; outcomes displayed one at a time, 3.5 s each
+export interface QuestBannerEntry {
+  name:    string;
+  outcome: 'completed' | 'failed';
+}
+
+export const currentQuestBanner = writable<QuestBannerEntry | null>(null);
+
+const _questBannerQueue: QuestBannerEntry[] = [];
+let _questBannerTimer: ReturnType<typeof setTimeout> | null = null;
+
+function _processQuestBannerQueue(): void {
+  if (_questBannerTimer) return;
+  const next = _questBannerQueue.shift();
+  if (!next) return;
+  currentQuestBanner.set(next);
+  _questBannerTimer = setTimeout(() => {
+    currentQuestBanner.set(null);
+    _questBannerTimer = null;
+    _processQuestBannerQueue();
+  }, 3500);
+}
+
+export function enqueueQuestBanner(name: string, outcome: 'completed' | 'failed'): void {
+  _questBannerQueue.push({ name, outcome });
+  _processQuestBannerQueue();
+}
+
+// Quest outcome flash — briefly shows a just-completed/failed quest in the sidebar with animation
+export interface QuestOutcomeFlash {
+  questId:  string;
+  name:     string;
+  type:     QuestType;
+  outcome:  'completed' | 'failed';
+}
+export const questOutcomeFlash = writable<QuestOutcomeFlash[]>([]);
+
+export function showQuestOutcomeFlash(questId: string, name: string, type: QuestType, outcome: 'completed' | 'failed'): void {
+  questOutcomeFlash.update(list => [...list, { questId, name, type, outcome }]);
+  setTimeout(() => {
+    questOutcomeFlash.update(list => list.filter(q => !(q.questId === questId && q.outcome === outcome)));
+  }, 3000);
+}
 
 // ── Event toast ────────────────────────────────────────────────
 // 事件觸發時在敘事框右上角閃現三秒的提示

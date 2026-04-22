@@ -88,6 +88,17 @@ export interface ItemNode {
   /** 是否可堆疊（quantity > 1），預設 false */
   stackable?: boolean;
   /**
+   * 可堆疊物品的最大持有數量上限。
+   * 省略 = 無上限。僅 stackable:true 時有意義。
+   */
+  maxStack?: number;
+  /**
+   * 每個物品實例的最大使用次數（消耗品用）。
+   * 省略 = 單次使用即消耗。
+   * 使用後 InventoryItem.usesRemaining -= 1，歸零時移除實例。
+   */
+  maxUsesPerInstance?: number;
+  /**
    * 消耗品使用效果；type='consumable' 時填寫，其他類型省略。
    * 包含狀態數值變化、條件套用/移除、旗標操作。
    */
@@ -110,6 +121,12 @@ export interface InventoryItem {
   quantity: number;
   /** 是否已失效（時限到達後由引擎標記） */
   isExpired: boolean;
+  /**
+   * 剩餘使用次數（對應 ItemNode.maxUsesPerInstance）。
+   * 僅當 ItemNode.maxUsesPerInstance 有設定時才存在。
+   * 由 addItem 初始化，每次使用後 -1，歸零時由引擎移除。
+   */
+  usesRemaining?: number;
 }
 
 /**
