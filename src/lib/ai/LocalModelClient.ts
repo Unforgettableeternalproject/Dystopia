@@ -42,6 +42,10 @@ export class LocalModelClient implements ILLMClient {
         model:      this.model,
         max_tokens: maxTokens,
         stream:     false,
+        // Force JSON output: Ollama uses "format", OpenAI-compatible uses "response_format".
+        // All complete() callers (Regulator, DM Phase 1, Judge) expect JSON.
+        format:          'json',
+        response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
           { role: 'user',   content: user   },

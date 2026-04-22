@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { GameController } from '$lib/engine/GameController';
-  import { playerUI, detailedPlayer, type EndingType } from '$lib/stores/gameStore';
+  import { playerUI, detailedPlayer, type EndingType, shadowComparisons, shadowModeActive } from '$lib/stores/gameStore';
 
   export let controller: GameController;
   export let onClose: () => void;
 
-  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending';
+  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge';
   let activeTab: Tab = 'encounter';
   let filter = '';
   let flagInput = '';
@@ -64,6 +64,7 @@
     flag:      '旗標',
     player:    '玩家狀態',
     ending:    '結局測試',
+    judge:     'Judge 對比',
   };
 
   $: q = filter.toLowerCase();
@@ -478,6 +479,77 @@
           </div>
 
         </div>
+      {:else if activeTab === 'judge'}
+        <div class="judge-panel">
+
+          <!-- Shadow mode toggle -->
+          <div class="judge-header">
+            <span class="judge-title">DM + Judge Shadow Mode</span>
+            <button
+              class="shadow-toggle"
+              class:shadow-on={$shadowModeActive}
+              on:click={() => controller.debugToggleShadowMode()}
+            >
+              {$shadowModeActive ? '● ON' : '○ OFF'}
+            </button>
+          </div>
+          <div class="judge-hint">
+            {$shadowModeActive
+              ? '每回合結束後自動記錄比對結果（不影響遊戲狀態）'
+              : '開啟後每回合執行 DM Phase1 → Judge 並記錄差異'}
+          </div>
+
+          <!-- Comparison results -->
+          {#if $shadowComparisons.length === 0}
+            <div class="judge-empty">尚無比對記錄</div>
+          {:else}
+            {#each $shadowComparisons as cmp}
+              <div class="cmp-card" class:cmp-diverged={cmp.divergences.length > 0}>
+                <div class="cmp-meta">
+                  <span class="cmp-turn">Turn {cmp.turn}</span>
+                  {#if cmp.divergences.length > 0}
+                    <span class="cmp-badge-diff">⚠ {cmp.divergences.length} 差異</span>
+                  {:else}
+                    <span class="cmp-badge-ok">✓ 一致</span>
+                  {/if}
+                </div>
+                <div class="cmp-action">{cmp.actionInput}</div>
+
+                <!-- DM signals -->
+                <div class="cmp-section-label">DM Signals</div>
+                <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val">{cmp.dmSignals.move ?? '—'}</span></div>
+                <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val">{cmp.dmSignals.timeMinutes ?? '—'} min</span></div>
+                <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val">{cmp.dmSignals.flagsSet?.join(', ') || '—'}</span></div>
+                <div class="cmp-row"><span class="cmp-key">FLAGS-</span><span class="cmp-val">{cmp.dmSignals.flagsUnset?.join(', ') || '—'}</span></div>
+                <div class="cmp-row"><span class="cmp-key">ENC</span><span class="cmp-val">{cmp.dmSignals.encounter ? cmp.dmSignals.encounter.type + ':' + (cmp.dmSignals.encounter.npcId ?? cmp.dmSignals.encounter.encounterId ?? '') : '—'}</span></div>
+
+                <!-- DM Proposal -->
+                <div class="cmp-section-label">DM Proposal (Phase 1)</div>
+                <div class="cmp-summary">{cmp.dmProposal.narrativeSummary ?? '—'}</div>
+                <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val">{cmp.dmProposal.move ?? '—'}</span></div>
+                <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val">{cmp.dmProposal.timeMinutes ?? '—'} min</span></div>
+
+                <!-- Judge resolution -->
+                <div class="cmp-section-label">Judge Resolution</div>
+                <div class="cmp-row"><span class="cmp-key">MOVE</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.move ?? '—'}</span></div>
+                <div class="cmp-row"><span class="cmp-key">TIME</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.timeMinutes ?? '—'} min</span></div>
+                <div class="cmp-row"><span class="cmp-key">FLAGS+</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.flagsSet?.join(', ') || '—'}</span></div>
+                {#if cmp.judgeResolution.reasoning}
+                  <div class="cmp-row"><span class="cmp-key">WHY</span><span class="cmp-val cmp-judge">{cmp.judgeResolution.reasoning}</span></div>
+                {/if}
+
+                <!-- Divergences -->
+                {#if cmp.divergences.length > 0}
+                  <div class="cmp-section-label cmp-section-diff">差異明細</div>
+                  {#each cmp.divergences as d}
+                    <div class="cmp-diff-row">{d}</div>
+                  {/each}
+                {/if}
+              </div>
+            {/each}
+          {/if}
+
+        </div>
       {/if}
 
     </div>
@@ -883,5 +955,141 @@
     flex-direction: column;
     gap: 1px;
     min-width: 0;
+  }
+
+  /* ── Judge tab ───────────────────────────── */
+  .judge-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .judge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .judge-title {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .shadow-toggle {
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 2px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.1s;
+  }
+  .shadow-toggle.shadow-on {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .judge-hint {
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+  .judge-empty {
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.4;
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .cmp-card {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: rgba(0,0,0,0.1);
+  }
+  .cmp-card.cmp-diverged {
+    border-color: #5a3a10;
+    background: rgba(90,50,0,0.08);
+  }
+  .cmp-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .cmp-turn {
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-dim);
+  }
+  .cmp-badge-ok {
+    font-size: 9px;
+    color: #5fa880;
+  }
+  .cmp-badge-diff {
+    font-size: 9px;
+    color: #c98040;
+  }
+  .cmp-action {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cmp-section-label {
+    font-size: 8.5px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .cmp-section-diff {
+    color: #c98040;
+  }
+  .cmp-summary {
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    padding: 2px 0;
+  }
+  .cmp-row {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .cmp-key {
+    font-size: 8.5px;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-dim);
+    width: 48px;
+    flex-shrink: 0;
+  }
+  .cmp-val {
+    font-size: 9.5px;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-secondary);
+    word-break: break-all;
+  }
+  .cmp-judge {
+    color: #7ec8c8;
+  }
+  .cmp-diff-row {
+    font-size: 9px;
+    font-family: var(--font-mono, monospace);
+    color: #c98040;
+    padding-left: 4px;
+    word-break: break-all;
   }
 </style>

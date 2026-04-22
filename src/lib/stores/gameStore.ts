@@ -2,7 +2,7 @@
 
 import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
-import type { HistoryEntry } from '../types/game';
+import type { HistoryEntry, ShadowComparison } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
 import type { EncounterChoice, EncounterType } from '../types/encounter';
 import type { InventoryItem } from '../types/item';
@@ -369,3 +369,17 @@ export const endoPercent = derived(
   playerUI,
   ($p) => $p.endoMax > 0 ? Math.round(($p.endo / $p.endoMax) * 100) : 0
 );
+
+// ── Shadow Mode (Judge pipeline) ───────────────────────────────
+// DM + Judge 雙軌模式：shadow mode 下記錄 DM signals vs Judge resolution 供 DebugPanel 對比。
+// 套用邏輯由 GameController 控制，store 只負責儲存對比結果。
+
+/** 是否開啟 shadow mode（debug 模式下可切換）。 */
+export const shadowModeActive = writable<boolean>(false);
+
+/** 最近 N 回合的 shadow 對比結果（最多保留 20 筆）。 */
+export const shadowComparisons = writable<ShadowComparison[]>([]);
+
+export function pushShadowComparison(entry: ShadowComparison): void {
+  shadowComparisons.update(list => [entry, ...list].slice(0, 20));
+}

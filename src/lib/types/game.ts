@@ -167,3 +167,75 @@ export interface StarterConfig {
     inventory: string[];
   };
 }
+
+// ── Dialogue encounter resolution ────────────────────────────────────────────
+
+/**
+ * Dialogue encounter turn resolution.
+ * DM Phase 1 outputs this as JSON; Judge validates and returns the same type.
+ */
+export interface DialogueResolution {
+  endEncounter: boolean;
+  npcState?: { attitude?: 'friendly' | 'neutral' | 'cautious' | 'hostile'; topic?: string };
+  flagsSet?: string[];
+  flagsUnset?: string[];
+  timeMinutes?: number;
+  questSignals?: Array<{ questId: string; type: 'flag' | 'objective'; value: string }>;
+  /** DM narrative summary (Phase 1 only). Judge does not use this. */
+  narrativeSummary?: string;
+  /** Explanation if Judge overrode a value. */
+  reasoning?: string;
+}
+
+// ── Judge / Shadow Mode ──────────────────────────────────────────────────────
+
+/** encounter 欄位的共用格式（DM intent 與 Judge resolution 共用）。 */
+export interface EncounterRef {
+  type: 'dialogue' | 'event';
+  npcId?: string;
+  encounterId?: string;
+}
+
+/**
+/**
+ * 本回合的結算物件。
+ * DM 以此格式輸出「已決定的信號」(dmProposal)，
+ * Judge 驗證約束後輸出同型結果 (judgeResolution)。
+ */
+export interface TurnResolution {
+  move?: string;
+  timeMinutes?: number;
+  flagsSet?: string[];
+  flagsUnset?: string[];
+  encounter?: EncounterRef;
+  /** DM 的一句摘要（Phase 1 用）。Judge 不使用此欄位。 */
+  narrativeSummary?: string;
+  /** 說明為何覆蓋 DM 的值（Judge 用）或為何清除某欄位（deterministic 用）。 */
+  reasoning?: string;
+}
+
+/**
+ * DM signals 的摘要快照（用於 shadow 對比，從 runDM() 提取）。
+ */
+export interface ShadowDMSignals {
+  move?: string;
+  timeMinutes?: number | null;
+  flagsSet?: string[];
+  flagsUnset?: string[];
+  encounter?: EncounterRef;
+}
+
+/**
+ * 一回合的 shadow mode 比對結果。
+ * 儲存在 shadowComparisons store 供 DebugPanel 顯示。
+ */
+export interface ShadowComparison {
+  turn: number;
+  actionInput: string;
+  dmSignals: ShadowDMSignals;
+  /** DM Phase 1 輸出的已決定信號（含 narrativeSummary）。 */
+  dmProposal: TurnResolution;
+  judgeResolution: TurnResolution;
+  /** 人類可讀的差異描述列表（空 = 完全一致）。 */
+  divergences: string[];
+}
