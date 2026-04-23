@@ -23,6 +23,9 @@ export type DialogueLogEntry = { speaker: 'player' | 'npc'; text: string };
 export class DMAgent {
   private client: ILLMClient;
 
+  /** Last raw LLM response from narrateIntent / narrateDialogueIntent (for debug tracing). */
+  lastRaw = '';
+
   constructor(client: ILLMClient) {
     this.client = client;
   }
@@ -38,6 +41,7 @@ export class DMAgent {
     action: PlayerAction,
     history: HistoryEntry[],
   ): Promise<TurnResolution> {
+    this.lastRaw = '';
     const historyText = history
       .slice(-3)
       .map(h => `Turn ${h.turn}: ${h.action.input} → ${h.narrative.slice(0, 80)}`)
@@ -56,6 +60,7 @@ export class DMAgent {
     ].join('\n');
 
     const raw = await this.client.complete(DM_INTENT_PROMPT, userMessage, 512);
+    this.lastRaw = raw;
     return parseIntentResponse(raw);
   }
 
@@ -129,6 +134,7 @@ export class DMAgent {
     playerInput: string,
     options?: { wrapUp?: boolean },
   ): Promise<DialogueResolution> {
+    this.lastRaw = '';
     const logText = sessionLog
       .map(e => (e.speaker === 'player' ? 'Player: ' : 'NPC: ') + e.text)
       .join('\n');
@@ -157,6 +163,7 @@ export class DMAgent {
     }
 
     const raw = await this.client.complete(DIALOGUE_INTENT_PROMPT, parts.join('\n'), 512);
+    this.lastRaw = raw;
     return parseDialogueIntentResponse(raw);
   }
 

@@ -1,11 +1,14 @@
 {
   "identifier": "default",
   "description": "Default window capabilities including save file access",
-  "windows": ["main"],
+  "windows": ["main", "console"],
   "permissions": [
     "core:default",
+    "core:window:allow-create",
     "core:window:allow-close",
     "core:window:allow-destroy",
+    "core:window:allow-set-focus",
+    "core:webview:allow-create-webview-window",
     "shell:allow-open",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",

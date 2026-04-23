@@ -612,6 +612,7 @@ export class LoreVault {
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
     accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number },
+    options?: { includeNpcs?: boolean },
   ): string {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved) return '[Unknown location]';
@@ -701,7 +702,7 @@ export class LoreVault {
     // area 節點自身：若有區域名稱（與節點名稱不同），顯示 Area 行
     const areaLine = resolved.areaName ? 'Area: ' + resolved.areaName : '';
 
-    return [
+    const lines = [
       '## Location: ' + resolved.name,
       areaLine,
       districtLine ? districtLine : '',
@@ -714,9 +715,14 @@ export class LoreVault {
       '',
       '### Exits',
       exits || '(none)',
-      '',
-      '### Present NPCs',
-      npcLines || '(none)',
-    ].filter(line => line !== '').join('\n');
+    ];
+
+    // NPC details are gated by action type — only included when explicitly requested.
+    // Default to true for backward compatibility (debug routes, etc.).
+    if (options?.includeNpcs !== false) {
+      lines.push('', '### Present NPCs', npcLines || '(none)');
+    }
+
+    return lines.filter(line => line !== '').join('\n');
   }
 }

@@ -20,6 +20,9 @@ import { JUDGE_DIALOGUE_PROMPT } from './prompts/dialogue';
 export class JudgeAgent {
   private client: ILLMClient;
 
+  /** Last raw LLM response (for debug tracing). */
+  lastRaw = '';
+
   constructor(client: ILLMClient) {
     this.client = client;
   }
@@ -33,6 +36,7 @@ export class JudgeAgent {
     action: PlayerAction,
     sceneContext: string,
   ): Promise<TurnResolution> {
+    this.lastRaw = '';
     const userMessage = [
       '## Scene Context',
       sceneContext,
@@ -51,6 +55,7 @@ export class JudgeAgent {
     ].join('\n');
 
     const raw = await this.client.complete(JUDGE_EXPLORATION_PROMPT, userMessage, 512);
+    this.lastRaw = raw;
     return parseExplorationJudgeResponse(raw);
   }
 
@@ -63,6 +68,7 @@ export class JudgeAgent {
     npcId: string,
     npcContext: string,
   ): Promise<DialogueResolution> {
+    this.lastRaw = '';
     const userMessage = [
       '## NPC Context',
       npcContext,
@@ -80,6 +86,7 @@ export class JudgeAgent {
     ].join('\n');
 
     const raw = await this.client.complete(JUDGE_DIALOGUE_PROMPT, userMessage, 512);
+    this.lastRaw = raw;
     return parseDialogueJudgeResponse(raw);
   }
 }

@@ -49,7 +49,8 @@ import {
   type RegionMapData,
 } from '../stores/gameStore';
 import type { DialogueLogEntry } from '../ai/DMAgent';
-import { createLogger } from '../utils/Logger';
+import { createLogger, listenForLogSyncRequests } from '../utils/Logger';
+import { startTrace, addTracePhase, updateTraceLabel, listenForSyncRequests } from '../stores/traceStore';
 import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
@@ -144,6 +145,9 @@ export class GameController {
       }
     });
 
+    // Wire up BroadcastChannel so /console window can request full state
+    listenForSyncRequests();
+    listenForLogSyncRequests();
   }
 
   /** 將 StateManager 積累的獲取記錄轉成通知顯示。在每段敘事結束後呼叫。 */
@@ -353,12 +357,35 @@ export class GameController {
     // 2. Regulator validation
     log.debug('Action submitted', { input });
     const gs0reg = this.state.getState();
+
+    // ── Trace: start exploration turn ───────────────────────────────────
+    const traceId = startTrace(gs0reg.turn, 'exploration', `${actionType ?? 'free'}: ${input.slice(0, 60)}`, {
+      locationId: gs0reg.player.currentLocationId,
+    });
+    addTracePhase(traceId, 'input', { type: actionType ?? 'free', input, targetId });
+
     const resolvedForReg = this.lore.resolveLocation(gs0reg.player.currentLocationId, this.state.flags);
     const sceneNpcsForReg = (resolvedForReg?.npcIds ?? []).map(id => ({
       id,
       name: this.lore.getNPC(id)?.name ?? id,
     }));
-    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg);
+    const invNamesForReg = gs0reg.player.inventory
+      .filter(i => !i.isExpired)
+      .map(i => {
+        const def = this.lore.getItem(i.itemId);
+        const name = def?.name ?? i.itemId;
+        const variant = i.variantId ? def?.variants?.find(v => v.id === i.variantId)?.label : undefined;
+        return variant ? `${name}（${variant}）` : name;
+      });
+    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg, invNamesForReg);
+
+    // ── Trace: regulator result ──────────────────────────────────────────
+    addTracePhase(traceId, 'regulator', {
+      allowed: result.allowed,
+      reason:  result.reason,
+      modifiedAction: result.modifiedAction,
+    }, { raw: this.regulator.lastRaw || undefined });
+
     if (!result.allowed) {
       log.info('Action rejected', { input, reason: result.reason });
       pushLine(result.reason ?? 'That is not possible.', 'rejected');
@@ -367,6 +394,11 @@ export class GameController {
     }
 
     const finalAction = result.modifiedAction ?? action;
+
+    // ── Trace: update label with resolved action type ────────────────────
+    if (finalAction.type !== (actionType ?? 'free')) {
+      updateTraceLabel(traceId, `${finalAction.type}: ${input.slice(0, 60)}`);
+    }
 
     // Track active NPC panel — clear when moving
     if (finalAction.type === 'move') {
@@ -478,7 +510,11 @@ export class GameController {
     // 4.2. Player action DM — events already narrated above, so triggered is empty here.
     const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction);
     const navHint  = this.buildNavHint(finalAction);
-    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint);
+
+    // ── Trace: scene context ─────────────────────────────────────────────
+    addTracePhase(traceId, 'context', sceneCtx + navHint);
+
+    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId);
     this.flushAcquisitions();
 
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
@@ -958,12 +994,16 @@ export class GameController {
     ].filter(Boolean).join('\n'));
 
     // ── Location context ───────────────────────────────────────────────────
+    // NPC details are action-gated: only injected for examine-people (area survey).
+    // interact routes to dialogue handler before reaching buildSceneCtx.
+    const includeNpcs = action?.type === 'examine-people';
     parts.push(
       this.lore.buildSceneContext(
         gs.player.currentLocationId,
         this.state.flags,
-        gs.npcMemory,
+        includeNpcs ? gs.npcMemory : undefined,
         { timePeriod: gs.timePeriod, gameTime: gs.time, knownIntelIds: gs.player.knownIntelIds, activeQuests: Object.values(gs.activeQuests), inventory: gs.player.inventory, melphin: gs.player.melphin },
+        { includeNpcs },
       )
     );
 
@@ -1017,26 +1057,19 @@ export class GameController {
     const flagCtx  = this.lore.flagRegistry.buildDMContext(proxCtx);
     if (flagCtx) parts.push('\n' + flagCtx);
 
-    // NPC relationship status for NPCs visible in current time period
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
-    const sceneNpcIds = this.lore.getNPCsByIds(resolved?.npcIds ?? [], this.state.flags, gs.timePeriod).map(n => n.id);
-    if (sceneNpcIds.length > 0) {
-      const npcStatus = this.dialogueMgr.buildSceneNPCStatus(sceneNpcIds);
-      if (npcStatus) parts.push('\n' + npcStatus);
-    }
-
     // ── Action-type context gating ────────────────────────────────────────
     // Each action type injects additional targeted context for the DM.
     // action.type is a hint, not an authority — world outcomes come from resolution.
 
-    // examine-people: area-level survey — list NPCs visible in the current scene.
-    // NPC-specific context is injected only when an encounter is active (via interact type).
+    // NPC info (presence + relationship status) is only injected for examine-people.
+    // interact routes to dialogue handler before reaching buildSceneCtx.
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const sceneNpcIds = this.lore.getNPCsByIds(resolved?.npcIds ?? [], this.state.flags, gs.timePeriod).map(n => n.id);
+
     if (action?.type === 'examine-people' && sceneNpcIds.length > 0) {
-      const npcLines = this.lore.getNPCsByIds(sceneNpcIds, this.state.flags, gs.timePeriod)
-        .map(n => `- ${n.name}（${n.type}）`);
-      if (npcLines.length > 0) {
-        parts.push('\n### People in Scene\n' + npcLines.join('\n'));
-      }
+      // NPC relationship status (supplements the NPC list already included via includeNpcs)
+      const npcStatus = this.dialogueMgr.buildSceneNPCStatus(sceneNpcIds);
+      if (npcStatus) parts.push('\n' + npcStatus);
     }
 
     // use / examine-item: inject player inventory so DM knows what items are available
@@ -1059,6 +1092,39 @@ export class GameController {
       } else {
         parts.push('\n### Player Inventory\n(空)');
       }
+
+      // Resolve specific item from player input — inject full item definition for DM
+      const matched = this.resolveTargetItem(action.input, activeInv);
+      if (matched) {
+        const itemParts: string[] = [
+          `\n### Focused Item: ${matched.def.name}`,
+          `Type: ${matched.def.type}`,
+          `Description: ${matched.def.description}`,
+        ];
+        if (matched.variant) {
+          itemParts.push(`Variant: ${matched.variant.label}${matched.variant.description ? ' — ' + matched.variant.description : ''}`);
+        }
+        if (matched.def.useNarrative)  itemParts.push(`Use narrative hint: ${matched.def.useNarrative}`);
+        if (matched.def.statBonus) {
+          const bonuses = Object.entries(matched.def.statBonus).filter(([, v]) => v !== 0).map(([k, v]) => `${k} ${v! > 0 ? '+' : ''}${v}`);
+          if (bonuses.length) itemParts.push(`Stat bonus: ${bonuses.join(', ')}`);
+        }
+        if (matched.def.effect) {
+          const fx: string[] = [];
+          if (matched.def.effect.statusChanges) {
+            const sc = matched.def.effect.statusChanges;
+            if (sc.stamina) fx.push(`stamina ${sc.stamina > 0 ? '+' : ''}${sc.stamina}`);
+            if (sc.endo)    fx.push(`endo ${sc.endo > 0 ? '+' : ''}${sc.endo}`);
+            if (sc.stress)  fx.push(`stress ${sc.stress > 0 ? '+' : ''}${sc.stress}`);
+          }
+          if (matched.def.effect.applyConditionId) fx.push(`applies: ${matched.def.effect.applyConditionId}`);
+          if (matched.def.effect.removeConditionIds?.length) fx.push(`removes: ${matched.def.effect.removeConditionIds.join(', ')}`);
+          if (fx.length) itemParts.push(`Effects: ${fx.join(' | ')}`);
+        }
+        if (matched.inv.usesRemaining !== undefined) itemParts.push(`Uses remaining: ${matched.inv.usesRemaining}`);
+        if (matched.inv.quantity > 1) itemParts.push(`Held: ×${matched.inv.quantity}`);
+        parts.push(itemParts.join('\n'));
+      }
     }
 
     // examine-self: inject extended player stats for self-reflection context
@@ -1076,6 +1142,49 @@ export class GameController {
     }
 
     return parts.join('\n');
+  }
+
+  // -- Item targeting -----------------------------------------------------
+
+  /**
+   * Try to match the player's input against inventory item names.
+   * Returns the best match (longest name wins) or null if no match.
+   */
+  private resolveTargetItem(
+    input: string,
+    activeInv: import('../types/item').InventoryItem[],
+  ): { inv: import('../types/item').InventoryItem; def: import('../types/item').ItemNode; variant?: import('../types/item').ItemVariant } | null {
+    const lower = input.toLowerCase();
+    let best: { inv: import('../types/item').InventoryItem; def: import('../types/item').ItemNode; variant?: import('../types/item').ItemVariant; matchLen: number } | null = null;
+
+    for (const inv of activeInv) {
+      const def = this.lore.getItem(inv.itemId);
+      if (!def) continue;
+
+      // Match base name
+      const nameLower = def.name.toLowerCase();
+      if (lower.includes(nameLower) && nameLower.length > (best?.matchLen ?? 0)) {
+        const variant = inv.variantId ? def.variants?.find(v => v.id === inv.variantId) : undefined;
+        best = { inv, def, variant, matchLen: nameLower.length };
+      }
+
+      // Match variant label (longer match = more specific)
+      if (inv.variantId && def.variants) {
+        const variant = def.variants.find(v => v.id === inv.variantId);
+        if (variant) {
+          const variantLower = variant.label.toLowerCase();
+          if (lower.includes(variantLower) && variantLower.length > (best?.matchLen ?? 0)) {
+            best = { inv, def, variant, matchLen: variantLower.length };
+          }
+        }
+      }
+    }
+
+    if (best) {
+      log.debug('Item resolved from input', { itemId: best.def.id, name: best.def.name, variantId: best.inv.variantId });
+    }
+
+    return best ? { inv: best.inv, def: best.def, variant: best.variant } : null;
   }
 
   // -- Multi-hop navigation hint ----------------------------------------
@@ -1224,6 +1333,7 @@ export class GameController {
   private async runDM(
     action: PlayerAction,
     sceneCtx: string,
+    traceId?: number,
   ): Promise<{ resolution: TurnResolution; suggestions: string[] }> {
     // Capture scalar values before any awaits — getState() returns a live reference.
     const gs = this.state.getState();
@@ -1232,20 +1342,38 @@ export class GameController {
 
     // ── Phase 1: DM decides all signals as structured JSON ────────────────
     let proposal: TurnResolution;
+    let dmPhase1Error: string | undefined;
     try {
       proposal = await this.dm.narrateIntent(sceneCtx, action, gs.history);
     } catch (err) {
       log.warn('DM proposal failed', err);
+      dmPhase1Error = String(err);
       proposal = { narrativeSummary: '[proposal error]', timeMinutes: 10 };
+    }
+    // ── Trace: DM Phase 1 ────────────────────────────────────────────────
+    if (traceId != null) {
+      addTracePhase(traceId, 'dm-phase1', proposal, {
+        raw: this.dm.lastRaw || undefined,
+        error: dmPhase1Error ?? (proposal.narrativeSummary === '[intent parse error]' ? 'JSON parse failed' : undefined),
+      });
     }
 
     // ── Judge validates constraints; accepts DM values by default ─────────
     let resolution: TurnResolution;
+    let judgeError: string | undefined;
     try {
       resolution = await this.judge.resolve(proposal, action, sceneCtx);
     } catch (err) {
       log.warn('Judge resolve failed', err);
+      judgeError = String(err);
       resolution = { timeMinutes: proposal.timeMinutes ?? 10, reasoning: '[judge error]' };
+    }
+    // ── Trace: Judge ─────────────────────────────────────────────────────
+    if (traceId != null) {
+      addTracePhase(traceId, 'judge', resolution, {
+        raw: this.judge.lastRaw || undefined,
+        error: judgeError ?? (resolution.reasoning === '[judge parse error]' ? 'JSON parse failed' : undefined),
+      });
     }
 
     // ── Deterministic post-validation (engine-side) ───────────────────────
@@ -1388,6 +1516,11 @@ export class GameController {
         log.warn('Resolution MOVE: no accessible path found', { from: gsCurrent.player.currentLocationId, to: resolution.move });
         resolution.move = undefined;
       }
+    }
+
+    // ── Trace: final resolution (after deterministic validation) ───────
+    if (traceId != null) {
+      addTracePhase(traceId, 'resolution', resolution);
     }
 
     // ── Log to shadow comparisons (for DebugPanel / tests) ───────────────
@@ -1545,6 +1678,16 @@ export class GameController {
     }
 
     const npcContext = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.dialogueId, this.state.flags);
+
+    // ── Trace: start dialogue turn ────────────────────────────────────
+    const gs = this.state.getState();
+    const dlgTraceId = startTrace(gs.turn, 'dialogue', `dialogue: ${npc.name} — ${text.slice(0, 40)}`, {
+      locationId: gs.player.currentLocationId,
+      npcId,
+    });
+    addTracePhase(dlgTraceId, 'input', { playerInput: text, npcId, npcName: npc.name, opener });
+    addTracePhase(dlgTraceId, 'context', npcContext);
+
     // Snapshot log BEFORE appending current player turn (playerInput is passed separately to DM)
     const sessionLog = get(encounterSessionLog) as DialogueLogEntry[];
 
@@ -1555,21 +1698,33 @@ export class GameController {
 
     // ── Phase 1: DM decides signals ────────────────────────────────────
     let proposal: DialogueResolution;
+    let dmDlgError: string | undefined;
     try {
       proposal = await this.dm.narrateDialogueIntent(npcContext, sessionLog, text, { wrapUp });
     } catch (err) {
       log.error('Dialogue DM Phase 1 failed', err);
+      dmDlgError = String(err);
       proposal = { endEncounter: false };
     }
+    addTracePhase(dlgTraceId, 'dm-phase1', proposal, {
+      raw: this.dm.lastRaw || undefined,
+      error: dmDlgError ?? (proposal.narrativeSummary === '[dialogue intent parse error]' ? 'JSON parse failed' : undefined),
+    });
 
     // ── Judge: validate constraints ────────────────────────────────────
     let resolution: DialogueResolution;
+    let judgeDlgError: string | undefined;
     try {
       resolution = await this.judge.resolveDialogue(proposal, npcId, npcContext);
     } catch (err) {
       log.error('Dialogue Judge failed', err);
+      judgeDlgError = String(err);
       resolution = { ...proposal };
     }
+    addTracePhase(dlgTraceId, 'judge', resolution, {
+      raw: this.judge.lastRaw || undefined,
+      error: judgeDlgError ?? (resolution.reasoning === '[dialogue judge parse error]' ? 'JSON parse failed' : undefined),
+    });
 
     // ── Apply flags (engine-validated, same whitelist as exploration path) ──
     const dialogueProxCtx = this.buildProximityContext(this.state.getState());

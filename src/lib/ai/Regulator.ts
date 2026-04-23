@@ -17,16 +17,23 @@ Rules:
 6. Classify the action intent into actionType: "free" | "move" | "interact" | "use" | "examine-item" | "examine-location" | "examine-people" | "examine-self" | "rest" | "combat".
    - "move": player wants to travel to a different location.
    - "interact": player wants to talk to, approach, or interact with a specific NPC. Set targetId to that NPC's id from sceneNpcs.
-   - "use": player uses or applies an item from their inventory.
-   - "examine-item": player inspects or asks about an item (in inventory or in the scene).
+   - "use": player uses or applies an item from their inventory. Check inventoryItems to confirm the item exists.
+   - "examine-item": player inspects or asks about an item, or checks their belongings/inventory. If the input mentions an item name from inventoryItems, classify as "examine-item".
    - "examine-location": player observes, surveys, or investigates the surrounding environment or area.
    - "examine-people": player surveys the area to see who is around — an area-level observation, not directed at a specific individual. Do NOT set targetId for this type.
-   - "examine-self": player reflects on their own status, condition, or identity.
+   - "examine-self": player reflects on their own status, condition, identity, or feelings — NOT about items or belongings.
    - "rest": player rests or sleeps.
    - "combat": player attempts a hostile action.
    - "free": anything else (general statements, reactions, vague actions).
 7. If the input already has an actionType other than "free", keep it unless overriding is clearly necessary.
-8. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
+8. Conversational or question-form inputs should still be classified by their SUBJECT, not defaulted to "free". Classify by what the player wants to know or do:
+   - questions about surroundings/place → "examine-location"
+   - questions about people/who is here → "examine-people"
+   - questions about belongings/items/inventory → "examine-item"
+   - questions about own status/condition → "examine-self"
+   - asking to go somewhere → "move"
+   Do NOT classify an information-seeking input as "free" just because it is phrased as a question or self-talk.
+9. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
 
 // Patterns that indicate prompt injection attempts.
 // Checked case-insensitively; order does not matter.
@@ -46,6 +53,9 @@ export class Regulator {
   private client: ILLMClient;
   private getConditionDef: (id: string) => ConditionDefinition | undefined;
 
+  /** Last raw LLM response (for debug tracing). */
+  lastRaw = '';
+
   constructor(client: ILLMClient, getConditionDef?: (id: string) => ConditionDefinition | undefined) {
     this.client = client;
     this.getConditionDef = getConditionDef ?? (() => undefined);
@@ -57,7 +67,10 @@ export class Regulator {
     action: PlayerAction,
     player: PlayerState,
     sceneNpcs: { id: string; name: string }[] = [],
+    inventoryNames: string[] = [],
   ): Promise<RegulatorResult> {
+    this.lastRaw = '';
+
     const hard = this.hardCheck(action);
     if (hard !== null) return hard;
 
@@ -83,6 +96,7 @@ export class Regulator {
       action:     action.input,
       actionType: action.type,
       sceneNpcs:  sceneNpcs.length ? sceneNpcs : undefined,
+      inventoryItems: inventoryNames.length ? inventoryNames : undefined,
       traits: {
         strength:  this.describeTrait(p.strength),
         knowledge: this.describeTrait(p.knowledge),
@@ -104,6 +118,7 @@ export class Regulator {
     try {
       // 1024 tokens: thinking models spend budget on internal reasoning before emitting JSON.
       const raw     = await this.client.complete(VALIDATE_SYSTEM, userMessage, 1024);
+      this.lastRaw = raw;
       // Local models (e.g. Gemma via Ollama) often wrap JSON in markdown code fences.
       const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
       const parsed = JSON.parse(cleaned) as {

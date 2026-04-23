@@ -1,5 +1,6 @@
 // Logger -- lightweight structured logger with Svelte store integration.
 // Stores entries in a circular buffer (max 500). Dev mode mirrors to console.
+// BroadcastChannel syncs entries to /console window.
 
 import { writable, get } from 'svelte/store';
 
@@ -21,6 +22,24 @@ const isDev       = import.meta.env.DEV;
 // Reactive store -- UI can subscribe for a live debug panel
 export const logEntries = writable<LogEntry[]>([]);
 
+// ── BroadcastChannel for cross-window log sync ───────────────────────────
+const LOG_CHANNEL_NAME = 'dystopia-log';
+let logBC: BroadcastChannel | null = null;
+
+function getLogChannel(): BroadcastChannel | null {
+  if (logBC) return logBC;
+  try {
+    logBC = new BroadcastChannel(LOG_CHANNEL_NAME);
+    return logBC;
+  } catch {
+    return null; // SSR or unsupported
+  }
+}
+
+function broadcastLog(msg: { type: string; payload?: unknown }): void {
+  getLogChannel()?.postMessage(msg);
+}
+
 function push(level: LogLevel, tag: string, message: string, detail?: unknown): void {
   const entry: LogEntry = {
     id:        seq++,
@@ -35,6 +54,9 @@ function push(level: LogLevel, tag: string, message: string, detail?: unknown): 
     const next = [...entries, entry];
     return next.length > MAX_ENTRIES ? next.slice(next.length - MAX_ENTRIES) : next;
   });
+
+  // Broadcast to /console window
+  broadcastLog({ type: 'add', payload: entry });
 
   if (isDev) {
     const prefix = `[${tag}]`;
@@ -72,4 +94,55 @@ export function exportLog(): string {
 
 export function clearLog(): void {
   logEntries.set([]);
+  broadcastLog({ type: 'clear' });
+}
+
+// ── Receiver API (used by /console route) ────────────────────────────────
+
+/** Subscribe to log entries from the main window. Call once in /console onMount. */
+export function listenForLogs(): (() => void) {
+  const channel = getLogChannel();
+  if (!channel) return () => {};
+
+  const handler = (ev: MessageEvent) => {
+    const msg = ev.data as { type: string; payload?: unknown };
+    switch (msg.type) {
+      case 'add': {
+        const entry = msg.payload as LogEntry;
+        logEntries.update(entries => {
+          const next = [...entries, entry];
+          return next.length > MAX_ENTRIES ? next.slice(next.length - MAX_ENTRIES) : next;
+        });
+        break;
+      }
+      case 'clear':
+        logEntries.set([]);
+        break;
+      case 'sync':
+        logEntries.set(msg.payload as LogEntry[]);
+        break;
+    }
+  };
+
+  channel.addEventListener('message', handler);
+  // Request full state from main window
+  broadcastLog({ type: 'request-sync' });
+
+  return () => channel.removeEventListener('message', handler);
+}
+
+/** Listen for sync requests from the console window (call in main window). */
+export function listenForLogSyncRequests(): (() => void) {
+  const channel = getLogChannel();
+  if (!channel) return () => {};
+
+  const handler = (ev: MessageEvent) => {
+    const msg = ev.data as { type: string };
+    if (msg.type === 'request-sync') {
+      broadcastLog({ type: 'sync', payload: get(logEntries) });
+    }
+  };
+
+  channel.addEventListener('message', handler);
+  return () => channel.removeEventListener('message', handler);
 }

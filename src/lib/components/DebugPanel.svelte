@@ -1,9 +1,26 @@
 <script lang="ts">
   import type { GameController } from '$lib/engine/GameController';
   import { playerUI, detailedPlayer, type EndingType, shadowComparisons, shadowModeActive } from '$lib/stores/gameStore';
+  import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
   export let controller: GameController;
   export let onClose: () => void;
+
+  async function openConsoleWindow() {
+    const existing = await WebviewWindow.getByLabel('console');
+    if (existing) {
+      await existing.setFocus();
+      return;
+    }
+    new WebviewWindow('console', {
+      url: '/console',
+      title: 'Dystopia Console',
+      width: 900,
+      height: 600,
+      resizable: true,
+      decorations: true,
+    });
+  }
 
   type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge' | 'item';
   let activeTab: Tab = 'encounter';
@@ -152,6 +169,9 @@
       />
       <button class="reset-btn" on:click={handleReset} disabled={resetting}>
         {resetting ? '重置中…' : '⟳ 重置遊戲'}
+      </button>
+      <button class="console-btn" on:click={openConsoleWindow}>
+        除錯主控台
       </button>
       <button class="close-btn" on:click={onClose}>✕</button>
     </div>
@@ -695,6 +715,25 @@
   .reset-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  .console-btn {
+    background: none;
+    border: 1px solid #5fa8d355;
+    color: #5fa8d3;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    padding: 2px 9px;
+    cursor: pointer;
+    border-radius: 2px;
+    flex-shrink: 0;
+    transition: border-color 0.1s, background 0.1s;
+  }
+
+  .console-btn:hover {
+    border-color: #5fa8d3;
+    background: rgba(95, 168, 211, 0.1);
   }
 
   .close-btn {
