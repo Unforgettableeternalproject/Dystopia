@@ -154,12 +154,24 @@ export interface PlayerUIState {
 export interface MiniMapNode {
   id:          string;
   label:       string;
+  kind:        'area-root' | 'sublocation' | 'adjacent-area' | 'remote-sublocation';
   isCurrent:   boolean;
-  isDiscovered: boolean;
-  /** IDs of connected nodes that are also within the same area. */
-  connections: string[];
-  /** True if this node is the area-level parent (vs a sublocation). */
-  isArea:      boolean;
+  isVisited:   boolean;
+  isKnownButUnvisited: boolean;
+  districtId?: string;
+  areaId?:     string;
+}
+
+export interface MiniMapEdge {
+  fromId:              string;
+  toId:                string;
+  kind:                'local' | 'cross-area' | 'remote-link';
+  isLocked:            boolean;
+  hasBypass:            boolean;
+  isTraversable:       boolean;
+  targetIsForeignArea: boolean;
+  lockedMessage?:      string;
+  bypassMessage?:      string;
 }
 
 export interface MiniMapData {
@@ -168,20 +180,38 @@ export interface MiniMapData {
   districtId:   string;
   districtName: string;
   nodes:        MiniMapNode[];
+  edges:        MiniMapEdge[];
 }
 
 export interface DistrictMapNode {
   id:          string;
   label:       string;
   isCurrent:   boolean;
+  isDiscovered: boolean;
   adjacentIds: string[];
-  /** Area nodes — only populated for the current district. */
-  areas?: Array<{
-    id:          string;
-    name:        string;
-    isDiscovered: boolean;
-    isCurrent:   boolean;
-  }>;
+  description?: string;
+  ambience?:    string[];
+  /** Notable NPC names in this district */
+  notableNpcs?: string[];
+  controlLevel?: number;
+  alertLevel?:   number;
+}
+
+export interface RegionMapAreaNode {
+  id:            string;
+  name:          string;
+  isCurrent:     boolean;
+  isDiscovered:  boolean;
+  description?:  string;
+  /** 已發現的子區域數 */
+  discoveredSubCount: number;
+  /** 全部子區域數（含隱藏） */
+  totalSubCount:      number;
+}
+
+export interface RegionMapAreaEdge {
+  fromId: string;
+  toId:   string;
 }
 
 export interface RegionMapData {
@@ -189,6 +219,11 @@ export interface RegionMapData {
   regionName:        string;
   currentDistrictId: string;
   districts:         DistrictMapNode[];
+  /** Area-level graphs per discovered district */
+  districtAreaGraphs: Record<string, {
+    nodes: RegionMapAreaNode[];
+    edges: RegionMapAreaEdge[];
+  }>;
 }
 
 export const playerUI = writable<PlayerUIState>({
@@ -392,7 +427,29 @@ export function triggerBarFlash(stat: string, kind: BarFlashKind): void {
   barFlash.update(s => ({ ...s, [stat]: kind }));
   setTimeout(() => {
     barFlash.update(s => { const n = { ...s }; delete n[stat]; return n; });
-  }, 600);
+  }, 900);
+}
+
+// ── Stat delta floating notifications ─────────────────────────────
+// 數值變動時在欄位附近跳出 +/- delta 提示，有益綠色、有害紅色
+
+export interface StatDeltaNotif {
+  id: number;
+  target: string;   // 'stamina' | 'stress' | 'endo' | 'rep:<factionId>' | 'aff:<npcId>'
+  delta: number;
+  valence: 'good' | 'bad';
+}
+
+export const statDeltaNotifs = writable<StatDeltaNotif[]>([]);
+
+let _deltaSeq = 0;
+
+export function showStatDelta(target: string, delta: number, valence: 'good' | 'bad'): void {
+  const id = ++_deltaSeq;
+  statDeltaNotifs.update(list => [...list, { id, target, delta, valence }]);
+  setTimeout(() => {
+    statDeltaNotifs.update(list => list.filter(n => n.id !== id));
+  }, 1500);
 }
 
 // ── Derived ────────────────────────────────────────────────────

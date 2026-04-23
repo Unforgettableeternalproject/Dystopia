@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fade, fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
+  import { broadcastAppClose } from '$lib/utils/Logger';
   import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
@@ -34,6 +37,7 @@
   let loadMenuOpen = false;
   let saveMenuOpen = false;
   let showCloseConfirm = false;
+  let showReturnConfirm = false;
   let debugPanelOpen = false;
   $: if (!$isDebugMode) debugPanelOpen = false;
 
@@ -89,6 +93,7 @@
   function confirmClose() {
     _closeGuard.bypass = true;    // property mutation bypasses Svelte reactivity
     showCloseConfirm = false;
+    broadcastAppClose();          // tell satellite windows (/console) to close
     getCurrentWindow().close();
   }
 
@@ -128,6 +133,16 @@
   let endingRestartMode: 'menu' | 'naming' = 'menu';
 
   function handleReturnToTitle() {
+    // In debug mode, skip confirmation
+    if ($isDebugMode) {
+      doReturnToTitle();
+    } else {
+      showReturnConfirm = true;
+    }
+  }
+
+  function doReturnToTitle() {
+    showReturnConfirm = false;
     endingRestartMode = 'menu';
     isDebugMode.set(false);
     narrativeLines.set([]);
@@ -282,7 +297,7 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={handleKeydown} on:beforeunload={broadcastAppClose} />
 
 <!-- Title screen -->
 {#if $gamePhase === 'title'}
@@ -383,8 +398,8 @@
 {#if loadMenuOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="load-backdrop" on:click={() => { loadMenuOpen = false; deleteConfirmSlot = null; }}>
-    <div class="load-panel" on:click|stopPropagation>
+  <div class="load-backdrop" transition:fade={{ duration: 150 }} on:click={() => { loadMenuOpen = false; deleteConfirmSlot = null; }}>
+    <div class="load-panel" transition:fly={{ y: -8, duration: 180, easing: cubicOut }} on:click|stopPropagation>
       <div class="load-header">
         <span class="load-title">存檔管理</span>
         <button class="load-close" on:click={() => { loadMenuOpen = false; deleteConfirmSlot = null; }}>✕</button>
@@ -430,8 +445,8 @@
 {#if saveMenuOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="load-backdrop" on:click={() => saveMenuOpen = false}>
-    <div class="load-panel" on:click|stopPropagation>
+  <div class="load-backdrop" transition:fade={{ duration: 150 }} on:click={() => saveMenuOpen = false}>
+    <div class="load-panel" transition:fly={{ y: -8, duration: 180, easing: cubicOut }} on:click|stopPropagation>
       <div class="load-header">
         <span class="load-title">選擇存檔槽位</span>
         <button class="load-close" on:click={() => saveMenuOpen = false}>✕</button>
@@ -463,8 +478,8 @@
 {#if showCloseConfirm}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="close-backdrop" on:click={cancelClose}>
-    <div class="confirm-panel" on:click|stopPropagation>
+  <div class="close-backdrop" transition:fade={{ duration: 150 }} on:click={cancelClose}>
+    <div class="confirm-panel" transition:fly={{ y: -8, duration: 180, easing: cubicOut }} on:click|stopPropagation>
       <div class="load-header">
         <span class="load-title">離開遊戲</span>
       </div>
@@ -472,6 +487,24 @@
       <div class="confirm-actions">
         <button class="confirm-btn danger" on:click={confirmClose}>確認關閉</button>
         <button class="confirm-btn" on:click={cancelClose}>返回</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Return to title confirmation -->
+{#if showReturnConfirm}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="close-backdrop" transition:fade={{ duration: 150 }} on:click={() => showReturnConfirm = false}>
+    <div class="confirm-panel" transition:fly={{ y: -8, duration: 180, easing: cubicOut }} on:click|stopPropagation>
+      <div class="load-header">
+        <span class="load-title">返回標題</span>
+      </div>
+      <p class="confirm-msg">確定要返回標題畫面嗎？未存檔的進度將會遺失。</p>
+      <div class="confirm-actions">
+        <button class="confirm-btn danger" on:click={doReturnToTitle}>確認返回</button>
+        <button class="confirm-btn" on:click={() => showReturnConfirm = false}>取消</button>
       </div>
     </div>
   </div>

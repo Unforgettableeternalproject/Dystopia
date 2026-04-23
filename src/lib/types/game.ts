@@ -85,10 +85,9 @@ export type ActionType =
   | "move"
   | "interact"
   | "use"
-  | "examine-item"
-  | "examine-location"
-  | "examine-people"
-  | "examine-self"
+  | "examine"
+  | "check-inv"
+  | "inspect"
   | "rest"
   | "combat";
 

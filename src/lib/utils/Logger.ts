@@ -97,6 +97,14 @@ export function clearLog(): void {
   broadcastLog({ type: 'clear' });
 }
 
+/**
+ * Broadcast an app-closing signal so satellite windows (e.g. /console) can self-close.
+ * Call once from the main window's beforeunload or Tauri close handler.
+ */
+export function broadcastAppClose(): void {
+  broadcastLog({ type: 'app-close' });
+}
+
 // ── Receiver API (used by /console route) ────────────────────────────────
 
 /** Subscribe to log entries from the main window. Call once in /console onMount. */
@@ -120,6 +128,10 @@ export function listenForLogs(): (() => void) {
         break;
       case 'sync':
         logEntries.set(msg.payload as LogEntry[]);
+        break;
+      case 'app-close':
+        // Main window is closing — close this satellite window too
+        window.close();
         break;
     }
   };

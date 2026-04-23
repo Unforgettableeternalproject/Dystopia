@@ -6,6 +6,28 @@ export interface LayoutNode {
   connections: string[];
 }
 
+export interface LayoutEdge {
+  fromId: string;
+  toId: string;
+}
+
+/** Convert an edge list to LayoutNode[] for bfsLayout. */
+export function edgesToLayoutNodes(
+  nodeIds: string[],
+  edges: LayoutEdge[],
+): LayoutNode[] {
+  const adj = new Map<string, Set<string>>();
+  for (const id of nodeIds) adj.set(id, new Set());
+  for (const e of edges) {
+    adj.get(e.fromId)?.add(e.toId);
+    adj.get(e.toId)?.add(e.fromId);
+  }
+  return nodeIds.map(id => ({
+    id,
+    connections: [...(adj.get(id) ?? [])],
+  }));
+}
+
 /**
  * Compute (x, y) pixel positions for a set of nodes via BFS from startId.
  * Ring 0 (start) = center. Each successive BFS layer is placed on a larger circle.

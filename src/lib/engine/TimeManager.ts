@@ -14,10 +14,9 @@ export const ACTION_MINUTES: Record<ActionType, number> = {
   move:               5,
   interact:           15,
   use:                10,
-  'examine-item':     10,
-  'examine-location': 10,
-  'examine-people':   15,
-  'examine-self':     5,
+  'examine':          10,
+  'check-inv':        10,
+  'inspect':          5,
   rest:               60,   // special — significant time cost
   combat:             30,   // special — significant time cost
 };

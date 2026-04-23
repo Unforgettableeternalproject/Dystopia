@@ -67,7 +67,8 @@
       "mcp__mempal__mempal_peek_partner",
       "mcp__mempal__mempal_cowork_push",
       "Bash(npm test:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx svelte-check:*)"
     ]
   }
 }

@@ -530,6 +530,8 @@ export interface DistrictIndex {
   /** 進出關卡的旗標 ID，hasCheckpoint 為 true 時使用 */
   checkpointFlag?: string;
   locationIds: string[];
+  /** 區域特殊數值（如三區的管制程度、警戒等） */
+  regionCustom?: Record<string, number>;
 }
 
 // ── Pathfinding ───────────────────────────────────────────────────

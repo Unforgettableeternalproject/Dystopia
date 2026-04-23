@@ -14,6 +14,9 @@ import type { PlayerAction } from '../types';
 import type { TurnResolution, DialogueResolution } from '../types/game';
 import { JUDGE_EXPLORATION_PROMPT } from './prompts/exploration';
 import { JUDGE_DIALOGUE_PROMPT } from './prompts/dialogue';
+import { createLogger } from '../utils/Logger';
+
+const log = createLogger('Judge');
 
 // ── JudgeAgent ────────────────────────────────────────────────────────────────
 
@@ -56,6 +59,7 @@ export class JudgeAgent {
 
     const raw = await this.client.complete(JUDGE_EXPLORATION_PROMPT, userMessage, 512);
     this.lastRaw = raw;
+    log.debug('Exploration judge raw response', { length: raw.length, preview: raw.slice(0, 200) });
     return parseExplorationJudgeResponse(raw);
   }
 
@@ -87,6 +91,7 @@ export class JudgeAgent {
 
     const raw = await this.client.complete(JUDGE_DIALOGUE_PROMPT, userMessage, 512);
     this.lastRaw = raw;
+    log.debug('Dialogue judge raw response', { length: raw.length, preview: raw.slice(0, 200) });
     return parseDialogueJudgeResponse(raw);
   }
 }
@@ -123,7 +128,8 @@ function parseExplorationJudgeResponse(raw: string): TurnResolution {
     }
 
     return resolution;
-  } catch {
+  } catch (err) {
+    log.error('Exploration judge JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });
     return { timeMinutes: 10, flagsSet: [], flagsUnset: [], reasoning: '[judge parse error]' };
   }
 }
@@ -145,7 +151,8 @@ function parseDialogueJudgeResponse(raw: string): DialogueResolution {
     if (Array.isArray(obj.questSignals)) res.questSignals = obj.questSignals;
     if (typeof obj.reasoning === 'string' && obj.reasoning.length > 0) res.reasoning = obj.reasoning;
     return res;
-  } catch {
+  } catch (err) {
+    log.error('Dialogue judge JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });
     return { endEncounter: false, flagsSet: [], flagsUnset: [], reasoning: '[dialogue judge parse error]' };
   }
 }

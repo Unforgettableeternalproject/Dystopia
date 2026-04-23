@@ -5,6 +5,10 @@
   "description": "坎貝爾第二象限，已荒廢的工業區，三區政變前的政治中心。舊時代的建築物大多破敗，工廠、商業機構與礦井的遺址散佈其中。政府將部分區域設為管制區，禁止進入。傳聞此地有非法活動與反政府組織出沒。舊會議地下據點曾設於此，但已被現任政府查封，殘存成員流亡等待時機。由於地理資源枯竭，政府重組後遷移至康庫爾，此地漸趨人煙稀少。",
   "ambience": ["廢棄", "破敗", "管制", "秘密", "危險", "陰暗"],
   "hasCheckpoint": true,
+  "regionCustom": {
+    "controlLevel": 4,
+    "alertLevel": 0
+  },
   "checkpointFlag": "crambell_pestilens_restricted_cleared",
   "locationIds": []
 }

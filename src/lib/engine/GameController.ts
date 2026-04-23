@@ -46,6 +46,8 @@ import {
   playerUI,
   narrativeLines,
   type MiniMapData,
+  type MiniMapNode,
+  type MiniMapEdge,
   type RegionMapData,
 } from '../stores/gameStore';
 import type { DialogueLogEntry } from '../ai/DMAgent';
@@ -55,7 +57,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, gamePhase, endingType, shadowModeActive, pushShadowComparison } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -161,11 +163,15 @@ export class GameController {
       } else if (rec.type === 'stat') {
         const [group, stat] = rec.key.split('.');
         if (group === 'statusStats') {
-          // 狀態數值（體力/壓力/Endo）→ 條狀抖動閃爍，不顯示 notif
+          // 狀態數值（體力/壓力/Endo）→ 條狀閃爍 + 就地 delta 提示
           if (stat === 'stamina' || stat === 'endo') {
-            triggerBarFlash(stat, rec.delta > 0 ? 'good' : 'bad');
+            const valence = rec.delta > 0 ? 'good' : 'bad' as const;
+            triggerBarFlash(stat, valence);
+            showStatDelta(stat, rec.delta, valence);
           } else if (stat === 'stress') {
-            triggerBarFlash(stat, rec.delta > 0 ? 'bad' : 'good');
+            const valence = (rec.delta > 0 ? 'bad' : 'good') as 'good' | 'bad';
+            triggerBarFlash(stat, valence);
+            showStatDelta(stat, rec.delta, valence);
           }
         } else {
           // 技能數值（primaryStats / secondaryStats）→ 顯示 notif
@@ -173,11 +179,9 @@ export class GameController {
           showAcquisitionNotif(`${label} ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
         }
       } else if (rec.type === 'reputation') {
-        const faction = this.lore.getFaction(rec.factionId);
-        showAcquisitionNotif(`聲望 [${faction?.name ?? rec.factionId}] ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
+        showStatDelta(`rep:${rec.factionId}`, rec.delta, rec.delta > 0 ? 'good' : 'bad');
       } else if (rec.type === 'affinity') {
-        const npc = this.lore.getNPC(rec.npcId);
-        showAcquisitionNotif(`好感 [${npc?.name ?? rec.npcId}] ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
+        showStatDelta(`aff:${rec.npcId}`, rec.delta, rec.delta > 0 ? 'good' : 'bad');
       }
     }
   }
@@ -242,7 +246,7 @@ export class GameController {
     if (this.dmClient) warmUpModel(this.dmClient).catch(() => { /* non-fatal */ });
 
     const sceneCtx = this.buildSceneCtx([]);
-    const { suggestions } = await this.runDM({ type: 'examine-location', input: '(game start)' }, sceneCtx);
+    const { suggestions } = await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
     await this.refreshThoughts(suggestions);
   }
 
@@ -389,6 +393,10 @@ export class GameController {
     if (!result.allowed) {
       log.info('Action rejected', { input, reason: result.reason });
       pushLine(result.reason ?? 'That is not possible.', 'rejected');
+      // Even on rejection, check endings — stress/stamina may have changed from
+      // events or condition ticks earlier, and a blocking Regulator should not
+      // prevent the game from reaching its ending state.
+      if (this.checkEndingConditions()) return;
       inputDisabled.set(false);
       return;
     }
@@ -503,6 +511,8 @@ export class GameController {
         log.info('Encounter started by event', { encounterId: eventEncounter.id });
       }
       this.flushAcquisitions();
+      // Event stat changes may have pushed past an ending threshold
+      if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
     }
@@ -560,6 +570,7 @@ export class GameController {
             log.info('Encounter started by delayed event', { encounterId: lateEventEncounter.id });
           }
           this.flushAcquisitions();
+          if (this.checkEndingConditions()) return;
           this.releaseInput();
           return;
         }
@@ -678,7 +689,7 @@ export class GameController {
       pushLine('（存檔讀取完成）', 'system');
     } else {
       const sceneCtx = this.buildSceneCtx([]);
-      const { suggestions } = await this.runDM({ type: 'examine-location', input: '(game loaded)' }, sceneCtx);
+      const { suggestions } = await this.runDM({ type: 'examine', input: '(game loaded)' }, sceneCtx);
       loadSuggestions = suggestions;
     }
 
@@ -994,9 +1005,9 @@ export class GameController {
     ].filter(Boolean).join('\n'));
 
     // ── Location context ───────────────────────────────────────────────────
-    // NPC details are action-gated: only injected for examine-people (area survey).
+    // NPC details are action-gated: only injected for examine (scene observation).
     // interact routes to dialogue handler before reaching buildSceneCtx.
-    const includeNpcs = action?.type === 'examine-people';
+    const includeNpcs = action?.type === 'examine';
     parts.push(
       this.lore.buildSceneContext(
         gs.player.currentLocationId,
@@ -1061,19 +1072,19 @@ export class GameController {
     // Each action type injects additional targeted context for the DM.
     // action.type is a hint, not an authority — world outcomes come from resolution.
 
-    // NPC info (presence + relationship status) is only injected for examine-people.
+    // NPC info (presence + relationship status) is only injected for examine.
     // interact routes to dialogue handler before reaching buildSceneCtx.
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
     const sceneNpcIds = this.lore.getNPCsByIds(resolved?.npcIds ?? [], this.state.flags, gs.timePeriod).map(n => n.id);
 
-    if (action?.type === 'examine-people' && sceneNpcIds.length > 0) {
+    if (action?.type === 'examine' && sceneNpcIds.length > 0) {
       // NPC relationship status (supplements the NPC list already included via includeNpcs)
       const npcStatus = this.dialogueMgr.buildSceneNPCStatus(sceneNpcIds);
       if (npcStatus) parts.push('\n' + npcStatus);
     }
 
-    // use / examine-item: inject player inventory so DM knows what items are available
-    if (action?.type === 'use' || action?.type === 'examine-item') {
+    // use / check-inv: inject player inventory so DM knows what items are available
+    if (action?.type === 'use' || action?.type === 'check-inv') {
       const activeInv = gs.player.inventory.filter(i => !i.isExpired);
       if (activeInv.length > 0) {
         const invLines = activeInv.map(i => {
@@ -1127,8 +1138,8 @@ export class GameController {
       }
     }
 
-    // examine-self: inject extended player stats for self-reflection context
-    if (action?.type === 'examine-self') {
+    // inspect: inject extended player stats for self-reflection context
+    if (action?.type === 'inspect') {
       const p = gs.player.primaryStats;
       const d = gs.player.secondaryStats;
       const s = gs.player.statusStats;
@@ -1929,6 +1940,7 @@ export class GameController {
         await this.renderEncounterNode(resolved, timeTriggeredEncounter.def ?? undefined);
         this.flushAcquisitions();
       }
+      if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
     }
@@ -2005,9 +2017,14 @@ export class GameController {
         await this.renderEncounterNode(failResolved, pendingFailEncounter.def ?? undefined);
         this.flushAcquisitions();
       }
+      if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
     }
+
+    // Encounter effects (stat changes, etc.) may have pushed the player past
+    // an ending threshold — check before releasing input.
+    if (this.checkEndingConditions()) return;
 
     this.releaseInput();
   }
@@ -2060,13 +2077,14 @@ export class GameController {
       });
     } else if (resolved.node.dmNarrative && effectiveDef && !this.mockMode) {
       // DM-generated narration — show encounter frame immediately (no choices yet)
+      // statCheckResult is omitted here — it was already shown via the first set;
+      // including it again would re-trigger the overlay because of reference inequality.
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
         encounterName:   effectiveDef.name,
         type:            effectiveDef.type ?? 'event',
         nodeText:        '',
         choices:         [],
-        statCheckResult: resolved.statCheckResult,
       });
       // Stream narration
       let ctx = this.buildEncounterContext(effectiveDef, resolved);
@@ -2266,7 +2284,7 @@ export class GameController {
 
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
 
-    result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine-location' });
+    result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine' });
 
     if (resolved) {
       const exits = resolved.connections
@@ -2355,34 +2373,167 @@ export class GameController {
       const areaNodeIds  = new Set(allAreaNodes.map(n => n.id));
       const districtNode = areaNode.districtId ? this.lore.getDistrict(areaNode.districtId) : undefined;
 
+      const mapNodes: MiniMapNode[] = [];
+      const mapEdges: MiniMapEdge[] = [];
+      const mapNodeIds = new Set<string>();
+      const seenEdgeKeys = new Set<string>();
+
+      // Helper: is this location visited by the player?
+      const isVisited = (id: string) =>
+        gs.discoveredLocationIds.includes(id) || id === currentLocId;
+
+      // 1. Core nodes: area root + sublocations
+      for (const node of allAreaNodes) {
+        const visited = node.id === areaId ? true : isVisited(node.id);
+        mapNodes.push({
+          id:                  node.id,
+          label:               node.base.name ?? node.name,
+          kind:                node.id === areaId ? 'area-root' : 'sublocation',
+          isCurrent:           node.id === currentLocId,
+          isVisited:           visited,
+          isKnownButUnvisited: !visited,
+          districtId:          node.districtId,
+          areaId:              areaId,
+        });
+        mapNodeIds.add(node.id);
+      }
+
+      // 2. Collect external nodes from connections
+      for (const node of allAreaNodes) {
+        const resolved = this.lore.resolveLocation(node.id, this.state.flags);
+        if (!resolved) continue;
+        for (const conn of resolved.connections) {
+          if (areaNodeIds.has(conn.targetLocationId)) continue;
+          if (mapNodeIds.has(conn.targetLocationId)) continue;
+          const target = this.lore.getLocation(conn.targetLocationId);
+          if (!target) continue;
+
+          // Only show adjacent areas when player is at area root
+          const targetIsAreaRoot = !target.parentId;
+          if (targetIsAreaRoot && currentLocId !== areaId) continue;
+
+          const tVisited = isVisited(conn.targetLocationId);
+          mapNodes.push({
+            id:                  conn.targetLocationId,
+            label:               target.name,
+            kind:                targetIsAreaRoot ? 'adjacent-area' : 'remote-sublocation',
+            isCurrent:           false,
+            isVisited:           tVisited,
+            isKnownButUnvisited: !tVisited,
+            districtId:          target.districtId,
+            areaId:              target.parentId ?? conn.targetLocationId,
+          });
+          mapNodeIds.add(conn.targetLocationId);
+        }
+      }
+
+      // 3. Build edges with access metadata
+      for (const node of allAreaNodes) {
+        const resolved = this.lore.resolveLocation(node.id, this.state.flags);
+        if (!resolved) continue;
+        for (const conn of resolved.connections) {
+          if (!mapNodeIds.has(conn.targetLocationId)) continue;
+          const edgeKey = [node.id, conn.targetLocationId].sort().join('|');
+          if (seenEdgeKeys.has(edgeKey)) continue;
+          seenEdgeKeys.add(edgeKey);
+
+          const inArea = areaNodeIds.has(conn.targetLocationId);
+          const target = this.lore.getLocation(conn.targetLocationId);
+          const targetIsAreaRoot = target && !target.parentId;
+
+          let isLocked = false;
+          let hasBypass = false;
+          let traversable = true;
+          if (conn.access) {
+            const result = this.lore.getConnectionAccessResult(
+              conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+              Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+            );
+            traversable = result.allowed;
+            // 路被鎖 = 直接條件不過（無論 bypass 是否可走）
+            isLocked = !result.allowed || (result.allowed && !!result.wasBypass);
+            hasBypass = !!conn.access.bypass;
+          }
+
+          mapEdges.push({
+            fromId:              node.id,
+            toId:                conn.targetLocationId,
+            kind:                inArea ? 'local' : (targetIsAreaRoot ? 'cross-area' : 'remote-link'),
+            isLocked,
+            hasBypass,
+            isTraversable:       traversable,
+            targetIsForeignArea: !inArea,
+            lockedMessage:       conn.access?.lockedMessage,
+            bypassMessage:       conn.access?.bypass?.bypassMessage,
+          });
+        }
+      }
+
       miniMap = {
         areaId,
         areaName:     areaNode.name,
         districtId:   areaNode.districtId ?? '',
         districtName: districtNode?.name  ?? '',
-        nodes: allAreaNodes.map(node => ({
-          id:           node.id,
-          label:        node.base.name ?? node.name,
-          isCurrent:    node.id === currentLocId,
-          // Area node: visible whenever player is inside it
-          // Sublocation: visible only if player has been there
-          isDiscovered: node.id === areaId
-            ? true
-            : gs.discoveredLocationIds.includes(node.id) || node.id === currentLocId,
-          connections:  node.base.connections
-            .map(c => c.targetLocationId)
-            .filter(tid => areaNodeIds.has(tid)),
-          isArea:       node.id === areaId,
-        })),
+        nodes:        mapNodes,
+        edges:        mapEdges,
       };
     }
 
-    // Build region map data (all districts in region, BFS-ready)
+    // Build region map data (all districts in region)
     let regionMap: RegionMapData | undefined;
     if (region) {
       const currentDistrictId = areaNode?.districtId ?? '';
       const adjacency         = this.lore.getDistrictAdjacency(this.currentRegionId);
       const districtIds       = region.districtIds ?? [];
+
+      // Build area-level graphs for all discovered districts
+      const districtAreaGraphs: RegionMapData['districtAreaGraphs'] = {};
+      for (const did of districtIds) {
+        const district = this.lore.getDistrict(did);
+        if (!district) continue;
+        // Build graph for all districts — undiscovered areas show as ??? in the UI
+
+        const areaNodes: RegionMapData['districtAreaGraphs'][string]['nodes'] = [];
+        const areaEdges: RegionMapData['districtAreaGraphs'][string]['edges'] = [];
+        const areaIdsInDistrict = new Set(district.locationIds);
+        const seenAreaEdges = new Set<string>();
+
+        for (const lid of district.locationIds) {
+          const loc = this.lore.getLocation(lid);
+          if (!loc) continue;
+          const subs = this.lore.getLocationsByParent(lid);
+          const resolvedArea = this.lore.resolveLocation(lid, this.state.flags);
+          areaNodes.push({
+            id:                 loc.id,
+            name:               loc.name,
+            isCurrent:          lid === areaId,
+            isDiscovered:       discoveredAreas.has(lid),
+            description:        resolvedArea?.description,
+            discoveredSubCount: subs.filter(s => gs.discoveredLocationIds.includes(s.id)).length,
+            totalSubCount:      subs.length,
+          });
+
+          // Build edges: check root + sublocation connections to other areas in same district
+          const allLocs = [loc, ...subs];
+          for (const sub of allLocs) {
+            const resolved = this.lore.resolveLocation(sub.id, this.state.flags);
+            if (!resolved) continue;
+            for (const conn of resolved.connections) {
+              const targetRoot = this.lore.getLocation(conn.targetLocationId);
+              if (!targetRoot) continue;
+              const targetAreaId = targetRoot.parentId ?? conn.targetLocationId;
+              if (targetAreaId === lid) continue; // same area
+              if (!areaIdsInDistrict.has(targetAreaId)) continue; // cross-district
+              const ek = [lid, targetAreaId].sort().join('|');
+              if (seenAreaEdges.has(ek)) continue;
+              seenAreaEdges.add(ek);
+              areaEdges.push({ fromId: lid, toId: targetAreaId });
+            }
+          }
+        }
+
+        districtAreaGraphs[did] = { nodes: areaNodes, edges: areaEdges };
+      }
 
       regionMap = {
         regionId:          this.currentRegionId,
@@ -2391,25 +2542,40 @@ export class GameController {
         districts: districtIds.map(did => {
           const district  = this.lore.getDistrict(did);
           const isCurrent = did === currentDistrictId;
-          const areas = isCurrent && district
-            ? district.locationIds.flatMap(lid => {
-                const loc = this.lore.getLocation(lid);
-                return loc ? [{
-                  id:           loc.id,
-                  name:         loc.name,
-                  isDiscovered: discoveredAreas.has(lid),
-                  isCurrent:    lid === areaId,
-                }] : [];
-              })
-            : undefined;
+          const hasDiscovered = district
+            ? district.locationIds.some(lid => discoveredAreas.has(lid))
+            : false;
+          // Collect notable NPCs from all locations in this district
+          const npcNames: string[] = [];
+          if (district) {
+            const npcIdSet = new Set<string>();
+            for (const lid of district.locationIds) {
+              const resolved = this.lore.resolveLocation(lid, this.state.flags);
+              if (resolved) for (const nid of resolved.npcIds) npcIdSet.add(nid);
+              for (const sub of this.lore.getLocationsByParent(lid)) {
+                const rSub = this.lore.resolveLocation(sub.id, this.state.flags);
+                if (rSub) for (const nid of rSub.npcIds) npcIdSet.add(nid);
+              }
+            }
+            for (const nid of npcIdSet) {
+              const npc = this.lore.getNPC(nid);
+              if (npc) npcNames.push(npc.name);
+            }
+          }
           return {
             id:          did,
             label:       district?.name ?? did,
             isCurrent,
+            isDiscovered: hasDiscovered || isCurrent,
             adjacentIds: adjacency.get(did) ?? [],
-            areas,
+            description: district?.description,
+            ambience:    district?.ambience,
+            notableNpcs: npcNames.length > 0 ? npcNames : undefined,
+            controlLevel: district?.regionCustom?.controlLevel,
+            alertLevel:   district?.regionCustom?.alertLevel,
           };
         }),
+        districtAreaGraphs,
       };
     }
 
@@ -2673,9 +2839,9 @@ export class GameController {
 
   private async runMockIntro(): Promise<void> {
     thoughts.set([
-      { id: 'look',  text: 'Observe surroundings',   actionType: 'examine-location' },
-      { id: 'move',  text: 'Look for an exit',       actionType: 'move'             },
-      { id: 'talk',  text: 'Try talking to someone', actionType: 'examine-people'   },
+      { id: 'look',  text: 'Observe surroundings',   actionType: 'examine'  },
+      { id: 'move',  text: 'Look for an exit',       actionType: 'move'     },
+      { id: 'talk',  text: 'Try talking to someone', actionType: 'examine'  },
     ]);
 
     const lines = [
@@ -2713,6 +2879,22 @@ export class GameController {
   }
 
   // -- Debug API --------------------------------------------------------
+
+  /**
+   * Shared post-update routine for debug operations.
+   * Mirrors the tail of processAction: auto-unset flags, quest/phase checks,
+   * sync UI, and ending condition check.
+   */
+  private debugPostSystemUpdate(): void {
+    this.lore.flagRegistry.processFlagUnsets(this.state.flags);
+    this.quests.checkTimeLimits(this.state.getState().time.totalMinutes);
+    this.quests.checkObjectives();
+    this.quests.checkPendingRepeats();
+    this.phases.checkAdvance();
+    this.syncUIState(this.state.getState());
+    this.flushAcquisitions();
+    this.checkEndingConditions();
+  }
 
   /** Returns all lore catalog entries for the debug launcher panel. */
   getDebugCatalog() {
@@ -2775,39 +2957,43 @@ export class GameController {
     const debugPrefix = `[DEBUG MODE — 此事件由開發人員手動強制觸發，玩家實際位置可能與事件預期地點不符。請直接根據提供的事件 Context 描述情況，模擬此事件的發生，無需顧慮地點一致性。]\n\n`;
     const eventCtx = debugPrefix + this.buildSceneCtx(allDebugTriggered);
     await this.runEventDM(eventCtx, allDebugTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
+    this.flushAcquisitions();
 
     // Launch encounter after narration completes (includes encounters from sub-event chains).
     if (debugEncounter) {
       const encDef  = this.lore.getEncounter(debugEncounter.id);
       const resolved = this.encounterMgr.start(debugEncounter.id);
       if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined, true);
+      this.flushAcquisitions();
     }
-    this.syncUIState(this.state.getState());
+
+    // Run the same post-event systems as the normal turn pipeline
+    this.debugPostSystemUpdate();
   }
 
   /** Grant a quest directly, regardless of conditions. */
   debugGrantQuest(questId: string): void {
-    const ok = this.acceptQuest(questId);
+    const ok = this.quests.grantQuest(questId, { source: 'event' });
     pushLine(ok
       ? `[Debug] 已授予任務：${questId}`
       : `[Debug] 任務授予失敗（已存在或 ID 錯誤）：${questId}`,
       'system',
     );
-    if (ok) this.syncUIState(this.state.getState());
+    if (ok) this.debugPostSystemUpdate();
   }
 
-  /** Set a flag and sync UI. */
+  /** Set a flag and sync UI. Runs quest/phase checks like the normal turn pipeline. */
   debugSetFlag(flag: string): void {
     this.state.flags.set(flag);
     pushLine(`[Debug] 旗標設置：${flag}`, 'system');
-    this.syncUIState(this.state.getState());
+    this.debugPostSystemUpdate();
   }
 
-  /** Unset a flag and sync UI. */
+  /** Unset a flag and sync UI. Runs quest/phase checks like the normal turn pipeline. */
   debugUnsetFlag(flag: string): void {
     this.state.flags.unset(flag);
     pushLine(`[Debug] 旗標清除：${flag}`, 'system');
-    this.syncUIState(this.state.getState());
+    this.debugPostSystemUpdate();
   }
 
   /** Teleport player to locationId, reset NPC panel, refresh UI. */
@@ -2877,7 +3063,7 @@ export class GameController {
 
   /**
    * Set a player stat to an exact value by dot-path (e.g. "statusStats.stamina").
-   * Clamps at 0. Syncs UI immediately.
+   * Clamps at 0. Runs post-system update (quest/phase checks, ending conditions).
    */
   debugSetStat(dotPath: string, value: number): void {
     const gs = this.state.getState();
@@ -2886,15 +3072,15 @@ export class GameController {
     if (!statsGroup || !(stat in statsGroup)) return;
     const delta = value - statsGroup[stat];
     this.state.modifyStat(dotPath, delta);
-    this.syncUIState(this.state.getState());
-    this.checkEndingConditions();
+    this.debugPostSystemUpdate();
   }
 
   /**
    * Jump game time forward to a specific date + time (always advances, never goes back).
    * Max date: 1504-12-31. Resolves the new time period from the region schedule and syncs UI.
+   * Also fires time-crossing events and ticks item expiry, matching the normal turn pipeline.
    */
-  debugSetTime(year: number, month: number, day: number, hour: number, minute: number): void {
+  async debugSetTime(year: number, month: number, day: number, hour: number, minute: number): Promise<void> {
     const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     const EPOCH_YEAR = 1498;
     const MAX = { year: 1504, month: 12, day: 31 };
@@ -2925,13 +3111,41 @@ export class GameController {
                   - toMins(cur.year, cur.month, cur.day, cur.hour, cur.minute);
     if (delta <= 0) return; // target is in the past or same moment
 
+    const prevTime  = { ...cur };
     const newTime   = this.timeMgr.advance(cur, delta);
     const schedule  = this.lore.getSchedule(this.currentRegionId) ?? null;
     const newPeriod = schedule
       ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
       : gs.timePeriod;
     this.state.advanceTime(newTime, newPeriod);
-    this.syncUIState(this.state.getState());
+    this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
+
+    // Fire time-crossing events (broadcasts, patrols, quest timeouts, etc.)
+    const crossedHours = this.timeMgr.computeCrossedHours(prevTime, newTime);
+    if (crossedHours.length > 0) {
+      if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
+        this.state.flags.set('game_day1_started');
+      }
+      const eventsEnabled = this.state.flags.has('game_day1_started');
+      const qfTriggered  = eventsEnabled ? this.checkQuestFailConditions(crossedHours) : [];
+      const glTriggered  = eventsEnabled ? this.events.checkGlobalEvents(this.currentRegionId, crossedHours) : [];
+      const locTriggered = eventsEnabled ? this.events.checkAndApply(this.state.getState().player.currentLocationId, crossedHours) : [];
+      const timeTriggered = [...qfTriggered, ...glTriggered, ...locTriggered];
+      if (timeTriggered.length > 0) {
+        const { eventEncounter, extraTriggered } = this.processTriggeredEvents(timeTriggered);
+        const allTriggered = [...timeTriggered, ...extraTriggered];
+        const eventCtx = this.buildSceneCtx(allTriggered);
+        await this.runEventDM(eventCtx, allTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
+        this.flushAcquisitions();
+        if (eventEncounter) {
+          const resolved = this.encounterMgr.start(eventEncounter.id);
+          if (resolved) await this.renderEncounterNode(resolved, eventEncounter.def ?? undefined);
+          this.flushAcquisitions();
+        }
+      }
+    }
+
+    this.debugPostSystemUpdate();
   }
 
   /** Set melphin (currency) to an exact value. */

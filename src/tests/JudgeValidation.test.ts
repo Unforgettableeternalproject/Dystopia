@@ -33,7 +33,7 @@ class JudgeTestClient implements ILLMClient {
 
   async complete(systemPrompt: string): Promise<string> {
     if (systemPrompt.includes('action validator')) {
-      return JSON.stringify({ allowed: true, reason: null, modifiedInput: null, actionType: 'examine-people', targetId: null });
+      return JSON.stringify({ allowed: true, reason: null, modifiedInput: null, actionType: 'examine', targetId: null });
     }
     if (systemPrompt.includes('planning layer')) {
       return JSON.stringify({
@@ -149,7 +149,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     });
 
     controller.debugToggleShadowMode();
-    await controller.submitAction('看看周圍有誰', 'examine-location');
+    await controller.submitAction('看看周圍有誰', 'examine');
     await flushAsync();
 
     const comps = get(shadowComparisons);
@@ -176,7 +176,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     });
 
     controller.debugToggleShadowMode();
-    await controller.submitAction('和 NPC 說話', 'examine-people');
+    await controller.submitAction('和 NPC 說話', 'examine');
     await flushAsync();
 
     const comps = get(shadowComparisons);
@@ -206,7 +206,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     });
 
     controller.debugToggleShadowMode();
-    await controller.submitAction('看看四周', 'examine-location');
+    await controller.submitAction('看看四周', 'examine');
     await flushAsync();
 
     const comps = get(shadowComparisons);
@@ -229,7 +229,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     });
 
     controller.debugToggleShadowMode();
-    await controller.submitAction('找人說話', 'examine-people');
+    await controller.submitAction('找人說話', 'examine');
     await flushAsync();
 
     const comps = get(shadowComparisons);

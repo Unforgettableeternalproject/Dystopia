@@ -4,6 +4,9 @@
 import type { PlayerAction, PlayerState, RegulatorResult, Thought } from '../types';
 import type { ILLMClient } from './ILLMClient';
 import type { ConditionDefinition } from '../types/condition';
+import { createLogger } from '../utils/Logger';
+
+const log = createLogger('Regulator');
 
 const VALIDATE_SYSTEM = `You are an action validator for a grounded RPG.
 Each stat arrives with a parenthetical label that tells you its meaning — use those labels to judge feasibility.
@@ -14,26 +17,25 @@ Rules:
 3. If impossible, give a short in-world reason — never say "your stat is too low".
 4. If possible but overreaching, downgrade the action (e.g., "perfectly pick lock" → "attempt to pick lock").
 5. The "reason" and "modifiedInput" fields must be written in Traditional Chinese (繁體中文).
-6. Classify the action intent into actionType: "free" | "move" | "interact" | "use" | "examine-item" | "examine-location" | "examine-people" | "examine-self" | "rest" | "combat".
+6. VITAL — Basic survival actions are ALWAYS allowed regardless of how low the player's stamina or how high their stress. These action types must NEVER be rejected on physical/mental grounds: "rest", "examine", "check-inv", "inspect". A near-death player can still look around, check their pockets, rest, or reflect. Only reject these if a specific active condition explicitly forbids that exact action (e.g., "blindfolded" blocks "examine"). Low stamina / high stress alone is NOT a valid reason to block them. Note: this does NOT protect "free" actions that involve active skill use — those must still be validated normally.
+7. Classify the action intent into actionType: "free" | "move" | "interact" | "use" | "examine" | "check-inv" | "inspect" | "rest" | "combat".
    - "move": player wants to travel to a different location.
    - "interact": player wants to talk to, approach, or interact with a specific NPC. Set targetId to that NPC's id from sceneNpcs.
    - "use": player uses or applies an item from their inventory. Check inventoryItems to confirm the item exists.
-   - "examine-item": player inspects or asks about an item, or checks their belongings/inventory. If the input mentions an item name from inventoryItems, classify as "examine-item".
-   - "examine-location": player observes, surveys, or investigates the surrounding environment or area.
-   - "examine-people": player surveys the area to see who is around — an area-level observation, not directed at a specific individual. Do NOT set targetId for this type.
-   - "examine-self": player reflects on their own status, condition, identity, or feelings — NOT about items or belongings.
+   - "examine": player observes the scene — looking around, checking who is here, inspecting surroundings, or surveying the area. Covers both environment and people awareness. Do NOT set targetId for this type.
+   - "check-inv": player inspects or asks about an item, or checks their belongings/inventory. If the input mentions an item name from inventoryItems, classify as "check-inv".
+   - "inspect": player reflects on their own status, condition, identity, or feelings — NOT about items, belongings, or surroundings.
    - "rest": player rests or sleeps.
    - "combat": player attempts a hostile action.
    - "free": anything else (general statements, reactions, vague actions).
-7. If the input already has an actionType other than "free", keep it unless overriding is clearly necessary.
-8. Conversational or question-form inputs should still be classified by their SUBJECT, not defaulted to "free". Classify by what the player wants to know or do:
-   - questions about surroundings/place → "examine-location"
-   - questions about people/who is here → "examine-people"
-   - questions about belongings/items/inventory → "examine-item"
-   - questions about own status/condition → "examine-self"
+8. If the input already has an actionType other than "free", keep it unless overriding is clearly necessary.
+9. Conversational or question-form inputs should still be classified by their SUBJECT, not defaulted to "free". Classify by what the player wants to know or do:
+   - questions about surroundings/place/people/who is here → "examine"
+   - questions about belongings/items/inventory → "check-inv"
+   - questions about own status/condition → "inspect"
    - asking to go somewhere → "move"
    Do NOT classify an information-seeking input as "free" just because it is phrased as a question or self-talk.
-9. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
+10. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
 
 // Patterns that indicate prompt injection attempts.
 // Checked case-insensitively; order does not matter.
@@ -119,6 +121,7 @@ export class Regulator {
       // 1024 tokens: thinking models spend budget on internal reasoning before emitting JSON.
       const raw     = await this.client.complete(VALIDATE_SYSTEM, userMessage, 1024);
       this.lastRaw = raw;
+      log.debug('Validate raw response', { length: raw.length, preview: raw.slice(0, 200) });
       // Local models (e.g. Gemma via Ollama) often wrap JSON in markdown code fences.
       const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
       const parsed = JSON.parse(cleaned) as {
@@ -128,6 +131,8 @@ export class Regulator {
         actionType: string | null;
         targetId: string | null;
       };
+
+      log.info('Validate result', { allowed: parsed.allowed, actionType: parsed.actionType, reason: parsed.reason });
 
       // Resolve the action type: use LLM's classification if it changed from the original,
       // otherwise keep the original (explicit Thought clicks always arrive with correct type).
@@ -153,7 +158,8 @@ export class Regulator {
             }
           : undefined,
       };
-    } catch {
+    } catch (err) {
+      log.error('Validate JSON parse failed (fail-open)', { error: String(err), raw: this.lastRaw.slice(0, 500) });
       return { allowed: true };
     }
   }

@@ -11,7 +11,9 @@
 // then content (delta.content). We only yield content -- reasoning is skipped.
 
 import type { ILLMClient, ChatMessage } from './ILLMClient';
+import { createLogger } from '../utils/Logger';
 
+const log = createLogger('LLM');
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 const DEFAULT_TOKENS   = 1200; // thinking models need extra budget for reasoning phase
 
@@ -52,7 +54,11 @@ export class LocalModelClient implements ILLMClient {
         ],
       }),
     });
-    if (!res.ok) throw new Error('LocalModelClient complete failed: ' + res.status);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      log.error('LLM complete HTTP error', { status: res.status, body: errBody.slice(0, 300) });
+      throw new Error('LocalModelClient complete failed: ' + res.status);
+    }
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
     return data.choices[0].message.content;
   }
@@ -75,7 +81,11 @@ export class LocalModelClient implements ILLMClient {
         ],
       }),
     });
-    if (!res.ok) throw new Error('LocalModelClient stream failed: ' + res.status);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      log.error('LLM stream HTTP error', { status: res.status, body: errBody.slice(0, 300) });
+      throw new Error('LocalModelClient stream failed: ' + res.status);
+    }
 
     const body = res.body;
     if (!body) return;

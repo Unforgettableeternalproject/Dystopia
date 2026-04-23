@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeNpcUI, activeScriptedDialogue, isStreaming } from '$lib/stores/gameStore';
+  import { activeNpcUI, activeScriptedDialogue, isStreaming, statDeltaNotifs } from '$lib/stores/gameStore';
 
   export let onLeave: () => void = () => {};
 
@@ -46,11 +46,16 @@
 
     <!-- Relationship stats -->
     <div class="rel-section">
-      <div class="rel-row">
+      <div class="rel-row rel-row--affinity">
         <span class="rel-label">好感</span>
         <span class="rel-val" class:pos={npc.affinity > 0} class:neg={npc.affinity < 0}>
           {npc.affinity > 0 ? '+' : ''}{npc.affinity}
         </span>
+        {#each $statDeltaNotifs.filter(n => n.target === `aff:${npc.npcId}`) as notif, i (notif.id)}
+          <span class="aff-delta delta-{notif.valence}" style="--delta-stack:{i}">
+            {notif.delta > 0 ? '+' : ''}{notif.delta}
+          </span>
+        {/each}
       </div>
       <div class="rel-row">
         <span class="rel-label">態度</span>
@@ -160,6 +165,10 @@
     align-items: center;
   }
 
+  .rel-row--affinity {
+    position: relative;
+  }
+
   .rel-label {
     font-size: 9px;
     color: var(--text-dim);
@@ -174,6 +183,30 @@
 
   .rel-val.pos { color: #4a7a4a; }
   .rel-val.neg { color: var(--accent-red); }
+
+  /* ── Affinity delta float ──────────────────────────── */
+  .aff-delta {
+    position: absolute;
+    right: 0;
+    top: calc(50% - var(--delta-stack, 0) * 14px - 14px);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 5;
+    animation: affDeltaFloat 1.5s ease-out forwards;
+  }
+
+  .delta-good { color: #5fd38a; text-shadow: 0 0 4px #5fd38a44; }
+  .delta-bad  { color: #d35f5f; text-shadow: 0 0 4px #d35f5f44; }
+
+  @keyframes affDeltaFloat {
+    0%   { opacity: 0; transform: translateY(-30%); }
+    12%  { opacity: 1; transform: translateY(-50%); }
+    65%  { opacity: 1; transform: translateY(-70%); }
+    100% { opacity: 0; transform: translateY(-120%); }
+  }
 
   /* Exit */
   .exit-section {

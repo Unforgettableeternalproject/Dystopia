@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fade, fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { playerUI, questListOpen, questDetailOpen } from '$lib/stores/gameStore';
 
   function close() { questListOpen.set(false); }
@@ -15,8 +17,8 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="modal-backdrop" on:click={handleBg}>
-  <aside class="modal-panel" role="dialog" aria-label="全部任務">
+<div class="modal-backdrop" transition:fade={{ duration: 180 }} on:click={handleBg}>
+  <aside class="modal-panel" transition:fly={{ y: -8, duration: 200, easing: cubicOut }} role="dialog" aria-label="全部任務">
     <div class="modal-header">
       <span class="modal-title">任務</span>
       <span class="quest-count">{$playerUI.totalActiveQuestCount ?? 0} 個進行中</span>
@@ -63,12 +65,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    animation: fadeSlideIn 0.14s ease-out;
-  }
-
-  @keyframes fadeSlideIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* ── Header ───────────────────────────── */

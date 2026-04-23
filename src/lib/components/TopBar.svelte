@@ -37,12 +37,13 @@
       disabled={!onLoadMenu}
       title="讀取存檔"
     >讀</button>
-    {#if $isDebugMode && onReturnToTitle}
+    {#if onReturnToTitle}
       <button
-        class="topbar-btn debug-return-btn"
+        class="topbar-btn"
+        class:debug-return-btn={$isDebugMode}
         on:click={onReturnToTitle}
         title="返回標題畫面"
-      >返回標題</button>
+      >標題</button>
     {/if}
   </div>
 </header>

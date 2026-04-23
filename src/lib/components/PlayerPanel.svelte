@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash, questOutcomeFlash } from '$lib/stores/gameStore';
+  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash, questOutcomeFlash, statDeltaNotifs } from '$lib/stores/gameStore';
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -57,6 +57,11 @@
           <div class="bar stamina" style="width:{$staminaPercent}%"></div>
         </div>
         <span class="stat-val">{$playerUI.stamina}<span class="stat-max">/{$playerUI.staminaMax}</span></span>
+        {#each $statDeltaNotifs.filter(n => n.target === 'stamina') as notif, i (notif.id)}
+          <span class="stat-delta delta-{notif.valence}" style="--delta-stack:{i}">
+            {notif.delta > 0 ? '+' : ''}{notif.delta}
+          </span>
+        {/each}
       </div>
 
       <div class="stat-row" class:flash-good={$barFlash.stress === 'good'} class:flash-bad={$barFlash.stress === 'bad'}>
@@ -67,6 +72,11 @@
           <div class="bar stress" style="width:{$stressPercent}%"></div>
         </div>
         <span class="stat-val">{$playerUI.stress}<span class="stat-max">/{$playerUI.stressMax}</span></span>
+        {#each $statDeltaNotifs.filter(n => n.target === 'stress') as notif, i (notif.id)}
+          <span class="stat-delta delta-{notif.valence}" style="--delta-stack:{i}">
+            {notif.delta > 0 ? '+' : ''}{notif.delta}
+          </span>
+        {/each}
       </div>
 
       <div class="stat-row" class:flash-good={$barFlash.endo === 'good'} class:flash-bad={$barFlash.endo === 'bad'}>
@@ -77,6 +87,11 @@
           <div class="bar endo" style="width:{$endoPercent}%"></div>
         </div>
         <span class="stat-val">{$playerUI.endo}<span class="stat-max">/{$playerUI.endoMax}</span></span>
+        {#each $statDeltaNotifs.filter(n => n.target === 'endo') as notif, i (notif.id)}
+          <span class="stat-delta delta-{notif.valence}" style="--delta-stack:{i}">
+            {notif.delta > 0 ? '+' : ''}{notif.delta}
+          </span>
+        {/each}
       </div>
     </div>
   </div>
@@ -245,6 +260,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    position: relative;
   }
 
   .stat-label {
@@ -286,28 +302,54 @@
 
   /* ── Bar flash animations ─────────────────────────────── */
   .stat-row.flash-good {
-    animation: barFlashGood 0.6s ease-out forwards;
+    animation: barFlashGood 0.9s ease-out forwards;
     border-radius: 2px;
   }
 
   .stat-row.flash-bad {
-    animation: barFlashBad 0.6s ease-out forwards;
+    animation: barFlashBad 0.9s ease-out forwards;
     border-radius: 2px;
   }
 
   @keyframes barFlashGood {
-    0%   { box-shadow: 0 0 0 1px #5fd38a99; }
-    40%  { box-shadow: 0 0 0 1px #5fd38a; }
-    100% { box-shadow: 0 0 0 1px transparent; }
+    0%   { box-shadow: 0 0 6px 2px #5fd38a55; }
+    25%  { box-shadow: 0 0 8px 2px #5fd38acc; }
+    60%  { box-shadow: 0 0 4px 1px #5fd38a66; }
+    100% { box-shadow: 0 0 0 0 transparent; }
   }
 
   @keyframes barFlashBad {
-    0%   { box-shadow: 0 0 0 1px #d35f5f99; transform: translateX(0); }
-    15%  { transform: translateX(-3px); box-shadow: 0 0 0 1px #d35f5f; }
-    30%  { transform: translateX(3px); }
-    45%  { transform: translateX(-2px); }
-    60%  { transform: translateX(0); box-shadow: 0 0 0 1px #d35f5f99; }
-    100% { box-shadow: 0 0 0 1px transparent; }
+    0%   { box-shadow: 0 0 6px 2px #d35f5f55; transform: translateX(0); }
+    10%  { transform: translateX(-3px); box-shadow: 0 0 8px 2px #d35f5fcc; }
+    20%  { transform: translateX(3px); }
+    30%  { transform: translateX(-2px); }
+    40%  { transform: translateX(2px); }
+    50%  { transform: translateX(0); box-shadow: 0 0 5px 1px #d35f5f88; }
+    100% { box-shadow: 0 0 0 0 transparent; transform: translateX(0); }
+  }
+
+  /* ── Stat delta float ─────────────────────────────────── */
+  .stat-delta {
+    position: absolute;
+    right: 36px;
+    top: calc(50% - var(--delta-stack, 0) * 14px);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 5;
+    animation: deltaFloat 1.5s ease-out forwards;
+  }
+
+  .delta-good { color: #5fd38a; text-shadow: 0 0 4px #5fd38a44; }
+  .delta-bad  { color: #d35f5f; text-shadow: 0 0 4px #d35f5f44; }
+
+  @keyframes deltaFloat {
+    0%   { opacity: 0; transform: translateY(-30%); }
+    12%  { opacity: 1; transform: translateY(-50%); }
+    65%  { opacity: 1; transform: translateY(-70%); }
+    100% { opacity: 0; transform: translateY(-120%); }
   }
 
   .stat-val {

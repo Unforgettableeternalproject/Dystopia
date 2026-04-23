@@ -112,7 +112,7 @@ describe('Regulator.hardCheckStats — 玩家現況不符 (case 1 基礎)', () =
 
   it('體力歸零時非戰鬥行動不被硬封鎖', () => {
     const player = makePlayer({ stamina: 0 });
-    expect(reg.hardCheckStats(action('觀察四周', 'examine-location'), player)).toBeNull();
+    expect(reg.hardCheckStats(action('觀察四周', 'examine'), player)).toBeNull();
   });
 });
 
@@ -177,9 +177,9 @@ describe('Regulator.processThoughts', () => {
   const reg = new Regulator(null! as ILLMClient);
 
   const thoughts: Thought[] = [
-    { id: 'a', text: '觀察四周',   actionType: 'examine-location' },
-    { id: 'b', text: '攻擊守衛',   actionType: 'combat'          },
-    { id: 'c', text: '和 NPC 交談', actionType: 'examine-people'  },
+    { id: 'a', text: '觀察四周',   actionType: 'examine' },
+    { id: 'b', text: '攻擊守衛',   actionType: 'combat'  },
+    { id: 'c', text: '和 NPC 交談', actionType: 'interact'},
   ];
 
   it('體力歸零時過濾戰鬥思路', () => {
@@ -208,7 +208,7 @@ describe('Regulator.processThoughts', () => {
     const player = makePlayer({ stress: 9, stressMax: 10 });
     const result = reg.processThoughts(thoughts, player);
     const combatThought = result.find(t => t.actionType === 'combat');
-    const examineThought = result.find(t => t.actionType === 'examine-location');
+    const examineThought = result.find(t => t.actionType === 'examine');
     expect(combatThought?.isManipulated).toBe(true);
     expect(examineThought?.isManipulated).toBe(false);
   });

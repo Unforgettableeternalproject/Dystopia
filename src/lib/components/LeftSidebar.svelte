@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerUI } from '$lib/stores/gameStore';
+  import { playerUI, statDeltaNotifs } from '$lib/stores/gameStore';
   import MiniMap    from './MiniMap.svelte';
   import RegionMap  from './RegionMap.svelte';
   import { fly }    from 'svelte/transition';
@@ -50,6 +50,11 @@
           <span class="faction-rep" class:pos={f.rep > 0} class:neg={f.rep < 0}>
             {f.rep > 0 ? '+' : ''}{f.rep}
           </span>
+          {#each $statDeltaNotifs.filter(n => n.target === `rep:${f.id}`) as notif, i (notif.id)}
+            <span class="faction-delta delta-{notif.valence}" style="--delta-stack:{i}">
+              {notif.delta > 0 ? '+' : ''}{notif.delta}
+            </span>
+          {/each}
         </div>
       {/each}
     </div>
@@ -157,6 +162,7 @@
     justify-content: space-between;
     align-items: center;
     margin-top: 5px;
+    position: relative;
   }
 
   .faction-name {
@@ -176,6 +182,30 @@
 
   .faction-rep.pos { color: #4a7a4a; }
   .faction-rep.neg { color: var(--accent-red); }
+
+  /* ── Faction delta float ──────────────────────────── */
+  .faction-delta {
+    position: absolute;
+    right: 0;
+    top: calc(50% - var(--delta-stack, 0) * 14px - 14px);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 5;
+    animation: factionDeltaFloat 1.5s ease-out forwards;
+  }
+
+  .delta-good { color: #5fd38a; text-shadow: 0 0 4px #5fd38a44; }
+  .delta-bad  { color: #d35f5f; text-shadow: 0 0 4px #d35f5f44; }
+
+  @keyframes factionDeltaFloat {
+    0%   { opacity: 0; transform: translateY(-30%); }
+    12%  { opacity: 1; transform: translateY(-50%); }
+    65%  { opacity: 1; transform: translateY(-70%); }
+    100% { opacity: 0; transform: translateY(-120%); }
+  }
 
   /* ── Spacer + phase ─────────────────────────────── */
   .flex-spacer { flex: 1; }

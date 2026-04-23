@@ -15,6 +15,9 @@ import type { TurnResolution, DialogueResolution } from '../types/game';
 import { DM_NARRATION_PROMPT, DM_INTENT_PROMPT } from './prompts/exploration';
 import { DIALOGUE_INTENT_PROMPT, DIALOGUE_NARRATION_PROMPT } from './prompts/dialogue';
 import { EVENT_NARRATION_PROMPT, EVENT_CLOSE_PROMPT } from './prompts/event';
+import { createLogger } from '../utils/Logger';
+
+const log = createLogger('DM');
 
 export type DialogueLogEntry = { speaker: 'player' | 'npc'; text: string };
 
@@ -61,6 +64,7 @@ export class DMAgent {
 
     const raw = await this.client.complete(DM_INTENT_PROMPT, userMessage, 512);
     this.lastRaw = raw;
+    log.debug('Phase 1 raw response', { length: raw.length, preview: raw.slice(0, 200) });
     return parseIntentResponse(raw);
   }
 
@@ -164,6 +168,7 @@ export class DMAgent {
 
     const raw = await this.client.complete(DIALOGUE_INTENT_PROMPT, parts.join('\n'), 512);
     this.lastRaw = raw;
+    log.debug('Dialogue Phase 1 raw response', { length: raw.length, preview: raw.slice(0, 200) });
     return parseDialogueIntentResponse(raw);
   }
 
@@ -285,7 +290,8 @@ function parseIntentResponse(raw: string): TurnResolution {
     if (Array.isArray(obj.flagsUnset)) proposal.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');
     if (obj.encounter && typeof obj.encounter === 'object') proposal.encounter = obj.encounter;
     return proposal;
-  } catch {
+  } catch (err) {
+    log.error('Phase 1 JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });
     return { narrativeSummary: '[intent parse error]' };
   }
 }
@@ -306,7 +312,8 @@ function parseDialogueIntentResponse(raw: string): DialogueResolution {
     if (Array.isArray(obj.flagsUnset)) res.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.questSignals)) res.questSignals = obj.questSignals;
     return res;
-  } catch {
+  } catch (err) {
+    log.error('Dialogue Phase 1 JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });
     return { endEncounter: false, narrativeSummary: '[dialogue intent parse error]' };
   }
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { MiniMapData } from '$lib/stores/gameStore';
-  import { bfsLayout } from '$lib/utils/mapLayout';
+  import type { MiniMapData, MiniMapEdge } from '$lib/stores/gameStore';
+  import { bfsLayout, edgesToLayoutNodes } from '$lib/utils/mapLayout';
 
   export let data: MiniMapData | undefined = undefined;
 
@@ -12,37 +12,56 @@
   const R_SUBLOC  = 4.5;
   const R_AREA    = 5.5;
   const R_CURRENT = 6.5;
+  const R_ADJACENT = 5;
 
   let hoveredId: string | null = null;
 
   $: startId = data?.nodes.find(n => n.isCurrent)?.id ?? data?.nodes[0]?.id ?? '';
-  $: layout  = data
-    ? bfsLayout(data.nodes.map(n => ({ id: n.id, connections: n.connections })), startId, W, H)
+  $: layoutNodes = data
+    ? edgesToLayoutNodes(data.nodes.map(n => n.id), data.edges)
+    : [];
+  $: layout = data
+    ? bfsLayout(layoutNodes, startId, W, H)
     : new Map<string, { x: number; y: number }>();
 
-  // Deduplicate edges: only draw A→B once (not B→A as well)
-  $: edges = (() => {
-    if (!data) return [] as Array<{ x1: number; y1: number; x2: number; y2: number; dim: boolean }>;
-    const seen = new Set<string>();
-    const result: Array<{ x1: number; y1: number; x2: number; y2: number; dim: boolean }> = [];
-    for (const node of data.nodes) {
-      for (const connId of node.connections) {
-        const key = [node.id, connId].sort().join('|');
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const from = layout.get(node.id);
-        const to   = layout.get(connId);
-        if (!from || !to) continue;
-        const connNode = data.nodes.find(n => n.id === connId);
-        result.push({
-          x1: from.x, y1: from.y,
-          x2: to.x,   y2: to.y,
-          dim: !node.isDiscovered || !connNode?.isDiscovered,
-        });
-      }
+  // Build positioned edges with metadata
+  $: positionedEdges = (() => {
+    if (!data) return [] as Array<PositionedEdge>;
+    const result: PositionedEdge[] = [];
+    for (const edge of data.edges) {
+      const from = layout.get(edge.fromId);
+      const to   = layout.get(edge.toId);
+      if (!from || !to) continue;
+      const fromNode = data.nodes.find(n => n.id === edge.fromId);
+      const toNode   = data.nodes.find(n => n.id === edge.toId);
+      const dim = !(fromNode?.isVisited) || !(toNode?.isVisited);
+      result.push({ ...edge, x1: from.x, y1: from.y, x2: to.x, y2: to.y, dim });
     }
     return result;
   })();
+
+  interface PositionedEdge extends MiniMapEdge {
+    x1: number; y1: number; x2: number; y2: number; dim: boolean;
+  }
+
+  function nodeRadius(kind: string, isCurrent: boolean): number {
+    if (isCurrent) return R_CURRENT;
+    if (kind === 'area-root') return R_AREA;
+    if (kind === 'adjacent-area') return R_ADJACENT;
+    return R_SUBLOC;
+  }
+
+  // Compute lock/bypass icon position at midpoint of an edge
+  function edgeMid(e: PositionedEdge): { x: number; y: number } {
+    return { x: (e.x1 + e.x2) / 2, y: (e.y1 + e.y2) / 2 };
+  }
+
+  // Compute arrow direction from current side to target side
+  function bypassArrowAngle(e: PositionedEdge): number {
+    const dx = e.x2 - e.x1;
+    const dy = e.y2 - e.y1;
+    return Math.atan2(dy, dx) * (180 / Math.PI);
+  }
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
@@ -50,18 +69,46 @@
   {#if data && data.nodes.length > 0}
     <svg width={W} height={H} viewBox="0 0 {W} {H}" class="minimap-svg">
       <!-- Edges -->
-      {#each edges as e}
+      {#each positionedEdges as e}
         <line
           x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-          class="edge" class:edge-dim={e.dim}
+          class="edge"
+          class:edge-dim={e.dim}
+          class:edge-cross={e.kind === 'cross-area'}
+          class:edge-remote={e.kind === 'remote-link'}
+          class:edge-locked={e.isLocked}
         />
+
+        <!-- Lock icon for locked edges -->
+        {#if e.isLocked}
+          {@const mid = edgeMid(e)}
+          <text
+            x={mid.x} y={mid.y}
+            class="edge-lock-icon"
+            text-anchor="middle"
+            dominant-baseline="central"
+          >✕{#if e.lockedMessage}<title>{e.lockedMessage}</title>{/if}</text>
+
+          <!-- Bypass arrow -->
+          {#if e.hasBypass}
+            {@const angle = bypassArrowAngle(e)}
+            <text
+              x={mid.x + 7 * Math.cos(angle * Math.PI / 180)}
+              y={mid.y + 7 * Math.sin(angle * Math.PI / 180)}
+              class="edge-bypass-arrow"
+              text-anchor="middle"
+              dominant-baseline="central"
+              transform="rotate({angle}, {mid.x + 7 * Math.cos(angle * Math.PI / 180)}, {mid.y + 7 * Math.sin(angle * Math.PI / 180)})"
+            >→{#if e.bypassMessage}<title>{e.bypassMessage}</title>{/if}</text>
+          {/if}
+        {/if}
       {/each}
 
       <!-- Nodes -->
       {#each data.nodes as node}
         {@const pos = layout.get(node.id)}
         {#if pos}
-          {@const r = node.isCurrent ? R_CURRENT : node.isArea ? R_AREA : R_SUBLOC}
+          {@const r = nodeRadius(node.kind, node.isCurrent)}
 
           <!-- Pulse ring for current location -->
           {#if node.isCurrent}
@@ -73,8 +120,11 @@
             cx={pos.x} cy={pos.y} r={r}
             class="node"
             class:node-current={node.isCurrent}
-            class:node-area={node.isArea && !node.isCurrent}
-            class:node-fog={!node.isDiscovered}
+            class:node-area={node.kind === 'area-root' && !node.isCurrent}
+            class:node-adjacent={node.kind === 'adjacent-area'}
+            class:node-remote={node.kind === 'remote-sublocation'}
+            class:node-known={node.isKnownButUnvisited}
+            class:node-fog={!node.isVisited && !node.isKnownButUnvisited}
             on:mouseenter={() => (hoveredId = node.id)}
             on:mouseleave={() => (hoveredId = null)}
           >
@@ -135,12 +185,38 @@
   /* ── Edges ─────────────────────────────────── */
   .edge {
     stroke: #1e3545;
-    stroke-width: 1;
+    stroke-width: 1.5;
     opacity: 0.75;
   }
   .edge-dim {
     stroke-dasharray: 3 3;
-    opacity: 0.25;
+    opacity: 0.3;
+  }
+  .edge-cross {
+    stroke: #8a7a40;
+    opacity: 0.6;
+  }
+  .edge-remote {
+    stroke: #5a6a40;
+    stroke-dasharray: 4 2;
+    opacity: 0.5;
+  }
+  .edge-locked {
+    opacity: 0.35;
+  }
+
+  /* ── Edge icons ─────────────────────────────── */
+  .edge-lock-icon {
+    font-size: 8px;
+    fill: #d35f5f;
+    opacity: 0.7;
+    cursor: default;
+  }
+  .edge-bypass-arrow {
+    font-size: 8px;
+    fill: #8a7a40;
+    opacity: 0.8;
+    cursor: default;
   }
 
   /* ── Nodes ─────────────────────────────────── */
@@ -160,11 +236,29 @@
     stroke: #3a6878;
     stroke-width: 1.5;
   }
+  .node-adjacent {
+    fill: #1a2a1a;
+    stroke: #8a7a40;
+    stroke-width: 1.5;
+    opacity: 0.7;
+  }
+  .node-remote {
+    fill: #0e1e28;
+    stroke: #5a6a40;
+    stroke-width: 1;
+    opacity: 0.6;
+  }
+  .node-known {
+    fill: #101c28;
+    stroke: #3a5868;
+    stroke-dasharray: 2 2;
+    opacity: 0.65;
+  }
   .node-fog {
     fill: #080f16;
     stroke: #182430;
     stroke-dasharray: 2 2;
-    opacity: 0.45;
+    opacity: 0.35;
   }
 
   /* ── Pulse animation ────────────────────────── */
