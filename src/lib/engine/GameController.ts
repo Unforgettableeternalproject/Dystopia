@@ -30,6 +30,7 @@ import type { ResolvedNode } from './EncounterEngine';
 import type { EncounterDefinition } from '../types/encounter';
 import type { PlayerAction, ActionType, ActionTargetKind, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
 import type { ObserveSnapshot, RestContext } from '../types/prop';
+import { parseItemGrantString } from '../utils/itemGrantParser';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
@@ -209,13 +210,26 @@ export class GameController {
     Object.assign(s.player.secondaryStats, config.player.secondaryStats);
     Object.assign(s.player.statusStats, { ...config.player.statusStats, experience: 0 });
     s.player.knownIntelIds = [...config.player.knownIntelIds];
-    s.player.inventory     = config.player.inventory.map((itemId: string) => ({
-      instanceId:       `${itemId}_0`,
-      itemId,
-      obtainedAtMinute: 0,
-      quantity:         1,
-      isExpired:        false,
-    }));
+    s.player.inventory     = config.player.inventory.map((raw: string, idx: number) => {
+      const parsed = parseItemGrantString(raw);
+      const inv: import('../types/item').InventoryItem = {
+        instanceId:       `${parsed.itemId}_${idx}`,
+        itemId:           parsed.itemId,
+        obtainedAtMinute: 0,
+        quantity:         1,
+        isExpired:        false,
+      };
+      // Only apply overrides if the base item is marked as isTemplate
+      if (parsed.overrides) {
+        const baseItem = this.lore.getItem(parsed.itemId);
+        if (baseItem?.isTemplate && baseItem.type !== 'key') {
+          inv.itemOverrides = parsed.overrides;
+        } else {
+          log.warn('Inline overrides ignored — base item is not a template or is a key item', { itemId: parsed.itemId });
+        }
+      }
+      return inv;
+    });
     if (config.player.title) s.player.titles = [config.player.title];
     s.time = { ...config.world.startTime, totalMinutes: 0 };
     s.timePeriod = config.world.startPeriod;
@@ -262,15 +276,13 @@ export class GameController {
     const gs      = this.state.getState();
     const invItem = gs.player.inventory.find(i => i.instanceId === instanceId);
     if (!invItem) return;
-    const itemDef = this.lore.getItem(invItem.itemId);
+    const itemDef = this.lore.getResolvedItem(invItem.itemId);
     if (!itemDef) return;
 
     // Info items open reading modal instead of consuming
     if (itemDef.type === 'info') {
-      // Resolve per-instance content override (from template factory)
-      const resolvedName = invItem.itemOverrides?.name ?? itemDef.name;
-      const resolvedContent = invItem.itemOverrides?.content ?? itemDef.content ?? '';
-      loreItemOpen.set({ name: resolvedName, content: resolvedContent });
+      const display = this.lore.resolveItemDisplay(invItem);
+      loreItemOpen.set({ name: display.name, content: display.content ?? '' });
       return;
     }
 
@@ -298,6 +310,27 @@ export class GameController {
     } finally {
       this.releaseInput();
     }
+  }
+
+  /**
+   * Grant a template item instance to the player.
+   * Takes a base item (isTemplate: true) and applies per-instance overrides.
+   * Each call creates a unique inventory instance with different content.
+   * Also usable by DM signals to grant dynamically-defined items.
+   */
+  grantTemplateItem(
+    baseItemId: string,
+    overrides: { name?: string; description?: string; content?: string },
+    onceFlag?: string,
+  ): boolean {
+    const baseItem = this.lore.getItem(baseItemId);
+    if (!baseItem || !baseItem.isTemplate || baseItem.type === 'key') return false;
+    if (onceFlag && this.state.flags.has(onceFlag)) return false;
+
+    const gs = this.state.getState();
+    this.state.addTemplateItem(baseItemId, overrides, gs.time.totalMinutes);
+    if (onceFlag) this.state.flags.set(onceFlag);
+    return true;
   }
 
   /**

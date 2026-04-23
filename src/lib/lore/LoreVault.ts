@@ -9,7 +9,7 @@ import type {
   TimePeriod, PathResult, PathSegment,
   PropNode,
 } from '../types';
-import type { ItemNode, InventoryItem, ItemTemplateNode } from '../types/item';
+import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
 import type { EncounterDefinition } from '../types/encounter';
 import type { GameTime } from '../types/game';
@@ -37,14 +37,13 @@ interface LoreData {
   items:        Record<string, ItemNode>;
   conditions:   Record<string, ConditionDefinition>;
   props:        Record<string, PropNode>;
-  itemTemplates: Record<string, ItemTemplateNode>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
     dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
-    flagManifest: [], items: {}, conditions: {}, props: {}, itemTemplates: {},
+    flagManifest: [], items: {}, conditions: {}, props: {},
   };
 
   /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
@@ -73,8 +72,7 @@ export class LoreVault {
     if (data.items)        Object.assign(this.data.items,       data.items);
     if (data.encounters)   Object.assign(this.data.encounters,  data.encounters);
     if (data.conditions)   Object.assign(this.data.conditions,  data.conditions);
-    if (data.props)          Object.assign(this.data.props,          data.props);
-    if (data.itemTemplates)  Object.assign(this.data.itemTemplates, data.itemTemplates);
+    if (data.props)        Object.assign(this.data.props,       data.props);
   }
 
   /**
@@ -567,46 +565,55 @@ export class LoreVault {
     return this.data.items[id];
   }
 
+  /**
+   * Get an item with baseId inheritance resolved.
+   * If the item has baseId, merges: base fields ← child overrides.
+   * Caches resolved result on first call.
+   */
+  getResolvedItem(id: string): ItemNode | undefined {
+    const item = this.data.items[id];
+    if (!item) return undefined;
+    if (!item.baseId) return item;
+
+    // Check cache
+    if (this._resolvedItems[id]) return this._resolvedItems[id];
+
+    const base = this.data.items[item.baseId];
+    if (!base) return item; // base not found, return as-is
+
+    const resolved: ItemNode = {
+      ...base,
+      ...Object.fromEntries(
+        Object.entries(item).filter(([, v]) => v !== undefined && v !== '')
+      ),
+      id: item.id,       // always keep child id
+      baseId: item.baseId,
+    } as ItemNode;
+
+    this._resolvedItems[id] = resolved;
+    return resolved;
+  }
+
+  private _resolvedItems: Record<string, ItemNode> = {};
+
   getAllItems(): ItemNode[] {
     return Object.values(this.data.items);
   }
 
-  // -- Item Templates (Factory) -------------------------------------------
-
-  getItemTemplate(id: string): ItemTemplateNode | undefined {
-    return this.data.itemTemplates[id];
-  }
+  // -- Item Display Resolution --------------------------------------------
 
   /**
-   * Resolve an inventory item's effective name/description/content by merging:
-   * 1. Base ItemNode fields
-   * 2. Template defaults (if templateId exists)
-   * 3. Per-instance itemOverrides (highest priority)
+   * Resolve an inventory item's effective name/description/content.
+   * Base ItemNode provides defaults; per-instance itemOverrides take priority.
+   * Used for isTemplate items (info notes, DM-granted items) and regular items alike.
    */
   resolveItemDisplay(inv: InventoryItem): { name: string; description: string; content?: string } {
-    const base = this.data.items[inv.itemId];
-    let name = base?.name ?? inv.itemId;
-    let description = base?.description ?? '';
-    let content = base?.content;
-
-    // Template defaults layer
-    if (inv.templateId) {
-      const tmpl = this.data.itemTemplates[inv.templateId];
-      if (tmpl?.defaults) {
-        if (tmpl.defaults.name) name = tmpl.defaults.name;
-        if (tmpl.defaults.description) description = tmpl.defaults.description;
-        if (tmpl.defaults.content) content = tmpl.defaults.content;
-      }
-    }
-
-    // Per-instance overrides (highest priority)
-    if (inv.itemOverrides) {
-      if (inv.itemOverrides.name) name = inv.itemOverrides.name;
-      if (inv.itemOverrides.description) description = inv.itemOverrides.description;
-      if (inv.itemOverrides.content !== undefined) content = inv.itemOverrides.content;
-    }
-
-    return { name, description, content };
+    const item = this.getResolvedItem(inv.itemId);
+    return {
+      name:        inv.itemOverrides?.name        ?? item?.name ?? inv.itemId,
+      description: inv.itemOverrides?.description ?? item?.description ?? '',
+      content:     inv.itemOverrides?.content     ?? item?.content,
+    };
   }
 
   // -- Props -------------------------------------------------------------

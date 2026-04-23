@@ -1,0 +1,9 @@
+{
+  "id": "generic_note",
+  "name": "字條",
+  "description": "一張折起來的紙條。",
+  "type": "info",
+  "content": "",
+  "isTemplate": true,
+  "obtainedFrom": ["story", "event", "npc", "prop"]
+}

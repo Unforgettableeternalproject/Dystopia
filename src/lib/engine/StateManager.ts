@@ -150,15 +150,13 @@ export class StateManager {
    */
   addTemplateItem(
     baseItemId: string,
-    templateId: string,
     overrides: { name?: string; description?: string; content?: string },
     totalMinutes: number,
   ): void {
-    const instanceId = `${baseItemId}_tmpl_${templateId}_${totalMinutes}_${Math.random().toString(36).slice(2, 6)}`;
+    const instanceId = `${baseItemId}_${totalMinutes}_${Math.random().toString(36).slice(2, 6)}`;
     const newItem: import('../types/item').InventoryItem = {
       instanceId,
       itemId: baseItemId,
-      templateId,
       itemOverrides: overrides,
       obtainedAtMinute: totalMinutes,
       quantity: 1,

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition';
   import { loreItemOpen } from '$lib/stores/gameStore';
 
   $: item = $loreItemOpen;
@@ -17,7 +18,7 @@
 {#if item}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="backdrop" on:click={close}>
+  <div class="backdrop" transition:fade={{ duration: 180 }} on:click={close}>
     <div class="modal" on:click|stopPropagation>
       <div class="header">
         <span class="title">{item.name}</span>

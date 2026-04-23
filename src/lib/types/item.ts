@@ -84,11 +84,24 @@ export interface ItemNode {
   description: string;
   type: ItemType;
   /**
+   * 繼承的基礎物品 ID。設定後，此物品從 base 繼承所有未覆蓋的欄位。
+   * 用於預先定義的模板實例——有自己的 ID，可放進任何字串陣列 grant。
+   * 載入時由 LoreVault 自動解析合併。
+   */
+  baseId?: string;
+  /**
    * 訊息物品的內文。type='info' 時填寫。
    * 玩家使用時不消耗，而是開啟閱讀模態窗顯示此內容。
-   * Template 物品可透過 InventoryItem.itemOverrides.content 覆蓋此欄位。
+   * isTemplate 物品可透過 InventoryItem.itemOverrides.content 覆蓋此欄位。
    */
   content?: string;
+  /**
+   * 標記此物品為模板。模板物品本身只是一個「空殼」，
+   * 發放時可透過 itemOverrides 指定不同的 name / description / content，
+   * 產生多種臨時變種。每個實例在 InventoryItem 中都是獨立的。
+   * DM 也可在給予物品時使用此機制產生未預先定義的物品。
+   */
+  isTemplate?: boolean;
   /** 裝備時提供的數值加成；消耗品/關鍵道具通常不適用 */
   statBonus?: ItemStatBonus;
   /** 變體列表；有變體的物品在 InventoryItem 中需同時指定 variantId */
@@ -154,44 +167,11 @@ export interface InventoryItem {
    */
   usesRemaining?: number;
   /**
-   * 來源模板 ID。由 Template 工廠產生的物品會帶此欄位。
-   * 指向 ItemTemplateNode.id，用於存檔後重建時查找原型。
-   */
-  templateId?: string;
-  /**
-   * 模板實例覆蓋欄位。Template 工廠產生時填入，
-   * 優先於 ItemNode 的同名欄位。UI / LoreItemModal 應讀取此值。
+   * 實例覆蓋欄位。從 isTemplate 物品產生實例時填入，
+   * 優先於 ItemNode 的同名欄位。UI / LoreItemModal 讀取此值。
+   * 也可由 DM signal 在發放時動態指定。
    */
   itemOverrides?: { name?: string; description?: string; content?: string };
-}
-
-// ── Item Template (Factory) ─────────────────────────────────────────
-
-/**
- * 物品模板節點。工廠型定義，用於產生同類但內容不同的物品。
- * 不同於 ItemVariant（同物品的有限形態），Template 產生的是獨立實例，
- * 每個實例可有不同的 name / description / content。
- *
- * 範例：「字條」模板可在不同 Prop 中產生內文各異的字條實例。
- */
-export interface ItemTemplateNode {
-  id: string;
-  /** 基礎物品 ID。模板以此 ItemNode 為原型，實例繼承其 type / statBonus 等欄位 */
-  baseItemId: string;
-  /** 預設覆蓋值。實例建立時先套用 defaults，再套用 grant 提供的 fields */
-  defaults?: { name?: string; description?: string; content?: string };
-}
-
-/**
- * Template 實例發放指令。用於 PropItemGrant / EventOutcome 等 grant surfaces。
- * 填入 templateId + fields 即可產生一個帶自訂內容的 InventoryItem。
- */
-export interface ItemTemplateInstanceGrant {
-  templateId: string;
-  /** 自訂欄位，覆蓋 defaults 和 baseItem */
-  fields: { name?: string; description?: string; content?: string };
-  /** 發放後設置的旗標（防止重複取得） */
-  onceFlag?: string;
 }
 
 /**

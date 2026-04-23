@@ -33,6 +33,9 @@
       "endoMax": 0
     },
     "knownIntelIds": [],
-    "inventory": [ "crambell_work_permit" ]
+    "inventory": [
+      "crambell_work_permit",
+      "generic_note|name:工作額度通知單|desc:一張從佈告欄撕下來的紙，邊角已經皺了。|content:【三區坎貝爾勞動管理局 — 每日配額通告】\n\n全體工人務必遵守以下生產標準：\n\n　礦石採集：每人每日 40 公斤\n　精煉作業：每人每日 12 批次\n　搬運任務：依工頭指派，不得拒絕\n\n未達配額者將受以下處分：\n　首次：口頭警告並記錄\n　二次：扣除當日餐食配給\n　三次以上：移交管制區處理\n\n配額完成後方可返回宿舍休息。\n提前完成者不得擅自離開崗位。\n\n— 戴司象限工作管理處"
+    ]
   }
 }

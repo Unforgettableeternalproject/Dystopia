@@ -73,9 +73,10 @@
     "obtainedFrom 欄位記錄此物品可從哪些來源取得，為 ItemSource 陣列，可多選：",
     "  'event'  — 透過事件觸發（EventOutcome / DM signal）",
     "  'npc'    — 向 NPC 購買、交換或接受贈予",
-    "  'prop'   — 從場景道具/容器取得（Prop 尚未實作）",
+    "  'prop'   — 從場景道具/容器取得",
     "  'shop'   — 在商店購買",
     "  'story'  — 劇情或初始物品（starter.json / 過場給予）",
+    "  'combat' — 戰鬥勝利後獎勵（未實作）",
     "",
     "初始物品（於 lore/world/starter.json 定義）填 [\"story\"]。",
     "一個物品可同時有多個來源，例如麵包可在商店買也可從 NPC 取得。",
@@ -154,28 +155,25 @@
 
   "_comment_info_example": [
     "以下為 type=info 的範例欄位。info 物品不消耗、不裝備，點閱讀開啟模態窗。",
-    "",
-    "content 為物品內文，玩家閱讀時看到。",
-    "如果是 Template 工廠產生的實例，content 由 Template 的 fields 覆蓋，",
-    "此處的 content 則作為 fallback。"
+    "content 為物品內文，玩家閱讀時看到。"
   ],
   "content": "這張字條上寫著某些文字。（type=info 時填寫）",
 
-  "_comment_template": [
-    "Template 工廠定義放在 lore/items/templates/*.json。",
-    "用於產生同類但內容不同的物品（如字條、信件、公告等）。",
+  "_comment_isTemplate": [
+    "isTemplate: true 標記此物品為模板。模板物品本身是一個「空殼」，",
+    "發放時可透過 itemOverrides 指定不同的 name / description / content，",
+    "產生多種臨時變種。每個實例在 InventoryItem 中都是獨立的。",
     "",
-    "Template JSON 結構：",
-    "  id         — 模板 ID",
-    "  baseItemId — 基礎物品 ID（必須是已定義的 ItemNode，通常 type=info）",
-    "  defaults   — 預設覆蓋值 { name?, description?, content? }",
+    "用法：",
+    "  1. 定義一個 base item，如 generic_note（type=info, isTemplate=true）",
+    "  2. 發放時呼叫 grantTemplateItem(baseItemId, { name, content }, onceFlag?)",
+    "  3. InventoryItem 帶 itemOverrides，UI 讀取時 override 優先於 base",
     "",
-    "發放時透過 ItemTemplateInstanceGrant：",
-    "  templateId — 模板 ID",
-    "  fields     — { name?, description?, content? } 覆蓋 defaults 和 base",
-    "  onceFlag   — 發放後設置旗標，防止重複取得",
+    "DM 也可在給予玩家物品時使用此機制，產生未預先定義的物品。",
+    "PropItemGrant 可附帶 itemOverrides 欄位來產生帶自訂內容的 Prop 物品。",
     "",
-    "實例進入 InventoryItem 後帶 templateId + itemOverrides，",
-    "UI 和閱讀 modal 讀取 itemOverrides 優先，fallback 到 base ItemNode。"
-  ]
+    "不是所有 info 物品都需要 isTemplate。靜態內容的 info 物品不需要。",
+    "不是所有 isTemplate 物品都是 info 類型，但目前主要用於 info。"
+  ],
+  "isTemplate": false
 }

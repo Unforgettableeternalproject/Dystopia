@@ -34,13 +34,16 @@ export interface PropNode {
 }
 
 /**
- * Prop 物品發放項目（Future）。
+ * Prop 物品發放項目。
  * 定義 Prop 中可取得的物品、數量與條件。
+ * isTemplate 物品可附帶 itemOverrides 產生帶自訂內容的實例。
  */
 export interface PropItemGrant {
   itemId: string;
   variantId?: string;
   count?: number;
+  /** isTemplate 物品的實例覆蓋欄位（name / description / content） */
+  itemOverrides?: { name?: string; description?: string; content?: string };
   /** 取得後設置的旗標（防止重複取得） */
   onceFlag?: string;
   /** 鎖定條件（旗標表達式），evaluate 為 true 時鎖住此物品 */
@@ -98,4 +101,3 @@ export interface RestContext {
   statusEffectScale: number;
 }
 
-// ItemTemplateNode is defined in item.ts
