@@ -130,8 +130,10 @@ export function listenForLogs(): (() => void) {
         logEntries.set(msg.payload as LogEntry[]);
         break;
       case 'app-close':
-        // Main window is closing — close this satellite window too
-        window.close();
+        // Main window is closing — close this satellite window via Tauri API
+        import('@tauri-apps/api/window')
+          .then(({ getCurrentWindow }) => getCurrentWindow().close())
+          .catch(() => window.close());
         break;
     }
   };

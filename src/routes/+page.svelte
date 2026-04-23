@@ -3,6 +3,7 @@
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
@@ -90,10 +91,13 @@
     return () => unlisten?.();   // synchronous cleanup for Svelte onMount
   });
 
-  function confirmClose() {
+  async function confirmClose() {
     _closeGuard.bypass = true;    // property mutation bypasses Svelte reactivity
     showCloseConfirm = false;
     broadcastAppClose();          // tell satellite windows (/console) to close
+    // Directly close the console window via Tauri API (window.close() doesn't work in WebView)
+    const consoleWin = await WebviewWindow.getByLabel('console');
+    if (consoleWin) await consoleWin.close();
     getCurrentWindow().close();
   }
 
