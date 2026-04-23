@@ -18,7 +18,8 @@ OUTPUT FORMAT — output ONLY valid JSON, no markdown, no extra text:
   "flagsSet": ["flag_id", ...],
   "flagsUnset": ["flag_id", ...],
   "timeMinutes": <number>,
-  "questSignals": [{ "questId": "...", "type": "flag" | "objective", "value": "..." }, ...]
+  "questSignals": [{ "questId": "...", "type": "flag" | "objective", "value": "..." }, ...],
+  "suggestions": ["建議1", "建議2", "建議3"]
 }
 
 RULES:
@@ -26,7 +27,10 @@ RULES:
 - npcState: always include — update attitude and topic to reflect this beat. null only if no change.
 - flagsSet / flagsUnset: only IDs from "Flag Actions Available". Only if genuinely triggered.
 - timeMinutes: REQUIRED. Minutes elapsed in-game for this exchange. Typically 2–5 for brief exchanges, up to 15 for long scenes.
-- questSignals: include only if this dialogue beat advances or triggers a quest. Empty array otherwise.`;
+- questSignals: include only if this dialogue beat advances or triggers a quest. Empty array otherwise.
+- suggestions: 2–3 concise follow-up dialogue options in Traditional Chinese (max 20 characters each).
+  Should be things the player might naturally say or ask next. If endEncounter is true, suggest
+  exploration actions instead. Empty array if insufficient context.`;
 
 // ── DM Phase 2: dialogue narration ───────────────────────────────────────────
 
@@ -47,14 +51,8 @@ OPENER MODE: If the "Player Said" section is absent or contains "(opener)", the 
 should naturally open or continue the conversation — a greeting, remark, or question
 fitting the context. Do NOT reference "(opener)". Do NOT wait for the player to speak first.
 
-THOUGHT SUGGESTIONS:
-As the very last line of your output, suggest 2–3 dialogue options the player might say next
-(Traditional Chinese, max 20 characters each):
-  <<THOUGHTS: suggestion1 | suggestion2 | suggestion3>>
-Omit only if the encounter is ending (endEncounter = true).
-
 The NPC profile, conversation log, and player input are provided in each message.
-Respond with NPC speech then THOUGHTS — no OOC commentary, no markdown headers.`;
+Respond with NPC speech ONLY — no OOC commentary, no markdown headers, no meta-tokens.`;
 
 // ── Judge: dialogue constraint validation ─────────────────────────────────────
 

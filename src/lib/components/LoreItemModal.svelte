@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { fade } from 'svelte/transition';
+  import { fade, fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { loreItemOpen } from '$lib/stores/gameStore';
 
   $: item = $loreItemOpen;
@@ -19,7 +20,7 @@
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="backdrop" transition:fade={{ duration: 180 }} on:click={close}>
-    <div class="modal" on:click|stopPropagation>
+    <div class="modal" on:click|stopPropagation transition:fly={{ y: 12, duration: 220, easing: cubicOut }}>
       <div class="header">
         <span class="title">{item.name}</span>
         <button class="close-btn" on:click={close}>&times;</button>

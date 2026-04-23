@@ -193,6 +193,8 @@ export interface DialogueResolution {
   narrativeSummary?: string;
   /** Explanation if Judge overrode a value. */
   reasoning?: string;
+  /** Judge 提供的 Thought 建議 */
+  suggestions?: string[];
 }
 
 // ── Judge / Shadow Mode ──────────────────────────────────────────────────────
@@ -227,6 +229,12 @@ export interface TurnResolution {
    * GRANT / REVOKE 信號規格定義中，暫不實裝。
    */
   consumeItemInstanceId?: string;
+  /**
+   * Judge 提供的 Thought 建議（2-3 條短句）。
+   * 取代原先 DM narrative stream 中的 <<THOUGHTS>> 信號，
+   * 由 Judge 以結構化 JSON 輸出，更穩定可靠。
+   */
+  suggestions?: string[];
 }
 
 /**

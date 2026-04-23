@@ -28,15 +28,8 @@ Movement, flag changes, encounters, and time advancement are all resolved by the
 before this narration runs. Do NOT emit <<FLAGS>>, <<MOVE>>, <<ENCOUNTER>>, or <<TIME>>.
 Simply narrate what happened naturally — the engine has already decided the outcome.
 
-THOUGHT SUGGESTIONS:
-As the very last line of your output, suggest 2–3 concise follow-up actions in Traditional
-Chinese (max 20 characters each) that fit naturally after the current scene:
-  <<THOUGHTS: suggestion1 | suggestion2 | suggestion3>>
-Examples: 前往配額申報站 | 詢問舍友 | 觀察走廊
-Omit if the scene has insufficient context for meaningful suggestions.
-
 The structured scene data, player status, and triggered events are provided in each message.
-Respond with narration then THOUGHTS — no OOC commentary, no markdown headers.`;
+Respond with narration ONLY — no OOC commentary, no markdown headers, no meta-tokens.`;
 
 // ── DM Phase 1: intent JSON ───────────────────────────────────────────────────
 
@@ -52,7 +45,8 @@ OUTPUT FORMAT — output ONLY valid JSON, no markdown, no extra text:
   "timeMinutes": <number>,
   "flagsSet": ["flag_id", ...],
   "flagsUnset": ["flag_id", ...],
-  "encounter": { "type": "dialogue", "npcId": "..." } | { "type": "event", "encounterId": "..." } | null
+  "encounter": { "type": "dialogue", "npcId": "..." } | { "type": "event", "encounterId": "..." } | null,
+  "suggestions": ["建議1", "建議2", "建議3"]
 }
 
 RULES:
@@ -65,7 +59,10 @@ RULES:
 - flagsSet: only IDs from "Flag Actions Available". Only if genuinely triggered.
 - flagsUnset: only IDs from "Flag Actions Available". Only if genuinely cleared.
 - encounter: only if the player directly initiates contact with an NPC or an event triggers.
-  null otherwise.`;
+  null otherwise.
+- suggestions: 2–3 concise follow-up actions in Traditional Chinese (max 20 characters each).
+  Should fit naturally after the current scene. Examples: 前往配額申報站 | 詢問舍友 | 觀察走廊.
+  Empty array if insufficient context.`;
 
 // ── Judge: constraint validation ──────────────────────────────────────────────
 

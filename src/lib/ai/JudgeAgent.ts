@@ -40,6 +40,9 @@ export class JudgeAgent {
     sceneContext: string,
   ): Promise<TurnResolution> {
     this.lastRaw = '';
+    // Strip suggestions from proposal sent to Judge — Judge just copies them back,
+    // no need to waste context tokens. We merge them back after parsing.
+    const { suggestions: dmSuggestions, ...proposalForJudge } = proposal;
     const userMessage = [
       '## Scene Context',
       sceneContext,
@@ -49,7 +52,7 @@ export class JudgeAgent {
       `input: ${action.input}`,
       '',
       '## DM Decided Proposal',
-      JSON.stringify(proposal, null, 2),
+      JSON.stringify(proposalForJudge, null, 2),
       '',
       '## Task',
       'Validate the DM proposal against scene constraints. Copy all values by default.',
@@ -60,7 +63,13 @@ export class JudgeAgent {
     const raw = await this.client.complete(JUDGE_EXPLORATION_PROMPT, userMessage, 512);
     this.lastRaw = raw;
     log.debug('Exploration judge raw response', { length: raw.length, preview: raw.slice(0, 200) });
-    return parseExplorationJudgeResponse(raw);
+    const result = parseExplorationJudgeResponse(raw);
+    // Merge DM suggestions back — Judge may have filtered them, but if Judge didn't output
+    // suggestions at all, fall back to DM's original suggestions.
+    if (!result.suggestions?.length && dmSuggestions?.length) {
+      result.suggestions = dmSuggestions;
+    }
+    return result;
   }
 
   /**
@@ -73,6 +82,7 @@ export class JudgeAgent {
     npcContext: string,
   ): Promise<DialogueResolution> {
     this.lastRaw = '';
+    const { suggestions: dmSuggestions, ...proposalForJudge } = proposal;
     const userMessage = [
       '## NPC Context',
       npcContext,
@@ -81,7 +91,7 @@ export class JudgeAgent {
       npcId,
       '',
       '## DM Decided Proposal',
-      JSON.stringify(proposal, null, 2),
+      JSON.stringify(proposalForJudge, null, 2),
       '',
       '## Task',
       'Validate the DM dialogue proposal. Copy all values by default.',
@@ -92,7 +102,11 @@ export class JudgeAgent {
     const raw = await this.client.complete(JUDGE_DIALOGUE_PROMPT, userMessage, 512);
     this.lastRaw = raw;
     log.debug('Dialogue judge raw response', { length: raw.length, preview: raw.slice(0, 200) });
-    return parseDialogueJudgeResponse(raw);
+    const result = parseDialogueJudgeResponse(raw);
+    if (!result.suggestions?.length && dmSuggestions?.length) {
+      result.suggestions = dmSuggestions;
+    }
+    return result;
   }
 }
 
@@ -126,6 +140,9 @@ function parseExplorationJudgeResponse(raw: string): TurnResolution {
     if (typeof obj.reasoning === 'string' && obj.reasoning.length > 0) {
       resolution.reasoning = obj.reasoning;
     }
+    if (Array.isArray(obj.suggestions)) {
+      resolution.suggestions = obj.suggestions.filter((s: unknown) => typeof s === 'string' && s.length > 0).slice(0, 3);
+    }
 
     return resolution;
   } catch (err) {
@@ -150,6 +167,9 @@ function parseDialogueJudgeResponse(raw: string): DialogueResolution {
     if (Array.isArray(obj.flagsUnset)) res.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.questSignals)) res.questSignals = obj.questSignals;
     if (typeof obj.reasoning === 'string' && obj.reasoning.length > 0) res.reasoning = obj.reasoning;
+    if (Array.isArray(obj.suggestions)) {
+      res.suggestions = obj.suggestions.filter((s: unknown) => typeof s === 'string' && s.length > 0).slice(0, 3);
+    }
     return res;
   } catch (err) {
     log.error('Dialogue judge JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });

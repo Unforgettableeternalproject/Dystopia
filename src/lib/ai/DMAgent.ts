@@ -62,7 +62,7 @@ export class DMAgent {
       `input: ${action.input}`,
     ].join('\n');
 
-    const raw = await this.client.complete(DM_INTENT_PROMPT, userMessage, 512);
+    const raw = await this.client.complete(DM_INTENT_PROMPT, userMessage, 768);
     this.lastRaw = raw;
     log.debug('Phase 1 raw response', { length: raw.length, preview: raw.slice(0, 200) });
     return parseIntentResponse(raw);
@@ -166,7 +166,7 @@ export class DMAgent {
       );
     }
 
-    const raw = await this.client.complete(DIALOGUE_INTENT_PROMPT, parts.join('\n'), 512);
+    const raw = await this.client.complete(DIALOGUE_INTENT_PROMPT, parts.join('\n'), 768);
     this.lastRaw = raw;
     log.debug('Dialogue Phase 1 raw response', { length: raw.length, preview: raw.slice(0, 200) });
     return parseDialogueIntentResponse(raw);
@@ -289,6 +289,9 @@ function parseIntentResponse(raw: string): TurnResolution {
     if (Array.isArray(obj.flagsSet))   proposal.flagsSet   = obj.flagsSet.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.flagsUnset)) proposal.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');
     if (obj.encounter && typeof obj.encounter === 'object') proposal.encounter = obj.encounter;
+    if (Array.isArray(obj.suggestions)) {
+      proposal.suggestions = obj.suggestions.filter((s: unknown) => typeof s === 'string' && s.length > 0).slice(0, 3);
+    }
     return proposal;
   } catch (err) {
     log.error('Phase 1 JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });
@@ -311,6 +314,9 @@ function parseDialogueIntentResponse(raw: string): DialogueResolution {
     if (Array.isArray(obj.flagsSet))   res.flagsSet   = obj.flagsSet.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.flagsUnset)) res.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.questSignals)) res.questSignals = obj.questSignals;
+    if (Array.isArray(obj.suggestions)) {
+      res.suggestions = obj.suggestions.filter((s: unknown) => typeof s === 'string' && s.length > 0).slice(0, 3);
+    }
     return res;
   } catch (err) {
     log.error('Dialogue Phase 1 JSON parse failed', { error: String(err), raw: raw.slice(0, 500), cleaned: cleaned.slice(0, 500) });

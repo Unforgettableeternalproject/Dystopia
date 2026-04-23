@@ -1520,7 +1520,7 @@ export class GameController {
     } catch (err) {
       log.warn('Judge resolve failed', err);
       judgeError = String(err);
-      resolution = { timeMinutes: proposal.timeMinutes ?? 10, reasoning: '[judge error]' };
+      resolution = { timeMinutes: proposal.timeMinutes ?? 10, suggestions: proposal.suggestions, reasoning: '[judge error]' };
     }
     // ── Trace: Judge ─────────────────────────────────────────────────────
     if (traceId != null) {
@@ -1754,12 +1754,8 @@ export class GameController {
       isStreaming.set(false);
     }
 
-    // Extract THOUGHTS only
-    let suggestions: string[] = [];
-    const thoughtsMatch = /<<THOUGHTS:\s*([^>]+?)>>/i.exec(fullText);
-    if (thoughtsMatch) {
-      suggestions = thoughtsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3);
-    }
+    // Suggestions come from Judge resolution, not DM narrative stream
+    const suggestions: string[] = resolution.suggestions ?? [];
 
     const cleanNarrative = this.sanitizeDMOutput(fullText);
 
@@ -1983,12 +1979,8 @@ export class GameController {
     // discard the in-flight response and do not reopen the NPC panel.
     if (get(activeNpcUI) === null) return;
 
-    // ── Extract THOUGHTS from narration text ───────────────────────────
-    let suggestions: string[] = [];
-    const thoughtsMatch = /<<THOUGHTS:\s*([^>]+?)>>/i.exec(fullText);
-    if (thoughtsMatch) {
-      suggestions = thoughtsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3);
-    }
+    // Suggestions come from Judge resolution, not DM narrative stream
+    const suggestions: string[] = resolution.suggestions ?? [];
 
     // Clean narration: strip signal markers
     const cleanNarrative = this.sanitizeDMOutput(fullText);
@@ -2423,6 +2415,7 @@ export class GameController {
 
   private async refreshThoughts(dmSuggestions: string[] = []): Promise<void> {
     const gs = this.state.getState();
+    const inDialogue = !!get(activeNpcUI);
     let base: Thought[];
     if (dmSuggestions.length > 0) {
       let n = 0;
@@ -2431,6 +2424,9 @@ export class GameController {
         text,
         actionType: 'free' as const,
       }));
+    } else if (inDialogue) {
+      // During dialogue, don't fall back to exploration thoughts
+      base = [];
     } else {
       base = this.buildBaseThoughts(gs);
     }

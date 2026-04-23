@@ -390,9 +390,7 @@
   <QuestDetailModal />
 {/if}
 
-{#if $loreItemOpen}
-  <LoreItemModal />
-{/if}
+<LoreItemModal />
 
 {#if $statCheckOverlay}
   <StatCheckOverlay
