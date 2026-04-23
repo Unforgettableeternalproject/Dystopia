@@ -452,6 +452,29 @@ export function showStatDelta(target: string, delta: number, valence: 'good' | '
   }, 1500);
 }
 
+// ── Lore item reading modal ───────────────────────────────────
+// Set to a { name, content } to open the lore reading modal; null to close.
+
+export interface LoreItemReading {
+  name: string;
+  content: string;
+}
+
+export const loreItemOpen = writable<LoreItemReading | null>(null);
+
+// ── Observe panel snapshot ─────────────────────────────────────
+// Updated by GameController.syncUIState() — deterministic scene data for the Observe UI
+
+import type { ObserveSnapshot } from '../types/prop';
+
+export const observeSnapshot = writable<ObserveSnapshot>({
+  location: { id: '', name: '' },
+  exits: [],
+  npcs: [],
+  props: [],
+  canFullRest: false,
+});
+
 // ── Derived ────────────────────────────────────────────────────
 
 export const staminaPercent = derived(

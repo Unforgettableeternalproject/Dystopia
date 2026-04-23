@@ -37,6 +37,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-fs": "^2.5.0",
     "notebooklm-client": "^0.2.0"
   },

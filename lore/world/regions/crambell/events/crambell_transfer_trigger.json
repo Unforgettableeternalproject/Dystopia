@@ -9,7 +9,7 @@
   ],
   "locationId": "delth_mining_shafts",
   "condition": {
-    "timePeriod": ["work"],
+    "timePeriods": ["work"],
     "flags": ["crambell_quota_met_today"],
     "notFlags": [
       "crambell_transfer_trigger_checked",

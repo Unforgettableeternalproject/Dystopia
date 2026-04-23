@@ -78,7 +78,7 @@ export interface EncounterChoice {
    * 物品持有需求（AND 關係）。玩家需持有所有未失效的指定物品，此選項才顯示。
    * 與旗標 condition 為獨立條件（AND）。
    */
-  itemCondition?: ItemRequirement[];
+  itemRequirements?: ItemRequirement[];
   /**
    * 最低梅分門檻。玩家持有梅分需大於等於此數值，此選項才顯示。
    */

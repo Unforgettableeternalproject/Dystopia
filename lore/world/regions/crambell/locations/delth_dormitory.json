@@ -11,11 +11,11 @@
     "connections": [
       {
         "targetLocationId": "delth_patrol_zone",
-        "description": "走出宿舍區，前往管制區"
+        "description": "從宿舍往管制區的道路"
       },
       {
         "targetLocationId": "delth_forest",
-        "description": "前往象限邊緣森林"
+        "description": "前往象限邊緣森林的小徑"
       },
       {
         "targetLocationId": "delth_mine_path",
@@ -42,15 +42,15 @@
         "connections": [
           {
             "targetLocationId": "delth_dormitory_room",
-            "description": "進入寢室"
+            "description": "回到寢室的道路"
           },
           {
             "targetLocationId": "delth_dormitory",
-            "description": "走到宿舍入口"
+            "description": "通往宿舍大門的道路"
           },
           {
             "targetLocationId": "delth_dormitory_public_bathroom",
-            "description": "前往公共盥洗空間"
+            "description": "往公共盥洗空間的走廊"
           }
         ],
         "npcIds": ["crambell_kach"],
@@ -69,11 +69,12 @@
         "connections": [
           {
             "targetLocationId": "delth_dormitory_common",
-            "description": "走到公共區"
+            "description": "往公共區去的方向"
           }
         ],
         "npcIds": [],
         "eventIds": [],
+        "propIds": ["delth_dormitory_room_bed", "delth_dormitory_room_clutter", "delth_dormitory_room_desk"],
         "isAccessible": true
       },
       "localVariants": []
@@ -88,7 +89,7 @@
         "connections": [
           {
             "targetLocationId": "delth_dormitory_common",
-            "description": "走回宿舍公共區"
+            "description": "往公共區去的走廊"
           }
         ],
         "npcIds": [],

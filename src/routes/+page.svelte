@@ -4,12 +4,13 @@
   import { cubicOut } from 'svelte/easing';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-  import { writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+  import { writeTextFile } from '@tauri-apps/plugin-fs';
+  import { save as saveDialog } from '@tauri-apps/plugin-dialog';
   import { GameController }   from '$lib/engine/GameController';
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
   import { broadcastAppClose } from '$lib/utils/Logger';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType, loreItemOpen } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -30,8 +31,9 @@
   import EncounterPanel       from '$lib/components/EncounterPanel.svelte';
   import DebugPanel           from '$lib/components/DebugPanel.svelte';
   import StatCheckOverlay     from '$lib/components/StatCheckOverlay.svelte';
+  import LoreItemModal        from '$lib/components/LoreItemModal.svelte';
 
-  import type { Thought } from '$lib/types';
+  import type { Thought, ActionTargetKind } from '$lib/types';
 
   let controller: GameController;
   let saveSlots: (SlotMeta | null)[] = Array(6).fill(null);
@@ -210,6 +212,14 @@
     });
   }
 
+  function handleCheck(targetKind: ActionTargetKind, targetId: string, targetName: string) {
+    if (!controller) return;
+    controller.submitAction(`檢查 "${targetName}"`, 'examine', targetId, targetKind, true).catch(err => {
+      pushLine('（檢查時發生錯誤）', 'system');
+      console.error(err);
+    });
+  }
+
   async function handleDialogueChoice(choiceId: string) {
     if (!controller) return;
     await controller.selectDialogueChoice(choiceId);
@@ -260,8 +270,13 @@
     try {
       const json     = await controller.exportSave(slotId);
       const filename = `dystopia_slot${slotId}.dys`;
-      await writeTextFile(filename, json, { baseDir: BaseDirectory.Download });
-      pushLine(`（存檔已匯出至下載資料夾：${filename}）`, 'system');
+      const filePath = await saveDialog({
+        defaultPath: filename,
+        filters: [{ name: 'Dystopia Save', extensions: ['dys'] }],
+      });
+      if (!filePath) return; // user cancelled
+      await writeTextFile(filePath, json);
+      pushLine(`（存檔已匯出：${filePath}）`, 'system');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       pushLine(`匯出失敗：${msg}`, 'system');
@@ -345,7 +360,7 @@
       {:else if $activeScriptedDialogue}
         <ScriptedChoicePanel onSelect={handleDialogueChoice} />
       {:else}
-        <ThoughtsPanel onSelect={handleThoughtSelect} />
+        <ThoughtsPanel onSelect={handleThoughtSelect} onCheck={handleCheck} />
       {/if}
     </div>
 
@@ -373,6 +388,10 @@
 
 {#if $questDetailOpen}
   <QuestDetailModal />
+{/if}
+
+{#if $loreItemOpen}
+  <LoreItemModal />
 {/if}
 
 {#if $statCheckOverlay}

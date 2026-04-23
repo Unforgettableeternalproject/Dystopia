@@ -27,6 +27,11 @@
     "",
     "選項的 nextNodeId 填 null 表示遭遇在此結束（不需要 isOutcome 節點）。",
     "",
+    "選項前置條件（pre-conditions）：",
+    "  condition      — 旗標表達式，為 false 時隱藏選項",
+    "  itemRequirements — 玩家需持有所有指定物品（AND），否則隱藏",
+    "  minMelphin     — 玩家梅分不足時隱藏",
+    "",
     "effects 可用欄位（節點與選項的 effects 相同）：",
     "  flagsSet / flagsUnset",
     "  statChanges          — dot-path 格式，如 statusStats.stress: 2",
@@ -34,7 +39,9 @@
     "  affinityChanges      — key = npcId",
     "  grantItems           — [{ itemId, variantId? }]",
     "  grantQuestId         — 授予任務 ID",
-    "  grantIntelId         — 授予情報 ID（同時設置 know_<id> 旗標）"
+    "  grantIntelId         — 授予情報 ID（同時設置 know_<id> 旗標）",
+    "  melphinChange        — 梅分變化（正 = 獲得，負 = 扣除）",
+    "  failQuestId          — 觸發指定任務的 onFail 效果"
   ],
 
   "_comment_stat_check": [
@@ -65,6 +72,10 @@
           "id": "choice_a",
           "text": "選項 A 的文字",
           "condition": "optional_flag （省略 = 永遠顯示）",
+          "itemRequirements": [
+            { "itemId": "item_id", "variantId": "optional_variant" }
+          ],
+          "minMelphin": 10,
           "nextNodeId": "node_check",
           "effects": {
             "flagsSet": [],

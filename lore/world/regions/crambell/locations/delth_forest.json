@@ -11,7 +11,7 @@
     "connections": [
       {
         "targetLocationId": "delth_dormitory",
-        "description": "返回宿舍區"
+        "description": "往宿舍區回去的小路"
       },
       {
         "targetLocationId": "delth_warehouse",
@@ -38,11 +38,11 @@
           "connections": [
             {
               "targetLocationId": "delth_forest",
-              "description": "返回森林"
+              "description": "返回森林入口的路"
             },
             {
               "targetLocationId": "delth_forest_deep",
-              "description": "繼續往森林深處走"
+              "description": "繼續進入森林深處"
             }
           ],
           "npcIds": [],
@@ -61,7 +61,7 @@
           "connections": [
             {
               "targetLocationId": "delth_forest_clearing",
-              "description": "返回林間空地"
+              "description": "返回林間空地的路"
             }
           ],
           "npcIds": [],

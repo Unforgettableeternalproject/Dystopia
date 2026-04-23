@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameController } from '../lib/engine/GameController';
 import type { ILLMClient } from '../lib/ai/ILLMClient';
-import type { GameEvent, LocationNode, QuestDefinition, RegionIndex, RegionSchedule } from '../lib/types';
+import type { GameEvent, LocationNode, QuestDefinition, RegionIndex, RegionSchedule, PropNode } from '../lib/types';
 
 class ScriptedClient implements ILLMClient {
   async complete(systemPrompt: string): Promise<string> {
@@ -46,6 +46,7 @@ function makeLocation(): LocationNode {
       connections: [],
       npcIds: [],
       eventIds: [],
+      propIds: ['dorm_bed'],
       isAccessible: true,
     },
     localVariants: [],
@@ -94,6 +95,15 @@ function makeQuest(): QuestDefinition {
   };
 }
 
+function makeProp(): PropNode {
+  return {
+    id: 'dorm_bed',
+    name: 'Bunk Bed',
+    description: 'A simple bunk bed.',
+    restPoint: true,
+  };
+}
+
 function makeEvent(): GameEvent {
   return {
     id: 'mvp_shift_change_event',
@@ -117,6 +127,7 @@ describe('GameController event flow', () => {
       schedules: { crambell: makeSchedule() },
       quests: { mvp_event_quest: makeQuest() },
       events: { mvp_shift_change_event: makeEvent() },
+      props: { dorm_bed: makeProp() },
     });
 
     await controller.submitAction('睡到白天', 'rest');

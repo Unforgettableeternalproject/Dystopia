@@ -157,9 +157,9 @@ export class EventEngine {
     }
 
     // Time period condition
-    if (condition.timePeriod && this.schedule) {
+    if (condition.timePeriods && this.schedule) {
       const current = this.time.getCurrentPeriod(gs.time, this.schedule, gs.player.activeFlags);
-      if (!condition.timePeriod.includes(current)) return false;
+      if (!condition.timePeriods.includes(current)) return false;
     }
 
     // Cooldown condition (repeatable events only)

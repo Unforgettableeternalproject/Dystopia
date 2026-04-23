@@ -229,7 +229,7 @@ export class EncounterEngine {
     const gs = this.state.getState();
     const visibleChoices = (node.choices ?? []).filter(c => {
       if (c.condition && !this.state.flags.evaluate(c.condition)) return false;
-      if (c.itemCondition?.length && !this.meetsItemCondition(c.itemCondition, gs)) return false;
+      if (c.itemRequirements?.length && !this.meetsItemRequirements(c.itemRequirements, gs)) return false;
       if (c.minMelphin !== undefined && gs.player.melphin < c.minMelphin) return false;
       return true;
     });
@@ -287,7 +287,7 @@ export class EncounterEngine {
   }
 
   /** 玩家是否持有所有指定未失效物品 */
-  private meetsItemCondition(reqs: ItemRequirement[], gs: Readonly<import('../types').GameState>): boolean {
+  private meetsItemRequirements(reqs: ItemRequirement[], gs: Readonly<import('../types').GameState>): boolean {
     return reqs.every(req =>
       gs.player.inventory.some(
         i => i.itemId === req.itemId

@@ -7,11 +7,13 @@
     "  'equipment'  = 裝備類：穿戴後持續提供 statBonus 加成，可進行裝備/卸下操作。",
     "  'consumable' = 消耗品：使用後觸發 effect 並從物品欄移除（stackable 時減少 quantity）。",
     "  'key'        = 關鍵道具：不可消耗、不可裝備，作為通行、任務或劇情的解鎖憑證。",
+    "  'info'       = 訊息物品：使用時開閱讀模態窗，不消耗。可搭配 Template 工廠產生不同內文的實例。",
     "",
     "各 type 對應填寫的欄位：",
     "  equipment  → statBonus（必填），不填 effect",
     "  consumable → effect（必填），不填 statBonus / variants",
-    "  key        → 可填 variants / expiresAfterMinutes，不填 statBonus / effect"
+    "  key        → 可填 variants / expiresAfterMinutes，不填 statBonus / effect",
+    "  info       → content（必填），不填 statBonus / effect。可由 Template 覆蓋 name/description/content"
   ],
 
   "_comment_effect": [
@@ -148,5 +150,32 @@
     "talent": 0,
     "spirit": 0,
     "luck": 0
-  }
+  },
+
+  "_comment_info_example": [
+    "以下為 type=info 的範例欄位。info 物品不消耗、不裝備，點閱讀開啟模態窗。",
+    "",
+    "content 為物品內文，玩家閱讀時看到。",
+    "如果是 Template 工廠產生的實例，content 由 Template 的 fields 覆蓋，",
+    "此處的 content 則作為 fallback。"
+  ],
+  "content": "這張字條上寫著某些文字。（type=info 時填寫）",
+
+  "_comment_template": [
+    "Template 工廠定義放在 lore/items/templates/*.json。",
+    "用於產生同類但內容不同的物品（如字條、信件、公告等）。",
+    "",
+    "Template JSON 結構：",
+    "  id         — 模板 ID",
+    "  baseItemId — 基礎物品 ID（必須是已定義的 ItemNode，通常 type=info）",
+    "  defaults   — 預設覆蓋值 { name?, description?, content? }",
+    "",
+    "發放時透過 ItemTemplateInstanceGrant：",
+    "  templateId — 模板 ID",
+    "  fields     — { name?, description?, content? } 覆蓋 defaults 和 base",
+    "  onceFlag   — 發放後設置旗標，防止重複取得",
+    "",
+    "實例進入 InventoryItem 後帶 templateId + itemOverrides，",
+    "UI 和閱讀 modal 讀取 itemOverrides 優先，fallback 到 base ItemNode。"
+  ]
 }

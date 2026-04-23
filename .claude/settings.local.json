@@ -68,7 +68,10 @@
       "mcp__mempal__mempal_cowork_push",
       "Bash(npm test:*)",
       "Bash(npm run:*)",
-      "Bash(npx svelte-check:*)"
+      "Bash(npx svelte-check:*)",
+      "mcp__fff__multi_grep",
+      "Bash(cargo add:*)",
+      "Bash(cargo check:*)"
     ]
   }
 }

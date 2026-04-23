@@ -1,0 +1,8 @@
+{
+  "id": "delth_dormitory_room_bed",
+  "name": "木板雙層床",
+  "description": "宿舍標配的雙層木板床，表面磨得發亮。薄薄的草墊上鋪著一條粗麻布毯。雖然簡陋，但至少能躺下來休息。床柱上刻著不同工人留下的記號。",
+  "tags": ["furniture", "rest", "bed"],
+  "restPoint": true,
+  "checkPrompt": "床很簡陋但功能完整。草墊底下似乎有些工人藏東西的痕跡——邊角被掀開過。床柱上有幾道刻痕，像是在數日子。"
+}

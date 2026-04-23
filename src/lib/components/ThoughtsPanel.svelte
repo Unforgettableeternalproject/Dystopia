@@ -1,9 +1,11 @@
 <script lang="ts">
   import { thoughts, isStreaming, inputDisabled } from '$lib/stores/gameStore';
   import ThoughtBubble from './ThoughtBubble.svelte';
-  import type { Thought } from '$lib/types';
+  import ObservePanel from './ObservePanel.svelte';
+  import type { Thought, ActionTargetKind } from '$lib/types';
 
   export let onSelect: (thought: Thought) => void;
+  export let onCheck: (targetKind: ActionTargetKind, targetId: string, targetName: string) => void;
 </script>
 
 {#if $thoughts.length > 0}
@@ -19,6 +21,8 @@
         />
       {/each}
     </div>
+    <div class="observe-spacer" />
+    <ObservePanel {onCheck} />
   </div>
 {/if}
 
@@ -51,5 +55,9 @@
     display: flex;
     gap: 5px;
     flex-wrap: nowrap;
+  }
+
+  .observe-spacer {
+    flex-grow: 1;
   }
 </style>

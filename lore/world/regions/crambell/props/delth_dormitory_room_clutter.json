@@ -1,0 +1,7 @@
+{
+  "id": "delth_dormitory_room_clutter",
+  "name": "雜物堆",
+  "description": "角落堆著一些工人的雜物——破損的工具、舊衣物、幾個空罐頭。看起來沒人整理，也沒人在意。",
+  "tags": ["clutter", "container"],
+  "checkPrompt": "翻看雜物堆，大多是無用的破爛。不過偶爾可能會有人遺落一些有用的東西在裡面。"
+}

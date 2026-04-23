@@ -8,7 +8,7 @@
   ],
   "locationId": "delth_quota_post",
   "condition": {
-    "timePeriod": ["work"],
+    "timePeriods": ["work"],
     "questActiveId": "crambell_transfer_opportunity",
     "questStageId": "collect_permit",
     "flags": ["crambell_transfer_permit_ready"],

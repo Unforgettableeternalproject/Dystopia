@@ -144,6 +144,32 @@ export class StateManager {
   }
 
   /**
+   * Add a template-instantiated item to inventory.
+   * Each call creates a unique instance with per-instance overrides.
+   * Template items are never stackable (each is unique content).
+   */
+  addTemplateItem(
+    baseItemId: string,
+    templateId: string,
+    overrides: { name?: string; description?: string; content?: string },
+    totalMinutes: number,
+  ): void {
+    const instanceId = `${baseItemId}_tmpl_${templateId}_${totalMinutes}_${Math.random().toString(36).slice(2, 6)}`;
+    const newItem: import('../types/item').InventoryItem = {
+      instanceId,
+      itemId: baseItemId,
+      templateId,
+      itemOverrides: overrides,
+      obtainedAtMinute: totalMinutes,
+      quantity: 1,
+      isExpired: false,
+    };
+    this.state.player.inventory.push(newItem);
+    this.notifyUpdate();
+    this._acquisitions.push({ type: 'item', itemId: baseItemId });
+  }
+
+  /**
    * 消耗一個消耗品物品實例，套用其效果並從物品欄移除/扣除。
    * 效果由呼叫方（GameController，持有 LoreVault）解析並傳入。
    * 回傳 true = 成功消耗；false = instanceId 不存在或物品非消耗品。

@@ -7,7 +7,7 @@
   ],
   "locationId": "delth_quota_post",
   "condition": {
-    "timePeriod": ["rest"],
+    "timePeriods": ["rest"],
     "questActiveId": "crambell_transfer_opportunity",
     "questStageId": "apply",
     "notFlags": ["crambell_transfer_application_approved"]

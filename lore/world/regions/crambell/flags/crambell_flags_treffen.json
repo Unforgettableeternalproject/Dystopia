@@ -6,7 +6,7 @@
     "proximity": {
       "locationIds": ["delth_patrol_zone", "delth_transit_hub", "delth_warehouse"],
       "questIds": ["crambell_treffen_contact"],
-      "timePeriod": ["rest"],
+      "timePeriods": ["rest"],
       "notFlags": ["crambell_orland_observed"]
     }
   },

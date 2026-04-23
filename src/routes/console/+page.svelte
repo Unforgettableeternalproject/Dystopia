@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { fade } from 'svelte/transition';
   import {
     traceEntries,
     listenForTraces,
@@ -7,6 +8,8 @@
     exportTraces,
   } from '$lib/stores/traceStore';
   import { logEntries, exportLog, clearLog, listenForLogs } from '$lib/utils/Logger';
+  import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+  import { writeTextFile } from '@tauri-apps/plugin-fs';
   import type { TraceEntry, TracePhase } from '$lib/stores/traceStore';
   import type { LogEntry } from '$lib/utils/Logger';
 
@@ -22,6 +25,15 @@
 
   // Level filter for log tab
   let logLevelFilter: 'all' | 'debug' | 'info' | 'warn' | 'error' = 'all';
+
+  // Export toast
+  let exportToast = '';
+  let exportToastTimeout: ReturnType<typeof setTimeout> | null = null;
+  function showToast(msg: string) {
+    exportToast = msg;
+    if (exportToastTimeout) clearTimeout(exportToastTimeout);
+    exportToastTimeout = setTimeout(() => { exportToast = ''; }, 3000);
+  }
 
   onMount(() => {
     cleanup = listenForTraces();
@@ -142,13 +154,17 @@
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const filename = `dystopia-${activeTab}-${ts}.${ext}`;
 
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const filePath = await saveDialog({
+        defaultPath: filename,
+        filters: [{ name: ext === 'json' ? 'JSON' : 'Log', extensions: [ext] }],
+      });
+      if (!filePath) return;
+      await writeTextFile(filePath, content);
+      showToast(`已匯出：${filePath.split(/[\\/]/).pop()}`);
+    } catch (err) {
+      showToast(`匯出失敗：${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   function handleClear() {
@@ -363,6 +379,11 @@
       BroadcastChannel: {cleanup ? '已連線' : '未連線'}
     </span>
   </div>
+
+  <!-- Export toast -->
+  {#if exportToast}
+    <div class="export-toast" transition:fade={{ duration: 150 }}>{exportToast}</div>
+  {/if}
 </div>
 
 <style>
@@ -788,5 +809,22 @@
   .detail-pre::-webkit-scrollbar-track,
   .log-detail::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* Export toast */
+  .export-toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a2a3a;
+    border: 1px solid #3a5a7a;
+    color: #6ec6ff;
+    font-size: 11px;
+    font-family: inherit;
+    padding: 6px 16px;
+    border-radius: 3px;
+    z-index: 100;
+    pointer-events: none;
   }
 </style>

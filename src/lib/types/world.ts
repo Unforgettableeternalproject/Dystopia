@@ -175,6 +175,8 @@ export interface LocationBase {
   connections: LocationConnection[];
   npcIds: string[];
   eventIds: string[];
+  /** 場景物件 ID 列表，引用 props/*.json 中的 PropNode */
+  propIds?: string[];
   /**
    * 靜態可訪問預設值。false = 地點預設隱藏／封鎖，可由 localVariants 覆蓋。
    * 若需要動態條件（旗標、時段、任務階段），請同時設定 accessCondition。
@@ -203,6 +205,8 @@ export interface LocalVariant {
   removeNpcIds?: string[];
   addEventIds?: string[];
   removeEventIds?: string[];
+  addPropIds?: string[];
+  removePropIds?: string[];
   transitionNote?: string;
 }
 
@@ -260,6 +264,7 @@ export interface ResolvedLocation {
   connections: LocationConnection[];
   npcIds: string[];
   eventIds: string[];
+  propIds: string[];
   isAccessible: boolean;
   activeVariants: string[];
   transitionNotes: string[];
@@ -312,7 +317,7 @@ export interface EventCondition {
   maxEventCounters?: Record<string, number>;
   exactEventCounters?: Record<string, number>;
   /** 事件只在這些時段觸發 */
-  timePeriod?: TimePeriod[];
+  timePeriods?: TimePeriod[];
   /**
    * 可重複事件的冷卻（遊戲內分鐘數）。
    * 上次觸發後需等待至少這麼多分鐘才能再次觸發。
@@ -483,7 +488,7 @@ export interface FlagProximity {
   /** 這些旗標全部不存在時才顯示（例如：旗標尚未設置才需要顯示） */
   notFlags?: string[];
   /** 只在這些時段顯示 */
-  timePeriod?: TimePeriod[];
+  timePeriods?: TimePeriod[];
 }
 
 /**

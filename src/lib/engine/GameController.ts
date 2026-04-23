@@ -28,7 +28,8 @@ import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode } from './EncounterEngine';
 import type { EncounterDefinition } from '../types/encounter';
-import type { PlayerAction, ActionType, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
+import type { PlayerAction, ActionType, ActionTargetKind, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
+import type { ObserveSnapshot, RestContext } from '../types/prop';
 import type { TriggeredEvent }          from './EventEngine';
 import type { ProximityContext }        from './FlagRegistry';
 import type { Thought }                 from '../types';
@@ -49,6 +50,8 @@ import {
   type MiniMapNode,
   type MiniMapEdge,
   type RegionMapData,
+  observeSnapshot,
+  loreItemOpen,
 } from '../stores/gameStore';
 import type { DialogueLogEntry } from '../ai/DMAgent';
 import { createLogger, listenForLogSyncRequests } from '../utils/Logger';
@@ -260,7 +263,18 @@ export class GameController {
     const invItem = gs.player.inventory.find(i => i.instanceId === instanceId);
     if (!invItem) return;
     const itemDef = this.lore.getItem(invItem.itemId);
-    if (!itemDef || itemDef.type !== 'consumable') return;
+    if (!itemDef) return;
+
+    // Info items open reading modal instead of consuming
+    if (itemDef.type === 'info') {
+      // Resolve per-instance content override (from template factory)
+      const resolvedName = invItem.itemOverrides?.name ?? itemDef.name;
+      const resolvedContent = invItem.itemOverrides?.content ?? itemDef.content ?? '';
+      loreItemOpen.set({ name: resolvedName, content: resolvedContent });
+      return;
+    }
+
+    if (itemDef.type !== 'consumable') return;
 
     // Apply effect immediately
     this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
@@ -322,13 +336,15 @@ export class GameController {
     this.syncUIState(this.state.getState());
   }
 
-  async submitAction(input: string, actionType?: ActionType, targetId?: string): Promise<void> {
+  async submitAction(input: string, actionType?: ActionType, targetId?: string, targetKind?: ActionTargetKind, silent?: boolean): Promise<void> {
     if (!input.trim()) return;
 
-    const action: PlayerAction = { type: actionType ?? 'free', input: input.trim(), targetId };
+    const action: PlayerAction = { type: actionType ?? 'free', input: input.trim(), targetId, targetKind };
     inputDisabled.set(true);
     const inDialogue = !!get(activeNpcUI) && !get(activeScriptedDialogue);
-    pushLine(inDialogue ? '「' + input.trim() + '」' : '> ' + input, inDialogue ? 'player-dialogue' : 'player');
+    if (!silent) {
+      pushLine(inDialogue ? '「' + input.trim() + '」' : '> ' + input, inDialogue ? 'player-dialogue' : 'player');
+    }
 
     if (this.mockMode) {
       await this.runMockResponse(input);
@@ -366,7 +382,7 @@ export class GameController {
     const traceId = startTrace(gs0reg.turn, 'exploration', `${actionType ?? 'free'}: ${input.slice(0, 60)}`, {
       locationId: gs0reg.player.currentLocationId,
     });
-    addTracePhase(traceId, 'input', { type: actionType ?? 'free', input, targetId });
+    addTracePhase(traceId, 'input', { type: actionType ?? 'free', input, targetId, targetKind });
 
     const resolvedForReg = this.lore.resolveLocation(gs0reg.player.currentLocationId, this.state.flags);
     const sceneNpcsForReg = (resolvedForReg?.npcIds ?? []).map(id => ({
@@ -526,6 +542,15 @@ export class GameController {
 
     const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId);
     this.flushAcquisitions();
+
+    // 4.4.5. Scuffed rest clamp — if resting without a rest point, cap time deterministically.
+    if (finalAction.type === 'rest' && resolution.timeMinutes != null) {
+      const restCtx = this.classifyRestContext();
+      if (restCtx.mode === 'scuffed' && resolution.timeMinutes > restCtx.maxTimeMinutes) {
+        log.debug('Rest clamped (scuffed)', { original: resolution.timeMinutes, clamped: restCtx.maxTimeMinutes });
+        resolution.timeMinutes = restCtx.maxTimeMinutes;
+      }
+    }
 
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
     // Downward correction (resolution < default) is deferred — TimeManager.advance() only
@@ -1007,14 +1032,17 @@ export class GameController {
     // ── Location context ───────────────────────────────────────────────────
     // NPC details are action-gated: only injected for examine (scene observation).
     // interact routes to dialogue handler before reaching buildSceneCtx.
-    const includeNpcs = action?.type === 'examine';
+    // General examine: inject full NPC/prop lists. Targeted Check: only focused target is injected below.
+    const isGeneralExamine = action?.type === 'examine' && !action?.targetKind;
+    const includeNpcs = isGeneralExamine;
+    const includeProps = isGeneralExamine;
     parts.push(
       this.lore.buildSceneContext(
         gs.player.currentLocationId,
         this.state.flags,
         includeNpcs ? gs.npcMemory : undefined,
         { timePeriod: gs.timePeriod, gameTime: gs.time, knownIntelIds: gs.player.knownIntelIds, activeQuests: Object.values(gs.activeQuests), inventory: gs.player.inventory, melphin: gs.player.melphin },
-        { includeNpcs },
+        { includeNpcs, includeProps },
       )
     );
 
@@ -1135,6 +1163,88 @@ export class GameController {
         if (matched.inv.usesRemaining !== undefined) itemParts.push(`Uses remaining: ${matched.inv.usesRemaining}`);
         if (matched.inv.quantity > 1) itemParts.push(`Held: ×${matched.inv.quantity}`);
         parts.push(itemParts.join('\n'));
+      }
+    }
+
+    // Focused target injection when checking via Observe → Check.
+    // Re-validates that the target is actually present and visible in the current scene
+    // to prevent leaking context for off-scene or invisible targets via direct API calls.
+    if (action?.type === 'examine' && action?.targetId && action?.targetKind) {
+      const currentResolved = resolved ?? this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+
+      if (action.targetKind === 'prop' && currentResolved) {
+        const visibleProps = this.lore.getVisiblePropsForLocation(
+          gs.player.currentLocationId, this.state.flags, gs.timePeriod,
+          gs.player.knownIntelIds, Object.values(gs.activeQuests), gs.time,
+          gs.player.inventory, gs.player.melphin,
+        );
+        const prop = visibleProps.find(p => p.id === action.targetId);
+        if (prop) {
+          const focusedLines = [
+            '\n### Focused Object',
+            'Name: ' + prop.name,
+            'Description: ' + prop.description,
+            prop.restPoint ? 'Rest point: yes' : '',
+            prop.checkPrompt ? prop.checkPrompt : '',
+          ].filter(Boolean);
+          parts.push(focusedLines.join('\n'));
+        }
+      } else if (action.targetKind === 'npc' && currentResolved) {
+        const visibleNpcs = this.lore.getNPCsByIds(currentResolved.npcIds, this.state.flags, gs.timePeriod);
+        const npc = visibleNpcs.find(n => n.id === action.targetId);
+        if (npc) {
+          const revealedSecrets = (npc.secretLayers ?? [])
+            .filter(s => this.state.flags.evaluate(s.condition))
+            .map(s => s.context);
+          const mem = gs.npcMemory[npc.id];
+          const focusedLines = [
+            '\n### Focused NPC',
+            'Name: ' + npc.name,
+            'Type: ' + npc.type,
+            'Description: ' + npc.publicDescription,
+            ...revealedSecrets.map(s => 'Secret: ' + s),
+            mem ? 'Relationship: met ' + mem.interactionCount + ' times, attitude: ' + mem.playerAttitude : 'Relationship: first encounter',
+          ];
+          parts.push(focusedLines.join('\n'));
+        }
+      } else if (action.targetKind === 'location' && currentResolved) {
+        const isExit = currentResolved.connections.some(c => c.targetLocationId === action.targetId);
+        if (isExit) {
+          const targetLoc = this.lore.resolveLocation(action.targetId!, this.state.flags);
+          if (targetLoc) {
+            const focusedLines = [
+              '\n### Focused Exit',
+              'Name: ' + targetLoc.name,
+              'Description: ' + targetLoc.description,
+              'Tags: ' + targetLoc.tags.join(', '),
+            ];
+            parts.push(focusedLines.join('\n'));
+          }
+        }
+      }
+    }
+
+    // Rest availability context — deterministic rest classification
+    if (action?.type === 'rest') {
+      const restCtx = this.classifyRestContext();
+      if (restCtx.mode === 'scuffed') {
+        parts.push([
+          '\n### Rest Availability',
+          'Mode: scuffed (no rest point available)',
+          'Max rest time: ' + restCtx.maxTimeMinutes + ' minutes',
+          'The player can only lean against a wall or sit on the ground for a brief rest.',
+          'Do NOT narrate the player finding a proper resting place or sleeping for hours.',
+        ].join('\n'));
+      } else {
+        const rpNames = restCtx.restPointIds
+          .map(id => this.lore.getProp(id)?.name ?? id)
+          .join(', ');
+        parts.push([
+          '\n### Rest Availability',
+          'Mode: full rest available',
+          'Rest points: ' + rpNames,
+          'The player has access to proper resting facilities.',
+        ].join('\n'));
       }
     }
 
@@ -1389,6 +1499,13 @@ export class GameController {
 
     // ── Deterministic post-validation (engine-side) ───────────────────────
 
+    // 0. Action-type gate: only free/move actions may resolve to movement.
+    //    Targeted examine, use, rest, etc. must never be reinterpreted as a move.
+    if (resolution.move && action.type !== 'free' && action.type !== 'move') {
+      log.debug('Move cleared — action type does not allow movement', { type: action.type, move: resolution.move });
+      resolution.move = undefined;
+    }
+
     // 1. Move validation: accept direct exits OR multi-hop navigation destination.
     //    If accepted, override timeMinutes with engine-calculated path time.
     if (resolution.move) {
@@ -1566,12 +1683,20 @@ export class GameController {
 
     // ── Phase 2: Stream DM narration ─────────────────────────────────────
     isStreaming.set(true);
-    pushLine('', 'narrative');
+    // Show thinking indicator while waiting for DM response
+    const thinkingLineId = pushLine('···', 'system');
+    let thinkingCleared = false;
 
     let fullText = '';
     let signalCutoff = -1;
     try {
       for await (const chunk of this.dm.narrate(sceneCtx, action, this.state.getState().history)) {
+        // Replace thinking indicator with narrative line on first chunk
+        if (!thinkingCleared) {
+          narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
+          pushLine('', 'narrative');
+          thinkingCleared = true;
+        }
         const prevLen = fullText.length;
         fullText += chunk;
         if (signalCutoff === -1) {
@@ -1587,6 +1712,10 @@ export class GameController {
       }
     } catch (err) {
       log.error('DM narration failed', err);
+      if (!thinkingCleared) {
+        narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
+        pushLine('', 'narrative');
+      }
       appendToLastLine('\n[narration error -- please retry]');
     } finally {
       isStreaming.set(false);
@@ -2311,6 +2440,89 @@ export class GameController {
     return result;
   }
 
+  // -- Observe / Rest --------------------------------------------------
+
+  /**
+   * Returns a deterministic snapshot of the current scene for the Observe panel.
+   * No LLM involved — pure game state + lore evaluation.
+   */
+  getObserveSnapshot(): ObserveSnapshot {
+    const gs = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    if (!resolved) {
+      return { location: { id: '', name: '' }, exits: [], npcs: [], props: [], canFullRest: false };
+    }
+
+    // Exits: show all, mark locked. Bypass-accessible = normal (not locked).
+    const exits = resolved.connections.map(c => {
+      const result = this.lore.getConnectionAccessResult(
+        c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+        Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+      );
+      return {
+        targetLocationId: c.targetLocationId,
+        description: c.description,
+        isLocked: !result.allowed,
+        lockedMessage: !result.allowed ? (c.access?.lockedMessage ?? '此通道目前無法通行') : undefined,
+      };
+    });
+
+    // NPCs: filtered by visibility and time period
+    const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod)
+      .map(n => ({ id: n.id, name: n.name }));
+
+    // Props: filtered by visibility conditions
+    const visibleProps = this.lore.getVisiblePropsForLocation(
+      gs.player.currentLocationId, this.state.flags, gs.timePeriod,
+      gs.player.knownIntelIds, Object.values(gs.activeQuests), gs.time,
+      gs.player.inventory, gs.player.melphin,
+    );
+    const props = visibleProps.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      isRestPoint: !!p.restPoint,
+    }));
+
+    return {
+      location: { id: resolved.id, name: resolved.name },
+      exits,
+      npcs,
+      props,
+      canFullRest: visibleProps.some(p => p.restPoint),
+    };
+  }
+
+  /**
+   * Classify the current rest context (full vs scuffed).
+   * Used by buildSceneCtx for rest action context and by submitAction for time clamp.
+   */
+  private classifyRestContext(): RestContext {
+    const gs = this.state.getState();
+    const visibleProps = this.lore.getVisiblePropsForLocation(
+      gs.player.currentLocationId, this.state.flags, gs.timePeriod,
+      gs.player.knownIntelIds, Object.values(gs.activeQuests), gs.time,
+      gs.player.inventory, gs.player.melphin,
+    );
+    const restPointProps = visibleProps.filter(p => p.restPoint);
+
+    if (restPointProps.length > 0) {
+      return {
+        mode: 'full_available',
+        restPointIds: restPointProps.map(p => p.id),
+        maxTimeMinutes: 480,
+        statusEffectScale: 1.0,
+      };
+    }
+
+    return {
+      mode: 'scuffed',
+      restPointIds: [],
+      maxTimeMinutes: 30,
+      statusEffectScale: 0.3,
+    };
+  }
+
   // -- UI sync ----------------------------------------------------------
 
   private syncUIState(gs: Readonly<GameState>): void {
@@ -2617,6 +2829,9 @@ export class GameController {
       regionMap,
     });
 
+    // Update observe snapshot for the Observe panel
+    observeSnapshot.set(this.getObserveSnapshot());
+
     detailedPlayer.set({
       primaryStats:   { ...gs.player.primaryStats },
       secondaryStats: { ...gs.player.secondaryStats },
@@ -2637,11 +2852,12 @@ export class GameController {
       resolvedInventory: gs.player.inventory.map(inv => {
         const node    = this.lore.getItem(inv.itemId);
         const variant = node?.variants?.find(v => v.id === inv.variantId);
+        const display = this.lore.resolveItemDisplay(inv);
         return {
           instanceId:   inv.instanceId,
           itemId:       inv.itemId,
-          name:         node?.name ?? inv.itemId,
-          description:  variant?.description ?? node?.description ?? '',
+          name:         variant ? display.name : display.name,
+          description:  variant?.description ?? display.description,
           type:         node?.type ?? 'key',
           variantLabel: variant?.label,
           quantity:     inv.quantity,

@@ -68,6 +68,17 @@
     "flagsUnset": ["crambell_treffen_trust_gained"]
   },
 
+  "_comment_failCondition": [
+    "頂層 failCondition：任何階段都適用，條件達成即失敗整個任務。",
+    "階段層 failCondition：只在該階段有效。",
+    "可用欄位：triggerHours（跨越整點時檢查）、flags（全部存在時失敗）、anyFlags（任一存在時失敗）"
+  ],
+  "failCondition": {
+    "triggerHours": [6, 22],
+    "flags": ["quest_failed_flag"],
+    "anyFlags": ["any_of_these_triggers_fail"]
+  },
+
   "entryStageId": "stage_1",
   "stages": {
     "stage_1": {
@@ -97,6 +108,16 @@
         "grantItems": [{ "itemId": "item_id", "variantId": "optional_variant" }],
         "grantQuestId": "next_quest_id (可省略)",
         "nextStageId": "stage_2"
+      },
+      "failCondition": {
+        "flags": ["stage_specific_fail_flag"]
+      },
+      "onFail": {
+        "_comment": "nextStageId 語意：null = 任務完全失敗；string = 退回指定階段；省略 = 僅套用效果，停留當前階段",
+        "flagsSet": ["stage_1_failed"],
+        "statChanges": { "statusStats.stress": 2 },
+        "reputationChanges": { "crambell_government": -5 },
+        "nextStageId": null
       },
       "onDitch": {
         "flagsSet": ["crambell_quest_ditched_stage_1"],

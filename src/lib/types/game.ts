@@ -91,10 +91,14 @@ export type ActionType =
   | "rest"
   | "combat";
 
+export type ActionTargetKind = 'location' | 'npc' | 'prop' | 'item';
+
 export interface PlayerAction {
   type: ActionType;
   input: string;
   targetId?: string;
+  /** Check 系統用：明確指定目標類型，避免 DM/Regulator 從 input 推測 */
+  targetKind?: ActionTargetKind;
 }
 
 export interface RegulatorResult {

@@ -6,7 +6,7 @@
   "_comment": "地點事件：巡邏管制區，需掛載到 delth_patrol_zone.eventIds。需旗標 crambell_punishment_scheduled 觸發，由其他事件或 NPC 互動設置。",
   "condition": {
     "flags": ["crambell_punishment_scheduled"],
-    "timePeriod": ["work"],
+    "timePeriods": ["work"],
     "cooldownMinutes": 0
   },
   "description": "象限廣場中央設有一個臨時高台。一名礦工被押上去，罪名是連續三日未達配額。士兵站在台兩側，強制要求廣場內所有人停下觀看，廣播同步播報罪行細節，語氣平靜如播報天氣預報。",

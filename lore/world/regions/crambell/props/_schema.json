@@ -1,0 +1,84 @@
+{
+  "_schema": "PropNode — one file per scene object definition",
+  "_version": 1,
+
+  "_comment_overview": [
+    "Props 是存在於地點中的可互動場景物件。",
+    "地點透過 LocationBase.propIds 引用 prop ID；LocalVariant 可用 addPropIds/removePropIds 增減。",
+    "Props 可以是休息點、承載可取得的物品、觸發事件或遭遇。",
+    "",
+    "與 availableItem（地點可用物品）的差異：",
+    "  - Props 中的物品只能從該 Prop 取得，適合關鍵道具、補給箱",
+    "  - availableItem 是區域中可被搜尋找到的資源（尚未實作）"
+  ],
+
+  "_comment_visibility": [
+    "可見性由兩個欄位控制：",
+    "  isVisible — 靜態預設值。false = 始終隱藏。省略或 true = 預設可見。",
+    "  visibleWhen — 動態條件，使用 ConnectionAccess 結構（與通道進入條件相同）。",
+    "",
+    "支援的條件類型：",
+    "  flag          — 旗標表達式，evaluate 為 true 時可見",
+    "  timePeriods   — 只在指定時段可見（work / rest / special）",
+    "  timeRanges    — 精確時間範圍（支援跨午夜）",
+    "  knowledgeIds  — 玩家持有指定情報時可見（全部滿足，AND）",
+    "  questStages   — 玩家在指定任務階段時可見（任一滿足，OR）。格式：[{ questId, stageId }]",
+    "  itemRequirements — 玩家持有指定物品時可見（全部滿足，AND）。格式：[{ itemId, variantId? }]",
+    "  minMelphin    — 玩家持有足夠梅分時可見",
+    "",
+    "bypass 與 lockedMessage 欄位不適用於可見性判斷，會被忽略。",
+    "省略 visibleWhen = 無額外條件限制。"
+  ],
+
+  "_comment_restPoint": [
+    "restPoint: true 的 Prop 標記為休息點。",
+    "場景中存在任一可見的 restPoint 時，玩家可進行完整休息。",
+    "沒有 restPoint 時，休息會被標記為 scuffed（效果減少、時間限制）。",
+    "玩家不需要與 restPoint Prop 互動，只要它存在且可見即可。"
+  ],
+
+  "_comment_checkPrompt": [
+    "checkPrompt 是 DM 面向的提示，玩家透過觀察面板檢查此物件時注入 DM context。",
+    "用途：引導 DM 描述物件的特殊細節，如隱藏抽屜、特殊標記等。",
+    "不直接顯示給玩家。"
+  ],
+
+  "_comment_future": [
+    "以下欄位已定義但尚未接完整互動（MVP 不實作）：",
+    "  itemGrants   — 可從此物件取得的物品列表",
+    "  eventIds     — 互動觸發的事件 ID 列表",
+    "  encounterId  — 互動觸發的遭遇 ID",
+    "",
+    "itemGrants 結構：",
+    "  itemId       — 物品 ID",
+    "  variantId    — 物品變體 ID（選填）",
+    "  count        — 數量（選填，預設 1）",
+    "  onceFlag     — 取得後設置的旗標，防止重複取得",
+    "  lockedWhen   — 鎖定條件（旗標表達式）",
+    "  lockedMessage — 鎖定時的提示文字"
+  ],
+
+  "id": "region_location_propname",
+  "name": "物件顯示名稱",
+  "description": "DM 面向的物件描述。簡短描述外觀與用途，1-2 句。",
+  "tags": ["furniture", "rest"],
+  "isVisible": true,
+  "visibleWhen": {
+    "_comment": "省略整個 visibleWhen 如果無條��限制。使用 ConnectionAccess 結構，所有子欄位為 AND 關係。",
+    "flag": "some_flag_expression",
+    "timePeriods": ["rest"],
+    "timeRanges": [
+      { "startHour": 22, "startMinute": 0, "endHour": 6, "endMinute": 0 }
+    ],
+    "knowledgeIds": ["intel_id"],
+    "questStages": [
+      { "questId": "quest_id", "stageId": "stage_id" }
+    ],
+    "itemRequirements": [
+      { "itemId": "item_id" }
+    ],
+    "minMelphin": 10
+  },
+  "restPoint": false,
+  "checkPrompt": "DM 面向的檢查提示（選填）。描述玩家仔細觀察此物件時能發現的額外資訊。"
+}

@@ -12,7 +12,7 @@
     "  flags         — 這些旗標全部存在（AND）",
     "  anyFlags      — 這些旗標至少一個存在（OR）",
     "  notFlags      — 這些旗標全部不存在（AND）",
-    "  timePeriod    — 只在這些時段顯示",
+    "  timePeriods   — 只在這些時段顯示",
     "",
     "DM signal 格式（narrative 結尾）：",
     "  <<FLAGS: +flag_to_set, -flag_to_unset>>",
@@ -29,7 +29,7 @@
       "questIds": ["crambell_some_quest"],
       "flags": ["required_flag"],
       "notFlags": ["already_done_flag"],
-      "timePeriod": ["work"]
+      "timePeriods": ["work"]
     }
   }
 }

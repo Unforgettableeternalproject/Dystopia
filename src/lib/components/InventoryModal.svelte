@@ -55,12 +55,14 @@
     key:        'KEY',
     equipment:  'EQP',
     consumable: 'USE',
+    info:       'INFO',
   };
 
   const TYPE_COLOR: Record<string, string> = {
     key:        'var(--accent)',
     equipment:  'var(--accent-blue)',
     consumable: '#6a9a6a',
+    info:       '#9a8a6a',
   };
 </script>
 
@@ -119,6 +121,8 @@
           <div class="detail-actions">
             {#if selected.type === 'consumable' && !selected.isExpired}
               <button class="action-btn use-btn" on:click={handleUse}>使用</button>
+            {:else if selected.type === 'info'}
+              <button class="action-btn use-btn" on:click={handleUse}>閱讀</button>
             {/if}
             {#if selected.type !== 'key'}
               {#if discardConfirm}

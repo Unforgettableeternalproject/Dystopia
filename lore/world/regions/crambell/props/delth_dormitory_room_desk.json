@@ -1,0 +1,7 @@
+{
+  "id": "delth_dormitory_room_desk",
+  "name": "小型書桌",
+  "description": "靠窗的小木桌，桌面坑坑洼洼。上面放著一盞油燈和幾張皺巴巴的紙。這大概是寢室裡唯一不是用來睡覺的傢俱。",
+  "tags": ["furniture", "desk"],
+  "checkPrompt": "書桌上散落著一些紙張，大多是工作排班表的手抄副本和簡單的筆記。油燈裡還有些油，可以用。"
+}

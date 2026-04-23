@@ -13,7 +13,7 @@
   "locationId": "delth_patrol_zone",
 
   "condition": {
-    "timePeriod": ["work"],
+    "timePeriods": ["work"],
     "notItemIds": ["crambell_work_permit"],
     "notFlags": ["crambell_permit_check_done_today"]
   },

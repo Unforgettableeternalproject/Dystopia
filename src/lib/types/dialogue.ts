@@ -96,14 +96,14 @@ export interface ScriptedChoice {
    * Pre-condition: all listed intel IDs must be in player's knownIntelIds.
    * Choice is hidden if any are missing.
    */
-  knowledgeRequired?: string[];
+  knowledgeIds?: string[];
 
   /**
    * Pre-condition: player must hold ALL listed items (AND).
    * Choice is hidden if any item is missing or expired.
    * Example: 需要特定象限移動許可、任務道具等 key item。
    */
-  itemRequired?: ItemRequirement[];
+  itemRequirements?: ItemRequirement[];
 
   /**
    * Pre-condition: player must hold at least this many Melphin.

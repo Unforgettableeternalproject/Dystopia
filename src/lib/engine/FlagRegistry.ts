@@ -160,7 +160,7 @@ export class FlagRegistry {
     if (p.anyFlags?.length && !ctx.flags.hasAny(p.anyFlags)) return false;
     if (p.notFlags?.length &&  ctx.flags.hasAny(p.notFlags)) return false;
 
-    if (p.timePeriod?.length && !p.timePeriod.includes(ctx.timePeriod)) return false;
+    if (p.timePeriods?.length && !p.timePeriods.includes(ctx.timePeriod)) return false;
 
     return true;
   }

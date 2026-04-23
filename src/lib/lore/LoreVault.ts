@@ -7,8 +7,9 @@ import type {
   GameEvent, Faction, RegionIndex,
   DistrictIndex, RegionSchedule, FlagManifestEntry,
   TimePeriod, PathResult, PathSegment,
+  PropNode,
 } from '../types';
-import type { ItemNode, InventoryItem } from '../types/item';
+import type { ItemNode, InventoryItem, ItemTemplateNode } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
 import type { EncounterDefinition } from '../types/encounter';
 import type { GameTime } from '../types/game';
@@ -35,13 +36,15 @@ interface LoreData {
   flagManifest: FlagManifestEntry[];
   items:        Record<string, ItemNode>;
   conditions:   Record<string, ConditionDefinition>;
+  props:        Record<string, PropNode>;
+  itemTemplates: Record<string, ItemTemplateNode>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {},
     dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
-    flagManifest: [], items: {}, conditions: {},
+    flagManifest: [], items: {}, conditions: {}, props: {}, itemTemplates: {},
   };
 
   /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
@@ -70,6 +73,8 @@ export class LoreVault {
     if (data.items)        Object.assign(this.data.items,       data.items);
     if (data.encounters)   Object.assign(this.data.encounters,  data.encounters);
     if (data.conditions)   Object.assign(this.data.conditions,  data.conditions);
+    if (data.props)          Object.assign(this.data.props,          data.props);
+    if (data.itemTemplates)  Object.assign(this.data.itemTemplates, data.itemTemplates);
   }
 
   /**
@@ -130,6 +135,7 @@ export class LoreVault {
     connections = [...connections];
     const npcSet   = new Set(npcIds);
     const evtSet   = new Set(eventIds);
+    const propSet  = new Set(node.base.propIds ?? []);
 
     const activeVariants: string[] = [];
     const transitionNotes: string[] = [];
@@ -146,6 +152,8 @@ export class LoreVault {
       v.removeNpcIds?.forEach(n => npcSet.delete(n));
       v.addEventIds?.forEach(e => evtSet.add(e));
       v.removeEventIds?.forEach(e => evtSet.delete(e));
+      v.addPropIds?.forEach(p => propSet.add(p));
+      v.removePropIds?.forEach(p => propSet.delete(p));
       if (v.transitionNote) transitionNotes.push(v.transitionNote);
     }
 
@@ -156,7 +164,7 @@ export class LoreVault {
       areaName: node.base.name ? node.name : undefined,
       regionId: node.regionId, tags: node.tags,
       description, ambience, connections,
-      npcIds: Array.from(npcSet), eventIds: Array.from(evtSet),
+      npcIds: Array.from(npcSet), eventIds: Array.from(evtSet), propIds: Array.from(propSet),
       isAccessible, activeVariants, transitionNotes,
       districtId:   node.districtId,
       parentId:     node.parentId,
@@ -563,6 +571,98 @@ export class LoreVault {
     return Object.values(this.data.items);
   }
 
+  // -- Item Templates (Factory) -------------------------------------------
+
+  getItemTemplate(id: string): ItemTemplateNode | undefined {
+    return this.data.itemTemplates[id];
+  }
+
+  /**
+   * Resolve an inventory item's effective name/description/content by merging:
+   * 1. Base ItemNode fields
+   * 2. Template defaults (if templateId exists)
+   * 3. Per-instance itemOverrides (highest priority)
+   */
+  resolveItemDisplay(inv: InventoryItem): { name: string; description: string; content?: string } {
+    const base = this.data.items[inv.itemId];
+    let name = base?.name ?? inv.itemId;
+    let description = base?.description ?? '';
+    let content = base?.content;
+
+    // Template defaults layer
+    if (inv.templateId) {
+      const tmpl = this.data.itemTemplates[inv.templateId];
+      if (tmpl?.defaults) {
+        if (tmpl.defaults.name) name = tmpl.defaults.name;
+        if (tmpl.defaults.description) description = tmpl.defaults.description;
+        if (tmpl.defaults.content) content = tmpl.defaults.content;
+      }
+    }
+
+    // Per-instance overrides (highest priority)
+    if (inv.itemOverrides) {
+      if (inv.itemOverrides.name) name = inv.itemOverrides.name;
+      if (inv.itemOverrides.description) description = inv.itemOverrides.description;
+      if (inv.itemOverrides.content !== undefined) content = inv.itemOverrides.content;
+    }
+
+    return { name, description, content };
+  }
+
+  // -- Props -------------------------------------------------------------
+
+  getProp(id: string): PropNode | undefined {
+    return this.data.props[id];
+  }
+
+  /**
+   * Returns visible props for a location, filtered by isVisible and visibleWhen conditions.
+   * Uses evaluateAccessCondition to support all condition types (flag, time, knowledge, quest, item, melphin).
+   */
+  getVisiblePropsForLocation(
+    locationId: string,
+    flags: FlagSystem,
+    timePeriod: TimePeriod,
+    knownIntelIds: string[],
+    activeQuests?: QuestInstance[],
+    gameTime?: GameTime,
+    inventory?: InventoryItem[],
+    melphin?: number,
+  ): PropNode[] {
+    const resolved = this.resolveLocation(locationId, flags);
+    if (!resolved) return [];
+    return resolved.propIds
+      .map(id => this.data.props[id])
+      .filter((p): p is PropNode => {
+        if (!p) return false;
+        if (p.isVisible === false) return false;
+        if (p.visibleWhen) {
+          return this.evaluateAccessCondition(
+            p.visibleWhen, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin,
+          ).allowed;
+        }
+        return true;
+      });
+  }
+
+  /**
+   * Returns true if the location has at least one visible prop marked as restPoint.
+   */
+  hasVisibleRestPoint(
+    locationId: string,
+    flags: FlagSystem,
+    timePeriod: TimePeriod,
+    knownIntelIds: string[],
+    activeQuests?: QuestInstance[],
+    gameTime?: GameTime,
+    inventory?: InventoryItem[],
+    melphin?: number,
+  ): boolean {
+    return this.getVisiblePropsForLocation(
+      locationId, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin,
+    ).some(p => p.restPoint);
+  }
+
   // -- Conditions ------------------------------------------------------
 
   getCondition(id: string): ConditionDefinition | undefined {
@@ -589,6 +689,7 @@ export class LoreVault {
     quests:     { id: string; name: string }[];
     locations:  { id: string; name: string }[];
     items:      { id: string; name: string; type: string; stackable: boolean; maxStack?: number }[];
+    props:      { id: string; name: string; restPoint: boolean }[];
   } {
     return {
       encounters: Object.values(this.data.encounters).map(e => ({ id: e.id, name: e.name, type: e.type ?? 'event' })),
@@ -597,6 +698,7 @@ export class LoreVault {
       quests:     Object.values(this.data.quests).map(q => ({ id: q.id, name: q.name })),
       locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
       items:      Object.values(this.data.items).map(i => ({ id: i.id, name: i.name, type: i.type, stackable: i.stackable ?? false, maxStack: i.maxStack })),
+      props:      Object.values(this.data.props).map(p => ({ id: p.id, name: p.name, restPoint: !!p.restPoint })),
     };
   }
 
@@ -612,7 +714,7 @@ export class LoreVault {
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
     accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number },
-    options?: { includeNpcs?: boolean },
+    options?: { includeNpcs?: boolean; includeProps?: boolean },
   ): string {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved) return '[Unknown location]';
@@ -721,6 +823,22 @@ export class LoreVault {
     // Default to true for backward compatibility (debug routes, etc.).
     if (options?.includeNpcs !== false) {
       lines.push('', '### Present NPCs', npcLines || '(none)');
+    }
+
+    // Props are gated the same way as NPCs — only included for examine actions.
+    if (options?.includeProps) {
+      const visibleProps = accessCtx
+        ? this.getVisiblePropsForLocation(
+            locationId, flags, accessCtx.timePeriod, accessCtx.knownIntelIds,
+            accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin,
+          )
+        : resolved.propIds.map(id => this.data.props[id]).filter((p): p is PropNode => !!p && p.isVisible !== false);
+      if (visibleProps.length > 0) {
+        const propLines = visibleProps.map(p =>
+          '- ' + p.name + ': ' + p.description + (p.restPoint ? ' [rest point]' : '')
+        ).join('\n');
+        lines.push('', '### Scene Objects', propLines);
+      }
     }
 
     return lines.filter(line => line !== '').join('\n');

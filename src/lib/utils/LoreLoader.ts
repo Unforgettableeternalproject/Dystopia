@@ -46,6 +46,10 @@ const encounterMods = import.meta.glob(
   '../../../lore/world/regions/crambell/encounters/*.json', { eager: true }
 ) as Record<string, any>;
 
+const propMods = import.meta.glob(
+  '../../../lore/world/regions/crambell/props/*.json', { eager: true }
+) as Record<string, any>;
+
 const crambellIndex = import.meta.glob(
   '../../../lore/world/regions/crambell/index.json', { eager: true }
 ) as Record<string, any>;
@@ -68,6 +72,10 @@ const starterMod = import.meta.glob(
 
 const itemMods = import.meta.glob(
   '../../../lore/items/*.json', { eager: true }
+) as Record<string, any>;
+
+const itemTemplateMods = import.meta.glob(
+  '../../../lore/items/templates/*.json', { eager: true }
 ) as Record<string, any>;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -123,6 +131,7 @@ export function loadCrambellLore(controller: GameController): void {
     dialogues:    byId(dialogueMods)   as any,
     districts:    byId(districtMods)    as any,
     encounters:   byId(encounterMods)   as any,
+    props:        byId(propMods)        as any,
     flagManifest: concatArrays(flagMods) as any,
   });
 
@@ -157,6 +166,10 @@ export function loadCrambellLore(controller: GameController): void {
   // Items (global, keyed by id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   controller.loadLore({ items: byId(itemMods) as any });
+
+  // Item templates (factory definitions)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  controller.loadLore({ itemTemplates: byId(itemTemplateMods) as any });
 
   // Starter config
   const starter = single(starterMod);

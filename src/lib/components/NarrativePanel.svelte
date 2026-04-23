@@ -69,7 +69,7 @@
   >
     <div class="content">
       {#each $narrativeLines as line (line.id)}
-        <p class="line line--{line.type}" class:streaming={line.isStreaming}>
+        <p class="line line--{line.type}" class:streaming={line.isStreaming} class:thinking={line.type === 'system' && line.text === '···'}>
           {#if line.type === 'player'}
             <span class="prompt">&gt;</span>{line.text.replace(/^> /, '')}
           {:else if line.type === 'player-dialogue'}
@@ -191,6 +191,15 @@
     color: var(--text-system);
     font-size: 12px;
     font-style: italic;
+  }
+
+  .thinking {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 0.9; }
   }
 
   .sys-prefix {

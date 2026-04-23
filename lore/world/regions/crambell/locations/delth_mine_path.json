@@ -11,11 +11,11 @@
     "connections": [
       {
         "targetLocationId": "delth_patrol_zone",
-        "description": "返回管制區"
+        "description": "返回管制區的路"
       },
       {
         "targetLocationId": "delth_mining_shafts",
-        "description": "進入礦區",
+        "description": "進入礦區的路",
         "travelNote": "走到通路末端，礦坑的轟鳴聲越來越清晰。",
         "access": {
           "timePeriods": ["work"],
@@ -28,7 +28,7 @@
       },
       {
         "targetLocationId": "delth_mine_storage",
-        "description": "進入礦坑儲藏室",
+        "description": "進入礦坑儲藏室的路",
         "access": {
           "knowledgeIds": ["crambell_mine_storage_access"],
           "lockedMessage": "遠處的建築有很多人在走動著，沒有理由最好不要隨便過去。"

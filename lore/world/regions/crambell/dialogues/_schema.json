@@ -37,8 +37,8 @@
 
           "_pre_conditions": "All pre-conditions are evaluated BEFORE the choice is shown. Hidden if any fail.",
           "condition": "flag_expression — choice hidden if false. Supports &, |, ! operators.",
-          "knowledgeRequired": ["intel_id_1", "intel_id_2"],
-          "itemRequired": [{ "itemId": "transit_permit", "variantId": "delth" }],
+          "knowledgeIds": ["intel_id_1", "intel_id_2"],
+          "itemRequirements": [{ "itemId": "transit_permit", "variantId": "delth" }],
           "minMelphin": 10,
 
           "_post_condition_branching": "Branches are evaluated AFTER effects are applied. First matching branch wins. Falls back to nextNodeId.",
@@ -92,14 +92,12 @@
     }
   ],
 
-  "milestones": [
+  "_comment_contextSnippets": "條件式 context 片段（舊名 milestones，已更名）。當條件成立時注入 DM prompt。支援旗標表達式與 intel:<id> 語法。",
+  "contextSnippets": [
     {
-      "id": "unique_milestone_id",
-      "label": "Design note: what this milestone represents (not injected into prompt).",
-      "condition": "flag_expression — milestone is active when true.",
-      "context": "Injected into DM prompt for LLM-mode dialogue when active. Describe what the NPC knows/feels/plans.",
-      "isPermanent": false,
-      "permanentSummary": "One sentence for NPC long-term memory. Required if isPermanent is true."
+      "label": "Design note: what this snippet represents (not injected into prompt).",
+      "condition": "flag_expression — snippet is active when true. Supports intel:<id> syntax.",
+      "context": "Injected into DM prompt for LLM-mode dialogue when active. Describe what the NPC knows/feels/plans."
     }
   ]
 }

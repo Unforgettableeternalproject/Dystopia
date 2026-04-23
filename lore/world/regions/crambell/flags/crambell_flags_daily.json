@@ -7,7 +7,7 @@
     "proximity": {
       "locationIds": ["delth_mine_worksite"],
       "questIds": ["crambell_worker_daily_quota"],
-      "timePeriod": ["work"],
+      "timePeriods": ["work"],
       "notFlags": ["crambell_quota_done_today", "crambell_quota_met_today"]
     }
   },
@@ -18,7 +18,7 @@
     "unsetCondition": "每次新的作業時段開始時自動清除（由 crambell_work_period_start 事件觸發）",
     "proximity": {
       "questIds": ["crambell_worker_daily_quota"],
-      "timePeriod": ["work"],
+      "timePeriods": ["work"],
       "notFlags": ["crambell_quota_met_today"]
     }
   },
@@ -30,7 +30,7 @@
     "proximity": {
       "locationIds": ["delth_quota_post"],
       "questIds": ["crambell_worker_daily_quota"],
-      "timePeriod": ["work"],
+      "timePeriods": ["work"],
       "notFlags": ["crambell_player_quota_checked_today"]
     }
   },
@@ -41,7 +41,7 @@
     "unsetCondition": "新作業時段開始時清除",
     "proximity": {
       "questIds": ["crambell_worker_daily_quota"],
-      "timePeriod": ["work"],
+      "timePeriods": ["work"],
       "flags": ["crambell_kane_corruption_suspected"],
       "notFlags": ["crambell_player_quota_exempted", "crambell_player_quota_checked_today"]
     }
@@ -53,7 +53,7 @@
     "unsetCondition": "（永久記錄，此次值班期間不重複觸發詳細掃描）",
     "proximity": {
       "locationIds": ["delth_patrol_zone"],
-      "timePeriod": ["work"],
+      "timePeriods": ["work"],
       "notFlags": ["crambell_player_patrol_checked"]
     }
   },
@@ -64,7 +64,7 @@
     "unsetCondition": "公開懲戒事件完成後自動清除",
     "proximity": {
       "locationIds": ["delth_patrol_zone", "delth_dormitory_common"],
-      "timePeriod": ["work"],
+      "timePeriods": ["work"],
       "flags": ["crambell_broadcast_quota_heard"],
       "notFlags": ["crambell_punishment_scheduled", "crambell_public_punishment_witnessed"]
     }
