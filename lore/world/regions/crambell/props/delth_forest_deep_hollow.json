@@ -1,0 +1,8 @@
+{
+  "id": "delth_forest_deep_hollow",
+  "name": "大樹樹洞",
+  "description": "森林深處一棵巨大老樹的空心樹洞，洞口能容一個人鑽進去。裡面黑暗，泥土氣味和腐葉混在一起。樹洞入口的樹皮上有幾道深刻的痕跡。",
+  "tags": ["natural", "container", "hideout"],
+  "restPoint": true,
+  "checkPrompt": "樹洞夠深，可以在裡面蜷縮休息，完全不被外面看見。洞壁上有些陳舊的刻劃，像是某種計數記號。靠近底部的泥土比上面乾燥，顯示有人長期在此避風雨。"
+}

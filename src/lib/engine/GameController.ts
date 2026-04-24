@@ -111,7 +111,13 @@ export class GameController {
   private static readonly FATIGUE_PERIOD_MINUTES = 360;
 
   /** 暫存休息敘述上下文，在 overlay 關閉後由 narrateRestResult() 使用 */
-  private _pendingRestNarration: { sceneCtx: string; result: RestResult; plannedMinutes: number } | null = null;
+  private _pendingRestNarration: {
+    sceneCtx:           string;
+    result:             RestResult;
+    plannedMinutes:     number;
+    wasInterrupted:     boolean;
+    interruptTriggered: TriggeredEvent[];
+  } | null = null;
 
 
   /** Scripted trigger nodeIds that have already fired in the current NPC encounter session. */
@@ -457,7 +463,12 @@ export class GameController {
         const variant = i.variantId ? def?.variants?.find(v => v.id === i.variantId)?.label : undefined;
         return variant ? `${name}（${variant}）` : name;
       });
-    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg, invNamesForReg);
+    const scenePropsForReg = this.lore.getVisiblePropsForLocation(
+      gs0reg.player.currentLocationId, this.state.flags, gs0reg.timePeriod,
+      gs0reg.player.knownIntelIds, Object.values(gs0reg.activeQuests), gs0reg.time,
+      gs0reg.player.inventory, gs0reg.player.melphin,
+    ).map(p => ({ id: p.id, name: p.name }));
+    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg, invNamesForReg, scenePropsForReg);
 
     // ── Trace: regulator result ──────────────────────────────────────────
     addTracePhase(traceId, 'regulator', {
@@ -613,8 +624,19 @@ export class GameController {
       return;
     }
 
+    // 4.16. Process prop interaction effects (itemGrants, eventIds, encounterId).
+    // Runs deterministically after global events so event encounters don't block prop processing.
+    const propCtx = await this.applyPropInteract(finalAction);
+    if (propCtx === null) {
+      // A prop-triggered encounter took over — it handles its own narration.
+      this.flushAcquisitions();
+      if (this.checkEndingConditions()) return;
+      this.releaseInput();
+      return;
+    }
+
     // 4.2. Player action DM — events already narrated above, so triggered is empty here.
-    const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction);
+    const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction) + propCtx;
     const navHint  = this.buildNavHint(finalAction);
 
     // ── Trace: scene context ─────────────────────────────────────────────
@@ -758,19 +780,51 @@ export class GameController {
    * @returns RestResult 結果資料
    */
   executeRest(plannedMinutes: number): RestResult {
-    const gs      = this.state.getState();
-    const restCtx = this.classifyRestContext();
-    const s       = gs.player.statusStats;
+    const gs       = this.state.getState();
+    const restCtx  = this.classifyRestContext();
+    const s        = gs.player.statusStats;
+    const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
 
-    const result = RestResolver.resolve({
-      plannedMinutes,
+    const resolveArgs = {
       restCtx,
       stamina:    s.stamina,
       staminaMax: s.staminaMax,
       stress:     s.stress,
       stressMax:  s.stressMax,
       fatigue:    s.fatigue ?? 0,
-    });
+    };
+
+    // Initial resolve to get projected actual duration
+    const fullResult = RestResolver.resolve({ plannedMinutes, ...resolveArgs });
+
+    // ── Sleep interrupt detection ─────────────────────────────────────────────
+    // Scan crossed hours to find the earliest triggerHours event. If found,
+    // truncate sleep so the player wakes up at that boundary instead.
+    const projectedEnd  = this.timeMgr.advance(gs.time, fullResult.actualMinutes);
+    const allCrossed    = this.timeMgr.computeCrossedHours(gs.time, projectedEnd);
+    let interruptMinutes: number | null = null;
+
+    for (const h of allCrossed) {
+      const wouldFire = this.events.peekHourlyInterrupts(
+        this.currentRegionId,
+        gs.player.currentLocationId,
+        [h],
+      );
+      if (wouldFire.length > 0) {
+        const startMins  = gs.time.hour * 60 + gs.time.minute;
+        const targetMins = h * 60;
+        let diff = targetMins - startMins;
+        if (diff <= 0) diff += 1440;   // overnight wrap
+        interruptMinutes = diff;
+        break;
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Re-resolve with truncated duration if sleep is interrupted
+    const result = interruptMinutes !== null
+      ? RestResolver.resolve({ plannedMinutes: interruptMinutes, ...resolveArgs })
+      : fullResult;
 
     // Apply stat changes (stamina recovery + stress reduction)
     if (result.staminaDelta !== 0) {
@@ -784,32 +838,32 @@ export class GameController {
       this.state.modifyStat('statusStats.fatigue', result.fatigueDelta);
     }
 
-    // Advance time by actual rest duration
-    const gs2      = this.state.getState();
-    const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
-    const newTime  = this.timeMgr.advance(gs2.time, result.actualMinutes);
-    const newPeriod = schedule
+    // Advance time by actual rest duration (may be truncated)
+    const gs2        = this.state.getState();
+    const beforeTime = gs2.time;  // snapshot before advanceTime replaces this.state.time
+    const newTime    = this.timeMgr.advance(beforeTime, result.actualMinutes);
+    const newPeriod  = schedule
       ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs2.player.activeFlags)
       : gs2.timePeriod;
     this.state.advanceTime(newTime, newPeriod);
     this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
 
-    // Post-rest system sweeps — mirrors the post-turn pipeline so rest cannot
-    // silently skip quest timeouts, time-triggered events, or objective completions.
-    // Events are applied (effects run) but NOT narrated here; narration happens
-    // on the next player action if needed.
-    const crossedHours = this.timeMgr.computeCrossedHours(gs2.time, newTime);
+    // Post-rest system sweeps — fire events at the (possibly truncated) wake time.
+    // If sleep was interrupted, these are the events that caused the wake-up.
+    let interruptTriggered: TriggeredEvent[] = [];
+    const crossedHours = this.timeMgr.computeCrossedHours(beforeTime, newTime);
     if (crossedHours.length > 0) {
       if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
         this.state.flags.set('game_day1_started');
       }
       if (this.state.flags.has('game_day1_started')) {
-        const qfTriggered  = this.checkQuestFailConditions(crossedHours);
-        const glTriggered  = this.events.checkGlobalEvents(this.currentRegionId, crossedHours);
-        const locTriggered = this.events.checkAndApply(gs2.player.currentLocationId, crossedHours);
+        const qfTriggered   = this.checkQuestFailConditions(crossedHours);
+        const glTriggered   = this.events.checkGlobalEvents(this.currentRegionId, crossedHours);
+        const locTriggered  = this.events.checkAndApply(gs2.player.currentLocationId, crossedHours);
         const timeTriggered = [...qfTriggered, ...glTriggered, ...locTriggered];
         if (timeTriggered.length > 0) {
-          this.processTriggeredEvents(timeTriggered);
+          const { extraTriggered } = this.processTriggeredEvents(timeTriggered);
+          interruptTriggered = [...timeTriggered, ...extraTriggered];
         }
       }
     }
@@ -821,9 +875,16 @@ export class GameController {
     // Flush acquisition notifications
     this.flushAcquisitions();
 
-    // Store narration context for after the overlay closes
-    const sceneCtx = this.buildSceneCtx([]);
-    this._pendingRestNarration = { sceneCtx, result, plannedMinutes };
+    // Store narration context for after the overlay closes.
+    // Scene ctx includes interrupt events so DM can mention what woke the player.
+    const sceneCtx = this.buildSceneCtx(interruptTriggered);
+    this._pendingRestNarration = {
+      sceneCtx,
+      result,
+      plannedMinutes,
+      wasInterrupted:     interruptMinutes !== null,
+      interruptTriggered,
+    };
 
     // Show result overlay
     restResultOverlay.set({
@@ -835,6 +896,7 @@ export class GameController {
       stressDelta:      result.stressDelta,
       fatigueDelta:     result.fatigueDelta,
       resultTags:       result.resultTags,
+      wasInterrupted:   interruptMinutes !== null,
     });
 
     // Sync UI
@@ -852,7 +914,7 @@ export class GameController {
     this._pendingRestNarration = null;
     if (!ctx || !this.dmClient) return;
 
-    const { sceneCtx, result, plannedMinutes } = ctx;
+    const { sceneCtx, result, plannedMinutes, wasInterrupted, interruptTriggered } = ctx;
     const gs = this.state.getState();
 
     const fmtMin = (m: number) => {
@@ -861,11 +923,16 @@ export class GameController {
       return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
     };
 
+    const interruptLine = wasInterrupted
+      ? `[SLEEP INTERRUPTED] Player was woken up early by: ${interruptTriggered.map(t => t.event.name).join(', ')}`
+      : '';
+
     const restSummary = [
       `Quality: ${result.quality}`,
       `Planned: ${fmtMin(plannedMinutes)} → Actual: ${fmtMin(result.actualMinutes)} (${result.deviationMinutes > 0 ? '+' : ''}${result.deviationMinutes}min deviation)`,
       result.staminaDelta !== 0 ? `Stamina: ${result.staminaDelta > 0 ? '+' : ''}${result.staminaDelta}` : '',
       result.stressDelta  !== 0 ? `Stress: ${result.stressDelta > 0 ? '+' : ''}${result.stressDelta}`   : '',
+      interruptLine,
     ].filter(Boolean).join('\n');
 
     const traceId = startTrace(gs.turn, 'exploration', `rest: ${result.quality}`);
@@ -2301,10 +2368,11 @@ export class GameController {
     const timeMinutes = resolution.timeMinutes;
     let timeTriggeredEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
     if (timeMinutes) {
-      const gs       = this.state.getState();
-      const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
-      const newTime  = this.timeMgr.advance(gs.time, timeMinutes);
-      const newPeriod = schedule
+      const gs         = this.state.getState();
+      const beforeTime = gs.time;  // snapshot before advanceTime replaces this.state.time
+      const schedule   = this.lore.getSchedule(this.currentRegionId) ?? null;
+      const newTime    = this.timeMgr.advance(beforeTime, timeMinutes);
+      const newPeriod  = schedule
         ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
         : gs.timePeriod;
       const periodChanged = this.state.advanceTime(newTime, newPeriod);
@@ -2312,7 +2380,7 @@ export class GameController {
 
       // Sweep time-crossing events so dialogue turns don't silently skip quest fails,
       // broadcasts, or location events (mirrors the exploration main path).
-      const crossedHours = this.timeMgr.computeCrossedHours(gs.time, newTime);
+      const crossedHours = this.timeMgr.computeCrossedHours(beforeTime, newTime);
       if (crossedHours.length > 0) {
         if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
           this.state.flags.set('game_day1_started');
@@ -3005,6 +3073,105 @@ export class GameController {
       props,
       canFullRest: visibleProps.some(p => p.restPoint),
     };
+  }
+
+  /**
+   * Processes deterministic prop interaction effects (itemGrants, eventIds, encounterId).
+   * Only runs when action.type === 'interact' and targetId resolves to a visible prop.
+   * Returns null  → an encounter was triggered; caller should early-return.
+   * Returns string → context snippet (may be empty) to append to the DM scene context.
+   */
+  private async applyPropInteract(action: PlayerAction): Promise<string | null> {
+    if (action.type !== 'interact' || !action.targetId) return '';
+
+    const gs = this.state.getState();
+    const visibleProps = this.lore.getVisiblePropsForLocation(
+      gs.player.currentLocationId, this.state.flags, gs.timePeriod,
+      gs.player.knownIntelIds, Object.values(gs.activeQuests), gs.time,
+      gs.player.inventory, gs.player.melphin,
+    );
+    const prop = visibleProps.find(p => p.id === action.targetId);
+    if (!prop || (!prop.itemGrants?.length && !prop.eventIds?.length && !prop.encounterId)) {
+      return '';
+    }
+
+    const now = gs.time.totalMinutes;
+    const ctxLines: string[] = [`\n### Prop Interaction: ${prop.name}`];
+    const grantedNames: string[] = [];
+    const lockedMessages: string[] = [];
+
+    // ── itemGrants ───────────────────────────────────────────────────────
+    for (const grant of prop.itemGrants ?? []) {
+      if (grant.lockedWhen && this.state.flags.evaluate(grant.lockedWhen)) {
+        if (grant.lockedMessage) lockedMessages.push(grant.lockedMessage);
+        continue;
+      }
+      if (grant.onceFlag && this.state.flags.has(grant.onceFlag)) continue;
+
+      const def = this.lore.getItem(grant.itemId);
+      if (!def) continue;
+
+      const count = grant.count ?? 1;
+      for (let i = 0; i < count; i++) {
+        if (grant.itemOverrides && def.isTemplate) {
+          this.state.addTemplateItem(grant.itemId, grant.itemOverrides, now);
+        } else {
+          this.state.addItem(grant.itemId, now, grant.variantId, {
+            stackable:          def.stackable,
+            maxStack:           def.maxStack,
+            maxUsesPerInstance: def.maxUsesPerInstance,
+          });
+        }
+      }
+
+      if (grant.onceFlag) this.state.flags.set(grant.onceFlag);
+
+      const variantLabel = grant.variantId
+        ? def.variants?.find(v => v.id === grant.variantId)?.label
+        : undefined;
+      const label = variantLabel ? `${def.name}（${variantLabel}）` : def.name;
+      grantedNames.push(count > 1 ? `${label} x${count}` : label);
+    }
+
+    if (grantedNames.length > 0)  ctxLines.push(`Items obtained: ${grantedNames.join(', ')}`);
+    if (lockedMessages.length > 0) ctxLines.push(`Item access blocked: ${lockedMessages.join('; ')}`);
+
+    this.flushAcquisitions();
+
+    // ── eventIds ─────────────────────────────────────────────────────────
+    const propTriggered: TriggeredEvent[] = [];
+    for (const eventId of prop.eventIds ?? []) {
+      const t = this.events.fireEventById(eventId);
+      if (t) propTriggered.push(t);
+    }
+
+    if (propTriggered.length > 0) {
+      const { eventEncounter, extraTriggered } = this.processTriggeredEvents(propTriggered);
+      const allPropEvents = [...propTriggered, ...extraTriggered];
+
+      if (allPropEvents.length > 0) {
+        const evCtx = this.buildSceneCtx(allPropEvents, false);
+        await this.runEventDM(evCtx, 'narrative');
+        this.flushAcquisitions();
+      }
+
+      if (eventEncounter) {
+        await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
+        this.flushAcquisitions();
+        return null;
+      }
+
+      ctxLines.push(`Events triggered: ${propTriggered.map(t => t.event.name).join(', ')}`);
+    }
+
+    // ── encounterId ──────────────────────────────────────────────────────
+    if (prop.encounterId) {
+      await this.startAndRenderEncounter(prop.encounterId);
+      this.flushAcquisitions();
+      return null;
+    }
+
+    return (grantedNames.length > 0 || propTriggered.length > 0) ? ctxLines.join('\n') : '';
   }
 
   /**

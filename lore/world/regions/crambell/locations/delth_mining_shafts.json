@@ -16,6 +16,7 @@
     ],
     "npcIds": [],
     "eventIds": ["crambell_transfer_trigger"],
+    "propIds": ["delth_mining_shafts_gate_log"],
     "isAccessible": true
   },
   "sublocations": [
@@ -40,8 +41,9 @@
             }
           }
         ],
-        "npcIds": [],
+        "npcIds": ["crambell_kach"],
         "eventIds": [],
+        "propIds": ["delth_mine_worksite_cart", "delth_mine_worksite_pickaxe_rack"],
         "isAccessible": true
       },
       "localVariants": []
@@ -69,6 +71,7 @@
         ],
         "npcIds": [],
         "eventIds": ["crambell_event_singing_child"],
+        "propIds": ["delth_mine_plaza_notice_board", "delth_mine_plaza_water_barrel"],
         "isAccessible": true
       },
       "localVariants": []
@@ -96,6 +99,7 @@
         ],
         "npcIds": [],
         "eventIds": [],
+        "propIds": ["delth_mine_storage_crates", "delth_mine_storage_shelf"],
         "isAccessible": true
       },
       "localVariants": []

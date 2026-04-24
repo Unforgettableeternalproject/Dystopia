@@ -37,6 +37,7 @@
     ],
     "npcIds": [],
     "eventIds": ["crambell_event_lament"],
+    "propIds": ["delth_mine_path_tool_rack", "delth_mine_path_water_station"],
     "isAccessible": true
   },
   "localVariants": []

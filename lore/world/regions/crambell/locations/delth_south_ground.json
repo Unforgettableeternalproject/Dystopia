@@ -28,6 +28,7 @@
     ],
     "npcIds": [],
     "eventIds": [],
+    "propIds": ["delth_south_ground_broken_fence", "delth_south_ground_puddle"],
     "isAccessible": true
   },
   "localVariants": []

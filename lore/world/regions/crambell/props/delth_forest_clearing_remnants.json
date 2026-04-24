@@ -1,0 +1,7 @@
+{
+  "id": "delth_forest_clearing_remnants",
+  "name": "廢棄物堆",
+  "description": "散落在林間空地的廢棄工具和容器，有些是礦場流出的，有些明顯是人為丟置的。沒有規律，但也不像是隨意亂扔——有人曾在這裡長期活動過。",
+  "tags": ["clutter", "container", "abandoned"],
+  "checkPrompt": "翻開幾件廢棄物，有個金屬容器還有蓋子，裡面是空的，但沒有生鏽，表示最近還有人動過。地上的腳印指向幾個方向。"
+}

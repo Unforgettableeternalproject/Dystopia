@@ -1,0 +1,7 @@
+{
+  "id": "delth_patrol_zone_detention_rack",
+  "name": "禁閉架",
+  "description": "廣場中央可見度最高的位置擺著兩個鐵製禁閉架，用於公開展示違規工人。目前是空的，但金屬面板上殘留著舊的鏈條摩擦痕。",
+  "tags": ["fixture", "punishment", "public"],
+  "checkPrompt": "禁閉架的地板上有些暗色的污漬，金屬上有手抓過留下的劃痕。最近顯然有人被固定在這裡，那些痕跡還很新。"
+}

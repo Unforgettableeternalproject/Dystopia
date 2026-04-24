@@ -32,6 +32,7 @@
     ],
     "npcIds": [],
     "eventIds": ["crambell_event_illegal_intrusion"],
+    "propIds": ["delth_warehouse_metal_shelf", "delth_warehouse_cargo_box"],
     "isAccessible": true
   },
   "localVariants": [

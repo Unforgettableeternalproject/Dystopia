@@ -80,6 +80,40 @@ export class EventEngine {
     return this.processEventIds(region.globalEventIds);
   }
 
+  /**
+   * Checks (without applying effects) whether any triggerHours events would fire
+   * for the given crossed-hour set. Used by executeRest() to detect sleep interrupt points.
+   *
+   * Only events with condition.triggerHours are considered — probability-based
+   * or presence-based events do not interrupt sleep.
+   * triggerChance is intentionally skipped: time-boundary events should reliably wake the player.
+   */
+  peekHourlyInterrupts(regionId: string, locationId: string, crossedHours: number[]): GameEvent[] {
+    const resolved = this.lore.resolveLocation(locationId, this.state.flags);
+    this.checkCtx = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours };
+
+    const region = this.lore.getRegion(regionId);
+    const globalIds = region?.globalEventIds ?? [];
+
+    const locationIds: string[] = [];
+    if (resolved) {
+      locationIds.push(...resolved.eventIds);
+      let parentId = resolved.parentId;
+      while (parentId) {
+        const parent = this.lore.resolveLocation(parentId, this.state.flags);
+        if (!parent) break;
+        locationIds.push(...parent.eventIds);
+        parentId = parent.parentId;
+      }
+    }
+
+    const events = this.lore.getEventsByIds([...globalIds, ...locationIds]);
+    return events.filter(ev =>
+      ev.condition.triggerHours?.length &&
+      this.canTrigger(ev, /* skipChance */ true),
+    );
+  }
+
   // -- Internal ----------------------------------------------------------
 
   private processEventIds(ids: string[]): TriggeredEvent[] {
@@ -116,7 +150,7 @@ export class EventEngine {
     return triggered;
   }
 
-  private canTrigger(event: GameEvent): boolean {
+  private canTrigger(event: GameEvent, skipChance = false): boolean {
     const gs = this.state.getState();
 
     // Non-repeatable: skip if already fired
@@ -254,7 +288,7 @@ export class EventEngine {
     }
 
     // Trigger chance — roll last so all hard conditions pass first
-    if (event.condition.triggerChance !== undefined && event.condition.triggerChance < 1) {
+    if (!skipChance && event.condition.triggerChance !== undefined && event.condition.triggerChance < 1) {
       if (Math.random() > event.condition.triggerChance) return false;
     }
 

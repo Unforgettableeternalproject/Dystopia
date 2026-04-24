@@ -9,19 +9,77 @@
 
   const W = 156;
   const H = 136;
-  const R_SUBLOC  = 4.5;
-  const R_AREA    = 5.5;
-  const R_CURRENT = 6.5;
-  const R_ADJACENT = 5;
+  const R_SUBLOC    = 4.5;
+  const R_AREA      = 5.5;
+  const R_CURRENT   = 6.5;
+  const R_ADJACENT  = 5;
+  const MIN_RING_STEP = 30;   // minimum pixels between BFS rings
+  const MIN_ZOOM    = 0.35;
+  const MAX_ZOOM    = 3.0;
 
   let hoveredId: string | null = null;
 
+  // ── Pan / zoom ─────────────────────────────────────────────────────
+  let panX = 0;
+  let panY = 0;
+  let zoom = 1;
+  let isDragging = false;
+  let dragMoved  = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragOriginX = 0;
+  let dragOriginY = 0;
+
+  // Reset view whenever the current location changes
+  let prevStartId = '';
+  $: if (startId && startId !== prevStartId) {
+    prevStartId = startId;
+    panX = 0; panY = 0; zoom = 1;
+  }
+
+  function onWheel(e: WheelEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY < 0 ? 0.12 : -0.12;
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + delta));
+  }
+
+  function onMouseDown(e: MouseEvent) {
+    if (e.button !== 0) return;
+    isDragging  = true;
+    dragMoved   = false;
+    dragStartX  = e.clientX;
+    dragStartY  = e.clientY;
+    dragOriginX = panX;
+    dragOriginY = panY;
+    e.preventDefault();   // suppress text-selection during drag
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
+    panX = dragOriginX + dx;
+    panY = dragOriginY + dy;
+  }
+
+  function onMouseUp() {
+    isDragging = false;
+  }
+
+  function onClick() {
+    if (dragMoved) { dragMoved = false; return; }
+    dispatch('openRegionMap');
+  }
+
+  // ── Layout ─────────────────────────────────────────────────────────
   $: startId = data?.nodes.find(n => n.isCurrent)?.id ?? data?.nodes[0]?.id ?? '';
   $: layoutNodes = data
     ? edgesToLayoutNodes(data.nodes.map(n => n.id), data.edges)
     : [];
   $: layout = data
-    ? bfsLayout(layoutNodes, startId, W, H)
+    ? bfsLayout(layoutNodes, startId, W, H, MIN_RING_STEP)
     : new Map<string, { x: number; y: number }>();
 
   // Build positioned edges with metadata
@@ -65,93 +123,116 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-<div class="minimap-wrap" on:click={() => dispatch('openRegionMap')}>
+<div class="minimap-wrap">
   {#if data && data.nodes.length > 0}
-    <svg width={W} height={H} viewBox="0 0 {W} {H}" class="minimap-svg">
-      <!-- Edges -->
-      {#each positionedEdges as e}
-        <line
-          x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-          class="edge"
-          class:edge-dim={e.dim}
-          class:edge-cross={e.kind === 'cross-area'}
-          class:edge-remote={e.kind === 'remote-link'}
-          class:edge-locked={e.isLocked}
-        />
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <svg
+      width={W} height={H}
+      viewBox="0 0 {W} {H}"
+      class="minimap-svg"
+      class:dragging={isDragging}
+      role="img"
+      aria-label="小地圖（雙擊重置視角）"
+      on:wheel|preventDefault={onWheel}
+      on:mousedown={onMouseDown}
+      on:mousemove={onMouseMove}
+      on:mouseup={onMouseUp}
+      on:mouseleave={onMouseUp}
+      on:click={onClick}
+    >
+      <!--
+        Transform: scale around SVG centre.
+        translate(cx+panX, cy+panY) scale(zoom) translate(-cx, -cy)
+        makes zoom centred at (W/2, H/2).
+      -->
+      <g transform="translate({W / 2 + panX} {H / 2 + panY}) scale({zoom}) translate({-W / 2} {-H / 2})">
 
-        <!-- Lock icon for locked edges -->
-        {#if e.isLocked}
-          {@const mid = edgeMid(e)}
-          <text
-            x={mid.x} y={mid.y}
-            class="edge-lock-icon"
-            text-anchor="middle"
-            dominant-baseline="central"
-          >✕{#if e.lockedMessage}<title>{e.lockedMessage}</title>{/if}</text>
+        <!-- Edges -->
+        {#each positionedEdges as e}
+          <line
+            x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+            class="edge"
+            class:edge-dim={e.dim}
+            class:edge-cross={e.kind === 'cross-area'}
+            class:edge-remote={e.kind === 'remote-link'}
+            class:edge-locked={e.isLocked}
+          />
 
-          <!-- Bypass arrow -->
-          {#if e.hasBypass}
-            {@const angle = bypassArrowAngle(e)}
+          <!-- Lock icon for locked edges -->
+          {#if e.isLocked}
+            {@const mid = edgeMid(e)}
             <text
-              x={mid.x + 7 * Math.cos(angle * Math.PI / 180)}
-              y={mid.y + 7 * Math.sin(angle * Math.PI / 180)}
-              class="edge-bypass-arrow"
+              x={mid.x} y={mid.y}
+              class="edge-lock-icon"
               text-anchor="middle"
               dominant-baseline="central"
-              transform="rotate({angle}, {mid.x + 7 * Math.cos(angle * Math.PI / 180)}, {mid.y + 7 * Math.sin(angle * Math.PI / 180)})"
-            >→{#if e.bypassMessage}<title>{e.bypassMessage}</title>{/if}</text>
+            >✕{#if e.lockedMessage}<title>{e.lockedMessage}</title>{/if}</text>
+
+            <!-- Bypass arrow -->
+            {#if e.hasBypass}
+              {@const angle = bypassArrowAngle(e)}
+              <text
+                x={mid.x + 7 * Math.cos(angle * Math.PI / 180)}
+                y={mid.y + 7 * Math.sin(angle * Math.PI / 180)}
+                class="edge-bypass-arrow"
+                text-anchor="middle"
+                dominant-baseline="central"
+                transform="rotate({angle}, {mid.x + 7 * Math.cos(angle * Math.PI / 180)}, {mid.y + 7 * Math.sin(angle * Math.PI / 180)})"
+              >→{#if e.bypassMessage}<title>{e.bypassMessage}</title>{/if}</text>
+            {/if}
           {/if}
-        {/if}
-      {/each}
+        {/each}
 
-      <!-- Nodes -->
-      {#each data.nodes as node}
-        {@const pos = layout.get(node.id)}
-        {#if pos}
-          {@const r = nodeRadius(node.kind, node.isCurrent)}
+        <!-- Nodes -->
+        {#each data.nodes as node}
+          {@const pos = layout.get(node.id)}
+          {#if pos}
+            {@const r = nodeRadius(node.kind, node.isCurrent)}
 
-          <!-- Pulse ring for current location -->
-          {#if node.isCurrent}
-            <circle cx={pos.x} cy={pos.y} r={r + 6} class="pulse-ring" />
+            <!-- Pulse ring for current location -->
+            {#if node.isCurrent}
+              <circle cx={pos.x} cy={pos.y} r={r + 6} class="pulse-ring" />
+            {/if}
+
+            <!-- Node circle -->
+            <circle
+              cx={pos.x} cy={pos.y} r={r}
+              class="node"
+              class:node-current={node.isCurrent}
+              class:node-area={node.kind === 'area-root' && !node.isCurrent}
+              class:node-adjacent={node.kind === 'adjacent-area'}
+              class:node-remote={node.kind === 'remote-sublocation'}
+              class:node-known={node.isKnownButUnvisited}
+              class:node-fog={!node.isVisited && !node.isKnownButUnvisited}
+              on:mouseenter={() => (hoveredId = node.id)}
+              on:mouseleave={() => (hoveredId = null)}
+            >
+              <title>{node.label}</title>
+            </circle>
+
+            <!-- Persistent label for current node -->
+            {#if node.isCurrent}
+              <text
+                x={pos.x}
+                y={pos.y + r + 9}
+                class="label label-current"
+                text-anchor="middle"
+              >{node.label}</text>
+            {/if}
+
+            <!-- Hover label for non-current nodes -->
+            {#if hoveredId === node.id && !node.isCurrent}
+              <text
+                x={pos.x}
+                y={pos.y - r - 5}
+                class="label"
+                text-anchor="middle"
+              >{node.label}</text>
+            {/if}
           {/if}
+        {/each}
 
-          <!-- Node circle -->
-          <circle
-            cx={pos.x} cy={pos.y} r={r}
-            class="node"
-            class:node-current={node.isCurrent}
-            class:node-area={node.kind === 'area-root' && !node.isCurrent}
-            class:node-adjacent={node.kind === 'adjacent-area'}
-            class:node-remote={node.kind === 'remote-sublocation'}
-            class:node-known={node.isKnownButUnvisited}
-            class:node-fog={!node.isVisited && !node.isKnownButUnvisited}
-            on:mouseenter={() => (hoveredId = node.id)}
-            on:mouseleave={() => (hoveredId = null)}
-          >
-            <title>{node.label}</title>
-          </circle>
-
-          <!-- Persistent label for current node -->
-          {#if node.isCurrent}
-            <text
-              x={pos.x}
-              y={pos.y + r + 9}
-              class="label label-current"
-              text-anchor="middle"
-            >{node.label}</text>
-          {/if}
-
-          <!-- Hover label for non-current nodes -->
-          {#if hoveredId === node.id && !node.isCurrent}
-            <text
-              x={pos.x}
-              y={pos.y - r - 5}
-              class="label"
-              text-anchor="middle"
-            >{node.label}</text>
-          {/if}
-        {/if}
-      {/each}
+      </g>
     </svg>
 
     <!-- District › Area breadcrumb -->
@@ -169,7 +250,6 @@
 
 <style>
   .minimap-wrap {
-    cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -179,7 +259,12 @@
 
   .minimap-svg {
     display: block;
-    overflow: visible;
+    overflow: hidden;   /* clip content that extends past ring min-step */
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .minimap-svg.dragging {
+    cursor: grabbing;
   }
 
   /* ── Edges ─────────────────────────────────── */
@@ -270,9 +355,9 @@
     animation: pulse-fade 2.4s ease-in-out infinite;
   }
   @keyframes pulse-fade {
-    0%   { opacity: 0;   }
+    0%   { opacity: 0;    }
     30%  { opacity: 0.35; }
-    100% { opacity: 0;   }
+    100% { opacity: 0;    }
   }
 
   /* ── Labels ─────────────────────────────────── */

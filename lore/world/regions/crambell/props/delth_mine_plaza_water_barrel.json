@@ -1,0 +1,7 @@
+{
+  "id": "delth_mine_plaza_water_barrel",
+  "name": "飲水桶",
+  "description": "廣場角落的大型木製飲水桶，工人在休息時間在此補充水分。舀水的勺子被鍊條固定著，防止人帶走。水面漂著礦粉薄膜。",
+  "tags": ["fixture", "water", "utility"],
+  "checkPrompt": "桶底快見底了，還沒補充。桶緣邊有人用炭筆劃了個小記號，看不出是什麼意思。"
+}

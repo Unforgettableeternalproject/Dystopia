@@ -1,0 +1,7 @@
+{
+  "id": "delth_mine_path_water_station",
+  "name": "補水站",
+  "description": "路邊的一個鐵皮小亭，裡面放著幾個大型水桶和舀水用的鐵勺。水質不算清澈，帶著礦粉的灰白色，但工人不太有選擇。",
+  "tags": ["fixture", "water", "utility"],
+  "checkPrompt": "水桶的邊緣積著一層灰白色礦粉沉積物。旁邊有個倒扣的空桶，翻開來裡面有些人遺落的東西。"
+}

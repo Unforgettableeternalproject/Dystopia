@@ -19,15 +19,16 @@
       },
       {
         "targetLocationId": "delth_mine_path",
-        "description": "往礦場的通道，只在早上開放",
+        "description": "往礦場的通道，只在作業時段開放",
         "access": {
-          "timePeriods": ["morning"],
-          "lockedMessage": "通往礦場的通道只在早上開放，現在已经關閉了。"
+          "timePeriods": ["work"],
+          "lockedMessage": "通往礦場的通道只在作業時段（06:00–18:00）開放，現在已關閉了。"
         }
       }
     ],
     "npcIds": [],
     "eventIds": [],
+    "propIds": ["delth_dormitory_bulletin_board"],
     "isAccessible": true
   },
   "localVariants": [],
@@ -53,8 +54,9 @@
             "description": "往公共盥洗空間的走廊"
           }
         ],
-        "npcIds": ["crambell_kach"],
+        "npcIds": [],
         "eventIds": ["crambell_dormitory_blackout"],
+        "propIds": ["delth_dormitory_long_table", "delth_dormitory_water_sink"],
         "isAccessible": true
       },
       "localVariants": []
@@ -94,6 +96,7 @@
         ],
         "npcIds": [],
         "eventIds": ["crambell_event_lucky_coin"],
+        "propIds": ["delth_public_bathroom_toilet", "delth_public_bathroom_sink"],
         "isAccessible": true
       },
       "localVariants": []

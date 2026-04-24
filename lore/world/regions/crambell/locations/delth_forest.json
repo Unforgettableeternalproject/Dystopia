@@ -24,6 +24,7 @@
     ],
     "npcIds": [],
     "eventIds": [],
+    "propIds": ["delth_forest_dead_tree"],
     "isAccessible": true
   },
   "localVariants": [],
@@ -47,6 +48,7 @@
           ],
           "npcIds": [],
           "eventIds": ["crambell_event_forest_day", "crambell_event_forest_night"],
+          "propIds": ["delth_forest_clearing_remnants"],
           "isAccessible": true
         },
         "localVariants": []
@@ -66,6 +68,7 @@
           ],
           "npcIds": [],
           "eventIds": [],
+          "propIds": ["delth_forest_deep_hollow"],
           "isAccessible": true
         },
         "localVariants": []

@@ -1,0 +1,7 @@
+{
+  "id": "delth_mine_worksite_pickaxe_rack",
+  "name": "鶴嘴鎬架",
+  "description": "作業區邊緣固定在岩壁上的工具掛架，掛著作業用的鶴嘴鎬。每個工人對應一個編號位置，但並非所有鎬都在架上。",
+  "tags": ["fixture", "tool", "equipment"],
+  "checkPrompt": "架上的鎬子數量和工人數量對不上，有幾個位置空著。某把鎬子的木柄上有刻字，但看起來被人故意刮掉了。"
+}

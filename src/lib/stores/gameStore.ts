@@ -358,6 +358,8 @@ export interface RestResultUIState {
   stressDelta:      number;
   fatigueDelta:     number;
   resultTags:       string[];
+  /** 睡眠被時間事件提前中斷（如報時鐘、時段切換） */
+  wasInterrupted?:  boolean;
 }
 export const restResultOverlay = writable<RestResultUIState | null>(null);
 

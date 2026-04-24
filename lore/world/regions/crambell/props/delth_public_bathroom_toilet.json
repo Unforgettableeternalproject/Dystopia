@@ -1,0 +1,8 @@
+{
+  "id": "delth_public_bathroom_toilet",
+  "name": "馬桶",
+  "description": "在盥洗室中的基本設施，讓工人們可以方便地解決生理需求。",
+  "tags": ["furniture", "sanitation", "toilet"],
+  "restPoint": false,
+  "checkPrompt": "馬桶看起來乾淨，但使用時仍需小心。"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "delth_south_ground_broken_fence",
+  "name": "廢棄圍欄",
+  "description": "南方空地邊緣殘存的舊鐵製圍欄，部分柱子已經傾倒，鐵絲網腐蝕斷裂。曾經圍住某個區域，但早就失去作用了。夾縫裡積著礦渣。",
+  "tags": ["fixture", "barrier", "abandoned"],
+  "checkPrompt": "圍欄的某個斷裂缺口看起來經常被人利用——地上的土被踩平了，鐵絲末端也磨得比較光滑。缺口旁邊的地上有個淺坑，裡面是空的。"
+}

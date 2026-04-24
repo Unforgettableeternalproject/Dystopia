@@ -1,0 +1,7 @@
+{
+  "id": "delth_mining_shafts_gate_log",
+  "name": "入坑登記台",
+  "description": "礦坑入口前方的低矮台子，上面放著入坑登記冊和一支鍊條固定的鉛筆。每個工人進出必須在此登記，守衛站在旁邊。",
+  "tags": ["fixture", "document", "checkpoint"],
+  "checkPrompt": "登記冊攤開在最新的那頁，記錄著今天的進出時間和工人編號。某幾個時段的記錄看起來不連貫，像是有些進出沒被記錄到。"
+}

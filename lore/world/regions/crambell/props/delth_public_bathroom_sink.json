@@ -1,0 +1,7 @@
+{
+  "id": "delth_public_bathroom_sink",
+  "name": "洗手台",
+  "description": "盥洗空間的幾個並排洗手台，搪瓷表面有裂紋，鏡子上有霧水。工人在換班前後擠在這裡，幾個人共用一個水龍頭的情況並不少見。",
+  "tags": ["fixture", "water", "sanitation"],
+  "checkPrompt": "鏡面上有人用手指劃了些什麼，但已經被水蒸氣模糊了。洗手台下方的排水口附近有些細碎的紙屑。"
+}

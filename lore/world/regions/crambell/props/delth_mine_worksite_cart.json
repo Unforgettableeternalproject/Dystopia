@@ -1,0 +1,7 @@
+{
+  "id": "delth_mine_worksite_cart",
+  "name": "礦車",
+  "description": "停在作業區軌道旁的礦車，金屬框架生鏽，裝載過礦石的底部留著厚厚的粉塵。空車等待裝填，有時工人也在旁邊短暫坐下休息。",
+  "tags": ["equipment", "vehicle", "industrial"],
+  "checkPrompt": "礦車底部堆積的礦粉中有些小石塊——大多是廢料，但偶爾能找到沒有被揀選出來的東西。"
+}

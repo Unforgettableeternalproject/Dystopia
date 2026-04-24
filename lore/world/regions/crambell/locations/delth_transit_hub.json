@@ -70,6 +70,7 @@
     ],
     "npcIds": [],
     "eventIds": [],
+    "propIds": ["delth_transit_hub_gate", "delth_transit_hub_notice"],
     "isAccessible": true
   },
   "localVariants": []

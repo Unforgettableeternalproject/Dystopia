@@ -1,0 +1,7 @@
+{
+  "id": "delth_mine_storage_shelf",
+  "name": "物資架",
+  "description": "貯存倉內高達天花板的金屬物資架，整齊排列著標有編碼的容器與器材。架子最高層需要梯子才能夠到，而梯子靠在遠端的牆壁上。",
+  "tags": ["fixture", "storage", "equipment"],
+  "checkPrompt": "架子最低幾層的物資有些已經被動過，位置和登記本對不上。其中一個標記著「廢棄」的容器感覺比旁邊的重一些。"
+}

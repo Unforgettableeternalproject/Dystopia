@@ -1,0 +1,7 @@
+{
+  "id": "delth_warehouse_cargo_box",
+  "name": "貨箱",
+  "description": "倉庫中散落在地板上等待整理的幾個大型貨箱，外側印著礦產分類代碼。沒有上鎖，但開箱會留下痕跡。",
+  "tags": ["container", "cargo"],
+  "checkPrompt": "其中一個貨箱蓋子沒有完全蓋緊，邊緣有被撬開的痕跡。裡面不全是帳面上登記的東西。"
+}

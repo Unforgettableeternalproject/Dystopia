@@ -1,0 +1,7 @@
+{
+  "id": "delth_dormitory_bulletin_board",
+  "name": "佈告欄",
+  "description": "貼在宿舍入口走廊的金屬框佈告欄，上面密密麻麻釘著額度通知、禁止事項與換班時刻表。有些公告紙張已經發黃。",
+  "tags": ["fixture", "notice_board"],
+  "checkPrompt": "最新的通知是關於額度調整和違規處置記錄。其中一張邊角微翹的紙條看起來不像是官方貼的——字跡潦草，但難以辨認。"
+}

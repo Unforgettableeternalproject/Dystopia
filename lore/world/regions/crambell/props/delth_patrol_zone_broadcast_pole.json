@@ -1,0 +1,7 @@
+{
+  "id": "delth_patrol_zone_broadcast_pole",
+  "name": "廣播柱",
+  "description": "管制區廣場上豎立的幾根金屬廣播柱，頂端安裝著喇叭。廣播全天候輪播勞動激勵語錄和政策宣導，聲音無法逃避。柱身貼著一些被撕去的東西的殘留邊角。",
+  "tags": ["fixture", "surveillance", "broadcast"],
+  "checkPrompt": "廣播柱的基座有個小維修艙蓋，半掩著，看起來像是有人動過。柱身上被撕掉的東西很多，殘留邊角能看出曾是手寫的紙張。"
+}

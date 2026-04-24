@@ -33,16 +33,20 @@ export function edgesToLayoutNodes(
  * Ring 0 (start) = center. Each successive BFS layer is placed on a larger circle.
  * Disconnected nodes fall into the outermost ring.
  *
- * @param nodes    Full list of nodes to position.
- * @param startId  Node to place at the center (ring 0).
- * @param width    SVG canvas width in pixels.
- * @param height   SVG canvas height in pixels.
+ * @param nodes        Full list of nodes to position.
+ * @param startId      Node to place at the center (ring 0).
+ * @param width        SVG canvas width in pixels.
+ * @param height       SVG canvas height in pixels.
+ * @param minRingStep  Minimum pixel distance between rings (0 = no constraint).
+ *                     When the natural step is smaller than this, the layout will
+ *                     extend beyond width/height — caller should handle via pan/zoom.
  */
 export function bfsLayout(
-  nodes:   LayoutNode[],
-  startId: string,
-  width:   number,
-  height:  number,
+  nodes:       LayoutNode[],
+  startId:     string,
+  width:       number,
+  height:      number,
+  minRingStep  = 0,
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   if (nodes.length === 0) return positions;
@@ -78,7 +82,8 @@ export function bfsLayout(
   const ringCount = rings.length;
   // Pad edges slightly so nodes don't clip the SVG border
   const maxRadius = Math.min(width, height) / 2 - 14;
-  const ringStep  = ringCount > 1 ? maxRadius / (ringCount - 1) : 0;
+  const naturalStep = ringCount > 1 ? maxRadius / (ringCount - 1) : 0;
+  const ringStep    = Math.max(naturalStep, minRingStep);
 
   for (let r = 0; r < rings.length; r++) {
     const ids    = rings[r];
