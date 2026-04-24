@@ -109,9 +109,14 @@
     "選項的 nextNodeId 填 null 表示遭遇在此結束（不需要 isOutcome 節點）。",
     "",
     "選項前置條件（pre-conditions）：",
-    "  condition      — 旗標表達式，為 false 時隱藏選項",
-    "  itemRequirements — 玩家需持有所有指定物品（AND），否則隱藏",
-    "  minMelphin     — 玩家梅分不足時隱藏",
+    "  condition          — 旗標表達式，為 false 時隱藏選項",
+    "  itemRequirements   — 玩家需持有所有指定物品（AND），否則隱藏",
+    "  minMelphin         — 玩家梅分不足時隱藏",
+    "  minReputation      — 派系聲望下限（AND），{ factionId: minValue }",
+    "  maxReputation      — 派系聲望上限（AND），{ factionId: maxValue }",
+    "  minAffinity        — NPC 好感下限（AND），{ npcId: minValue }",
+    "  maxAffinity        — NPC 好感上限（AND），{ npcId: maxValue }",
+    "  dateTimeConditions — 進階日期時間條件（陣列內 OR），不符時隱藏選項",
     "",
     "effects 可用欄位：",
     "  flagsSet / flagsUnset",
@@ -120,7 +125,7 @@
     "  affinityChanges      — key = npcId",
     "  grantItems           — [{ itemId, variantId? }]",
     "  grantQuestId         — 授予任務 ID",
-    "  grantIntelId         — 授予情報 ID（同時設置 know_<id> 旗標）",
+    "  grantIntelId         — 授予情報 ID（加入 knownIntelIds，可用 knowledgeIds 條件查詢）",
     "  melphinChange        — 梅分變化（正 = 獲得，負 = 扣除）",
     "  failQuestId          — 觸發指定任務的 onFail 效果",
     "  advanceQuestStage    — 推進任務到指定階段 { questId, stageId }",
@@ -155,6 +160,15 @@
           "id": "choice_a",
           "text": "選項 A 的文字",
           "nextNodeId": "node_check",
+          "condition": "optional_flag",
+          "minMelphin": 5,
+          "minReputation": { "crambell_government": 10 },
+          "maxReputation": { "crambell_peoples_alliance": 20 },
+          "minAffinity": { "crambell_mildore": 5 },
+          "maxAffinity": { "crambell_mildore": 80 },
+          "dateTimeConditions": [
+            { "relation": "before", "from": { "year": 1498, "month": 6, "day": 20, "hour": 0, "minute": 0 } }
+          ],
           "effects": {
             "statChanges": { "statusStats.stress": -1 }
           }

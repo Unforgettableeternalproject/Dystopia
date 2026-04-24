@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, isSaving } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, storyTypingActive, isSaving } from '$lib/stores/gameStore';
 
   $: inScriptedDialogue = $activeScriptedDialogue !== null;
   $: inEncounter        = $activeNpcUI !== null;
   $: inEventEncounter   = $activeEncounterUI !== null;
+  $: inStoryEncounter   = $activeEncounterUI?.type === 'story';
 
-  export let onSubmit: (input: string) => void;
+  export let onSubmit:  (input: string) => void;
+  export let onAdvance: () => void;
+  export let onSkip:    () => void;
 
   let inputValue = '';
 
@@ -37,38 +40,47 @@
   </button>
 
   <!-- Input area -->
-  <div class="input-area" class:encounter={inEncounter && !inScriptedDialogue}>
-    {#if !inScriptedDialogue}
-      <span class="prefix" class:enc-prefix={inEncounter} aria-hidden="true">
-        {inEncounter ? '「' : '>'}
-      </span>
+  <div class="input-area" class:encounter={inEncounter && !inScriptedDialogue} class:story={inStoryEncounter}>
+    {#if inStoryEncounter}
+      <!-- Story encounter: centered continue / skip button -->
+      {#if $storyTypingActive}
+        <button class="story-action-btn story-skip" on:click={onSkip}>跳過</button>
+      {:else}
+        <button class="story-action-btn" on:click={onAdvance}>繼續</button>
+      {/if}
+    {:else}
+      {#if !inScriptedDialogue}
+        <span class="prefix" class:enc-prefix={inEncounter} aria-hidden="true">
+          {inEncounter ? '「' : '>'}
+        </span>
+      {/if}
+      <input
+        bind:value={inputValue}
+        on:keydown={handleKeydown}
+        disabled={$inputDisabled || $isStreaming || inScriptedDialogue || inEventEncounter}
+        placeholder={inScriptedDialogue
+          ? '對話進行中...'
+          : inEventEncounter
+            ? '請從選項中做出選擇...'
+            : inEncounter
+              ? `對 ${$activeNpcUI?.name} 說...`
+              : $isStreaming ? '' : '輸入行動...'}
+        class="text-input"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      {#if $isSaving}
+        <span class="saving-badge">存檔中</span>
+      {/if}
+      <button
+        class="submit-btn"
+        on:click={handleSubmit}
+        disabled={$inputDisabled || $isStreaming || inScriptedDialogue || inEventEncounter || !inputValue.trim()}
+        aria-label="送出"
+      >
+        ↵
+      </button>
     {/if}
-    <input
-      bind:value={inputValue}
-      on:keydown={handleKeydown}
-      disabled={$inputDisabled || $isStreaming || inScriptedDialogue || inEventEncounter}
-      placeholder={inScriptedDialogue
-        ? '對話進行中...'
-        : inEventEncounter
-          ? '請從選項中做出選擇...'
-          : inEncounter
-            ? `對 ${$activeNpcUI?.name} 說...`
-            : $isStreaming ? '' : '輸入行動...'}
-      class="text-input"
-      autocomplete="off"
-      spellcheck="false"
-    />
-    {#if $isSaving}
-      <span class="saving-badge">存檔中</span>
-    {/if}
-    <button
-      class="submit-btn"
-      on:click={handleSubmit}
-      disabled={$inputDisabled || $isStreaming || inScriptedDialogue || inEventEncounter || !inputValue.trim()}
-      aria-label="送出"
-    >
-      ↵
-    </button>
   </div>
 
   <!-- Inventory toggle -->
@@ -206,4 +218,36 @@
   }
 
   .submit-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+  /* Story encounter mode */
+  .input-area.story {
+    justify-content: center;
+    background: color-mix(in srgb, #c9a96e 6%, var(--bg-input));
+  }
+
+  .story-action-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid color-mix(in srgb, #c9a96e 40%, transparent);
+    color: #c9a96e;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    padding: 5px 32px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.12s, background 0.12s;
+  }
+
+  .story-action-btn:hover {
+    border-color: #c9a96e;
+    background: color-mix(in srgb, #c9a96e 10%, var(--bg-tertiary));
+  }
+
+  .story-skip {
+    opacity: 0.55;
+  }
+
+  .story-skip:hover {
+    opacity: 1;
+  }
 </style>

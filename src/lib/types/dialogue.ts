@@ -33,8 +33,7 @@ export interface ChoiceEffects {
 
   /**
    * Grant intel IDs to the player's knowledge.
-   * Each id is added to knownIntelIds AND a flag `know_<id>` is set
-   * so that flag conditions like `"know_crambell_quota_trick"` work normally.
+   * Each id is added to knownIntelIds and can be checked via knowledgeIds conditions.
    */
   grantIntel?: string[];
 
@@ -52,7 +51,7 @@ export interface ChoiceEffects {
  * Post-condition branch: evaluated after a choice is selected.
  * Evaluated in array order — first matching condition routes to its nodeId.
  * Falls back to the choice's `nextNodeId` if none match.
- * Supports flag expressions including `know_<intel_id>` syntax.
+ * Supports flag expressions; use knowledgeIds conditions to check player intel.
  */
 export interface ChoiceBranch {
   condition: string;
@@ -110,6 +109,13 @@ export interface ScriptedChoice {
    * Choice is hidden if player's melphin < minMelphin.
    */
   minMelphin?: number;
+
+  /**
+   * Pre-condition: advanced date-time conditions (array is OR — any one passing shows the choice).
+   * Supports before / after / between with year/month/day/hour/minute fields (all optional, default 0).
+   * Choice is hidden if none of the conditions match the current game time.
+   */
+  dateTimeConditions?: import('./world').GameDateTimeCondition[];
 
   /**
    * Pre-condition: faction reputation minimums (AND).

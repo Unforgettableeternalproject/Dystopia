@@ -62,7 +62,7 @@
     key:        'var(--accent)',
     equipment:  'var(--accent-blue)',
     consumable: '#6a9a6a',
-    info:       '#9a8a6a',
+    info:       '#a5a5a5',
   };
 </script>
 

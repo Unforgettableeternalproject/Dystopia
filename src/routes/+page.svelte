@@ -34,6 +34,7 @@
   import LoreItemModal        from '$lib/components/LoreItemModal.svelte';
   import RestModal            from '$lib/components/RestModal.svelte';
   import RestResultOverlay    from '$lib/components/RestResultOverlay.svelte';
+  import DangerOverlay        from '$lib/components/DangerOverlay.svelte';
 
   import type { Thought, ActionTargetKind } from '$lib/types';
 
@@ -242,6 +243,11 @@
     await controller.selectEncounterStoryAdvance();
   }
 
+  function handleStorySkip() {
+    if (!controller) return;
+    controller.selectEncounterStorySkip();
+  }
+
   // ── Save ──────────────────────────────────────────────────────
 
   function openSaveMenu() {
@@ -365,10 +371,17 @@
           <span class="enc-sep">·</span>
           <span class="enc-name">{$activeNpcUI.name}</span>
         </div>
+      {:else if $activeEncounterUI?.type === 'story'}
+        <div class="encounter-bar story-bar">
+          <span class="enc-icon">◇</span>
+          <span class="enc-label">劇情遭遇</span>
+          <span class="enc-sep">·</span>
+          <span class="enc-name">{$activeEncounterUI.encounterName}</span>
+        </div>
       {/if}
       <NarrativePanel />
-      {#if $activeEncounterUI}
-        <EncounterPanel onSelect={handleEncounterChoice} onAdvance={handleStoryAdvance} />
+      {#if $activeEncounterUI && $activeEncounterUI.type !== 'story'}
+        <EncounterPanel onSelect={handleEncounterChoice} />
       {:else if $activeScriptedDialogue}
         <ScriptedChoicePanel onSelect={handleDialogueChoice} />
       {:else}
@@ -383,8 +396,10 @@
     <PlayerPanel />
   </div>
 
-  <InputBar onSubmit={handleSubmit} />
+  <InputBar onSubmit={handleSubmit} onAdvance={handleStoryAdvance} onSkip={handleStorySkip} />
 </div>
+
+<DangerOverlay />
 
 {#if $selfCheckOpen}
   <SelfCheckModal />
@@ -409,7 +424,7 @@
 {/if}
 
 {#if $restResultOverlay}
-  <RestResultOverlay />
+  <RestResultOverlay {controller} />
 {/if}
 
 {#if $statCheckOverlay}
@@ -419,6 +434,7 @@
     value={$statCheckOverlay.value}
     passed={$statCheckOverlay.passed}
     rollResult={$statCheckOverlay.rollResult}
+    sides={$statCheckOverlay.sides ?? 20}
   />
 {/if}
 
@@ -631,6 +647,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Story encounter bar — amber accent */
+  .story-bar {
+    border-left-color: #c9a96e;
+  }
+  .story-bar .enc-icon,
+  .story-bar .enc-name {
+    color: #c9a96e;
   }
 
   /* In-game load menu */

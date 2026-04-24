@@ -9,6 +9,7 @@ import type {
   TimePeriod, PathResult, PathSegment,
   PropNode,
   FactionGraphDefinition,
+  FactionRelationEdge,
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
@@ -21,6 +22,7 @@ import type { QuestDefinition, QuestInstance } from '../types/quest';
 import type { WorldPhase, WorldPhaseId, PhaseEffect } from '../types/phase';
 import type { FlagSystem } from '../engine/FlagSystem';
 import type { NPCMemoryEntry } from '../types/game';
+import { checkDateTimeConditions } from '../utils/dateTimeCondition';
 
 interface LoreData {
   locations:     Record<string, LocationNode>;
@@ -245,6 +247,7 @@ export class LoreVault {
       (!a.flag || flags.evaluate(a.flag)) &&
       (!a.timePeriods?.length || a.timePeriods.includes(timePeriod)) &&
       (!a.timeRanges?.length || (!!gameTime && a.timeRanges.some(r => this.isInTimeRange(r, gameTime)))) &&
+      checkDateTimeConditions(a.dateTimeConditions, gameTime) &&
       (!a.knowledgeIds?.length || a.knowledgeIds.every(id => knownIntelIds.includes(id))) &&
       (!a.questStages?.length || a.questStages.some(qs =>
         activeQuests?.some(qi => qi.questId === qs.questId && qi.currentStageId === qs.stageId)
@@ -588,8 +591,35 @@ export class LoreVault {
     return this.data.factions[id];
   }
 
-  getFactionGraph(id: string): FactionGraphDefinition | undefined {
-    return this.data.factionGraphs[id];
+  /**
+   * 取得某區域的陣營關係圖。
+   * 優先從 factionGraphs（獨立 JSON 檔）讀取，若無則從各 faction 的 `relations` 欄位動態組建。
+   */
+  getFactionGraph(regionId: string): FactionGraphDefinition | undefined {
+    if (this.data.factionGraphs[regionId]) return this.data.factionGraphs[regionId];
+
+    // 從 faction 的 relations 欄位動態組建
+    const regionFactions = Object.values(this.data.factions).filter(f => f.regionId === regionId);
+    if (regionFactions.length === 0) return undefined;
+
+    // 去重：以 sorted(a, b) 為 key
+    const edgeMap = new Map<string, number>();
+    for (const faction of regionFactions) {
+      for (const rel of (faction.relations ?? [])) {
+        const [a, b] = faction.id < rel.targetFactionId
+          ? [faction.id, rel.targetFactionId]
+          : [rel.targetFactionId, faction.id];
+        if (!edgeMap.has(`${a}|${b}`)) edgeMap.set(`${a}|${b}`, rel.weight);
+      }
+    }
+
+    const edges: FactionRelationEdge[] = [];
+    for (const [key, weight] of edgeMap) {
+      const [a, b] = key.split('|');
+      edges.push({ a, b, weight });
+    }
+
+    return { id: regionId, factionIds: regionFactions.map(f => f.id), edges };
   }
 
   // -- World phases ----------------------------------------------------
@@ -742,6 +772,7 @@ export class LoreVault {
     locations:  { id: string; name: string }[];
     items:      { id: string; name: string; type: string; stackable: boolean; maxStack?: number }[];
     props:      { id: string; name: string; restPoint: boolean }[];
+    factions:   { id: string; name: string; defaultReputation: number }[];
   } {
     return {
       encounters: Object.values(this.data.encounters).map(e => ({ id: e.id, name: e.name, type: e.type ?? 'event' })),
@@ -751,6 +782,7 @@ export class LoreVault {
       locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
       items:      Object.values(this.data.items).map(i => ({ id: i.id, name: i.name, type: i.type, stackable: i.stackable ?? false, maxStack: i.maxStack })),
       props:      Object.values(this.data.props).map(p => ({ id: p.id, name: p.name, restPoint: !!p.restPoint })),
+      factions:   Object.values(this.data.factions).map(f => ({ id: f.id, name: f.name, defaultReputation: f.defaultReputation ?? 0 })),
     };
   }
 

@@ -212,6 +212,62 @@ export class DMAgent {
     yield* this.client.stream(DIALOGUE_NARRATION_PROMPT, [{ role: 'user', content: parts.join('\n') }]);
   }
 
+  // ── Rest narration ───────────────────────────────────────────────────
+
+  /**
+   * Stream narration after the player's rest completes.
+   * restSummary: pre-built string describing quality, actual time, and stat deltas.
+   */
+  async *narrateRest(
+    sceneContext: string,
+    restSummary: string,
+    history: HistoryEntry[],
+  ): AsyncGenerator<string> {
+    const historyText = history
+      .slice(-3)
+      .map(h => `Turn ${h.turn}: ${h.action.input} → ${h.narrative.slice(0, 80)}`)
+      .join('\n');
+
+    const userMessage = [
+      '## Rest Result',
+      restSummary,
+      '',
+      '## Scene Data',
+      sceneContext,
+      '',
+      '## Recent History',
+      historyText || '(game start)',
+    ].join('\n');
+
+    yield* this.client.stream(DM_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
+  }
+
+  /**
+   * Stream a brief narration when the player cancels a rest attempt.
+   */
+  async *narrateRestCancel(
+    sceneContext: string,
+    history: HistoryEntry[],
+  ): AsyncGenerator<string> {
+    const historyText = history
+      .slice(-3)
+      .map(h => `Turn ${h.turn}: ${h.action.input} → ${h.narrative.slice(0, 80)}`)
+      .join('\n');
+
+    const userMessage = [
+      '## Scene Data',
+      sceneContext,
+      '',
+      '## Recent History',
+      historyText || '(game start)',
+      '',
+      '## Player Action',
+      '（玩家考慮休息後決定放棄，繼續行動。）',
+    ].join('\n');
+
+    yield* this.client.stream(DM_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
+  }
+
   // ── Structured event encounter ────────────────────────────────────────
 
   /**

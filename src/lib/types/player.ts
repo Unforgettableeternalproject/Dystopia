@@ -28,6 +28,7 @@ export interface StatusStats {
   endo: number;          // Endo (Endovis) — 體內魔素，魔法使用量
   endoMax: number;
   experience: number;    // 經驗 — 影響技能成長方向
+  fatigue: number;       // 疲勞 — 0–5，隱藏數值，需≥3才能進行休息
 }
 
 /** 外部數值 — 玩家對外部世界的關係紀錄 */

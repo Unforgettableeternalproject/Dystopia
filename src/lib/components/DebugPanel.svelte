@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameController } from '$lib/engine/GameController';
-  import { playerUI, detailedPlayer, type EndingType, shadowComparisons, shadowModeActive } from '$lib/stores/gameStore';
+  import { playerUI, detailedPlayer, type EndingType, shadowComparisons, shadowModeActive, statCheckOverlay } from '$lib/stores/gameStore';
   import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
   export let controller: GameController;
@@ -22,7 +22,7 @@
     });
   }
 
-  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge' | 'item';
+  type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge' | 'item' | 'rep' | 'dice';
   let activeTab: Tab = 'encounter';
   let filter = '';
   let flagInput = '';
@@ -38,6 +38,20 @@
 
   // Stat inputs keyed by dotPath
   let statInputs: Record<string, number> = {};
+
+  // Reputation / affinity inputs
+  let repInputs: Record<string, number> = {};
+  let affinityInputs: Record<string, number> = {};
+
+  function initRepInputs() {
+    const dp = $detailedPlayer;
+    for (const f of catalog.factions) {
+      repInputs[f.id] = dp?.reputation[f.id] ?? 0;
+    }
+    for (const n of catalog.npcs) {
+      affinityInputs[n.id] = dp?.affinity[n.id] ?? 0;
+    }
+  }
 
   function initStatInputs() {
     const dp = $detailedPlayer;
@@ -83,6 +97,8 @@
     player:    '玩家狀態',
     ending:    '結局測試',
     judge:     'Judge 對比',
+    rep:       '聲望/好感',
+    dice:      '骰子動畫',
   };
 
   $: q = filter.toLowerCase();
@@ -153,6 +169,45 @@
     { type: 'collapse',     label: '精神崩潰結局', color: '#c9a96e' },
     { type: 'mvp_complete', label: 'MVP 完成結局', color: '#7ec8a0' },
   ];
+
+  // ── Dice test ──────────────────────────────────────────────────
+  const DICE_TYPES = [
+    { sides: 4,  label: 'D4'  },
+    { sides: 6,  label: 'D6'  },
+    { sides: 8,  label: 'D8'  },
+    { sides: 20, label: 'D20' },
+  ];
+  const DICE_STATS = ['strength', 'knowledge', 'agility', 'charisma', 'stamina', 'perception', 'luck', 'spirit'];
+
+  let diceSides    = 20;
+  let diceRollVal  = 14;
+  let diceDC       = 12;
+  let diceStatMod  = 2;
+  let diceExtMod   = 0;
+  let diceStat     = 'strength';
+
+  $: dicePreviewTotal  = diceRollVal + diceStatMod + diceExtMod;
+  $: dicePreviewPassed = dicePreviewTotal >= diceDC;
+
+  function triggerDiceTest() {
+    const total  = diceRollVal + diceStatMod + diceExtMod;
+    const passed = total >= diceDC;
+    onClose();
+    statCheckOverlay.set({
+      stat:   diceStat,
+      dc:     diceDC,
+      value:  total,
+      passed,
+      sides:  diceSides,
+      rollResult: {
+        rolls:            [diceRollVal],
+        chosenRoll:       diceRollVal,
+        statModifier:     diceStatMod,
+        externalModifier: diceExtMod,
+        total,
+      },
+    });
+  }
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
@@ -628,6 +683,145 @@
               </div>
             {/each}
           {/if}
+
+        </div>
+      {:else if activeTab === 'rep'}
+        <div class="player-panel-debug">
+
+          <!-- ── 陣營聲望 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 陣營聲望</div>
+            <div class="player-section">
+              <button class="trigger-btn secondary" style="width:100%" on:click={initRepInputs}>
+                從當前狀態填入數值
+              </button>
+            </div>
+            {#if catalog.factions.length === 0}
+              <div class="player-section">
+                <span class="flag-hint">尚無載入的陣營資料</span>
+              </div>
+            {:else}
+              {#each catalog.factions as f (f.id)}
+                <div class="player-section" style="padding: 6px 14px;">
+                  <div class="rep-row">
+                    <div class="rep-info">
+                      <span class="item-name">{f.name}</span>
+                      <span class="item-id">{f.id} · 預設: {f.defaultReputation}</span>
+                    </div>
+                    <input
+                      class="num-input"
+                      type="number"
+                      bind:value={repInputs[f.id]}
+                      on:focus={initRepInputs}
+                    />
+                    <button
+                      class="trigger-btn small"
+                      on:click={() => controller.debugSetReputation(f.id, repInputs[f.id] ?? 0)}
+                    >套用</button>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+          </div>
+
+          <!-- ── NPC 好感 ──────────────────────── -->
+          <div class="debug-group">
+            <div class="debug-group-header">◇ NPC 好感</div>
+            {#if catalog.npcs.length === 0}
+              <div class="player-section">
+                <span class="flag-hint">尚無載入的 NPC 資料</span>
+              </div>
+            {:else}
+              {#each catalog.npcs as n (n.id)}
+                <div class="player-section" style="padding: 6px 14px;">
+                  <div class="rep-row">
+                    <div class="rep-info">
+                      <span class="item-name">{n.name}</span>
+                      <span class="item-id">{n.id} · {n.type}</span>
+                    </div>
+                    <input
+                      class="num-input"
+                      type="number"
+                      bind:value={affinityInputs[n.id]}
+                      on:focus={initRepInputs}
+                    />
+                    <button
+                      class="trigger-btn small"
+                      on:click={() => controller.debugSetAffinity(n.id, affinityInputs[n.id] ?? 0)}
+                    >套用</button>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+          </div>
+
+        </div>
+      {:else if activeTab === 'dice'}
+        <div class="player-panel-debug">
+
+          <div class="debug-group">
+            <div class="debug-group-header">◇ 骰子動畫測試</div>
+            <div class="player-section">
+
+              <!-- Dice type -->
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">骰型</span>
+                <div class="dice-type-btns">
+                  {#each DICE_TYPES as dt}
+                    <button
+                      class="trigger-btn"
+                      class:dice-type-active={diceSides === dt.sides}
+                      on:click={() => { diceSides = dt.sides; diceRollVal = Math.min(diceRollVal, dt.sides); }}
+                    >{dt.label}</button>
+                  {/each}
+                </div>
+              </div>
+
+              <!-- Stat -->
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">屬性</span>
+                <select class="dice-select" bind:value={diceStat}>
+                  {#each DICE_STATS as s}
+                    <option value={s}>{s}</option>
+                  {/each}
+                </select>
+              </div>
+
+              <!-- Roll value -->
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">骰值 (1–{diceSides})</span>
+                <input class="num-input" type="number" min="1" max={diceSides} bind:value={diceRollVal} />
+              </div>
+
+              <!-- Stat modifier -->
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">屬性加值</span>
+                <input class="num-input" type="number" min="-10" max="20" bind:value={diceStatMod} />
+              </div>
+
+              <!-- External modifier -->
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">補正</span>
+                <input class="num-input" type="number" min="-20" max="20" bind:value={diceExtMod} />
+              </div>
+
+              <!-- DC -->
+              <div class="stat-edit-row">
+                <span class="stat-edit-label">DC</span>
+                <input class="num-input" type="number" min="1" max="40" bind:value={diceDC} />
+              </div>
+
+              <!-- Summary -->
+              <div class="dice-preview">
+                <span class="dice-preview-eq">{diceRollVal} + {diceStatMod} + {diceExtMod} = <strong style="color:{dicePreviewPassed ? '#7ec8a0' : '#d35f5f'}">{dicePreviewTotal}</strong> vs DC {diceDC}</span>
+                <span class="dice-preview-result" style="color:{dicePreviewPassed ? '#7ec8a0' : '#d35f5f'}">{dicePreviewPassed ? '成功' : '失敗'}</span>
+              </div>
+
+              <button class="trigger-btn" style="width:100%; margin-top:4px" on:click={triggerDiceTest}>
+                觸發判定動畫
+              </button>
+            </div>
+          </div>
 
         </div>
       {/if}
@@ -1195,5 +1389,68 @@
     color: #c98040;
     padding-left: 4px;
     word-break: break-all;
+  }
+
+  /* Rep/affinity tab */
+  .rep-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rep-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  /* Dice test tab */
+  .dice-type-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .dice-type-active {
+    border-color: #5fa8d3;
+    color: #5fa8d3;
+  }
+
+  .dice-select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    outline: none;
+    flex: 1;
+  }
+
+  .dice-select:focus { border-color: #5fa8d3; }
+
+  .dice-preview {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-top: 4px;
+  }
+
+  .dice-preview-eq {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+
+  .dice-preview-result {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.08em;
   }
 </style>

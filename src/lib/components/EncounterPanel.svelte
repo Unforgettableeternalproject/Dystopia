@@ -2,8 +2,7 @@
   import { activeEncounterUI } from '$lib/stores/gameStore';
   import type { EncounterType } from '$lib/types/encounter';
 
-  export let onSelect:  (choiceId: string) => void;
-  export let onAdvance: () => void;
+  export let onSelect: (choiceId: string) => void;
 
   // Type-specific visual config
   const typeConfig: Record<EncounterType, { label: string; icon: string; accent: string }> = {
@@ -42,30 +41,7 @@
     {/if}
 
     <!-- Content by type -->
-    {#if enc.type === 'story'}
-      <!-- Story (cutscene): screenplay-style, shows revealed lines up to currentLineIndex -->
-      <div class="story-script">
-        {#each (enc.script ?? []).slice(0, (enc.currentLineIndex ?? 0) + 1) as line}
-          {#if line.text}
-            {#if line.speaker === 'narrator' || !line.speaker}
-              <p class="script-narrator">{line.text}</p>
-            {:else if line.speaker === 'player'}
-              <p class="script-dialogue script-player">
-                <span class="script-speaker">你</span>「{line.text}」
-              </p>
-            {:else}
-              <p class="script-dialogue script-npc">
-                <span class="script-speaker">{line.speaker}</span>「{line.text}」
-              </p>
-            {/if}
-          {/if}
-        {/each}
-      </div>
-      <div class="choices narrative-action">
-        <button class="choice-btn continue-btn" on:click={onAdvance}>繼續</button>
-      </div>
-
-    {:else if enc.type === 'event'}
+    {#if enc.type === 'event'}
       <!-- Event: prominent choice buttons, optional stat display -->
       <div class="choices event-choices">
         {#each enc.choices as choice (choice.id)}
@@ -232,6 +208,17 @@
     align-self: flex-end;
     min-width: 80px;
     text-align: center;
+  }
+
+  .skip-btn {
+    align-self: flex-end;
+    min-width: 80px;
+    text-align: center;
+    opacity: 0.6;
+  }
+
+  .skip-btn:hover {
+    opacity: 1;
   }
 
   /* ── Event type ──────────────────────────────────────────── */

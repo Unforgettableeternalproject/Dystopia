@@ -108,6 +108,10 @@ export async function decode(code: string): Promise<DecodeResult> {
     knownIntelIds:     snapshot.player.knownIntelIds     ?? [],
     contactedFactions: snapshot.player.contactedFactions ?? [],
     melphin:           snapshot.player.melphin           ?? 0,
+    statusStats: {
+      ...snapshot.player.statusStats,
+      fatigue: snapshot.player.statusStats.fatigue ?? 3,
+    },
   };
 
   const state: GameState = {

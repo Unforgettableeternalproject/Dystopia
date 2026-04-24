@@ -133,6 +133,12 @@ export interface EncounterChoice {
    */
   minMelphin?: number;
   /**
+   * 進階日期時間條件（陣列內 OR）。符合其中一個即通過此欄位。
+   * 支援 before / after / between，可同時考量日期（年月日）與時刻（時分）。
+   * 省略 = 無日期時間限制。
+   */
+  dateTimeConditions?: import('./world').GameDateTimeCondition[];
+  /**
    * 派系聲望下限（AND 關係）。key = factionId，value = 最低聲望值。
    * 玩家對所有指定派系的聲望均需達標，此選項才顯示。
    */

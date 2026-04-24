@@ -4,5 +4,9 @@
   "regionId": "crambell",
   "description": "在坎貝爾地底網絡中活動的抵抗組織，自稱延續被解散的舊議政體制。成員分散於各象限，以舊會議通道為通訊骨幹。",
   "defaultReputation": 0,
-  "unknownUntil": "know_crambell_treffen"
+  "unknownUntil": "know_crambell_treffen",
+  "relations": [
+    { "targetFactionId": "crambell_peoples_alliance", "weight":  1 },
+    { "targetFactionId": "crambell_general_corps",    "weight":  0 }
+  ]
 }

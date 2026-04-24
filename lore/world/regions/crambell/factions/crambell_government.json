@@ -3,5 +3,10 @@
   "name": "中央政府",
   "regionId": "crambell",
   "description": "坎貝爾的統治核心，由領主與六大部門組成（紀錄、控制、訓練、調查、還原、處置），掌控全區軍事、生產、配額與司法。",
-  "defaultReputation": 0
+  "defaultReputation": 0,
+  "relations": [
+    { "targetFactionId": "crambell_treffen",          "weight": -3 },
+    { "targetFactionId": "crambell_peoples_alliance", "weight": -1 },
+    { "targetFactionId": "crambell_general_corps",    "weight":  2 }
+  ]
 }

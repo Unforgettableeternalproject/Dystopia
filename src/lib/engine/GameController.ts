@@ -26,7 +26,7 @@ import { QuestEngine }      from './QuestEngine';
 import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
-import type { ResolvedNode } from './EncounterEngine';
+import type { ResolvedNode, EncounterPendingEffects } from './EncounterEngine';
 import { RestResolver }     from './RestResolver';
 import type { RestResult }  from './RestResolver';
 import type { EncounterDefinition, ScriptLine } from '../types/encounter';
@@ -49,6 +49,7 @@ import {
   thoughts,
   playerUI,
   narrativeLines,
+  type NarrativeLine,
   type MiniMapData,
   type MiniMapNode,
   type MiniMapEdge,
@@ -63,14 +64,14 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
 
 const STAT_LABELS: Record<string, Record<string, string>> = {
-  statusStats:   { stamina: '體力', staminaMax: '體力上限', stress: '壓力', stressMax: '壓力上限', endo: 'Endo', endoMax: 'Endo 上限', experience: '經驗' },
+  statusStats:   { stamina: '體力', staminaMax: '體力上限', stress: '壓力', stressMax: '壓力上限', endo: 'Endo', endoMax: 'Endo 上限', experience: '經驗', fatigue: '疲勞' },
   primaryStats:  { strength: '力量', knowledge: '知識', talent: '才能', spirit: '靈性', luck: '運氣' },
   secondaryStats: { consciousness: '意識', mysticism: '神秘', technology: '技術' },
 };
@@ -90,6 +91,7 @@ export class GameController {
   private dialogueMgr:  DialogueManager;
   private encounterMgr: EncounterEngine;
   private mockMode:     boolean;
+  private _storySkipRequested = false;
 
   /** ID of the region the player is currently in. Updated on region change. */
   private currentRegionId = 'crambell';
@@ -104,6 +106,13 @@ export class GameController {
 
   /** Maximum NPC dialogue turns before controller forces a wrap-up. */
   private static readonly MAX_DIALOGUE_TURNS = 8;
+
+  /** 每累積 N 分鐘遊戲時間，疲勞 +1（6 小時） */
+  private static readonly FATIGUE_PERIOD_MINUTES = 360;
+
+  /** 暫存休息敘述上下文，在 overlay 關閉後由 narrateRestResult() 使用 */
+  private _pendingRestNarration: { sceneCtx: string; result: RestResult; plannedMinutes: number } | null = null;
+
 
   /** Scripted trigger nodeIds that have already fired in the current NPC encounter session. */
   private _sessionFiredTriggers = new Set<string>();
@@ -413,6 +422,9 @@ export class GameController {
     log.debug('Action submitted', { input });
     const gs0reg = this.state.getState();
 
+    // 顯示等待指示器（在 Regulator 非同步驗證之前），後續由 Phase 2 替換
+    const thinkingLineId = pushLine('···', 'system');
+
     // ── Trace: start exploration turn ───────────────────────────────────
     const traceId = startTrace(gs0reg.turn, 'exploration', `${actionType ?? 'free'}: ${input.slice(0, 60)}`, {
       locationId: gs0reg.player.currentLocationId,
@@ -443,6 +455,7 @@ export class GameController {
 
     if (!result.allowed) {
       log.info('Action rejected', { input, reason: result.reason });
+      narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
       pushLine(result.reason ?? 'That is not possible.', 'rejected');
       // Even on rejection, check endings — stress/stamina may have changed from
       // events or condition ticks earlier, and a blocking Regulator should not
@@ -469,6 +482,7 @@ export class GameController {
     // Intercept rest — open modal instead of going through DM pipeline.
     // Applies regardless of whether the action came from a Thought or manual text input.
     if (finalAction.type === 'rest') {
+      narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
       this.openRestModal();
       inputDisabled.set(false);
       return;
@@ -520,6 +534,17 @@ export class GameController {
     this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
     const crossedHours   = this.timeMgr.computeCrossedHours(initialTime, newTime);
 
+    // 疲勞累積：每跨越 FATIGUE_PERIOD_MINUTES（6h）增加 1 點疲勞（上限 5）
+    {
+      const fp = GameController.FATIGUE_PERIOD_MINUTES;
+      const crossed6h = Math.floor(newTime.totalMinutes / fp) - Math.floor(initialTime.totalMinutes / fp);
+      if (crossed6h > 0) {
+        const cur = this.state.getState().player.statusStats.fatigue ?? 0;
+        const delta = Math.min(crossed6h, 5 - cur);
+        if (delta > 0) this.state.modifyStat('statusStats.fatigue', delta);
+      }
+    }
+
     // Guard: Day 0 suppression.
     // The player starts mid-day-zero (e.g., 21:43). No lore events fire until the clock
     // first crosses midnight (hour 0), which marks the start of Day 1.
@@ -564,6 +589,7 @@ export class GameController {
 
     // 4.15. Launch event-triggered encounter AFTER narration so event text plays first.
     if (eventEncounter) {
+      narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
       await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
       log.info('Encounter started by event', { encounterId: eventEncounter.id });
       this.flushAcquisitions();
@@ -685,7 +711,9 @@ export class GameController {
    * 非主線任務可放棄，結果等同 fail，套用 onFail / onFailDefault。
    */
   abandonQuest(questId: string): boolean {
-    return this.quests.abandonQuest(questId);
+    const result = this.quests.abandonQuest(questId);
+    if (result) this.syncUIState(this.state.getState());
+    return result;
   }
 
   // -- Rest -------------------------------------------------------
@@ -693,31 +721,41 @@ export class GameController {
   /**
    * 開啟休息 Modal。分類當前休息情境並設定 store。
    * 由 UI 在玩家選擇休息動作時呼叫。
+   * @returns false 表示疲勞不足（< 3），無法休息
    */
-  openRestModal(): void {
+  openRestModal(): boolean {
+    const fatigue = this.state.getState().player.statusStats.fatigue ?? 0;
+    if (fatigue < 3) {
+      pushLine('你還不夠疲勞，無法入睡。', 'system');
+      return false;
+    }
     const restCtx = this.classifyRestContext();
     restModalOpen.set({
       canFullRest:        restCtx.mode === 'full_available',
       scuffedMaxMinutes:  restCtx.maxTimeMinutes,
     });
+    return true;
   }
 
   /**
    * 執行休息：計算結果、套用數值、推進時間、設定結果 overlay。
    * 由 RestModal 在玩家確認時長後呼叫。
+   * DM 敘述將在 overlay 關閉後由 narrateRestResult() 觸發。
    * @returns RestResult 結果資料
    */
   executeRest(plannedMinutes: number): RestResult {
     const gs      = this.state.getState();
     const restCtx = this.classifyRestContext();
+    const s       = gs.player.statusStats;
 
     const result = RestResolver.resolve({
       plannedMinutes,
       restCtx,
-      stamina:    gs.player.statusStats.stamina,
-      staminaMax: gs.player.statusStats.staminaMax,
-      stress:     gs.player.statusStats.stress,
-      stressMax:  gs.player.statusStats.stressMax,
+      stamina:    s.stamina,
+      staminaMax: s.staminaMax,
+      stress:     s.stress,
+      stressMax:  s.stressMax,
+      fatigue:    s.fatigue ?? 0,
     });
 
     // Apply stat changes (stamina recovery + stress reduction)
@@ -726,6 +764,10 @@ export class GameController {
     }
     if (result.stressDelta !== 0) {
       this.state.modifyStat('statusStats.stress', result.stressDelta);
+    }
+    // Apply fatigue change (rest always brings fatigue ≤ 2)
+    if (result.fatigueDelta !== 0) {
+      this.state.modifyStat('statusStats.fatigue', result.fatigueDelta);
     }
 
     // Advance time by actual rest duration
@@ -762,8 +804,12 @@ export class GameController {
     this.quests.checkPendingRepeats();
     this.phases.checkAdvance();
 
-    // Flush acquisition notifications (stamina/stress delta)
+    // Flush acquisition notifications
     this.flushAcquisitions();
+
+    // Store narration context for after the overlay closes
+    const sceneCtx = this.buildSceneCtx([]);
+    this._pendingRestNarration = { sceneCtx, result, plannedMinutes };
 
     // Show result overlay
     restResultOverlay.set({
@@ -773,6 +819,7 @@ export class GameController {
       quality:          result.quality,
       staminaDelta:     result.staminaDelta,
       stressDelta:      result.stressDelta,
+      fatigueDelta:     result.fatigueDelta,
       resultTags:       result.resultTags,
     });
 
@@ -780,6 +827,129 @@ export class GameController {
     this.syncUIState(this.state.getState());
 
     return result;
+  }
+
+  /**
+   * 休息 overlay 關閉後，觸發 DM 敘述休息結果。
+   * 由 RestResultOverlay 在 dismiss 動畫結束後呼叫。
+   */
+  async narrateRestResult(): Promise<void> {
+    const ctx = this._pendingRestNarration;
+    this._pendingRestNarration = null;
+    if (!ctx || !this.dmClient) return;
+
+    const { sceneCtx, result, plannedMinutes } = ctx;
+    const gs = this.state.getState();
+
+    const fmtMin = (m: number) => {
+      if (m < 60) return `${m} min`;
+      const h = Math.floor(m / 60), rem = m % 60;
+      return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
+    };
+
+    const restSummary = [
+      `Quality: ${result.quality}`,
+      `Planned: ${fmtMin(plannedMinutes)} → Actual: ${fmtMin(result.actualMinutes)} (${result.deviationMinutes > 0 ? '+' : ''}${result.deviationMinutes}min deviation)`,
+      result.staminaDelta !== 0 ? `Stamina: ${result.staminaDelta > 0 ? '+' : ''}${result.staminaDelta}` : '',
+      result.stressDelta  !== 0 ? `Stress: ${result.stressDelta > 0 ? '+' : ''}${result.stressDelta}`   : '',
+    ].filter(Boolean).join('\n');
+
+    const traceId = startTrace(gs.turn, 'exploration', `rest: ${result.quality}`);
+    addTracePhase(traceId, 'input', { type: 'rest', plannedMinutes, actualMinutes: result.actualMinutes, quality: result.quality });
+    addTracePhase(traceId, 'scene', { sceneCtx });
+    addTracePhase(traceId, 'rest-result', { restSummary });
+    log.debug('Rest narration — scene ctx', { length: sceneCtx.length });
+    log.debug('Rest narration — rest summary', { restSummary });
+
+    isStreaming.set(true);
+    pushLine('', 'narrative', true);
+    let fullText = '';
+    let signalCutoff = -1;
+    try {
+      for await (const chunk of this.dm.narrateRest(sceneCtx, restSummary, gs.history)) {
+        const prevLen = fullText.length;
+        fullText += chunk;
+        if (signalCutoff === -1) {
+          const idx = fullText.indexOf('<<');
+          if (idx !== -1) {
+            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            signalCutoff = idx;
+          } else {
+            appendToLastLine(chunk);
+          }
+        }
+      }
+      const displayText = (signalCutoff === -1 ? fullText : fullText.slice(0, signalCutoff)).trimEnd();
+      narrativeLines.update(lines => {
+        if (lines.length === 0) return lines;
+        const last = lines[lines.length - 1];
+        if (last.text === displayText) return lines;
+        return [...lines.slice(0, -1), { ...last, text: displayText }];
+      });
+      addTracePhase(traceId, 'narration', { raw: fullText });
+      log.debug('Rest narration — DM response', { length: fullText.length, preview: fullText.slice(0, 200) });
+    } catch (err) {
+      log.error('Rest DM narration failed', err);
+      appendToLastLine('\n[rest narration error]');
+    } finally {
+      finishLastLine();
+      isStreaming.set(false);
+    }
+
+    const action: PlayerAction = { type: 'rest', input: '（休息）' };
+    this.state.appendHistory(action, fullText.slice(0, 200));
+  }
+
+  /**
+   * 玩家取消休息，觸發 DM 簡短敘述。
+   * 由 RestModal 的「取消」按鈕呼叫。
+   */
+  async cancelRest(): Promise<void> {
+    this._pendingRestNarration = null;
+    if (!this.dmClient) return;
+
+    const gs = this.state.getState();
+    const sceneCtx = this.buildSceneCtx([]);
+
+    const traceId = startTrace(gs.turn, 'exploration', 'rest: cancelled');
+    addTracePhase(traceId, 'input', { type: 'rest', cancelled: true });
+    addTracePhase(traceId, 'scene', { sceneCtx });
+    log.debug('Rest cancel narration — scene ctx', { length: sceneCtx.length });
+
+    isStreaming.set(true);
+    pushLine('', 'narrative', true);
+    let fullText = '';
+    let signalCutoff = -1;
+    try {
+      for await (const chunk of this.dm.narrateRestCancel(sceneCtx, gs.history)) {
+        const prevLen = fullText.length;
+        fullText += chunk;
+        if (signalCutoff === -1) {
+          const idx = fullText.indexOf('<<');
+          if (idx !== -1) {
+            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            signalCutoff = idx;
+          } else {
+            appendToLastLine(chunk);
+          }
+        }
+      }
+      const displayText = (signalCutoff === -1 ? fullText : fullText.slice(0, signalCutoff)).trimEnd();
+      narrativeLines.update(lines => {
+        if (lines.length === 0) return lines;
+        const last = lines[lines.length - 1];
+        if (last.text === displayText) return lines;
+        return [...lines.slice(0, -1), { ...last, text: displayText }];
+      });
+      addTracePhase(traceId, 'narration', { raw: fullText });
+      log.debug('Rest cancel narration — DM response', { length: fullText.length, preview: fullText.slice(0, 200) });
+    } catch (err) {
+      log.error('Rest cancel DM narration failed', err);
+      appendToLastLine('\n[narration error]');
+    } finally {
+      finishLastLine();
+      isStreaming.set(false);
+    }
   }
 
   // -- Save / load -------------------------------------------------------
@@ -1184,7 +1354,8 @@ export class GameController {
       '',
       '## Player Status',
       'Stamina: ' + gs.player.statusStats.stamina + '/' + gs.player.statusStats.staminaMax +
-        ' | Stress: ' + gs.player.statusStats.stress + '/' + gs.player.statusStats.stressMax,
+        ' | Stress: ' + gs.player.statusStats.stress + '/' + gs.player.statusStats.stressMax +
+        ' | Fatigue: ' + (gs.player.statusStats.fatigue ?? 0) + '/5',
       'World Phase: ' + gs.worldPhase.currentPhase.replace(/_/g, ' '),
       visibleConditions ? 'Conditions: ' + visibleConditions : '',
     ].filter(Boolean).join('\n'));
@@ -1387,7 +1558,7 @@ export class GameController {
         `Origin: ${gs.player.origin}`,
         `Primary — STR: ${p.strength} | KNW: ${p.knowledge} | TLT: ${p.talent} | SPR: ${p.spirit} | LCK: ${p.luck}`,
         `Domain — Mysticism: ${d.mysticism} | Technology: ${d.technology} | Consciousness: ${d.consciousness}`,
-        `Status — Stamina: ${s.stamina}/${s.staminaMax} | Stress: ${s.stress}/${s.stressMax} | Endo: ${s.endo}/${s.endoMax}`,
+        `Status — Stamina: ${s.stamina}/${s.staminaMax} | Stress: ${s.stress}/${s.stressMax} | Endo: ${s.endo}/${s.endoMax} | Fatigue: ${s.fatigue ?? 0}/5`,
       ].join('\n'));
     }
 
@@ -1584,6 +1755,7 @@ export class GameController {
     action: PlayerAction,
     sceneCtx: string,
     traceId?: number,
+    thinkingLineId?: string,
   ): Promise<{ resolution: TurnResolution; suggestions: string[] }> {
     // Capture scalar values before any awaits — getState() returns a live reference.
     const gs = this.state.getState();
@@ -1812,8 +1984,8 @@ export class GameController {
 
     // ── Phase 2: Stream DM narration ─────────────────────────────────────
     isStreaming.set(true);
-    // Show thinking indicator while waiting for DM response
-    const thinkingLineId = pushLine('···', 'system');
+    // Use pre-existing thinking line (pushed before Regulator) if available, else push a new one
+    const effectiveThinkingId = thinkingLineId ?? pushLine('···', 'system');
     let thinkingCleared = false;
 
     let fullText = '';
@@ -1822,7 +1994,7 @@ export class GameController {
       for await (const chunk of this.dm.narrate(sceneCtx, action, this.state.getState().history)) {
         // Replace thinking indicator with narrative line on first chunk
         if (!thinkingCleared) {
-          narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
+          narrativeLines.update(lines => lines.filter(l => l.id !== effectiveThinkingId));
           pushLine('', 'narrative');
           thinkingCleared = true;
         }
@@ -1842,7 +2014,7 @@ export class GameController {
     } catch (err) {
       log.error('DM narration failed', err);
       if (!thinkingCleared) {
-        narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
+        narrativeLines.update(lines => lines.filter(l => l.id !== effectiveThinkingId));
         pushLine('', 'narrative');
       }
       appendToLastLine('\n[narration error -- please retry]');
@@ -2302,38 +2474,22 @@ export class GameController {
     const preActive = preState.activeEncounter;
     const preDef    = preActive ? this.lore.getEncounter(preActive.encounterId) : null;
 
+    const prevLineIndex = preActive?.currentLineIndex ?? -1;
     const result = this.encounterMgr.advanceLine();
 
-    // Flush high-level effects (quest grants etc. from line or result effects)
-    const pending = this.encounterMgr.flushPendingEffects();
-    if (pending.questGrant) this.quests.grantQuest(pending.questGrant);
-    if (pending.advanceQuestStage) {
-      const { questId, stageId } = pending.advanceQuestStage;
-      this.state.advanceQuestStage(questId, stageId);
-    }
-    if (pending.completeQuestObjective) {
-      const { questId, objectiveId } = pending.completeQuestObjective;
-      this.quests.applyQuestSignal(questId, 'objective', objectiveId);
-    }
-    if (pending.movePlayer) {
-      this.state.movePlayer(pending.movePlayer);
-      log.info('Player moved by story advance', { locationId: pending.movePlayer });
-    }
-    if (pending.timeAdvance) {
-      this.applyTimeAdvance(pending.timeAdvance);
-      log.info('Time advanced by story advance', { minutes: pending.timeAdvance });
-    }
-    // Sync sidebar if location or time changed mid-story
-    if (pending.movePlayer || pending.timeAdvance) {
-      this.syncUIState(this.state.getState());
-    }
-
     if (result) {
-      // More lines remain — render newly revealed line
-      this.renderStoryScript(result.script, result.currentLineIndex, preDef ?? undefined);
-      this.flushAcquisitions();
+      // More batches remain — type out newly revealed lines (effects applied per-line inside)
+      await this.renderStoryScript(result.script, prevLineIndex + 1, result.currentLineIndex, preDef ?? undefined);
     } else {
-      // All lines done, encounter ended
+      // Last batch — render remaining lines, then apply result effects and end encounter
+      if (preDef?.script) {
+        const lastIdx = preDef.script.length - 1;
+        if (prevLineIndex < lastIdx) {
+          await this.renderStoryScript(preDef.script, prevLineIndex + 1, lastIdx, preDef ?? undefined);
+        }
+      }
+      this.encounterMgr.concludeStory();
+      this.applyStoryPendingEffects(this.encounterMgr.flushPendingEffects());
       this.flushAcquisitions();
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
@@ -2357,6 +2513,31 @@ export class GameController {
       : gs.timePeriod;
     this.state.advanceTime(newTime, newPeriod);
     this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
+  }
+
+  /**
+   * 套用 story 遭遇的 EncounterPendingEffects（quest grant / move / time 等高層效果）。
+   * 供 renderStoryScript 每行後及 concludeStory 後使用，避免重複代碼。
+   */
+  private applyStoryPendingEffects(pending: EncounterPendingEffects): void {
+    if (pending.questGrant) this.quests.grantQuest(pending.questGrant);
+    if (pending.questFail)  this.quests.applyQuestFail(pending.questFail);
+    if (pending.advanceQuestStage) {
+      const { questId, stageId } = pending.advanceQuestStage;
+      this.state.advanceQuestStage(questId, stageId);
+    }
+    if (pending.completeQuestObjective) {
+      const { questId, objectiveId } = pending.completeQuestObjective;
+      this.quests.applyQuestSignal(questId, 'objective', objectiveId);
+    }
+    if (pending.movePlayer) {
+      this.state.movePlayer(pending.movePlayer);
+      log.info('Player moved by story line', { locationId: pending.movePlayer });
+    }
+    if (pending.timeAdvance) {
+      this.applyTimeAdvance(pending.timeAdvance);
+      log.info('Time advanced by story line', { minutes: pending.timeAdvance });
+    }
   }
 
   /**
@@ -2462,31 +2643,97 @@ export class GameController {
   }
 
   /**
-   * Renders a story script up to currentLineIndex.
-   * Pushes newly revealed line to narrative log; updates activeEncounterUI.
+   * 跳過目前進行中的打字機動畫，立即顯示所有剩餘文字。
+   * 對應 EncounterPanel 的「跳過」按鈕。
+   */
+  selectEncounterStorySkip(): void {
+    this._storySkipRequested = true;
+  }
+
+  /**
+   * Renders story script lines [fromIndex..toIndex] with typewriter effect.
+   * Each line is typed character-by-character into the narrative box.
    * Story scripts never go through DM — text is displayed directly.
    */
-  private renderStoryScript(
+  private async renderStoryScript(
     script: ScriptLine[],
-    currentLineIndex: number,
+    fromIndex: number,
+    toIndex: number,
     def?: EncounterDefinition,
-  ): void {
+  ): Promise<void> {
     const gs = this.state.getState();
     const effectiveDef = def ?? this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
-    const line = script[currentLineIndex];
-    if (line?.text) {
-      const label = line.speaker && line.speaker !== 'narrator' ? `${line.speaker}: ` : '';
-      pushLine(`${label}${line.text}`, 'scene');
-    }
+
+    // Update encounter header — script content goes into narrative box
     activeEncounterUI.set({
-      encounterId:      effectiveDef?.id ?? '',
-      encounterName:    effectiveDef?.name ?? '劇情',
-      type:             'story',
-      nodeText:         '',
-      choices:          [],
-      script,
-      currentLineIndex,
+      encounterId:   effectiveDef?.id ?? '',
+      encounterName: effectiveDef?.name ?? '劇情',
+      type:          'story',
+      nodeText:      '',
+      choices:       [],
     });
+
+    this._storySkipRequested = false;
+    storyTypingActive.set(true);
+
+    type LineCategory = 'narrator' | 'dialogue';
+    let prevCategory: LineCategory | null = null;
+
+    for (let i = fromIndex; i <= toIndex; i++) {
+      const line = script[i];
+
+      // Render text (if present)
+      if (line?.text) {
+        const isNarrator = !line.speaker || line.speaker === 'narrator';
+        const isPlayer   = line.speaker === 'player';
+        const lineType: NarrativeLine['type'] = isNarrator ? 'scene' : isPlayer ? 'player' : 'dialogue';
+        const category: LineCategory = isNarrator ? 'narrator' : 'dialogue';
+        const displayText = this.formatStoryLineText(line);
+
+        // Blank spacer line when toggling between narrator and dialogue
+        if (prevCategory !== null && prevCategory !== category) {
+          pushLine('', 'scene');
+        }
+
+        if (this._storySkipRequested) {
+          pushLine(displayText, lineType);
+        } else {
+          pushLine('', lineType, true);
+          for (let ci = 0; ci < displayText.length; ci++) {
+            if (this._storySkipRequested) {
+              appendToLastLine(displayText.slice(ci));
+              break;
+            }
+            appendToLastLine(displayText[ci]);
+            await new Promise<void>(r => setTimeout(r, 22));
+          }
+          finishLastLine();
+        }
+
+        prevCategory = category;
+      }
+
+      // Apply this line's effects after it has been rendered (or immediately for effect-only lines)
+      this.encounterMgr.applyLineEffects(i);
+      this.applyStoryPendingEffects(this.encounterMgr.flushPendingEffects());
+      this.flushAcquisitions();
+      this.syncUIState(this.state.getState());
+
+      // Inter-line pause (only when text rendered and not skipping)
+      if (line?.text && !this._storySkipRequested && i < toIndex) {
+        await new Promise<void>(r => setTimeout(r, 320));
+      }
+    }
+
+    storyTypingActive.set(false);
+  }
+
+  /** Format a story script line for display in the narrative box. */
+  private formatStoryLineText(line: ScriptLine): string {
+    if (!line.text) return '';
+    if (!line.speaker || line.speaker === 'narrator') return line.text;
+    if (line.speaker === 'player') return `你「${line.text}」`;
+    return `${line.speaker}「${line.text}」`;
   }
 
   /**
@@ -2504,7 +2751,7 @@ export class GameController {
     if (result.kind === 'node') {
       await this.renderEncounterNode(result.resolved, effectiveDef, isDebug);
     } else {
-      this.renderStoryScript(result.script, result.currentLineIndex, effectiveDef);
+      await this.renderStoryScript(result.script, 0, result.currentLineIndex, effectiveDef);
     }
   }
 
@@ -2797,8 +3044,8 @@ export class GameController {
       .map(fid => {
         const f    = this.lore.getFaction(fid);
         const rep  = gs.player.externalStats.reputation[fid] ?? 0;
-        // unknownUntil: faction name hidden until flag is set
-        const known = !f?.unknownUntil || this.state.flags.has(f.unknownUntil);
+        // unknownUntil: faction name hidden until player has the specified intel
+        const known = !f?.unknownUntil || gs.player.knownIntelIds.includes(f.unknownUntil);
         return { id: fid, name: known ? (f?.name ?? fid) : '???', rep };
       })
       .sort((a, b) => Math.abs(b.rep) - Math.abs(a.rep));
@@ -3662,6 +3909,22 @@ export class GameController {
     this.syncUIState(this.state.getState());
   }
 
+  /** Set a faction's reputation to an exact value (marks faction as contacted). */
+  debugSetReputation(factionId: string, value: number): void {
+    const gs = this.state.getState();
+    const current = gs.player.externalStats.reputation[factionId] ?? 0;
+    this.state.modifyReputation(factionId, Math.round(value) - current);
+    this.syncUIState(this.state.getState());
+  }
+
+  /** Set an NPC's affinity to an exact value. */
+  debugSetAffinity(npcId: string, value: number): void {
+    const gs = this.state.getState();
+    const current = gs.player.externalStats.affinity[npcId] ?? 0;
+    this.state.modifyAffinity(npcId, Math.round(value) - current);
+    this.syncUIState(this.state.getState());
+  }
+
   /** Return the current in-game date/time for debug display. */
   debugGetCurrentTime(): { year: number; month: number; day: number; hour: number; minute: number } {
     const { year, month, day, hour, minute } = this.state.getState().time;
@@ -3693,7 +3956,7 @@ export class GameController {
         currentLocationId: 'delth_dormitory_room',
         primaryStats:    { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
         secondaryStats:  { consciousness: 2, mysticism: 0, technology: 3 },
-        statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, endo: 0, endoMax: 0, experience: 0 },
+        statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, endo: 0, endoMax: 0, experience: 0, fatigue: 3 },
         externalStats:   { reputation: {}, affinity: {}, familiarity: {} },
         inventory:       [],
         melphin:         25,

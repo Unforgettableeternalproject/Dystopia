@@ -14,9 +14,9 @@
     },
     {
       "id": "mildore_peoples_alliance",
-      "label": "人民自助聯盟的核心聯繫人",
+      "label": "人民互助聯盟的核心聯繫人",
       "condition": "crambell_mildore_trusted",
-      "context": "她是人民自助聯盟在戴司象限最重要的聯繫人之一，雖然組織鬆散沒有核心，但她掌握著很多工人之間的非正式網路。",
+      "context": "她是人民互助聯盟在戴司象限最重要的聯繫人之一，雖然組織鬆散沒有核心，但她掌握著很多工人之間的非正式網路。",
       "dialogueId": "crambell_mildore_alliance"
     }
   ],

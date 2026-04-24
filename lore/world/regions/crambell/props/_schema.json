@@ -18,13 +18,14 @@
     "  visibleWhen — 動態條件，使用 ConnectionAccess 結構（與通道進入條件相同）。",
     "",
     "支援的條件類型：",
-    "  flag          — 旗標表達式，evaluate 為 true 時可見",
-    "  timePeriods   — 只在指定時段可見（work / rest / special）",
-    "  timeRanges    — 精確時間範圍（支援跨午夜）",
-    "  knowledgeIds  — 玩家持有指定情報時可見（全部滿足，AND）",
-    "  questStages   — 玩家在指定任務階段時可見（任一滿足，OR）。格式：[{ questId, stageId }]",
-    "  itemRequirements — 玩家持有指定物品時可見（全部滿足，AND）。格式：[{ itemId, variantId? }]",
-    "  minMelphin    — 玩家持有足夠梅分時可見",
+    "  flag               — 旗標表達式，evaluate 為 true 時可見",
+    "  timePeriods        — 只在指定時段可見（work / rest / special）",
+    "  timeRanges         — 精確時間範圍（支援跨午夜）",
+    "  dateTimeConditions — 進階日期時間條件（before / after / between），可同時考量日期與時刻（陣列內 OR）",
+    "  knowledgeIds       — 玩家持有指定情報時可見（全部滿足，AND）",
+    "  questStages        — 玩家在指定任務階段時可見（任一滿足，OR）。格式：[{ questId, stageId }]",
+    "  itemRequirements   — 玩家持有指定物品時可見（全部滿足，AND）。格式：[{ itemId, variantId? }]",
+    "  minMelphin         — 玩家持有足夠梅分時可見",
     "",
     "bypass 與 lockedMessage 欄位不適用於可見性判斷，會被忽略。",
     "省略 visibleWhen = 無額外條件限制。"
@@ -69,6 +70,13 @@
     "timePeriods": ["rest"],
     "timeRanges": [
       { "startHour": 22, "startMinute": 0, "endHour": 6, "endMinute": 0 }
+    ],
+    "dateTimeConditions": [
+      {
+        "_comment": "進階日期時間條件（陣列內 OR）。relation: before / after / between。欄位省略視為 0。",
+        "relation": "after",
+        "from": { "year": 1498, "month": 6, "day": 15, "hour": 8, "minute": 0 }
+      }
     ],
     "knowledgeIds": ["intel_id"],
     "questStages": [

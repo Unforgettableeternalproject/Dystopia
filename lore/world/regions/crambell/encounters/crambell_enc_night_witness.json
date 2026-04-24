@@ -23,7 +23,8 @@
       "speaker": "narrator",
       "text": "在移開目光前，你看清了他胸前的識別碼：K-0471。那串號碼留在腦海裡。",
       "effects": {
-        "flagsSet": ["witnessed_crambell_arrest", "know_k0471"],
+        "flagsSet": ["witnessed_crambell_arrest"],
+        "grantIntelId": "k0471",
         "statChanges": { "statusStats.stress": 1 }
       }
     }

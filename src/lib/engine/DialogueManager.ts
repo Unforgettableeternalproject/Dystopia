@@ -20,6 +20,7 @@ import type { StateManager }      from './StateManager';
 import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from '../types/dialogue';
 import type { FlagSystem }        from './FlagSystem';
 import type { InventoryItem }     from '../types/item';
+import { checkDateTimeConditions } from '../utils/dateTimeCondition';
 
 // <<NPC_STATE: attitude:neutral | topic:...>> — updates NPC state within a dialogue encounter.
 // npcId is NOT in the signal; it's supplied by the calling context.
@@ -96,7 +97,8 @@ export class DialogueManager {
    *   - `minMelphin`       : player's melphin must be >= this value
    */
   filterChoices(choices: ScriptedChoice[], flags: FlagSystem): ScriptedChoice[] {
-    const player = this.state.getState().player;
+    const gs                         = this.state.getState();
+    const player                     = gs.player;
     const known: string[]            = player.knownIntelIds;
     const inventory: InventoryItem[] = player.inventory ?? [];
     const melphin: number            = player.melphin ?? 0;
@@ -114,6 +116,7 @@ export class DialogueManager {
         )
       )) return false;
       if (c.minMelphin !== undefined && melphin < c.minMelphin) return false;
+      if (!checkDateTimeConditions(c.dateTimeConditions, gs.time)) return false;
       if (c.minReputation) {
         for (const [fid, min] of Object.entries(c.minReputation)) {
           if ((reputation[fid] ?? 0) < min) return false;

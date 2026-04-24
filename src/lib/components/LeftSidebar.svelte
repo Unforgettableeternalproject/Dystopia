@@ -44,13 +44,13 @@
   <!-- Faction reputation (appears on first reputation change) -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  {#if $playerUI.topFactions && $playerUI.topFactions.length > 0}
+  {#if $playerUI.allFactionRep && $playerUI.allFactionRep.length > 0}
     <div class="faction-section" in:fly={{ y: -10, duration: 350, easing: cubicOut }}
       on:click={() => factionGraphOpen.set(true)}
       title="點擊查看陣營關係"
     >
       <span class="section-header">派系 <span class="section-hint">◈</span></span>
-      {#each $playerUI.topFactions as f}
+      {#each $playerUI.allFactionRep as f}
         <div class="faction-row">
           <span class="faction-name">{f.name}</span>
           <span class="faction-rep" class:pos={f.rep > 0} class:neg={f.rep < 0}>

@@ -32,7 +32,7 @@
       "dmNarrative": "玩家悄悄把錢塞到對方手上。巡邏員低頭看了一眼。[TODO: 描述賄賂過程的緊張感]",
       "statCheck": {
         "stat": "primaryStats.luck",
-        "dc": 3,
+        "dc": 15,
         "successNodeId": "bribed_away",
         "failNodeId": "detained"
       }

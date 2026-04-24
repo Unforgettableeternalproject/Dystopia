@@ -126,7 +126,7 @@
     {#if onDebugStart}
       <button class="debug-entry-btn" on:click={onDebugStart}>除錯模式</button>
     {/if}
-    <div class="version-tag">v0.1-dev</div>
+    <div class="version-tag">v0.1.4-dev</div>
   </div>
 </div>
 

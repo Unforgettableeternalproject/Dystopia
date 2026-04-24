@@ -5,7 +5,7 @@
 //   - No output when no factions discovered
 //   - Discovery via contactedFactions (0-rep contact)
 //   - Discovery via non-zero reputation
-//   - unknownUntil hides name as '???' until flag is set
+//   - unknownUntil hides name as '???' until intel is known
 //   - Edges appear only when both endpoint factions are discovered
 
 import { describe, expect, it } from 'vitest';
@@ -75,7 +75,7 @@ const factionSecret: Faction = {
   regionId: 'crambell',
   description: 'An organisation whose identity is hidden.',
   defaultReputation: 0,
-  unknownUntil: 'know_secret_faction',
+  unknownUntil: 'secret_faction',
 };
 
 const factionGraph: FactionGraphDefinition = {
@@ -156,10 +156,10 @@ describe('GameController factionGraphUI', () => {
     expect(graph!.nodes[0].revealed).toBe(false);
   });
 
-  it('reveals secret faction name once unknownUntil flag is set', () => {
+  it('reveals secret faction name once unknownUntil intel is known', () => {
     const gc = makeController();
     stateOf(gc).contactFaction('faction_secret');
-    stateOf(gc).flags.set('know_secret_faction');
+    stateOf(gc).grantIntel('secret_faction');
     syncUI(gc);
 
     const graph = get(playerUI).factionGraphUI;

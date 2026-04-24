@@ -146,8 +146,8 @@ describe('RestResolver — scuffed 模式', () => {
     expect(result.resultTags).toContain('scuffed');
   });
 
-  it('actualMinutes 不可低於 10（最短保障）', () => {
-    mockNegativeNoise(); // noise = -30
+  it('actualMinutes 不可低於 5（最短保障）', () => {
+    mockNegativeNoise(); // scuffed noise = (0*2-1)*10 = -10
     const input: RestInput = {
       plannedMinutes: 30,
       restCtx: { ...SCUFFED_CTX, maxTimeMinutes: 20 },
@@ -155,8 +155,22 @@ describe('RestResolver — scuffed 模式', () => {
       stress: 10, stressMax: 10,
     };
     const result = RestResolver.resolve(input);
-    // bias=-180, noise=-30 → deviation=-210 → actual=30-210=-180 → capped at 10
-    expect(result.actualMinutes).toBe(10);
+    // bias=-180, noise=-10 → deviation=-190 → actual=30-190=-160 → capped at 5
+    expect(result.actualMinutes).toBe(5);
+  });
+
+  it('scuffed 模式下品質最多為「不完整休息」，不可能是「成功休息」', () => {
+    mockZeroNoise();
+    // 無偏移情況下 rawQuality 原本會是「成功休息」，但 scuffed 必須蓋掉
+    const input: RestInput = {
+      plannedMinutes: 30,
+      restCtx: { ...SCUFFED_CTX, maxTimeMinutes: 999 }, // no cap
+      stamina: 10, staminaMax: 10,
+      stress: 0, stressMax: 10,
+    };
+    const result = RestResolver.resolve(input);
+    expect(result.quality).not.toBe('成功休息');
+    expect(result.quality).toBe('不完整休息');
   });
 });
 

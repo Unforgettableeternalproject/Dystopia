@@ -25,12 +25,17 @@
 | 旗標 | `flag` (表達式) | `flags[]` / `anyFlags[]` / `notFlags[]` | `flags[]` / `anyFlags[]` | `condition` (表達式) | `condition` (表達式) |
 | 時段 | `timePeriods[]` | `timePeriods[]` | -- | -- | -- |
 | 時鐘範圍 | `timeRanges[]` | -- | -- | -- | -- |
+| 日期時間 | `dateTimeConditions[]` | `dateTimeConditions[]` | -- | `dateTimeConditions[]` | `dateTimeConditions[]` |
 | 觸發整點 | -- | `triggerHours[]` | `triggerHours[]` | -- | -- |
 | 情報/知識 | `knowledgeIds[]` | -- | -- | `knowledgeIds[]` | -- |
 | 任務階段 | `questStages[]` | `questActiveId` + `questStageId` | -- | -- | -- |
 | 物品持有 | `itemRequirements[]` | `itemRequirements[]` | -- | `itemRequirements[]` | `itemRequirements[]` |
 | 反向物品 | -- | `notItemIds[]` | -- | -- | -- |
 | 梅分門檻 | `minMelphin` | `minMelphin` | -- | `minMelphin` | `minMelphin` |
+| 聲望下限 | -- | `minReputation{}` | -- | `minReputation{}` | `minReputation{}` |
+| 聲望上限 | -- | `maxReputation{}` | -- | `maxReputation{}` | `maxReputation{}` |
+| 好感下限 | -- | `minAffinity{}` | -- | `minAffinity{}` | `minAffinity{}` |
+| 好感上限 | -- | `maxAffinity{}` | -- | `maxAffinity{}` | `maxAffinity{}` |
 | 數值門檻 | -- | `minStats{}` | -- | -- | -- |
 | 事件計數器 | -- | `min/max/exactEventCounters` | -- | -- | -- |
 | NPC 在場 | -- | `npcIds[]` | -- | -- | -- |
@@ -58,6 +63,7 @@
 | `flag` | `string` | 旗標表達式，支援 `&`, `\|`, `!` 運算子 |
 | `timePeriods` | `TimePeriod[]` | 僅在這些時段開放（`work` / `rest` / `special`） |
 | `timeRanges` | `GameTimeRange[]` | 精確時鐘範圍（陣列內 OR），支援跨午夜 |
+| `dateTimeConditions` | `GameDateTimeCondition[]` | 進階日期時間條件（陣列內 OR）。支援 `before` / `after` / `between`，可同時考量日期（年月日）與時刻（時分），各欄位皆可省略（省略視為 0） |
 | `knowledgeIds` | `string[]` | 玩家需擁有所有指定情報（AND） |
 | `questStages` | `QuestStageRef[]` | 玩家在指定任務階段時開放（陣列內 OR） |
 | `itemRequirements` | `ItemRequirement[]` | 玩家需持有所有指定物品（AND） |
@@ -105,6 +111,11 @@
 | `itemRequirements` | `ItemRequirement[]` | 物品持有需求（AND） |
 | `notItemIds` | `string[]` | 反向物品條件（持有任一則封鎖） |
 | `minMelphin` | `number` | 最低梅分門檻 |
+| `minReputation` | `Record<string, number>` | 派系聲望下限（AND），key = factionId |
+| `maxReputation` | `Record<string, number>` | 派系聲望上限（AND），key = factionId |
+| `minAffinity` | `Record<string, number>` | NPC 好感下限（AND），key = npcId |
+| `maxAffinity` | `Record<string, number>` | NPC 好感上限（AND），key = npcId |
+| `dateTimeConditions` | `GameDateTimeCondition[]` | 進階日期時間條件（陣列內 OR） |
 | `triggerChance` | `number` | 觸發機率 0--1（條件通過後擲骰） |
 
 **引擎實作：** `EventEngine.canTrigger()` (`src/lib/engine/EventEngine.ts`)
@@ -143,6 +154,11 @@
 | `knowledgeIds` | `string[]` | 所有情報必須已知（AND） |
 | `itemRequirements` | `ItemRequirement[]` | 所有物品必須持有（AND） |
 | `minMelphin` | `number` | 最低梅分門檻 |
+| `minReputation` | `Record<string, number>` | 派系聲望下限（AND），key = factionId |
+| `maxReputation` | `Record<string, number>` | 派系聲望上限（AND），key = factionId |
+| `minAffinity` | `Record<string, number>` | NPC 好感下限（AND），key = npcId |
+| `maxAffinity` | `Record<string, number>` | NPC 好感上限（AND），key = npcId |
+| `dateTimeConditions` | `GameDateTimeCondition[]` | 進階日期時間條件（陣列內 OR） |
 
 **引擎實作：** `DialogueManager.filterChoices()` (`src/lib/engine/DialogueManager.ts`)
 
@@ -161,6 +177,11 @@
 | `condition` | `string` | 旗標表達式 |
 | `itemRequirements` | `ItemRequirement[]` | 所有物品必須持有（AND） |
 | `minMelphin` | `number` | 最低梅分門檻 |
+| `minReputation` | `Record<string, number>` | 派系聲望下限（AND），key = factionId |
+| `maxReputation` | `Record<string, number>` | 派系聲望上限（AND），key = factionId |
+| `minAffinity` | `Record<string, number>` | NPC 好感下限（AND），key = npcId |
+| `maxAffinity` | `Record<string, number>` | NPC 好感上限（AND），key = npcId |
+| `dateTimeConditions` | `GameDateTimeCondition[]` | 進階日期時間條件（陣列內 OR） |
 
 **引擎實作：** `EncounterEngine.advanceTo()` (`src/lib/engine/EncounterEngine.ts`)
 

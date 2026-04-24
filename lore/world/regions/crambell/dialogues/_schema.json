@@ -40,6 +40,14 @@
           "knowledgeIds": ["intel_id_1", "intel_id_2"],
           "itemRequirements": [{ "itemId": "transit_permit", "variantId": "delth" }],
           "minMelphin": 10,
+          "minReputation": { "crambell_government": 10 },
+          "maxReputation": { "crambell_peoples_alliance": 20 },
+          "minAffinity": { "crambell_mildore": 5 },
+          "maxAffinity": { "crambell_mildore": 80 },
+          "dateTimeConditions": [
+            { "_comment": "進階日期時間條件（陣列內 OR）。relation: before / after / between。欄位省略視為 0。",
+              "relation": "after", "from": { "year": 1498, "month": 6, "day": 15 } }
+          ],
 
           "_post_condition_branching": "Branches are evaluated AFTER effects are applied. First matching branch wins. Falls back to nextNodeId.",
           "branches": [
@@ -59,7 +67,7 @@
             "flagsUnset": ["flag_to_remove"],
             "attitude": "friendly | neutral | cautious | hostile",
 
-            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds AND sets flag know_<id> for use in conditions.",
+            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds and can be checked via knowledgeIds conditions.",
             "grantIntel": ["intel_id_1", "intel_id_2"],
 
             "_quest_init": "Quest lifecycle effects.",

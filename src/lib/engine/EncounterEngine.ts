@@ -18,6 +18,7 @@ import { DiceEngine } from './DiceEngine';
 import type { RollResult } from './DiceEngine';
 import { GameEvents } from './EventBus';
 import { createLogger } from '../utils/Logger';
+import { checkDateTimeConditions } from '../utils/dateTimeCondition';
 
 const log = createLogger('EncounterEngine');
 
@@ -104,10 +105,9 @@ export class EncounterEngine {
       }
 
       // Batch-advance from line 0 to first pause (or end of script).
-      // Apply effects of every line we pass through.
+      // Effects are NOT applied here — GameController applies them per-line after rendering.
       let idx = 0;
       while (idx < script.length) {
-        if (script[idx].effects) this.applyEffects(script[idx].effects!);
         if (script[idx].pause) break;
         idx++;
       }
@@ -260,18 +260,15 @@ export class EncounterEngine {
     if (!script) return null;
 
     // Batch-advance from next line to next pause (or end).
+    // Effects are NOT applied here — GameController applies them per-line after rendering.
     let idx = active.currentLineIndex + 1;
     while (idx < script.length) {
-      if (script[idx].effects) this.applyEffects(script[idx].effects!);
       if (script[idx].pause) break;
       idx++;
     }
 
-    // Ran off end — apply result and end encounter
+    // Ran off end — return null; GameController renders remaining lines then calls concludeStory().
     if (idx >= script.length) {
-      if (def!.result?.effects) this.applyEffects(def!.result.effects);
-      const outcomeType = def!.result?.outcomeType ?? 'neutral';
-      this.endEncounter(active.collectedNarrative, outcomeType);
       return null;
     }
 
@@ -288,6 +285,31 @@ export class EncounterEngine {
       collectedNarrative: [active.collectedNarrative, newNarrative].filter(Boolean).join('\n'),
     });
     return { script, currentLineIndex: idx };
+  }
+
+  /**
+   * 套用指定行索引的效果。
+   * GameController 在打字機渲染完每行後呼叫，確保效果在文字顯示後才生效。
+   */
+  applyLineEffects(lineIdx: number): void {
+    const active = this.state.getState().activeEncounter;
+    if (!active) return;
+    const def = this.lore.getEncounter(active.encounterId);
+    const effects = def?.script?.[lineIdx]?.effects;
+    if (effects) this.applyEffects(effects);
+  }
+
+  /**
+   * 套用 story 遭遇的最終結果效果並結束遭遇。
+   * 在 GameController 渲染完最後一批行後呼叫，取代原本 advanceLine() 的行內 endEncounter。
+   */
+  concludeStory(): void {
+    const active = this.state.getState().activeEncounter;
+    if (!active) return;
+    const def = this.lore.getEncounter(active.encounterId);
+    if (def?.result?.effects) this.applyEffects(def.result.effects);
+    const outcomeType = def?.result?.outcomeType ?? 'neutral';
+    this.endEncounter(active.collectedNarrative, outcomeType);
   }
 
   /**
@@ -328,12 +350,12 @@ export class EncounterEngine {
       const nextNode = def.nodes?.[nextId];
       if (!nextNode) {
         log.warn('Missing stat check target node', { nextId });
-        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult } };
+        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult, sides: node.statCheck.dice?.sides ?? 20 } };
       }
 
       // Recurse — the resolved node is the final destination
       const resolved = this.resolveNode(def, nextNode);
-      return { ...resolved, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult } };
+      return { ...resolved, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult, sides: node.statCheck.dice?.sides ?? 20 } };
     }
 
     // Filter choices by conditions (flag, items, melphin, reputation, affinity)
@@ -343,6 +365,7 @@ export class EncounterEngine {
       if (c.condition && !this.state.flags.evaluate(c.condition)) return false;
       if (c.itemRequirements?.length && !this.meetsItemRequirements(c.itemRequirements, gs)) return false;
       if (c.minMelphin !== undefined && gs.player.melphin < c.minMelphin) return false;
+      if (!checkDateTimeConditions(c.dateTimeConditions, gs.time)) return false;
       if (c.minReputation) {
         for (const [fid, min] of Object.entries(c.minReputation)) {
           if ((reputation[fid] ?? 0) < min) return false;

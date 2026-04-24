@@ -10,6 +10,7 @@ import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { TimeManager } from './TimeManager';
 import { GameEvents } from './EventBus';
+import { checkDateTimeConditions } from '../utils/dateTimeCondition';
 
 export interface TriggeredEvent {
   event: GameEvent;
@@ -217,6 +218,9 @@ export class EventEngine {
     if (condition.minMelphin !== undefined && gs.player.melphin < condition.minMelphin) {
       return false;
     }
+
+    // Date-time conditions (array is OR — at least one must pass)
+    if (!checkDateTimeConditions(condition.dateTimeConditions, gs.time)) return false;
 
     // Reputation conditions (AND — all must pass)
     if (condition.minReputation) {

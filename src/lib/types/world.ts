@@ -81,6 +81,42 @@ export interface GameTimeRange {
 }
 
 /**
+ * 遊戲內曆法的一個時間點（各欄位皆可省略，省略時視為 0）。
+ * 用於 GameDateTimeCondition，描述 before / after / between 的基準點。
+ */
+export interface GameDatePoint {
+  year?:   number;  // 省略視為 0
+  month?:  number;  // 1–12；省略視為 0
+  day?:    number;  // 1–31；省略視為 0
+  hour?:   number;  // 0–23；省略視為 0
+  minute?: number;  // 0–59；省略視為 0
+}
+
+/**
+ * 進階日期時間條件，支援 before / after / between 三種關係。
+ * 可同時考量日期（年月日）與時刻（時分）。
+ * 用於 ConnectionAccess.dateTimeConditions，陣列內為 OR 關係（符合其中一個即通過）。
+ *
+ * @example
+ * // 在 AD 1498-06-15 08:00 之後才開放
+ * { relation: 'after', from: { year: 1498, month: 6, day: 15, hour: 8, minute: 0 } }
+ *
+ * @example
+ * // 在 AD 1498-06-10 00:00 到 1498-06-20 23:59 之間
+ * { relation: 'between',
+ *   from: { year: 1498, month: 6, day: 10, hour: 0, minute: 0 },
+ *   to:   { year: 1498, month: 6, day: 20, hour: 23, minute: 59 } }
+ */
+export interface GameDateTimeCondition {
+  /** 'before' = 在 from 之前；'after' = 在 from 之後；'between' = 在 from 到 to 之間（含端點）。 */
+  relation: 'before' | 'after' | 'between';
+  /** 參考時間點（before/after 的基準；between 的起點）。 */
+  from: GameDatePoint;
+  /** 僅 relation === 'between' 時必填：終止時間點。 */
+  to?: GameDatePoint;
+}
+
+/**
  * 通道進入條件的繞過設定。
  * bypass 內所有欄位為 OR 關係——任一條件成立即可無視整個 access 的限制。
  * 省略整個 bypass 物件 = 不啟用繞過機制。
@@ -120,6 +156,13 @@ export interface ConnectionAccess {
    * 省略 = 無時鐘限制。
    */
   timeRanges?: GameTimeRange[];
+  /**
+   * 進階日期時間條件。陣列內為 OR — 符合其中一個即通過。
+   * 與 timeRanges / timePeriods 同為 AND 關係的獨立條件。
+   * 支援 before / after / between，可同時考量日期（年月日）與時刻（時分）。
+   * 省略 = 無日期時間限制。
+   */
+  dateTimeConditions?: GameDateTimeCondition[];
   /** 玩家需擁有的情報 ID（knownIntelIds）；省略 = 無知識門檻 */
   knowledgeIds?: string[];
   /**
@@ -376,6 +419,12 @@ export interface EventCondition {
    */
   minMelphin?: number;
   /**
+   * 進階日期時間條件（陣列內 OR）。符合其中一個即通過此欄位。
+   * 支援 before / after / between，可同時考量日期（年月日）與時刻（時分）。
+   * 省略 = 無日期時間限制。
+   */
+  dateTimeConditions?: GameDateTimeCondition[];
+  /**
    * 觸發機率（0–1）。條件通過後，依此機率決定是否實際觸發。
    * 省略或 1.0 = 必定觸發。
    */
@@ -477,11 +526,17 @@ export interface Faction {
   description: string;
   defaultReputation: number;
   /**
-   * 身份揭露條件。旗標尚未達成時，玩家雖能感知此派系（聲望圖以 ??? 顯示），
-   * 但不知道其真實名稱與身份。省略 = 接觸即知（如政府等公開勢力）。
-   * 範例：舊會議 unknownUntil: "know_crambell_treffen"
+   * 身份揭露條件（情報 ID）。玩家 knownIntelIds 尚未包含此 ID 時，
+   * 派系名稱在聲望圖中以 ??? 顯示。省略 = 接觸即知（如政府等公開勢力）。
+   * 範例：unknownUntil: "crambell_treffen_true_name"
    */
   unknownUntil?: string;
+  /**
+   * 與其他派系的靜態關係（用於派系關係圖的彈簧佈局）。
+   * weight > 0 = 友好，0 = 中立，weight < 0 = 敵對。
+   * 每條邊只需在其中一方的檔案定義一次；系統會自動去重。
+   */
+  relations?: Array<{ targetFactionId: string; weight: number }>;
 }
 
 /**

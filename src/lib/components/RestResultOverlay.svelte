@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { restResultOverlay } from '$lib/stores/gameStore';
+  import type { GameController } from '$lib/engine/GameController';
 
-  function dismiss() { restResultOverlay.set(null); }
+  export let controller: GameController;
 
-  // Phase animation (same pattern as StatCheckOverlay)
-  // 0 = card entering, 1 = content appears, 2 = click-to-close enabled
+  // Phase animation
+  // 0 = card entering, 1 = content appears, 2 = click-to-close enabled, 3 = fade-out
   let phase = 0;
   const timers: ReturnType<typeof setTimeout>[] = [];
 
@@ -15,6 +16,15 @@
   });
 
   onDestroy(() => timers.forEach(clearTimeout));
+
+  function dismiss() {
+    if (phase < 2) return;
+    phase = 3;
+    setTimeout(() => {
+      restResultOverlay.set(null);
+      controller.narrateRestResult();
+    }, 220);
+  }
 
   const QUALITY_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
     '成功休息':   { color: '#7ec8a0', label: '成功休息',  icon: '◆' },
@@ -35,9 +45,9 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="backdrop" on:click={() => { if (phase >= 1) dismiss(); }}>
+<div class="backdrop" class:fade-out={phase === 3} on:click={dismiss}>
   {#if r && cfg}
-    <div class="card" class:visible={phase >= 1}>
+    <div class="card" class:visible={phase >= 1} class:fade-out={phase === 3}>
 
       <!-- Header -->
       <div class="card-header">
@@ -91,7 +101,16 @@
           </div>
         {/if}
 
-        {#if r.staminaDelta === 0 && r.stressDelta === 0}
+        {#if r.fatigueDelta !== 0}
+          <div class="stat-row">
+            <span class="stat-label">疲勞</span>
+            <span class="stat-val" class:gain={r.fatigueDelta < 0} class:loss={r.fatigueDelta > 0}>
+              {r.fatigueDelta > 0 ? '+' : ''}{r.fatigueDelta}
+            </span>
+          </div>
+        {/if}
+
+        {#if r.staminaDelta === 0 && r.stressDelta === 0 && r.fatigueDelta === 0}
           <div class="stat-row">
             <span class="stat-label">效果</span>
             <span class="stat-val muted">無回復</span>
@@ -105,7 +124,7 @@
 </div>
 
 <style>
-  /* ── Backdrop ───────────────────────────────────────── */
+  /* ── Backdrop ── */
   .backdrop {
     position: fixed;
     inset: 0;
@@ -115,6 +134,12 @@
     align-items: center;
     justify-content: center;
     animation: backdropIn 0.2s ease-out;
+    transition: opacity 0.22s ease;
+  }
+
+  .backdrop.fade-out {
+    opacity: 0;
+    pointer-events: none;
   }
 
   @keyframes backdropIn {
@@ -122,7 +147,7 @@
     to   { opacity: 1; }
   }
 
-  /* ── Card ────────────────────────────────────────────── */
+  /* ── Card ── */
   .card {
     width: 240px;
     background: var(--bg-secondary);
@@ -136,17 +161,22 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
     animation: cardIn 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.22s ease;
   }
 
   .card.visible { opacity: 1; }
+
+  .card.fade-out {
+    opacity: 0;
+    transform: scale(0.92);
+  }
 
   @keyframes cardIn {
     from { opacity: 0; transform: scale(0.86); }
     to   { opacity: 1; transform: scale(1); }
   }
 
-  /* ── Header ───────────────────────────────────────────── */
+  /* ── Header ── */
   .card-header {
     display: flex;
     align-items: center;
@@ -168,7 +198,7 @@
     font-family: var(--font-mono);
   }
 
-  /* ── Quality badge ────────────────────────────────────── */
+  /* ── Quality badge ── */
   .quality-badge {
     display: flex;
     align-items: center;
@@ -186,9 +216,7 @@
     transform: scale(1);
   }
 
-  .quality-icon {
-    font-size: 9px;
-  }
+  .quality-icon { font-size: 9px; }
 
   .quality-label {
     font-size: 12px;
@@ -197,7 +225,7 @@
     font-weight: 500;
   }
 
-  /* ── Stat rows ────────────────────────────────────────── */
+  /* ── Stat rows ── */
   .stats-section {
     width: 100%;
     display: flex;
@@ -249,7 +277,7 @@
     margin: 2px 0;
   }
 
-  /* ── Dismiss hint ─────────────────────────────────────── */
+  /* ── Dismiss hint ── */
   .dismiss-hint {
     font-size: 9px;
     color: var(--text-dim);

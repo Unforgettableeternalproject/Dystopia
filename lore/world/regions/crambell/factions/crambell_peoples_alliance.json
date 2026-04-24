@@ -1,7 +1,10 @@
 {
   "id": "crambell_peoples_alliance",
-  "name": "人民自助聯盟",
+  "name": "人民互助聯盟",
   "regionId": "crambell",
   "description": "由礦工與勞工自發組成的互助組織，以非正式方式流通物資、傳遞訊息，並對政府分配不公進行消極抵抗。",
-  "defaultReputation": 0
+  "defaultReputation": 0,
+  "relations": [
+    { "targetFactionId": "crambell_general_corps", "weight": 0 }
+  ]
 }

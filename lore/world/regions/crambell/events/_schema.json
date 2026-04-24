@@ -17,6 +17,11 @@
     "itemRequirements:玩家需持有所有指定未失效物品（AND）才觸發",
     "notItemIds:     玩家持有其中任一物品時封鎖觸發（反向條件）",
     "minMelphin:     玩家持有梅分需大於等於此數值才觸發",
+    "minReputation:  派系聲望下限（AND），{ factionId: minValue }，所有指定派系聲望均需達標才觸發",
+    "maxReputation:  派系聲望上限（AND），{ factionId: maxValue }，任一超標則封鎖觸發",
+    "minAffinity:    NPC 好感下限（AND），{ npcId: minValue }",
+    "maxAffinity:    NPC 好感上限（AND），{ npcId: maxValue }",
+    "dateTimeConditions: 進階日期時間條件（陣列內 OR），支援 before / after / between，可同時考量日期（年月日）與時刻（時分）",
     "triggerChance:  觸發機率（0–1）。條件通過後依此機率決定是否觸發。省略或 1.0 = 必定觸發",
     "",
     "自我標記設計（period transition 慣用）：",
@@ -44,6 +49,14 @@
     ],
     "notItemIds": ["item_id_must_not_have"],
     "minMelphin": 10,
+    "minReputation": { "crambell_government": 10, "crambell_treffen": -5 },
+    "maxReputation": { "crambell_peoples_alliance": 20 },
+    "minAffinity": { "crambell_mildore": 5 },
+    "maxAffinity": { "crambell_mildore": 80 },
+    "dateTimeConditions": [
+      { "relation": "after",   "from": { "year": 1498, "month": 6, "day": 15, "hour": 8, "minute": 0 } },
+      { "relation": "between", "from": { "year": 1498, "month": 6, "day": 10 }, "to": { "year": 1498, "month": 6, "day": 20 } }
+    ],
     "triggerChance": 0.5
   },
 

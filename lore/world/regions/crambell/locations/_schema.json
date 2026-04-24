@@ -66,6 +66,19 @@
           "timeRanges": [
             { "startHour": 4, "startMinute": 0, "endHour": 6, "endMinute": 0 }
           ],
+          "dateTimeConditions": [
+            {
+              "_comment": "dateTimeConditions：進階日期時間條件，陣列內為 OR，與其他欄位為 AND。支援 before / after / between 三種關係，可同時指定日期（年月日）與時刻（時分），欄位皆可省略（省略視為 0）。",
+              "relation": "after",
+              "from": { "year": 1498, "month": 6, "day": 15, "hour": 8, "minute": 0 }
+            },
+            {
+              "_comment_between": "between 範例：在兩個時間點之間（含端點）",
+              "relation": "between",
+              "from": { "year": 1498, "month": 6, "day": 10, "hour": 0, "minute": 0 },
+              "to":   { "year": 1498, "month": 6, "day": 20, "hour": 23, "minute": 59 }
+            }
+          ],
           "knowledgeIds": ["intel_id_player_must_have"],
           "questStages": [
             { "questId": "quest_id", "stageId": "stage_id" }

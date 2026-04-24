@@ -321,7 +321,7 @@ export interface ActiveEncounterUI {
   /** 過濾後玩家可見的選項 */
   choices:       EncounterChoice[];
   /** 數值判定結果（若有的話） */
-  statCheckResult?: { stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult };
+  statCheckResult?: { stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult; sides?: number };
   /** story 型別使用：完整劇情腳本，渲染時依 speaker 決定樣式 */
   script?: ScriptLine[];
   /** story 型別使用：目前已解鎖到的行索引（0-based，含此行） */
@@ -330,10 +330,13 @@ export interface ActiveEncounterUI {
 
 export const activeEncounterUI = writable<ActiveEncounterUI | null>(null);
 
+// Story typewriter animation state — true while character-by-character typing is active
+export const storyTypingActive = writable(false);
+
 // ── Stat check overlay ─────────────────────────────────────────
 // 設定後會觸發畫面中央的判定動畫視窗，顯示完畢後元件自行清除
 export const statCheckOverlay = writable<{
-  stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult;
+  stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult; sides?: number;
 } | null>(null);
 
 // ── Rest modal & result ────────────────────────────────────────
@@ -353,6 +356,7 @@ export interface RestResultUIState {
   quality:          string;
   staminaDelta:     number;
   stressDelta:      number;
+  fatigueDelta:     number;
   resultTags:       string[];
 }
 export const restResultOverlay = writable<RestResultUIState | null>(null);
