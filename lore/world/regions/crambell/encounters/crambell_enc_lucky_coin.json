@@ -1,0 +1,40 @@
+{
+  "id": "crambell_enc_lucky_coin",
+  "name": "零錢",
+  "type": "event",
+  "description": "深夜的盥洗室空無一人，玩家在地磚縫隙發現幾枚遺落的梅分硬幣。撿還是不撿。",
+  "entryNodeId": "found_coins",
+  "nodes": {
+    "found_coins": {
+      "id": "found_coins",
+      "dmNarrative": "幾枚梅分硬幣卡在地磚縫隙裡，在昏黃燈光下幾乎不起眼。可能是誰洗澡時掉的，也可能已經在這裡好幾天了。深夜的盥洗室沒有其他人。",
+      "choices": [
+        {
+          "id": "pick_up",
+          "text": "撿起來。沒人看見，又沒人知道。",
+          "nextNodeId": "coins_taken"
+        },
+        {
+          "id": "leave",
+          "text": "不是自己的東西，不要碰。",
+          "nextNodeId": "coins_left"
+        }
+      ]
+    },
+    "coins_taken": {
+      "id": "coins_taken",
+      "dmNarrative": "硬幣沉甸甸地落在玩家手心。說不上多少，但在這裡每一枚都有分量。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "melphinChange": 8
+      }
+    },
+    "coins_left": {
+      "id": "coins_left",
+      "dmNarrative": "玩家繞過那幾枚硬幣，把手洗乾淨，走出盥洗室。有些事情不值得為此妥協。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

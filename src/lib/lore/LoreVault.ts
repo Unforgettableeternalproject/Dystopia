@@ -2,7 +2,7 @@
 // Loads authored content from JSON; the DM only reads world data through here.
 
 import type {
-  LocationNode, ResolvedLocation, LocationConnection, ConnectionAccess, GameTimeRange,
+  LocationNode, ResolvedLocation, LocationConnection, ConnectionAccess,
   NPCNode, NPCOverride,
   GameEvent, Faction, RegionIndex,
   DistrictIndex, RegionSchedule, FlagManifestEntry,
@@ -22,7 +22,7 @@ import type { QuestDefinition, QuestInstance } from '../types/quest';
 import type { WorldPhase, WorldPhaseId, PhaseEffect } from '../types/phase';
 import type { FlagSystem } from '../engine/FlagSystem';
 import type { NPCMemoryEntry } from '../types/game';
-import { checkDateTimeConditions } from '../utils/dateTimeCondition';
+import { checkDateTimeConditions, checkTimeRanges } from '../utils/dateTimeCondition';
 
 interface LoreData {
   locations:     Record<string, LocationNode>;
@@ -210,16 +210,6 @@ export class LoreVault {
     return result;
   }
 
-  /** Returns true if the given game time falls within the range (supports overnight wrap). */
-  private isInTimeRange(range: GameTimeRange, time: GameTime): boolean {
-    const cur   = time.hour * 60 + time.minute;
-    const start = range.startHour * 60 + range.startMinute;
-    const end   = range.endHour   * 60 + range.endMinute;
-    return start <= end
-      ? cur >= start && cur <= end          // same-day range: 06:00–16:00
-      : cur >= start || cur <= end;         // overnight range: 22:00–06:00
-  }
-
   /**
    * Core access evaluation — shared by connections and locations.
    * All access conditions are AND. timeRanges / questStages arrays are OR within themselves.
@@ -246,7 +236,7 @@ export class LoreVault {
     let accessPassed =
       (!a.flag || flags.evaluate(a.flag)) &&
       (!a.timePeriods?.length || a.timePeriods.includes(timePeriod)) &&
-      (!a.timeRanges?.length || (!!gameTime && a.timeRanges.some(r => this.isInTimeRange(r, gameTime)))) &&
+      checkTimeRanges(a.timeRanges, gameTime) &&
       checkDateTimeConditions(a.dateTimeConditions, gameTime) &&
       (!a.knowledgeIds?.length || a.knowledgeIds.every(id => knownIntelIds.includes(id))) &&
       (!a.questStages?.length || a.questStages.some(qs =>

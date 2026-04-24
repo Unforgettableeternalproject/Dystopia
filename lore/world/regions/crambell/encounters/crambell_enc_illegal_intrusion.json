@@ -1,0 +1,111 @@
+{
+  "id": "crambell_enc_illegal_intrusion",
+  "name": "入侵者",
+  "type": "event",
+  "description": "玩家在倉庫中被人注意到了。對方停了下來，這需要立刻應對。",
+  "entryNodeId": "spotted",
+  "nodes": {
+    "spotted": {
+      "id": "spotted",
+      "dmNarrative": "玩家抬起頭，對上了一個人的視線。對方是個倉庫工人，或者是管理人員——穿著制服，手裡拿著夾板，正在例行核查。他的眼睛沒有立刻收回去，而是停在玩家身上多看了幾秒。",
+      "choices": [
+        {
+          "id": "act_natural",
+          "text": "假裝若無其事，繼續走，眼神不要避開。",
+          "nextNodeId": "bluff_check"
+        },
+        {
+          "id": "show_permit",
+          "text": "主動出示工作證，解釋自己在這裡的理由。",
+          "nextNodeId": "permit_check",
+          "itemRequirements": [
+            { "itemId": "crambell_work_permit" }
+          ]
+        },
+        {
+          "id": "retreat_quietly",
+          "text": "緩慢後退，找藉口說走錯了路。",
+          "nextNodeId": "retreat_check"
+        }
+      ]
+    },
+    "bluff_check": {
+      "id": "bluff_check",
+      "dmNarrative": "玩家保持步伐，目光平視，像一個有理由在這裡的人那樣走動。",
+      "statCheck": {
+        "stat": "primaryStats.spirit",
+        "dc": 14,
+        "successNodeId": "bluff_success",
+        "failNodeId": "confronted"
+      }
+    },
+    "bluff_success": {
+      "id": "bluff_success",
+      "dmNarrative": "對方的視線在玩家身上停留了幾秒，然後轉向他的夾板，繼續走。也許他認為玩家是新調來的，也許他只是懶得多事。玩家沒被攔下來。",
+      "isOutcome": true,
+      "outcomeType": "success"
+    },
+    "permit_check": {
+      "id": "permit_check",
+      "dmNarrative": "玩家拿出工作證，遞給對方看。對方掃了一眼，皺了皺眉——這張證不是倉庫區的通行證，但看起來至少是合法的。",
+      "statCheck": {
+        "stat": "primaryStats.knowledge",
+        "dc": 12,
+        "successNodeId": "permit_accepted",
+        "failNodeId": "permit_rejected"
+      }
+    },
+    "permit_accepted": {
+      "id": "permit_accepted",
+      "dmNarrative": "對方還給玩家工作證，說了句「走錯地方了，這邊不是你的區域」，然後揮手讓玩家離開。玩家沒有被記錄，也沒有被攔截。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "permit_rejected": {
+      "id": "permit_rejected",
+      "dmNarrative": "對方的表情沉下來，要求玩家跟他走去說明情況。這會花上一段時間，也會引起一些不必要的注意。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": 3,
+          "statusStats.stamina": -1
+        },
+        "reputationChanges": {
+          "crambell_government": -3
+        }
+      }
+    },
+    "retreat_check": {
+      "id": "retreat_check",
+      "dmNarrative": "玩家開始後退，嘴裡說著「不好意思，我找錯地方了」之類的話，試圖讓這件事變得平凡。",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "dc": 11,
+        "successNodeId": "retreat_success",
+        "failNodeId": "confronted"
+      }
+    },
+    "retreat_success": {
+      "id": "retreat_success",
+      "dmNarrative": "對方看著玩家離開，沒有追上來。可能他認為這只是個迷路的礦工，沒必要大費周章。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "confronted": {
+      "id": "confronted",
+      "dmNarrative": "對方叫住了玩家，要求出示身份和說明來意。整個過程在幾個人的注視下進行，最後玩家被登記在案，並被要求立刻離開倉庫區。這次的記錄不會讓事情更好辦。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": 4
+        },
+        "reputationChanges": {
+          "crambell_government": -5,
+          "crambell_general_corps": -3
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "id": "crambell_enc_forest_night",
+  "name": "大自然的反撲",
+  "type": "event",
+  "description": "夜晚的森林空地。黑暗讓風險提高，也讓某些本能被喚醒。玩家面對的可能是自然的危機，也可能是自己內心的某種東西。",
+  "entryNodeId": "forest_clearing_night",
+  "nodes": {
+    "forest_clearing_night": {
+      "id": "forest_clearing_night",
+      "dmNarrative": "黑暗中的空地幾乎看不清邊緣。枯木的輪廓在夜空下顯得高大，某個方向傳來細碎的聲響——不確定是什麼。玩家站在這裡，感覺到自己的存在以一種奇怪的方式變得清晰。",
+      "choices": [
+        {
+          "id": "move_toward_sound",
+          "text": "循著聲音走去，看看是什麼。",
+          "nextNodeId": "sound_check"
+        },
+        {
+          "id": "stay_still",
+          "text": "靜止不動，屏住呼吸，等聲音過去。",
+          "nextNodeId": "stillness_outcome"
+        },
+        {
+          "id": "push_through",
+          "text": "不管那個聲音，繼續在黑暗中行走，感受自己的邊界。",
+          "nextNodeId": "push_through_check"
+        }
+      ]
+    },
+    "sound_check": {
+      "id": "sound_check",
+      "dmNarrative": "玩家向聲音的方向走去，黑暗中每一步都需要小心。",
+      "statCheck": {
+        "stat": "secondaryStats.consciousness",
+        "dc": 13,
+        "successNodeId": "found_creature",
+        "failNodeId": "tripped"
+      }
+    },
+    "found_creature": {
+      "id": "found_creature",
+      "dmNarrative": "玩家看清楚了——是個小動物，趁著夜晚出來覓食。雙方對視了幾秒，然後它消失在黑暗裡。這一刻什麼都沒發生，但有什麼東西留下來了。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": -2,
+          "secondaryStats.consciousness": 1
+        }
+      }
+    },
+    "tripped": {
+      "id": "tripped",
+      "dmNarrative": "黑暗裡的地面不平，玩家一腳踩空，腳踝扭了一下。不嚴重，但走回去的路會更難一點。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": {
+          "statusStats.stamina": -2
+        }
+      }
+    },
+    "stillness_outcome": {
+      "id": "stillness_outcome",
+      "dmNarrative": "玩家靜止著，呼吸變淺。聲音經過，然後消失了。在絕對的靜默中，玩家清楚地感覺到自己的心跳。這種清醒是在礦場裡找不到的。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": -1,
+          "primaryStats.spirit": 1
+        }
+      }
+    },
+    "push_through_check": {
+      "id": "push_through_check",
+      "dmNarrative": "玩家在黑暗中移動，身體本能地適應著，但風險也在累積。",
+      "statCheck": {
+        "stat": "primaryStats.strength",
+        "dc": 12,
+        "successNodeId": "push_through_success",
+        "failNodeId": "push_through_hurt"
+      }
+    },
+    "push_through_success": {
+      "id": "push_through_success",
+      "dmNarrative": "玩家在黑暗中走了很久，身體漸漸找到節奏。回到空地時，感覺有什麼東西被強化了——不只是體力，是某種更深的東西。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "statChanges": {
+          "primaryStats.strength": 1,
+          "statusStats.stress": -1
+        }
+      }
+    },
+    "push_through_hurt": {
+      "id": "push_through_hurt",
+      "dmNarrative": "黑暗讓玩家付出了代價——划傷、擦傷、或者被什麼東西絆倒。身體留下了今晚的記號。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": {
+          "statusStats.stamina": -2
+        }
+      }
+    }
+  }
+}

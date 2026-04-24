@@ -1,0 +1,20 @@
+{
+  "id": "crambell_event_forest_day",
+  "name": "森林的言語 — 日",
+  "locationId": "delth_forest_clearing",
+  "condition": {
+    "timePeriods": ["work"],
+    "triggerChance": 0.25,
+    "cooldownMinutes": 240
+  },
+  "description": "白天的林間空地沒有工人，只有零星的光線穿過枯木縫隙。偶爾有鳥的叫聲，偶爾有什麼東西在草叢裡移動。對於每天都待在礦坑的人來說，這裡的靜是另一種語言。",
+  "outcomes": [
+    {
+      "id": "forest_day_encounter",
+      "description": "玩家在空地停留，感受到與礦場完全不同的氛圍，並開始留意周遭的細節。",
+      "startEncounterId": "crambell_enc_forest_day"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": false
+}

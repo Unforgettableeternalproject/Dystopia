@@ -249,6 +249,19 @@ export class GameController {
     for (const flag of config.world.startingFlags) this.state.flags.set(flag);
   }
 
+  /**
+   * Reset to a clean initial state before starting a fresh new game.
+   * Must be called before start() when re-using the same GameController instance
+   * (e.g. returning to title from a debug session then starting a new game).
+   * Not needed inside debugResetGame() which has its own loadState + loadStarter flow.
+   */
+  resetForNewGame(): void {
+    this.loadState(this.buildInitialState(), []);
+    if (this.starterConfig) this.loadStarter(this.starterConfig);
+    this._pendingQuestOutcomes = [];
+    this._stagedQuestOutcomes  = [];
+  }
+
   async start(playerName?: string): Promise<void> {
     if (playerName?.trim()) {
       this.state.setPlayerName(playerName.trim());
@@ -505,6 +518,7 @@ export class GameController {
           this._sessionFiredTriggers,
         );
         if (scripted) {
+          narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
           this._sessionFiredTriggers.add(scripted.nodeId);
           await this.activateScriptedNode(
             finalAction.targetId, npc.dialogueId, npc.name,
@@ -606,7 +620,7 @@ export class GameController {
     // ── Trace: scene context ─────────────────────────────────────────────
     addTracePhase(traceId, 'context', sceneCtx + navHint);
 
-    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId);
+    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId, thinkingLineId);
     this.flushAcquisitions();
 
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).

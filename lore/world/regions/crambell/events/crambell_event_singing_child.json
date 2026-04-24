@@ -1,0 +1,20 @@
+{
+  "id": "crambell_event_singing_child",
+  "name": "歌唱的孩子",
+  "locationId": "delth_mine_plaza",
+  "condition": {
+    "timePeriods": ["rest"],
+    "notFlags": ["crambell_singing_child_witnessed"],
+    "triggerChance": 0.4
+  },
+  "description": "礦場廣場的休息時段，人群散開後，角落裡傳來一個稚嫩的聲音——是個孩子在輕聲唱歌。歌詞聽不清楚，但旋律像是從很久以前的地方傳來的。這個孩子不應該在這裡。",
+  "outcomes": [
+    {
+      "id": "singing_child_encounter",
+      "description": "玩家轉過頭去，看到了那個孩子。",
+      "startEncounterId": "crambell_enc_singing_child"
+    }
+  ],
+  "isRepeatable": false,
+  "notification": false
+}

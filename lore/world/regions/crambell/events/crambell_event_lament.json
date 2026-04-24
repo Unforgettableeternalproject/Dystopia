@@ -1,0 +1,20 @@
+{
+  "id": "crambell_event_lament",
+  "name": "哀號與悲鳴",
+  "locationId": "delth_mine_path",
+  "condition": {
+    "timePeriods": ["work"],
+    "triggerChance": 0.15,
+    "cooldownMinutes": 300
+  },
+  "description": "玩家在礦道行走時，隱約聽到一陣壓抑的哭泣聲或低沉的呻吟從廢棄設備後方傳來。這是礦工日常的碎片——承受不住的人，只能躲在看不見的角落崩潰。",
+  "outcomes": [
+    {
+      "id": "lament_encounter",
+      "description": "玩家停下腳步，循著聲音走去，看到一個蜷縮在礦渣牆邊的人影。",
+      "startEncounterId": "crambell_enc_lament"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": false
+}

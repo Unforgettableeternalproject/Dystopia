@@ -93,7 +93,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": [],
+        "eventIds": ["crambell_event_lucky_coin"],
         "isAccessible": true
       },
       "localVariants": []

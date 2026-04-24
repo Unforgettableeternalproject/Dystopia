@@ -1,0 +1,70 @@
+{
+  "id": "crambell_enc_restless_night",
+  "name": "動盪不安",
+  "type": "event",
+  "description": "玩家在宿舍寢室嘗試入睡，但思緒無法平靜。睡眠的質量決定了明天的狀態。",
+  "entryNodeId": "lying_awake",
+  "nodes": {
+    "lying_awake": {
+      "id": "lying_awake",
+      "dmNarrative": "報時鐘停了，燈光熄滅，宿舍進入夜間靜默。但玩家的思緒還在運轉——今天的事、明天的事、還有那些說不清楚的東西，在黑暗裡變得更大。",
+      "choices": [
+        {
+          "id": "force_sleep",
+          "text": "強迫自己放空，試著入睡。",
+          "nextNodeId": "sleep_check"
+        },
+        {
+          "id": "let_thoughts_run",
+          "text": "不強迫自己，讓思緒流動，等它自己累。",
+          "nextNodeId": "restless_outcome"
+        },
+        {
+          "id": "get_up",
+          "text": "乾脆起來，在床邊坐一會兒。",
+          "nextNodeId": "sit_awake"
+        }
+      ]
+    },
+    "sleep_check": {
+      "id": "sleep_check",
+      "dmNarrative": "玩家閉上眼睛，強制讓呼吸放慢。這需要意志力。",
+      "statCheck": {
+        "stat": "primaryStats.spirit",
+        "dc": 12,
+        "successNodeId": "sleep_forced",
+        "failNodeId": "restless_outcome"
+      }
+    },
+    "sleep_forced": {
+      "id": "sleep_forced",
+      "dmNarrative": "勉強，但睡著了。夢斷斷續續，醒來時感覺還好。",
+      "isOutcome": true,
+      "outcomeType": "success"
+    },
+    "restless_outcome": {
+      "id": "restless_outcome",
+      "dmNarrative": "翻來覆去，意識不斷在半睡半醒之間漂移。天亮的時候，玩家感覺比昨晚更疲憊，壓力沒有減少，身體也沒有充分休息。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": 2,
+          "statusStats.stamina": -1
+        }
+      }
+    },
+    "sit_awake": {
+      "id": "sit_awake",
+      "dmNarrative": "玩家坐在床沿，腳踩著冰冷的地板。黑暗裡聽著周圍的呼吸聲，反而讓腦袋稍微靜下來一點。沒有解決什麼，但有一種奇怪的平靜。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": -1,
+          "statusStats.stamina": -1
+        }
+      }
+    }
+  }
+}

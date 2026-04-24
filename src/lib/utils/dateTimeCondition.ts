@@ -1,7 +1,7 @@
-// Shared evaluation logic for GameDateTimeCondition.
+// Shared evaluation logic for GameDateTimeCondition and GameTimeRange.
 // Used by EventEngine, DialogueManager, EncounterEngine, and LoreVault.
 
-import type { GameDateTimeCondition, GameDatePoint } from '../types';
+import type { GameDateTimeCondition, GameDatePoint, GameTimeRange } from '../types';
 
 /** Converts a GameDatePoint (or any object with year/month/day/hour/minute) to a comparable integer. */
 export function datepointToMinutes(p: GameDatePoint): number {
@@ -41,4 +41,25 @@ export function checkDateTimeConditions(
   if (!conds?.length) return true;
   if (!time) return false;
   return conds.some(c => checkDateTimeCondition(c, time));
+}
+
+/**
+ * Returns true if the current time falls within any of the given ranges (OR).
+ * Supports overnight wrap (e.g. 22:00–06:00).
+ * An empty or undefined array always returns true.
+ */
+export function checkTimeRanges(
+  ranges: GameTimeRange[] | undefined,
+  time: { hour: number; minute: number } | undefined,
+): boolean {
+  if (!ranges?.length) return true;
+  if (!time) return false;
+  const cur = time.hour * 60 + time.minute;
+  return ranges.some(r => {
+    const start = r.startHour * 60 + r.startMinute;
+    const end   = r.endHour   * 60 + r.endMinute;
+    return start <= end
+      ? cur >= start && cur <= end   // same-day range: 06:00–18:00
+      : cur >= start || cur <= end;  // overnight range: 22:00–06:00
+  });
 }

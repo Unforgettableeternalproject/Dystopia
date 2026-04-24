@@ -116,6 +116,7 @@
     isDebugMode.set(false);
     gamePhase.set('loading');
     try {
+      controller.resetForNewGame();
       await controller.start(playerName);
       gamePhase.set('playing');
     } catch (err) {
@@ -129,6 +130,7 @@
     isDebugMode.set(true);
     gamePhase.set('loading');
     try {
+      controller.resetForNewGame();
       await controller.start('DEBUG');
       gamePhase.set('playing');
     } catch (err) {

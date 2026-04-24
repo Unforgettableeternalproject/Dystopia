@@ -46,7 +46,7 @@
             }
           ],
           "npcIds": [],
-          "eventIds": [],
+          "eventIds": ["crambell_event_forest_day", "crambell_event_forest_night"],
           "isAccessible": true
         },
         "localVariants": []

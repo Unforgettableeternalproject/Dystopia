@@ -1,0 +1,23 @@
+{
+  "id": "crambell_event_lucky_coin",
+  "name": "幸運幣",
+  "locationId": "delth_dormitory_public_bathroom",
+  "condition": {
+    "timeRanges": [
+      { "startHour": 0, "startMinute": 0, "endHour": 4, "endMinute": 59 }
+    ],
+    "notFlags": ["crambell_lucky_coin_found"],
+    "triggerChance": 0.2
+  },
+  "description": "在幾乎沒人的深夜盥洗室，玩家低頭看到地磚縫隙中卡著幾枚掉落的梅分硬幣，是某個人遺忘的小財富。",
+  "outcomes": [
+    {
+      "id": "coin_found",
+      "description": "硬幣就在那裡，安靜地躺著，等著被發現。",
+      "flagsSet": ["crambell_lucky_coin_found"],
+      "startEncounterId": "crambell_enc_lucky_coin"
+    }
+  ],
+  "isRepeatable": false,
+  "notification": false
+}

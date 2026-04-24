@@ -10,7 +10,7 @@ import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { TimeManager } from './TimeManager';
 import { GameEvents } from './EventBus';
-import { checkDateTimeConditions } from '../utils/dateTimeCondition';
+import { checkDateTimeConditions, checkTimeRanges } from '../utils/dateTimeCondition';
 
 export interface TriggeredEvent {
   event: GameEvent;
@@ -162,6 +162,9 @@ export class EventEngine {
       const current = this.time.getCurrentPeriod(gs.time, this.schedule, gs.player.activeFlags);
       if (!condition.timePeriods.includes(current)) return false;
     }
+
+    // Time range condition (daily recurring, OR within array)
+    if (!checkTimeRanges(condition.timeRanges, gs.time)) return false;
 
     // Cooldown condition (repeatable events only)
     if (event.isRepeatable && condition.cooldownMinutes && condition.cooldownMinutes > 0) {

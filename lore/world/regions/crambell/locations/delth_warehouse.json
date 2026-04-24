@@ -31,7 +31,7 @@
       }
     ],
     "npcIds": [],
-    "eventIds": [],
+    "eventIds": ["crambell_event_illegal_intrusion"],
     "isAccessible": true
   },
   "localVariants": [

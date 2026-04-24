@@ -73,7 +73,8 @@
       "Bash(cargo add:*)",
       "Bash(cargo check:*)",
       "Bash(cat vite.config.ts)",
-      "Bash(cat vitest.config.ts)"
+      "Bash(cat vitest.config.ts)",
+      "Bash(awk:*)"
     ]
   }
 }

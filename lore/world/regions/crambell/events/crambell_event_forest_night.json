@@ -1,0 +1,20 @@
+{
+  "id": "crambell_event_forest_night",
+  "name": "森林的言語 — 夜",
+  "locationId": "delth_forest_clearing",
+  "condition": {
+    "timePeriods": ["rest"],
+    "triggerChance": 0.25,
+    "cooldownMinutes": 240
+  },
+  "description": "入夜的森林是另一個世界。燈光消失，樹影被黑暗吞噬，聲音卻反而更清晰——折斷的樹枝、某種動物的喘息、遠處礦場機器的低鳴，都混在一起。這裡不安全，但也不是毫無意義的地方。",
+  "outcomes": [
+    {
+      "id": "forest_night_encounter",
+      "description": "夜森林以自己的方式回應玩家的存在。",
+      "startEncounterId": "crambell_enc_forest_night"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": false
+}

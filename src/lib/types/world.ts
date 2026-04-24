@@ -71,7 +71,7 @@ export interface QuestStageRef {
 /**
  * 精確時間範圍（遊戲內時鐘，24 小時制）。
  * 支援跨午夜，例如 { startHour: 22, startMinute: 0, endHour: 6, endMinute: 0 }。
- * 用於 ConnectionAccess.timeRanges，陣列內為 OR 關係（落在其中一個範圍即通過）。
+ * 用於 ConnectionAccess.timeRanges 與 EventCondition.timeRanges，陣列內為 OR 關係（落在其中一個範圍即通過）。
  */
 export interface GameTimeRange {
   startHour: number;    // 0–23
@@ -378,6 +378,13 @@ export interface EventCondition {
   exactEventCounters?: Record<string, number>;
   /** 事件只在這些時段觸發 */
   timePeriods?: TimePeriod[];
+  /**
+   * 精確時間範圍（每日循環，24 小時制）。陣列內為 OR — 當前時刻落在其中任一範圍即通過。
+   * 支援跨午夜，例如 { startHour: 0, startMinute: 0, endHour: 4, endMinute: 59 }。
+   * 與 timePeriods 為獨立的 AND 條件：兩者都設定時，兩者都必須通過。
+   * 省略 = 無時鐘限制。
+   */
+  timeRanges?: GameTimeRange[];
   /**
    * 可重複事件的冷卻（遊戲內分鐘數）。
    * 上次觸發後需等待至少這麼多分鐘才能再次觸發。

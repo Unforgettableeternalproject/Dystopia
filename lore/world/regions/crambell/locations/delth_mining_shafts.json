@@ -68,7 +68,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": [],
+        "eventIds": ["crambell_event_singing_child"],
         "isAccessible": true
       },
       "localVariants": []

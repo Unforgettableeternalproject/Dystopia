@@ -1,0 +1,107 @@
+{
+  "id": "crambell_enc_forest_day",
+  "name": "大自然",
+  "type": "event",
+  "description": "白天的林間空地，玩家在這裡感受到礦場以外的東西。可能帶來意外的收穫，也可能帶來輕微的傷害。",
+  "entryNodeId": "forest_clearing_day",
+  "nodes": {
+    "forest_clearing_day": {
+      "id": "forest_clearing_day",
+      "dmNarrative": "白天的空地有種奇怪的安靜感。光線從枯木縫隙灑下來，地面上有被翻動過的土、一些植物的殘骸。玩家看到了什麼，或者什麼都沒看到，但身體在礦場以外的地方似乎變得不一樣。",
+      "choices": [
+        {
+          "id": "explore_carefully",
+          "text": "仔細探索這片空地，看看有沒有什麼東西。",
+          "nextNodeId": "explore_check"
+        },
+        {
+          "id": "train_body",
+          "text": "趁這裡沒人，活動一下身體，把積壓的力氣用掉。",
+          "nextNodeId": "train_check"
+        },
+        {
+          "id": "just_stand",
+          "text": "什麼都不做，只是站在這裡，感受一下這種靜。",
+          "nextNodeId": "rest_mind"
+        }
+      ]
+    },
+    "explore_check": {
+      "id": "explore_check",
+      "dmNarrative": "玩家蹲下來仔細翻找空地的邊緣和草叢，眼睛掃過每一個角落。",
+      "statCheck": {
+        "stat": "secondaryStats.consciousness",
+        "dc": 12,
+        "successNodeId": "found_something",
+        "failNodeId": "found_nothing_hurt"
+      }
+    },
+    "found_something": {
+      "id": "found_something",
+      "dmNarrative": "玩家在草叢邊發現了什麼——可能是遺落的物品，可能是有用的植物，可能是礦工藏起來忘記拿走的東西。不管是什麼，今天算是賺到了。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "melphinChange": 5,
+        "statChanges": {
+          "statusStats.stress": -1
+        }
+      }
+    },
+    "found_nothing_hurt": {
+      "id": "found_nothing_hurt",
+      "dmNarrative": "玩家在翻找時踩到了什麼尖銳的東西，或者被什麼劃到了手。一點點血，不嚴重，但有點煩。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": {
+          "statusStats.stamina": -1
+        }
+      }
+    },
+    "train_check": {
+      "id": "train_check",
+      "dmNarrative": "玩家開始活動身體，跑步、做些簡單的動作，把礦場壓抑的能量發洩出來。",
+      "statCheck": {
+        "stat": "primaryStats.strength",
+        "dc": 10,
+        "successNodeId": "train_success",
+        "failNodeId": "train_overdo"
+      }
+    },
+    "train_success": {
+      "id": "train_success",
+      "dmNarrative": "身體的發熱感帶來一種久違的清醒。礦場的力氣被用在自己身上，而不是被別人榨乾——感覺不一樣。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": -2
+        }
+      }
+    },
+    "train_overdo": {
+      "id": "train_overdo",
+      "dmNarrative": "玩家過度使力，不熟悉的動作讓身體有點不對勁。手臂有點酸，腿也有點沉，但心理上反而舒服一些。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "statChanges": {
+          "statusStats.stamina": -1,
+          "statusStats.stress": -1
+        }
+      }
+    },
+    "rest_mind": {
+      "id": "rest_mind",
+      "dmNarrative": "玩家站在空地中央，什麼都不做。光線移動，風偶爾吹過，遠處有聲音，但這裡只有玩家和這一刻。有些東西在這種靜默中被放下了。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "statChanges": {
+          "statusStats.stress": -2
+        }
+      }
+    }
+  }
+}

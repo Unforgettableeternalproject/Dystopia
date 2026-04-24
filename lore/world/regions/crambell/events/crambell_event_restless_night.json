@@ -1,0 +1,25 @@
+{
+  "id": "crambell_event_restless_night",
+  "name": "難以入眠的夜晚",
+  "locationId": "delth_dormitory_room",
+  "_disabled": true,
+  "_comment": [
+    "暫不啟用。此事件應在玩家執行 rest（睡覺）動作時觸發，而非依時間區段觸發。",
+    "觸發機制涉及中斷睡眠流程，需要引擎層面的 rest action hook 支援，待後續版本處理。"
+  ],
+  "condition": {
+    "timePeriods": ["rest"],
+    "triggerChance": 0.3,
+    "cooldownMinutes": 480
+  },
+  "description": "報時鐘已靜默，但睡眠不來。薄板床的木頭在翻身時嘎嘎作響，鄰床的鼾聲與夢囈聲此起彼伏。黑暗裡，思緒和恐懼開始蔓延。",
+  "outcomes": [
+    {
+      "id": "restless_night_encounter",
+      "description": "玩家輾轉反側，無法入睡，這一夜將有所代價。",
+      "startEncounterId": "crambell_enc_restless_night"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": false
+}

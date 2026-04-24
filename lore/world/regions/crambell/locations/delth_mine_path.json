@@ -36,7 +36,7 @@
       }
     ],
     "npcIds": [],
-    "eventIds": [],
+    "eventIds": ["crambell_event_lament"],
     "isAccessible": true
   },
   "localVariants": []

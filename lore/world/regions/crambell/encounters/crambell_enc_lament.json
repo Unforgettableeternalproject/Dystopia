@@ -1,0 +1,37 @@
+{
+  "id": "crambell_enc_lament",
+  "name": "哀號與悲鳴",
+  "type": "story",
+  "description": "玩家在礦道中偶然目睹一個礦工蜷縮在角落哭泣。沒有對話，只有觀察和選擇——是離開，還是留下來？",
+  "script": [
+    {
+      "speaker": "narrator",
+      "text": "礦道的轉角後方，廢棄設備的陰影裡，有人在哭。不是嚎啕大哭，是那種壓著的、試圖不讓任何人聽見的哭法——反而更難忽視。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "你繞過礦車殘骸，看見他的背影。一個穿著和你一樣工作服的男人，肩膀在顫抖，頭埋在臂彎裡。他沒有發現你。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "周圍沒有別人。礦道在這個時段幾乎不會有巡邏。但你也知道，在這裡逗留太久不是個好主意。",
+      "pause": true
+    },
+    {
+      "speaker": "player",
+      "text": "（你選擇繼續走，假裝沒看見。有些事情不需要見證者。）"
+    },
+    {
+      "speaker": "narrator",
+      "text": "你從他身旁經過，腳步盡量放輕。他的哭聲隨著你的背影漸漸遠去，混入礦坑的背景噪音裡。你說不上心裡是什麼感覺。"
+    }
+  ],
+  "result": {
+    "outcomeType": "neutral",
+    "effects": {
+      "statChanges": {
+        "statusStats.stress": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "crambell_event_illegal_intrusion",
+  "name": "非法入侵",
+  "locationId": "delth_warehouse",
+  "condition": {
+    "triggerChance": 0.2,
+    "cooldownMinutes": 120
+  },
+  "description": "倉庫的某個角落傳來腳步聲，或者玩家察覺到有人在注視自己。在這種管制嚴格的地方，多待一秒都是風險。",
+  "outcomes": [
+    {
+      "id": "nothing_happens",
+      "description": "腳步聲消失了，視線也不見了。可能只是錯覺，也可能對方沒在意。",
+      "weight": 3
+    },
+    {
+      "id": "intrusion_caught",
+      "description": "有人停下來，眼神對上了玩家。這需要處理。",
+      "weight": 1,
+      "startEncounterId": "crambell_enc_illegal_intrusion"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": false
+}

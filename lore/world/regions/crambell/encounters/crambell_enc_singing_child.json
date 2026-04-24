@@ -1,0 +1,50 @@
+{
+  "id": "crambell_enc_singing_child",
+  "name": "歌唱的孩子",
+  "type": "story",
+  "description": "礦場廣場的休息時段，玩家在人群散去後看見一個不應該出現在這裡的孩子，正在輕聲唱著歌。一段無法言說的短暫劇情。",
+  "script": [
+    {
+      "speaker": "narrator",
+      "text": "人群散去之後，礦場廣場幾乎空了。遠處還有幾個人在走動，但這個角落只剩你一個人——還有那個聲音。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "是個孩子。他坐在一塊廢棄的礦車車輪上，腳懸在空中搖晃，嘴裡哼著一段你聽不太清楚的旋律。年紀很小，穿著和這個地方格格不入——乾淨，甚至有點整齊。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "你不知道他是誰的孩子，不知道他怎麼進來的，也不知道他在等什麼。但他看起來不害怕。",
+      "pause": true
+    },
+    {
+      "speaker": "narrator",
+      "text": "他抬起頭，看見了你。沒有停下唱歌，只是看著你，就好像你們都知道這個地方藏著什麼，只是用不同的方式面對。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "歌聲沒有詞，只有音調。但在礦坑的機械聲和人群嘈雜退去之後，那個旋律留下了某種東西，讓你想起很久以前某個不知道是不是真實存在過的地方。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "後來廣播響了，孩子消失了——你甚至不確定他是往哪個方向走的。廣場恢復了它應有的樣子。",
+      "pause": true
+    },
+    {
+      "speaker": "narrator",
+      "text": "你站在原地多久，你不清楚。但你知道礦工自治聯盟的人看見了你的停留，他們認為你是個有眼睛的人。"
+    }
+  ],
+  "result": {
+    "outcomeType": "neutral",
+    "effects": {
+      "flagsSet": ["crambell_singing_child_witnessed"],
+      "reputationChanges": {
+        "crambell_peoples_alliance": 3
+      },
+      "statChanges": {
+        "statusStats.stress": -2
+      }
+    }
+  }
+}

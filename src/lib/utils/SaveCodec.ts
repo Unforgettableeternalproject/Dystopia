@@ -56,14 +56,20 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     // Keep last 20 history entries only
     history:              gs.history.slice(-20),
     discoveredLocationIds: gs.discoveredLocationIds,
-    activeQuests:         gs.activeQuests,
+    // Strip terminal quest instances (failed/completed/ditched) — they are already
+    // recorded in completedQuestIds and serve no purpose in activeQuests. Keeping
+    // them would bloat saves and block re-granting of repeatable quests after failure.
+    activeQuests: Object.fromEntries(
+      Object.entries(gs.activeQuests).filter(([, q]) => !q.isCompleted && !q.isFailed && !q.isDitched)
+    ),
     completedQuestIds:    gs.completedQuestIds,
     npcMemory:            gs.npcMemory,
     worldPhase:           gs.worldPhase,
-    // Serialise Set -> array
+    // Sync activeFlags with live FlagSystem so getCurrentPeriod (specialPeriodFlag check)
+    // and StateManager constructor both use accurate flags after load.
     player: {
       ...gs.player,
-      activeFlags: Array.from(gs.player.activeFlags),
+      activeFlags: flags,
     },
     flags,
     time:           gs.time,
@@ -87,6 +93,23 @@ export interface DecodeResult {
   flags:    string[];
 }
 
+/**
+ * Apply forward migrations from older save versions to SAVE_VERSION.
+ * Each `if (raw.v < N)` block upgrades the snapshot from v(N-1) to vN.
+ * Add a new block here whenever SAVE_VERSION is incremented.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function migrate(raw: any): SaveSnapshot {
+  const v: number = raw.v ?? 0;
+  if (v > SAVE_VERSION) {
+    throw new Error(`Save is from a newer game version (${v}). Please update the game.`);
+  }
+  // ── v1 is the baseline; no structural changes needed ──
+  // Future example:
+  //   if (v < 2) { raw.newField = raw.newField ?? defaultValue; raw.v = 2; }
+  return raw as SaveSnapshot;
+}
+
 export async function decode(code: string): Promise<DecodeResult> {
   if (!code.startsWith(SAVE_PREFIX)) {
     throw new Error('Invalid save code: missing version prefix');
@@ -95,11 +118,7 @@ export async function decode(code: string): Promise<DecodeResult> {
   const b64        = code.slice(SAVE_PREFIX.length);
   const compressed = fromBase64url(b64);
   const json       = await gunzip(compressed);
-  const snapshot   = JSON.parse(json) as SaveSnapshot;
-
-  if (snapshot.v !== SAVE_VERSION) {
-    throw new Error(`Unsupported save version: ${snapshot.v} (expected ${SAVE_VERSION})`);
-  }
+  const snapshot   = migrate(JSON.parse(json));
 
   // Deserialise array -> Set; add fallbacks for fields added after save version 1
   const player: PlayerState = {

@@ -9,6 +9,7 @@
     "notFlags:       這些旗標全部不存在才觸發（適合自我標記設計）",
     "minStats:       玩家數值門檻，如 { 'statusStats.stamina': 3 }",
     "timePeriods:    限定時段觸發，如 ['work']、['work','rest']",
+    "timeRanges:     精確時間範圍（每日循環，陣列內 OR），如 [{ startHour: 0, startMinute: 0, endHour: 4, endMinute: 59 }]，支援跨午夜",
     "cooldownMinutes:可重複事件的冷卻（遊戲內分鐘），0 或省略 = 不限次數",
     "npcIds:         至少一個 NPC 在場才觸發",
     "triggerHours:   時鐘跨越這些整點時觸發，例如 [6, 22]",
@@ -36,6 +37,9 @@
     "notFlags": ["must_be_absent"],
     "minStats": { "statusStats.stamina": 3 },
     "timePeriods": ["work", "rest", "special"],
+    "timeRanges": [
+      { "startHour": 0, "startMinute": 0, "endHour": 4, "endMinute": 59 }
+    ],
     "cooldownMinutes": 120,
     "npcIds": ["npc_id_at_least_one_present"],
     "triggerHours": [6, 22],
