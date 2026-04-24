@@ -26,7 +26,7 @@
       "dmNarrative": "玩家開口解釋。官員抬起頭，等著聽完。[TODO: 描述辯解的過程，官員是否有任何回應]",
       "statCheck": {
         "stat": "primaryStats.knowledge",
-        "threshold": 4,
+        "dc": 4,
         "successNodeId": "excuse_accepted",
         "failNodeId": "fined"
       }

@@ -104,9 +104,10 @@ export async function decode(code: string): Promise<DecodeResult> {
   // Deserialise array -> Set; add fallbacks for fields added after save version 1
   const player: PlayerState = {
     ...snapshot.player,
-    activeFlags:   new Set(snapshot.player.activeFlags),
-    knownIntelIds: snapshot.player.knownIntelIds ?? [],
-    melphin:       snapshot.player.melphin       ?? 0,
+    activeFlags:       new Set(snapshot.player.activeFlags),
+    knownIntelIds:     snapshot.player.knownIntelIds     ?? [],
+    contactedFactions: snapshot.player.contactedFactions ?? [],
+    melphin:           snapshot.player.melphin           ?? 0,
   };
 
   const state: GameState = {

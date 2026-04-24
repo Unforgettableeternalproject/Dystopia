@@ -2,15 +2,16 @@
   import { activeEncounterUI } from '$lib/stores/gameStore';
   import type { EncounterType } from '$lib/types/encounter';
 
-  export let onSelect: (choiceId: string) => void;
+  export let onSelect:  (choiceId: string) => void;
+  export let onAdvance: () => void;
 
   // Type-specific visual config
   const typeConfig: Record<EncounterType, { label: string; icon: string; accent: string }> = {
-    narrative: { label: '劇情',   icon: '◇', accent: '#c9a96e' },  // amber
-    event:     { label: '事件',   icon: '◈', accent: '#5fa8d3' },  // blue (matches existing accent)
-    dialogue:  { label: '對話',   icon: '◎', accent: '#7ec8a0' },  // teal
-    combat:    { label: '戰鬥',   icon: '◆', accent: '#d35f5f' },  // red
-    shop:      { label: '商店',   icon: '◉', accent: '#7ec87e' },  // green
+    story:    { label: '劇情',   icon: '◇', accent: '#c9a96e' },  // amber
+    event:    { label: '事件',   icon: '◈', accent: '#5fa8d3' },  // blue (matches existing accent)
+    dialogue: { label: '對話',   icon: '◎', accent: '#7ec8a0' },  // teal
+    combat:   { label: '戰鬥',   icon: '◆', accent: '#d35f5f' },  // red
+    shop:     { label: '商店',   icon: '◉', accent: '#7ec87e' },  // green
   };
 
   $: enc = $activeEncounterUI;
@@ -35,30 +36,33 @@
         <span class="chk-icon">{chk.passed ? '▲' : '▼'}</span>
         <span class="chk-text">
           {chk.passed ? '判定成功' : '判定失敗'}
-          — {chk.stat.split('.').pop()} {chk.passed ? '≥' : '<'} {chk.threshold}
+          — {chk.stat.split('.').pop()} {chk.passed ? '≥' : '<'} DC {chk.dc}
         </span>
       </div>
     {/if}
 
     <!-- Content by type -->
-    {#if enc.type === 'narrative'}
-      <!-- Narrative: minimal, text-forward, single continue button -->
-      <div class="narrative-body">
-        <p class="narrative-text">{enc.nodeText}</p>
+    {#if enc.type === 'story'}
+      <!-- Story (cutscene): screenplay-style, shows revealed lines up to currentLineIndex -->
+      <div class="story-script">
+        {#each (enc.script ?? []).slice(0, (enc.currentLineIndex ?? 0) + 1) as line}
+          {#if line.text}
+            {#if line.speaker === 'narrator' || !line.speaker}
+              <p class="script-narrator">{line.text}</p>
+            {:else if line.speaker === 'player'}
+              <p class="script-dialogue script-player">
+                <span class="script-speaker">你</span>「{line.text}」
+              </p>
+            {:else}
+              <p class="script-dialogue script-npc">
+                <span class="script-speaker">{line.speaker}</span>「{line.text}」
+              </p>
+            {/if}
+          {/if}
+        {/each}
       </div>
       <div class="choices narrative-action">
-        {#if enc.choices.length > 0}
-          {#each enc.choices as choice (choice.id)}
-            <button class="choice-btn" on:click={() => onSelect(choice.id)}>
-              {choice.text}
-            </button>
-          {/each}
-        {:else}
-          <!-- Auto-advancing narrative node: single continue -->
-          <button class="choice-btn continue-btn" on:click={() => onSelect('__continue__')}>
-            繼續
-          </button>
-        {/if}
+        <button class="choice-btn continue-btn" on:click={onAdvance}>繼續</button>
       </div>
 
     {:else if enc.type === 'event'}
@@ -174,20 +178,48 @@
 
   .chk-icon { font-size: 8px; }
 
-  /* ── Narrative type ──────────────────────────────────────── */
-  .narrative-body {
-    padding: 12px 16px 8px;
+  /* ── Story (script) type ────────────────────────────────── */
+  .story-script {
+    padding: 10px 16px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     flex: 1;
+    overflow-y: auto;
   }
 
-  .narrative-text {
+  .script-narrator {
     font-size: 12px;
     color: var(--text-secondary);
-    line-height: 1.75;
+    line-height: 1.7;
     font-style: italic;
     margin: 0;
   }
 
+  .script-dialogue {
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 0;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+
+  .script-speaker {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .script-player { color: var(--text-primary); }
+  .script-player .script-speaker { color: var(--enc-accent); }
+
+  .script-npc { color: var(--text-secondary); }
+  .script-npc .script-speaker { color: var(--text-dim); }
+
+  /* ── Story / narrative action ────────────────────────────── */
   .narrative-action {
     padding: 6px 12px 10px;
     border-top: 1px solid var(--border);

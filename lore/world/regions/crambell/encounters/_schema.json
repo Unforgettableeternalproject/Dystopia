@@ -5,16 +5,97 @@
   "type": "event",
   "_comment_type": [
     "type 決定 UI 主視覺與互動模式：",
-    "  'narrative' — 劇情遭遇：敘事場景，琥珀色主視覺，通常沒有選項或只有「繼續」",
-    "  'event'     — 事件遭遇：有選項的決策場景，藍色主視覺，可含數值判定（預設）",
-    "  'dialogue'  — 對話遭遇：橋接 NPC 對話系統（目前僅作觸發器）",
-    "  'combat'    — 戰鬥遭遇：紅色主視覺（MVP 延後，顯示 stub）",
-    "  'shop'      — 商店遭遇：綠色主視覺（MVP 延後，顯示 stub）"
+    "  'story'    — 劇情遭遇：screenplay-style cutscene，依 speaker 渲染旁白／NPC 對話／玩家台詞",
+    "  'event'    — 事件遭遇：有選項的決策場景，藍色主視覺，可含數值判定（預設）",
+    "  'dialogue' — 對話遭遇：橋接 NPC 對話系統（目前僅作觸發器）",
+    "  'combat'   — 戰鬥遭遇：紅色主視覺（MVP 延後，顯示 stub）",
+    "  'shop'     — 商店遭遇：綠色主視覺（MVP 延後，顯示 stub）"
   ],
   "description": "DM-facing：此遭遇的整體情境說明，一到兩句話。",
-  "entryNodeId": "node_intro",
 
-  "_comment_nodes": [
+  "_comment_story": [
+    "━━ story 型別 ━━",
+    "",
+    "script 為劇情腳本行序列。大部分行自動推進，有 pause: true 的行會暫停等待玩家點「繼續」。",
+    "",
+    "每一行的 speaker：",
+    "  'narrator'       — 旁白（斜體，無角色框）",
+    "  'player'         — 玩家台詞（顯示為「你」）",
+    "  其他任意字串     — NPC 名稱（直接顯示，不需對應 NPC ID）",
+    "  speaker 省略     — 等同 narrator",
+    "",
+    "text 省略 + 有 effects：純效果行，不顯示任何文字。",
+    "",
+    "pause: true — 在此行後暫停，等待玩家點「繼續」才推進下一批。",
+    "  一般用於切換地點、度過大量時間之後（需要玩家感知狀態變化的場合）。",
+    "  省略 / false = 自動推進，不需玩家輸入。",
+    "",
+    "effects（遷入值）：在「到達此行時」才套用，按行逐一執行。",
+    "  可用欄位同 event 型別的 effects（見下方），另加：",
+    "  movePlayer  — 移動玩家到指定地點 ID（字串），套用後需配合 pause:true 讓玩家感知",
+    "  timeAdvance — 推進遊戲時間（分鐘數，整數），套用後需配合 pause:true 讓玩家感知",
+    "",
+    "result：所有行結束、玩家點「繼續」確認時套用，可省略。",
+    "  result.outcomeType: 'success' / 'failure' / 'neutral'（省略預設 'neutral'）",
+    "  result.effects: 與 script effects 相同格式"
+  ],
+  "_story_example": {
+    "id": "enc_example_story",
+    "name": "示範劇情",
+    "type": "story",
+    "description": "一個示範性的劇情遭遇。",
+    "script": [
+      {
+        "speaker": "narrator",
+        "text": "這是一個風和日麗的夜晚。"
+      },
+      {
+        "speaker": "npc_A",
+        "text": "嘿，這是一個風和日麗的夜晚欸。"
+      },
+      {
+        "speaker": "npc_B",
+        "text": "對阿，很風和日麗。"
+      },
+      {
+        "speaker": "player",
+        "text": "我想睡覺，給我枕頭。"
+      },
+      {
+        "effects": {
+          "grantItems": [{ "itemId": "pillow" }]
+        }
+      },
+      {
+        "speaker": "narrator",
+        "text": "你拿到了枕頭。",
+        "effects": {
+          "statChanges": { "statusStats.stress": -1 }
+        }
+      },
+      {
+        "effects": {
+          "movePlayer": "location_bedroom",
+          "timeAdvance": 30
+        },
+        "pause": true
+      },
+      {
+        "speaker": "narrator",
+        "text": "三十分鐘後，你已在臥室。"
+      }
+    ],
+    "result": {
+      "outcomeType": "neutral",
+      "effects": {
+        "flagsSet": ["received_pillow"]
+      }
+    }
+  },
+
+  "_comment_event": [
+    "━━ event / dialogue / combat / shop 型別 ━━",
+    "",
     "nodes 是有向圖（DAG）。entryNodeId 為入口。",
     "",
     "每個節點可以是：",
@@ -32,7 +113,7 @@
     "  itemRequirements — 玩家需持有所有指定物品（AND），否則隱藏",
     "  minMelphin     — 玩家梅分不足時隱藏",
     "",
-    "effects 可用欄位（節點與選項的 effects 相同）：",
+    "effects 可用欄位：",
     "  flagsSet / flagsUnset",
     "  statChanges          — dot-path 格式，如 statusStats.stress: 2",
     "  reputationChanges    — key = factionId",
@@ -41,12 +122,20 @@
     "  grantQuestId         — 授予任務 ID",
     "  grantIntelId         — 授予情報 ID（同時設置 know_<id> 旗標）",
     "  melphinChange        — 梅分變化（正 = 獲得，負 = 扣除）",
-    "  failQuestId          — 觸發指定任務的 onFail 效果"
+    "  failQuestId          — 觸發指定任務的 onFail 效果",
+    "  advanceQuestStage    — 推進任務到指定階段 { questId, stageId }",
+    "  completeQuestObjective — 標記任務目標為已完成 { questId, objectiveId }",
+    "  movePlayer           — 移動玩家到指定地點 ID（字串）",
+    "  timeAdvance          — 推進遊戲時間（分鐘數，整數）"
   ],
 
   "_comment_stat_check": [
     "statCheck.stat 格式：dot-path，如 'primaryStats.strength'、'statusStats.stamina'",
-    "通過條件：playerStat >= threshold",
+    "  dc              — Difficulty Class，判定門檻",
+    "  dice            — 骰型（選填，如 { count: 1, sides: 20 }，省略預設 1d20）",
+    "  advantage       — 優勢，擲兩次取較高值（選填）",
+    "  disadvantage    — 劣勢，擲兩次取較低值（選填）",
+    "  modifiers       — 外部補正列表（選填，[{ label, value }]）",
     "successNodeId / failNodeId 指向判定結果後的目標節點 ID",
     "",
     "可用的 stat 路徑：",
@@ -55,13 +144,7 @@
     "  statusStats.stamina / stress / endo"
   ],
 
-  "_comment_outcome_type": [
-    "outcomeType（isOutcome 節點使用）：",
-    "  'success' — 玩家成功（任務目標 encounter_completed 可以指定需要 success）",
-    "  'failure' — 玩家失敗",
-    "  'neutral' — 中性結局（省略時預設）"
-  ],
-
+  "entryNodeId": "node_intro",
   "nodes": {
     "node_intro": {
       "id": "node_intro",
@@ -71,14 +154,8 @@
         {
           "id": "choice_a",
           "text": "選項 A 的文字",
-          "condition": "optional_flag （省略 = 永遠顯示）",
-          "itemRequirements": [
-            { "itemId": "item_id", "variantId": "optional_variant" }
-          ],
-          "minMelphin": 10,
           "nextNodeId": "node_check",
           "effects": {
-            "flagsSet": [],
             "statChanges": { "statusStats.stress": -1 }
           }
         },
@@ -92,18 +169,6 @@
         }
       ]
     },
-
-    "node_check": {
-      "id": "node_check",
-      "dmNarrative": "判定場景說明。",
-      "statCheck": {
-        "stat": "primaryStats.strength",
-        "threshold": 8,
-        "successNodeId": "node_success",
-        "failNodeId": "node_failure"
-      }
-    },
-
     "node_success": {
       "id": "node_success",
       "dmNarrative": "成功的場景說明。",
@@ -111,12 +176,9 @@
       "isOutcome": true,
       "outcomeType": "success",
       "effects": {
-        "flagsSet": ["encounter_passed"],
-        "reputationChanges": { "miners_union": 3 },
-        "grantQuestId": "optional_quest_to_grant"
+        "flagsSet": ["encounter_passed"]
       }
     },
-
     "node_failure": {
       "id": "node_failure",
       "dmNarrative": "失敗的場景說明。",

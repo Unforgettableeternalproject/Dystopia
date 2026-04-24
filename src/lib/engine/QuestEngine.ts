@@ -54,6 +54,14 @@ export class QuestEngine {
     // For non-repeatable: skip if already completed or failed
     if (!def.isRepeatable && gs.completedQuestIds.includes(questId)) return false;
 
+    // cannotCoexist: block grant if any mutually exclusive quest is currently active
+    if (def.cannotCoexist?.length) {
+      for (const conflictId of def.cannotCoexist) {
+        const conflict = gs.activeQuests[conflictId];
+        if (conflict && !conflict.isCompleted && !conflict.isFailed) return false;
+      }
+    }
+
     const source = options.source ?? def.source;
     const now    = gs.time.totalMinutes;
 
@@ -166,6 +174,33 @@ export class QuestEngine {
   }
 
   /**
+   * 玩家主動放棄任務（MVP v1 Abandon 語意）。
+   * 條件：quest 可被放棄（type !== 'main'，或作者顯式設 canAbandon = false 時封鎖）。
+   * 行為：直接呼叫 applyQuestFail(questId, { isAbandoned: true })。
+   */
+  abandonQuest(questId: string): boolean {
+    const def      = this.lore.getQuest(questId);
+    const instance = this.state.getState().activeQuests[questId];
+    if (!def || !instance || instance.isCompleted || instance.isFailed) return false;
+
+    // canAbandon 顯式設 false = 不可放棄（優先於 type 推導）
+    if (def.canAbandon === false) return false;
+    // type = 'main' 預設不可放棄，除非作者顯式設 canAbandon = true
+    if (def.type === 'main' && def.canAbandon !== true) return false;
+
+    this.applyQuestFail(questId, { isAbandoned: true });
+
+    // Guarantee the quest is marked as failed even when no onFail handler is defined.
+    // applyQuestFail is a no-op when the quest stage lacks onFail/onFailDefault.
+    const current = this.state.getState().activeQuests[questId];
+    if (current && !current.isFailed) {
+      this.state.failQuest(questId, { recordAsCompleted: !def.isRepeatable });
+    }
+
+    return true;
+  }
+
+  /**
    * 外部觸發任務階段失敗（由 EventOutcome.failQuestId、EncounterChoiceEffects.failQuestId
    * 或 failCondition 自動掃描觸發）。
    * 套用當前階段的 onFail 效果（若無則嘗試 onFailDefault）並根據 nextStageId 決定後續：
@@ -174,8 +209,9 @@ export class QuestEngine {
    *   nextStageId = undefined → 僅套用效果，停留在當前階段
    *
    * 回傳 { startEventId } 讓 GameController 決定是否直接觸發事件。
+   * options.isAbandoned = true 時，代表由玩家主動放棄觸發（語意標記，供事件/log使用）。
    */
-  applyQuestFail(questId: string): { startEventId?: string } {
+  applyQuestFail(questId: string, options?: { isAbandoned?: boolean }): { startEventId?: string } {
     const gs       = this.state.getState();
     const instance = gs.activeQuests[questId];
     if (!instance || instance.isCompleted || instance.isFailed) return {};

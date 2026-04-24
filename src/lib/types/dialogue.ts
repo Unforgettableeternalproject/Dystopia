@@ -111,6 +111,31 @@ export interface ScriptedChoice {
    */
   minMelphin?: number;
 
+  /**
+   * Pre-condition: faction reputation minimums (AND).
+   * key = factionId, value = minimum reputation required.
+   * Choice is hidden if any faction reputation falls short.
+   */
+  minReputation?: Record<string, number>;
+
+  /**
+   * Pre-condition: faction reputation maximums (AND).
+   * key = factionId, value = maximum reputation allowed.
+   */
+  maxReputation?: Record<string, number>;
+
+  /**
+   * Pre-condition: NPC affinity minimums (AND).
+   * key = npcId, value = minimum affinity required.
+   */
+  minAffinity?: Record<string, number>;
+
+  /**
+   * Pre-condition: NPC affinity maximums (AND).
+   * key = npcId, value = maximum affinity allowed.
+   */
+  maxAffinity?: Record<string, number>;
+
   effects?: ChoiceEffects;
 }
 

@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { statCheckOverlay } from '$lib/stores/gameStore';
+  import type { RollResult } from '$lib/engine/DiceEngine';
 
   // Props — pulled from store by parent
   export let stat: string;
-  export let threshold: number;
+  export let dc: number;
   export let value: number;
   export let passed: boolean;
+  export let rollResult: RollResult | undefined = undefined;
 
   const statKey = stat.split('.').pop() ?? stat;
   const STAT_LABELS: Record<string, string> = {
@@ -26,13 +28,25 @@
   const statLabel = STAT_LABELS[statKey] ?? statKey;
 
   // Bar geometry
-  const barMax   = Math.max(threshold + Math.ceil(threshold * 0.6), value + 2, 6);
-  const valuePct = Math.min((value / barMax) * 100, 100);
-  const thresholdPct = Math.min((threshold / barMax) * 100, 100);
+  const barMax       = Math.max(dc + Math.ceil(dc * 0.6), value + 2, 6);
+  const valuePct     = Math.min((value / barMax) * 100, 100);
+  const thresholdPct = Math.min((dc / barMax) * 100, 100);
 
   const COLOR_PASS = '#7ec8a0';
   const COLOR_FAIL = '#d35f5f';
   const resultColor = passed ? COLOR_PASS : COLOR_FAIL;
+
+  // Dice breakdown helpers (pre-computed to avoid ! in templates)
+  const hasRoll    = rollResult !== undefined;
+  const rollAdv    = (rollResult?.rolls.length ?? 0) > 1;
+  const hasAdv     = rollAdv;
+  const advLabel   = (rollAdv && rollResult && rollResult.chosenRoll === Math.max(...rollResult.rolls)) ? '優勢' : '劣勢';
+  const rollsStr   = (rollAdv && rollResult) ? rollResult.rolls.join(' / ') : '';
+  const showExtMod = (rollResult?.externalModifier ?? 0) !== 0;
+  // Extracted values for template use
+  const rChosen    = rollResult?.chosenRoll ?? 0;
+  const rStatMod   = rollResult?.statModifier ?? 0;
+  const rExtMod    = rollResult?.externalModifier ?? 0;
 
   // Animation phases
   // 0 = card entering
@@ -75,11 +89,46 @@
         </div>
       </div>
 
-      <div class="numbers">
-        <span class="num-group">你&nbsp;<span class="num-val" style="color:{resultColor}">{value}</span></span>
-        <span class="num-sep">{passed ? '≥' : '<'}</span>
-        <span class="num-group">門檻&nbsp;<span class="num-val">{threshold}</span></span>
-      </div>
+      {#if hasRoll}
+        <!-- Dice breakdown -->
+        <div class="dice-table">
+          <div class="dice-row">
+            <span class="dice-label">骰值</span>
+            <span class="dice-val">
+              {rChosen}
+              {#if hasAdv}<span class="dice-sub">({advLabel}: {rollsStr})</span>{/if}
+            </span>
+          </div>
+          <div class="dice-row">
+            <span class="dice-label">屬性</span>
+            <span class="dice-val" class:mod-pos={rStatMod > 0} class:mod-neg={rStatMod < 0}>
+              {rStatMod >= 0 ? '+' : ''}{rStatMod}
+            </span>
+          </div>
+          {#if showExtMod}
+            <div class="dice-row">
+              <span class="dice-label">補正</span>
+              <span class="dice-val" class:mod-pos={rExtMod > 0} class:mod-neg={rExtMod < 0}>
+                {rExtMod >= 0 ? '+' : ''}{rExtMod}
+              </span>
+            </div>
+          {/if}
+          <div class="dice-divider"></div>
+          <div class="dice-row dice-total">
+            <span class="dice-label">合計</span>
+            <span class="dice-val total-val" style="color:{resultColor}">
+              {value}&nbsp;<span class="dice-vs">vs</span>&nbsp;DC {dc}
+            </span>
+          </div>
+        </div>
+      {:else}
+        <!-- Fallback: raw stat comparison -->
+        <div class="numbers">
+          <span class="num-group">你&nbsp;<span class="num-val" style="color:{resultColor}">{value}</span></span>
+          <span class="num-sep">{passed ? '≥' : '<'}</span>
+          <span class="num-group">DC&nbsp;<span class="num-val">{dc}</span></span>
+        </div>
+      {/if}
     </div>
 
     <!-- Result (phase 2+) -->
@@ -212,7 +261,7 @@
     border-radius: 1px;
   }
 
-  /* Numbers */
+  /* Numbers (fallback, no rollResult) */
   .numbers {
     display: flex;
     align-items: center;
@@ -230,6 +279,64 @@
   .num-sep {
     font-size: 12px;
     color: var(--text-dim);
+  }
+
+  /* Dice breakdown table */
+  .dice-table {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-family: var(--font-mono);
+  }
+
+  .dice-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .dice-label {
+    color: var(--text-dim);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+
+  .dice-val {
+    font-size: 11px;
+    color: var(--text-primary);
+  }
+
+  .dice-sub {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-left: 4px;
+  }
+
+  .mod-pos { color: #7ec8a0; }
+  .mod-neg { color: #d35f5f; }
+
+  .dice-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+    opacity: 0.5;
+  }
+
+  .dice-total .dice-val {
+    font-size: 12px;
+  }
+
+  .total-val {
+    font-weight: 500;
+  }
+
+  .dice-vs {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin: 0 2px;
   }
 
   /* ── Result section ──────────────────────────────────── */

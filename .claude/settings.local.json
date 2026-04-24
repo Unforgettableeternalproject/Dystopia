@@ -71,7 +71,9 @@
       "Bash(npx svelte-check:*)",
       "mcp__fff__multi_grep",
       "Bash(cargo add:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(cat vite.config.ts)",
+      "Bash(cat vitest.config.ts)"
     ]
   }
 }

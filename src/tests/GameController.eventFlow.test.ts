@@ -130,7 +130,9 @@ describe('GameController event flow', () => {
       props: { dorm_bed: makeProp() },
     });
 
-    await controller.submitAction('睡到白天', 'rest');
+    // Use 'free' action type so the DM pipeline runs and picks up time-crossing events.
+    // REST interception (modal) only fires when action.type is explicitly 'rest'.
+    await controller.submitAction('睡到白天');
 
     const activeQuests = (controller as unknown as { state: { getState: () => { activeQuests: Record<string, unknown> } } })
       .state.getState().activeQuests;

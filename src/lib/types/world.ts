@@ -138,6 +138,23 @@ export interface ConnectionAccess {
    */
   minMelphin?: number;
   /**
+   * 派系聲望下限（AND 關係）。key = factionId，value = 最低聲望值。
+   * 玩家對所有指定派系的聲望均需達標才能通行。
+   */
+  minReputation?: Record<string, number>;
+  /**
+   * 派系聲望上限（AND 關係）。key = factionId，value = 最高聲望值。
+   */
+  maxReputation?: Record<string, number>;
+  /**
+   * NPC 好感下限（AND 關係）。key = npcId，value = 最低好感值。
+   */
+  minAffinity?: Record<string, number>;
+  /**
+   * NPC 好感上限（AND 關係）。key = npcId，value = 最高好感值。
+   */
+  maxAffinity?: Record<string, number>;
+  /**
    * 條件不滿足時顯示給玩家的說明（由 DM 或 Regulator 傳遞）。
    * 例：「礦坑入口在休息時段關閉」、「此通道需要通行憑證」
    */
@@ -363,6 +380,22 @@ export interface EventCondition {
    * 省略或 1.0 = 必定觸發。
    */
   triggerChance?: number;
+  /**
+   * 派系聲望下限（AND 關係）。key = factionId，value = 最低聲望值。
+   */
+  minReputation?: Record<string, number>;
+  /**
+   * 派系聲望上限（AND 關係）。key = factionId，value = 最高聲望值。
+   */
+  maxReputation?: Record<string, number>;
+  /**
+   * NPC 好感下限（AND 關係）。key = npcId，value = 最低好感值。
+   */
+  minAffinity?: Record<string, number>;
+  /**
+   * NPC 好感上限（AND 關係）。key = npcId，value = 最高好感值。
+   */
+  maxAffinity?: Record<string, number>;
 }
 
 /** 物品發放項目（用於 EventOutcome.grantItems） */
@@ -443,6 +476,41 @@ export interface Faction {
   regionId: string | null;    // null = cross-region (global) faction
   description: string;
   defaultReputation: number;
+  /**
+   * 身份揭露條件。旗標尚未達成時，玩家雖能感知此派系（聲望圖以 ??? 顯示），
+   * 但不知道其真實名稱與身份。省略 = 接觸即知（如政府等公開勢力）。
+   * 範例：舊會議 unknownUntil: "know_crambell_treffen"
+   */
+  unknownUntil?: string;
+}
+
+/**
+ * 兩派系之間的關係邊。
+ * weight > 0 = 友好，weight = 0 = 中立，weight < 0 = 敵對。
+ */
+export interface FactionRelationEdge {
+  a: string;   // factionId
+  b: string;   // factionId
+  weight: number;
+}
+
+/**
+ * 陣營關係圖定義（lore/world/regions/<region>/faction_graphs/<id>.json）。
+ * 只定義派系間的靜態關係邊；節點座標由前端以彈簧佈局演算法動態計算，
+ * 玩家投影點依 reputation 加權向量平均計算，均不寫死在 lore。
+ */
+export interface FactionGraphDefinition {
+  id: string;
+  /** 此圖包含的派系 ID 列表（可用於顯示未發現派系的提示） */
+  factionIds: string[];
+  /** 派系間的靜態關係邊（驅動彈簧佈局與關係可視化） */
+  edges: FactionRelationEdge[];
+  /**
+   * 解鎖旗標。旗標成立時才允許玩家開啟此關係圖。
+   * 省略 = 預設解鎖。
+   * @future 目前未被 runtime 讀取，保留供後續 UI 入口控制使用。
+   */
+  unlockFlag?: string;
 }
 
 // ── Region index ─────────────────────────────────────────────────

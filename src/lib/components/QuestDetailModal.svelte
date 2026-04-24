@@ -2,6 +2,9 @@
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { questDetailOpen } from '$lib/stores/gameStore';
+  import type { GameController } from '$lib/engine/GameController';
+
+  export let controller: GameController;
 
   function close() { questDetailOpen.set(null); }
   function handleBg(e: MouseEvent) {
@@ -13,6 +16,22 @@
     side:   '支線',
     hidden: '隱藏',
   };
+
+  let showAbandonConfirm = false;
+
+  function requestAbandon() { showAbandonConfirm = true; }
+  function cancelAbandon()  { showAbandonConfirm = false; }
+
+  function confirmAbandon() {
+    const q = $questDetailOpen;
+    if (!q) return;
+    const ok = controller.abandonQuest(q.questId);
+    if (ok) close();
+    showAbandonConfirm = false;
+  }
+
+  // Mirror engine logic: canAbandon flag is pre-computed by GameController.syncUIState
+  $: canAbandon = $questDetailOpen?.canAbandon ?? false;
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -49,6 +68,18 @@
           </ul>
         {/if}
       </div>
+
+      {#if canAbandon}
+        <div class="modal-footer">
+          {#if showAbandonConfirm}
+            <span class="abandon-confirm-text">確定要放棄此任務？</span>
+            <button class="footer-btn danger" on:click={confirmAbandon}>確定放棄</button>
+            <button class="footer-btn" on:click={cancelAbandon}>取消</button>
+          {:else}
+            <button class="footer-btn abandon" on:click={requestAbandon}>放棄任務</button>
+          {/if}
+        </div>
+      {/if}
     {/if}
   </aside>
 </div>
@@ -204,5 +235,64 @@
 
   .obj-item:not(.done) .obj-check {
     color: var(--text-dim);
+  }
+
+  /* ── Footer (abandon) ─────────────────────── */
+  .modal-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    flex-shrink: 0;
+  }
+
+  .abandon-confirm-text {
+    font-size: 10px;
+    color: var(--text-dim);
+    flex: 1;
+    font-family: var(--font-mono);
+  }
+
+  .footer-btn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 12px;
+    background: transparent;
+    border: 1px solid var(--border-accent);
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .footer-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .footer-btn.abandon {
+    color: var(--accent-red, #c0392b);
+    border-color: color-mix(in srgb, var(--accent-red, #c0392b) 40%, var(--border));
+    opacity: 0.7;
+    transition: opacity 0.1s, background 0.1s, color 0.1s;
+  }
+
+  .footer-btn.abandon:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--accent-red, #c0392b) 10%, transparent);
+  }
+
+  .footer-btn.danger {
+    border-color: var(--accent-red, #c0392b);
+    color: var(--accent-red, #c0392b);
+  }
+
+  .footer-btn.danger:hover {
+    background: var(--accent-red, #c0392b);
+    color: var(--text-primary);
   }
 </style>

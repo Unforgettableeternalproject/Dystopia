@@ -26,7 +26,7 @@
       "dmNarrative": "玩家回想自己最近的工作表現，評估自己是否達到申請標準。（力量判定：代表體能與工作量表現）",
       "statCheck": {
         "stat": "primaryStats.strength",
-        "threshold": 6,
+        "dc": 6,
         "successNodeId": "qualified",
         "failNodeId": "not_qualified"
       }

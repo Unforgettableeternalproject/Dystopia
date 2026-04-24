@@ -876,13 +876,6 @@
     opacity: 1;
   }
 
-  .note-text {
-    font-size: 9px;
-    color: var(--text-dim);
-    font-style: italic;
-    flex-shrink: 0;
-  }
-
   .empty {
     padding: 12px 16px;
     font-size: 11px;

@@ -185,7 +185,10 @@ describe('Crambell route1 integration', () => {
       expect(state.getEventCounter('crambell_transfer_trigger_progress')).toBe(0);
 
       const triggerStart = encounters.start('crambell_enc_transfer_trigger');
-      expect(triggerStart?.node.id).toBe('broadcast');
+      expect(triggerStart?.kind === 'node' && triggerStart.resolved.node.id).toBe('broadcast');
+      // strength=6 → statModifier=-1; need roll≥7 to pass DC 6.
+      // Inject one passing roll (0.5 → floor(0.5*20)+1=11, total=10≥6).
+      randomSpy.mockReturnValueOnce(0.5);
       const triggerOutcome = resolveEncounter(encounters, quests, 'try');
       expect(triggerOutcome.node.id).toBe('qualified');
       expect(state.getState().activeQuests.crambell_transfer_opportunity?.currentStageId).toBe('apply');
@@ -197,7 +200,10 @@ describe('Crambell route1 integration', () => {
       expect(applyEvent[0].startEncounterId).toBe('crambell_enc_transfer_apply');
 
       const applyStart = encounters.start('crambell_enc_transfer_apply');
-      expect(applyStart?.node.id).toBe('at_post');
+      expect(applyStart?.kind === 'node' && applyStart.resolved.node.id).toBe('at_post');
+      // luck=3 → statModifier=-2; need roll≥5 to pass DC 3.
+      // Inject one passing roll (0.5 → roll=11, total=9≥3).
+      randomSpy.mockReturnValueOnce(0.5);
       const applyOutcome = resolveEncounter(encounters, quests, 'apply_formally');
       expect(applyOutcome.node.id).toBe('approved');
 

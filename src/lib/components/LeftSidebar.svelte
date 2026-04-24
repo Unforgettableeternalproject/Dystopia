@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { playerUI, statDeltaNotifs } from '$lib/stores/gameStore';
+  import { playerUI, statDeltaNotifs, factionGraphOpen } from '$lib/stores/gameStore';
   import MiniMap    from './MiniMap.svelte';
   import RegionMap  from './RegionMap.svelte';
+  import FactionGraphModal from './FactionGraphModal.svelte';
   import { fly }    from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
 
@@ -41,9 +42,14 @@
   </div>
 
   <!-- Faction reputation (appears on first reputation change) -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
   {#if $playerUI.topFactions && $playerUI.topFactions.length > 0}
-    <div class="faction-section" in:fly={{ y: -10, duration: 350, easing: cubicOut }}>
-      <span class="section-header">派系</span>
+    <div class="faction-section" in:fly={{ y: -10, duration: 350, easing: cubicOut }}
+      on:click={() => factionGraphOpen.set(true)}
+      title="點擊查看陣營關係"
+    >
+      <span class="section-header">派系 <span class="section-hint">◈</span></span>
       {#each $playerUI.topFactions as f}
         <div class="faction-row">
           <span class="faction-name">{f.name}</span>
@@ -72,9 +78,14 @@
   {/if}
 </aside>
 
-<!-- Region map modal (teleported outside sidebar layout) -->
+<!-- Region map modal -->
 {#if regionMapOpen}
   <RegionMap data={$playerUI.regionMap} on:close={() => (regionMapOpen = false)} />
+{/if}
+
+<!-- Faction graph modal -->
+{#if $factionGraphOpen}
+  <FactionGraphModal />
 {/if}
 
 <style>
@@ -155,6 +166,19 @@
     border-bottom: 1px solid var(--border);
     border-top: 1px solid var(--border);
     animation: faction-reveal 2.2s ease-out 1 forwards;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .faction-section:hover {
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+
+  .section-hint {
+    font-size: 8px;
+    opacity: 0.45;
+    margin-left: 2px;
+    vertical-align: middle;
   }
 
   .faction-row {

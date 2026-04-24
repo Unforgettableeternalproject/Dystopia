@@ -27,7 +27,9 @@ import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode } from './EncounterEngine';
-import type { EncounterDefinition } from '../types/encounter';
+import { RestResolver }     from './RestResolver';
+import type { RestResult }  from './RestResolver';
+import type { EncounterDefinition, ScriptLine } from '../types/encounter';
 import type { PlayerAction, ActionType, ActionTargetKind, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
 import type { ObserveSnapshot, RestContext } from '../types/prop';
 import { parseItemGrantString } from '../utils/itemGrantParser';
@@ -61,7 +63,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -464,6 +466,14 @@ export class GameController {
       this._sessionFiredTriggers.clear();
     }
 
+    // Intercept rest — open modal instead of going through DM pipeline.
+    // Applies regardless of whether the action came from a Thought or manual text input.
+    if (finalAction.type === 'rest') {
+      this.openRestModal();
+      inputDisabled.set(false);
+      return;
+    }
+
     // 1.5. Check for scripted dialogue trigger when player interacts with a scene NPC.
     // Regulator sets type="interact" + targetId when player names a specific NPC.
     const resolvedSceneNpcIds = this.lore.getNPCsByIds(
@@ -554,11 +564,8 @@ export class GameController {
 
     // 4.15. Launch event-triggered encounter AFTER narration so event text plays first.
     if (eventEncounter) {
-      const resolved = this.encounterMgr.start(eventEncounter.id);
-      if (resolved) {
-        await this.renderEncounterNode(resolved, eventEncounter.def ?? undefined);
-        log.info('Encounter started by event', { encounterId: eventEncounter.id });
-      }
+      await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
+      log.info('Encounter started by event', { encounterId: eventEncounter.id });
       this.flushAcquisitions();
       // Event stat changes may have pushed past an ending threshold
       if (this.checkEndingConditions()) return;
@@ -575,15 +582,6 @@ export class GameController {
 
     const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId);
     this.flushAcquisitions();
-
-    // 4.4.5. Scuffed rest clamp — if resting without a rest point, cap time deterministically.
-    if (finalAction.type === 'rest' && resolution.timeMinutes != null) {
-      const restCtx = this.classifyRestContext();
-      if (restCtx.mode === 'scuffed' && resolution.timeMinutes > restCtx.maxTimeMinutes) {
-        log.debug('Rest clamped (scuffed)', { original: resolution.timeMinutes, clamped: restCtx.maxTimeMinutes });
-        resolution.timeMinutes = restCtx.maxTimeMinutes;
-      }
-    }
 
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
     // Downward correction (resolution < default) is deferred — TimeManager.advance() only
@@ -622,11 +620,8 @@ export class GameController {
         }
 
         if (lateEventEncounter) {
-          const resolved = this.encounterMgr.start(lateEventEncounter.id);
-          if (resolved) {
-            await this.renderEncounterNode(resolved, lateEventEncounter.def ?? undefined);
-            log.info('Encounter started by delayed event', { encounterId: lateEventEncounter.id });
-          }
+          await this.startAndRenderEncounter(lateEventEncounter.id, lateEventEncounter.def ?? undefined);
+          log.info('Encounter started by delayed event', { encounterId: lateEventEncounter.id });
           this.flushAcquisitions();
           if (this.checkEndingConditions()) return;
           this.releaseInput();
@@ -659,8 +654,7 @@ export class GameController {
         await this.handleDialogueInput('(opener)', enc.npcId, true);
         inputDisabled.set(false);
       } else if (enc.type === 'event' && enc.encounterId) {
-        const resolved = this.encounterMgr.start(enc.encounterId);
-        if (resolved) await this.renderEncounterNode(resolved);
+        await this.startAndRenderEncounter(enc.encounterId);
         this.flushAcquisitions();
         this.releaseInput();
       }
@@ -684,6 +678,108 @@ export class GameController {
 
   ditchQuest(questId: string): boolean {
     return this.quests.ditchQuest(questId);
+  }
+
+  /**
+   * 玩家主動放棄任務（MVP v1 Abandon）。
+   * 非主線任務可放棄，結果等同 fail，套用 onFail / onFailDefault。
+   */
+  abandonQuest(questId: string): boolean {
+    return this.quests.abandonQuest(questId);
+  }
+
+  // -- Rest -------------------------------------------------------
+
+  /**
+   * 開啟休息 Modal。分類當前休息情境並設定 store。
+   * 由 UI 在玩家選擇休息動作時呼叫。
+   */
+  openRestModal(): void {
+    const restCtx = this.classifyRestContext();
+    restModalOpen.set({
+      canFullRest:        restCtx.mode === 'full_available',
+      scuffedMaxMinutes:  restCtx.maxTimeMinutes,
+    });
+  }
+
+  /**
+   * 執行休息：計算結果、套用數值、推進時間、設定結果 overlay。
+   * 由 RestModal 在玩家確認時長後呼叫。
+   * @returns RestResult 結果資料
+   */
+  executeRest(plannedMinutes: number): RestResult {
+    const gs      = this.state.getState();
+    const restCtx = this.classifyRestContext();
+
+    const result = RestResolver.resolve({
+      plannedMinutes,
+      restCtx,
+      stamina:    gs.player.statusStats.stamina,
+      staminaMax: gs.player.statusStats.staminaMax,
+      stress:     gs.player.statusStats.stress,
+      stressMax:  gs.player.statusStats.stressMax,
+    });
+
+    // Apply stat changes (stamina recovery + stress reduction)
+    if (result.staminaDelta !== 0) {
+      this.state.modifyStat('statusStats.stamina', result.staminaDelta);
+    }
+    if (result.stressDelta !== 0) {
+      this.state.modifyStat('statusStats.stress', result.stressDelta);
+    }
+
+    // Advance time by actual rest duration
+    const gs2      = this.state.getState();
+    const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
+    const newTime  = this.timeMgr.advance(gs2.time, result.actualMinutes);
+    const newPeriod = schedule
+      ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs2.player.activeFlags)
+      : gs2.timePeriod;
+    this.state.advanceTime(newTime, newPeriod);
+    this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
+
+    // Post-rest system sweeps — mirrors the post-turn pipeline so rest cannot
+    // silently skip quest timeouts, time-triggered events, or objective completions.
+    // Events are applied (effects run) but NOT narrated here; narration happens
+    // on the next player action if needed.
+    const crossedHours = this.timeMgr.computeCrossedHours(gs2.time, newTime);
+    if (crossedHours.length > 0) {
+      if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
+        this.state.flags.set('game_day1_started');
+      }
+      if (this.state.flags.has('game_day1_started')) {
+        const qfTriggered  = this.checkQuestFailConditions(crossedHours);
+        const glTriggered  = this.events.checkGlobalEvents(this.currentRegionId, crossedHours);
+        const locTriggered = this.events.checkAndApply(gs2.player.currentLocationId, crossedHours);
+        const timeTriggered = [...qfTriggered, ...glTriggered, ...locTriggered];
+        if (timeTriggered.length > 0) {
+          this.processTriggeredEvents(timeTriggered);
+        }
+      }
+    }
+    this.quests.checkTimeLimits(this.state.getState().time.totalMinutes);
+    this.quests.checkObjectives();
+    this.quests.checkPendingRepeats();
+    this.phases.checkAdvance();
+
+    // Flush acquisition notifications (stamina/stress delta)
+    this.flushAcquisitions();
+
+    // Show result overlay
+    restResultOverlay.set({
+      plannedMinutes,
+      actualMinutes:    result.actualMinutes,
+      deviationMinutes: result.deviationMinutes,
+      quality:          result.quality,
+      staminaDelta:     result.staminaDelta,
+      stressDelta:      result.stressDelta,
+      resultTags:       result.resultTags,
+    });
+
+    // Sync UI
+    this.syncUIState(this.state.getState());
+
+    return result;
   }
 
   // -- Save / load -------------------------------------------------------
@@ -2089,11 +2185,8 @@ export class GameController {
         );
         this.syncUIState(this.state.getState());
       }
-      const resolved = this.encounterMgr.start(timeTriggeredEncounter.id);
-      if (resolved) {
-        await this.renderEncounterNode(resolved, timeTriggeredEncounter.def ?? undefined);
-        this.flushAcquisitions();
-      }
+      await this.startAndRenderEncounter(timeTriggeredEncounter.id, timeTriggeredEncounter.def ?? undefined);
+      this.flushAcquisitions();
       if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
@@ -2126,6 +2219,24 @@ export class GameController {
     if (pending.questGrant) {
       this.quests.grantQuest(pending.questGrant);
       log.info('Quest granted by encounter choice', { questId: pending.questGrant });
+    }
+    if (pending.advanceQuestStage) {
+      const { questId, stageId } = pending.advanceQuestStage;
+      this.state.advanceQuestStage(questId, stageId);
+      log.info('Quest stage advanced by encounter choice', { questId, stageId });
+    }
+    if (pending.completeQuestObjective) {
+      const { questId, objectiveId } = pending.completeQuestObjective;
+      this.quests.applyQuestSignal(questId, 'objective', objectiveId);
+      log.info('Quest objective completed by encounter choice', { questId, objectiveId });
+    }
+    if (pending.movePlayer) {
+      this.state.movePlayer(pending.movePlayer);
+      log.info('Player moved by encounter choice', { locationId: pending.movePlayer });
+    }
+    if (pending.timeAdvance) {
+      this.applyTimeAdvance(pending.timeAdvance);
+      log.info('Time advanced by encounter choice', { minutes: pending.timeAdvance });
     }
     let pendingFailEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
     if (pending.questFail) {
@@ -2166,11 +2277,8 @@ export class GameController {
 
     // Launch fail-event encounter after the current encounter fully concludes
     if (pendingFailEncounter) {
-      const failResolved = this.encounterMgr.start(pendingFailEncounter.id);
-      if (failResolved) {
-        await this.renderEncounterNode(failResolved, pendingFailEncounter.def ?? undefined);
-        this.flushAcquisitions();
-      }
+      await this.startAndRenderEncounter(pendingFailEncounter.id, pendingFailEncounter.def ?? undefined);
+      this.flushAcquisitions();
       if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
@@ -2181,6 +2289,74 @@ export class GameController {
     if (this.checkEndingConditions()) return;
 
     this.releaseInput();
+  }
+
+  /**
+   * story 型別遭遇專用：玩家點「繼續」推進到下一行。
+   * 純效果行自動跳過並套用；最後一行結束後套用 result，清除 UI，恢復探索。
+   */
+  async selectEncounterStoryAdvance(): Promise<void> {
+    inputDisabled.set(true);
+
+    const preState  = this.state.getState();
+    const preActive = preState.activeEncounter;
+    const preDef    = preActive ? this.lore.getEncounter(preActive.encounterId) : null;
+
+    const result = this.encounterMgr.advanceLine();
+
+    // Flush high-level effects (quest grants etc. from line or result effects)
+    const pending = this.encounterMgr.flushPendingEffects();
+    if (pending.questGrant) this.quests.grantQuest(pending.questGrant);
+    if (pending.advanceQuestStage) {
+      const { questId, stageId } = pending.advanceQuestStage;
+      this.state.advanceQuestStage(questId, stageId);
+    }
+    if (pending.completeQuestObjective) {
+      const { questId, objectiveId } = pending.completeQuestObjective;
+      this.quests.applyQuestSignal(questId, 'objective', objectiveId);
+    }
+    if (pending.movePlayer) {
+      this.state.movePlayer(pending.movePlayer);
+      log.info('Player moved by story advance', { locationId: pending.movePlayer });
+    }
+    if (pending.timeAdvance) {
+      this.applyTimeAdvance(pending.timeAdvance);
+      log.info('Time advanced by story advance', { minutes: pending.timeAdvance });
+    }
+    // Sync sidebar if location or time changed mid-story
+    if (pending.movePlayer || pending.timeAdvance) {
+      this.syncUIState(this.state.getState());
+    }
+
+    if (result) {
+      // More lines remain — render newly revealed line
+      this.renderStoryScript(result.script, result.currentLineIndex, preDef ?? undefined);
+      this.flushAcquisitions();
+    } else {
+      // All lines done, encounter ended
+      this.flushAcquisitions();
+      activeEncounterUI.set(null);
+      this.syncUIState(this.state.getState());
+      await this.refreshThoughts();
+    }
+
+    if (this.checkEndingConditions()) return;
+    this.releaseInput();
+  }
+
+  /**
+   * 推進遊戲時間（分鐘）。供遭遇效果的 timeAdvance 欄位使用。
+   * 更新時鐘、時段、物品過期，但不觸發全域/地點事件掃描。
+   */
+  private applyTimeAdvance(minutes: number): void {
+    const gs       = this.state.getState();
+    const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
+    const newTime  = this.timeMgr.advance(gs.time, minutes);
+    const newPeriod = schedule
+      ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
+      : gs.timePeriod;
+    this.state.advanceTime(newTime, newPeriod);
+    this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
   }
 
   /**
@@ -2199,18 +2375,18 @@ export class GameController {
     // Map encounter type to narrative line style.
     const encType = effectiveDef?.type ?? 'event';
     const lineType =
-      encType === 'event'     ? 'event'     :  // blue — event encounter
-      encType === 'narrative' ? 'scene'     :  // gray italic — story/cutscene encounter
-                                'narrative';   // default white — dialogue etc.
+      encType === 'event'  ? 'event'  :  // blue — event encounter
+      encType === 'story'  ? 'scene'  :  // gray italic — story/cutscene encounter
+                             'narrative'; // default white — dialogue etc.
 
     // Stat check result prefix — always shown as a system line
     if (resolved.statCheckResult) {
-      const { stat, threshold, passed } = resolved.statCheckResult;
+      const { stat, dc, passed } = resolved.statCheckResult;
       const statLabel = stat.split('.').pop() ?? stat;
       pushLine(
         passed
-          ? `[判定成功 — ${statLabel} ≥ ${threshold}]`
-          : `[判定失敗 — ${statLabel} < ${threshold}]`,
+          ? `[判定成功 — ${statLabel} ≥ ${dc}]`
+          : `[判定失敗 — ${statLabel} < ${dc}]`,
         'system',
       );
     }
@@ -2286,6 +2462,53 @@ export class GameController {
   }
 
   /**
+   * Renders a story script up to currentLineIndex.
+   * Pushes newly revealed line to narrative log; updates activeEncounterUI.
+   * Story scripts never go through DM — text is displayed directly.
+   */
+  private renderStoryScript(
+    script: ScriptLine[],
+    currentLineIndex: number,
+    def?: EncounterDefinition,
+  ): void {
+    const gs = this.state.getState();
+    const effectiveDef = def ?? this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
+    const line = script[currentLineIndex];
+    if (line?.text) {
+      const label = line.speaker && line.speaker !== 'narrator' ? `${line.speaker}: ` : '';
+      pushLine(`${label}${line.text}`, 'scene');
+    }
+    activeEncounterUI.set({
+      encounterId:      effectiveDef?.id ?? '',
+      encounterName:    effectiveDef?.name ?? '劇情',
+      type:             'story',
+      nodeText:         '',
+      choices:          [],
+      script,
+      currentLineIndex,
+    });
+  }
+
+  /**
+   * 啟動遭遇並渲染第一個節點／幕。
+   * 統一路由 story（cutscene）與 event/dialogue 型別，減少重複 call site 代碼。
+   */
+  private async startAndRenderEncounter(
+    encounterId: string,
+    def?: EncounterDefinition,
+    isDebug = false,
+  ): Promise<void> {
+    const result = this.encounterMgr.start(encounterId);
+    if (!result) return;
+    const effectiveDef = def ?? this.lore.getEncounter(encounterId) ?? undefined;
+    if (result.kind === 'node') {
+      await this.renderEncounterNode(result.resolved, effectiveDef, isDebug);
+    } else {
+      this.renderStoryScript(result.script, result.currentLineIndex, effectiveDef);
+    }
+  }
+
+  /**
    * Streams a DM closing narration when an encounter ends without an explicit outcome node.
    * Called when selectChoice() returns null (nextNodeId === null or __continue__).
    */
@@ -2307,9 +2530,9 @@ export class GameController {
     parts.push(`地點：${gs.player.currentLocationId} ／ 時段：${gs.timePeriod}`);
     const closeCtx = parts.join('\n');
     const closeLineType =
-      def.type === 'event'     ? 'event'     :
-      def.type === 'narrative' ? 'scene'     :
-                                 'narrative';
+      def.type === 'event' ? 'event' :
+      def.type === 'story' ? 'scene' :
+                             'narrative';
 
     isStreaming.set(true);
     pushLine('', closeLineType, true);
@@ -2351,12 +2574,12 @@ export class GameController {
     }
 
     if (resolved.statCheckResult) {
-      const { stat, threshold, passed } = resolved.statCheckResult;
+      const { stat, dc, passed } = resolved.statCheckResult;
       const statLabel = stat.split('.').pop() ?? stat;
       parts.push('## 數值判定');
       parts.push(passed
-        ? `${statLabel} 判定通過（目標值 ${threshold}）— 請描述成功的情境`
-        : `${statLabel} 判定失敗（目標值 ${threshold}）— 請描述失敗的情境`,
+        ? `${statLabel} 判定通過（DC ${dc}）— 請描述成功的情境`
+        : `${statLabel} 判定失敗（DC ${dc}）— 請描述失敗的情境`,
       );
       parts.push('');
     }
@@ -2487,6 +2710,7 @@ export class GameController {
       const result = this.lore.getConnectionAccessResult(
         c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
         Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+        { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity },
       );
       return {
         targetLocationId: c.targetLocationId,
@@ -2561,15 +2785,52 @@ export class GameController {
       q => !q.isCompleted && !q.isFailed
     ).length;
 
-    // Top 2 factions by absolute reputation (non-zero only)
-    const topFactions = Object.entries(gs.player.externalStats.reputation)
-      .filter(([, v]) => v !== 0)
-      .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
-      .slice(0, 2)
-      .map(([fid, rep]) => {
-        const f = this.lore.getFaction(fid);
-        return { id: fid, name: f?.name ?? fid, rep };
-      });
+    // All contacted factions (union of contactedFactions + non-zero rep entries)
+    // contactedFactions tracks factions the player has encountered even with 0 rep change.
+    const contactedIds = new Set<string>([
+      ...(gs.player.contactedFactions ?? []),
+      ...Object.entries(gs.player.externalStats.reputation)
+        .filter(([, v]) => v !== 0)
+        .map(([id]) => id),
+    ]);
+    const allFactionRep = [...contactedIds]
+      .map(fid => {
+        const f    = this.lore.getFaction(fid);
+        const rep  = gs.player.externalStats.reputation[fid] ?? 0;
+        // unknownUntil: faction name hidden until flag is set
+        const known = !f?.unknownUntil || this.state.flags.has(f.unknownUntil);
+        return { id: fid, name: known ? (f?.name ?? fid) : '???', rep };
+      })
+      .sort((a, b) => Math.abs(b.rep) - Math.abs(a.rep));
+
+    // Top 2 factions for sidebar display
+    const topFactions = allFactionRep.slice(0, 2);
+
+    // Faction graph UI data (progressive: only discovered factions shown)
+    // Node positions and player projection are computed in FactionGraphModal via spring layout.
+    const graphDef = this.lore.getFactionGraph(this.currentRegionId);
+    let factionGraphUI: import('../stores/gameStore').PlayerUIState['factionGraphUI'] = undefined;
+    if (graphDef && allFactionRep.length > 0) {
+      const discoveredIds = new Set(allFactionRep.map(f => f.id));
+      const graphNodes = allFactionRep
+        .filter(f => graphDef.factionIds.includes(f.id))
+        .map(f => {
+          // f.name already reflects unknownUntil (either real name or '???')
+          const revealed = f.name !== '???';
+          return {
+            id:          f.id,
+            displayName: f.name,
+            rep:         f.rep,
+            revealed,
+          };
+        });
+      const graphEdges = graphDef.edges.filter(
+        e => discoveredIds.has(e.a) && discoveredIds.has(e.b)
+      );
+      if (graphNodes.length > 0) {
+        factionGraphUI = { nodes: graphNodes, edges: graphEdges };
+      }
+    }
 
     const allActiveQuestSummaries = Object.values(gs.activeQuests)
       .filter(q => !q.isCompleted && !q.isFailed && q.currentStageId)
@@ -2577,6 +2838,7 @@ export class GameController {
         const def   = this.lore.getQuest(q.questId);
         const stage = def?.stages[q.currentStageId!];
         if (!def || !stage) return [];
+        const canAbandon = def.canAbandon !== false && (def.type !== 'main' || def.canAbandon === true);
         return [{
           questId:      q.questId,
           name:         def.name,
@@ -2587,6 +2849,7 @@ export class GameController {
             description: o.description,
             completed:   q.completedObjectiveIds.includes(o.id),
           })),
+          canAbandon,
         }];
       });
     const activeQuestSummaries = allActiveQuestSummaries.slice(0, 3);
@@ -2689,6 +2952,7 @@ export class GameController {
             const result = this.lore.getConnectionAccessResult(
               conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
               Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+              { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity },
             );
             traversable = result.allowed;
             // 路被鎖 = 直接條件不過（無論 bypass 是否可走）
@@ -2848,6 +3112,8 @@ export class GameController {
       time:            this.timeMgr.formatTime(gs.time),
       timePeriod:      this.timeMgr.formatPeriod(gs.timePeriod),
       topFactions:     topFactions.length > 0 ? topFactions : undefined,
+      allFactionRep:   allFactionRep.length > 0 ? allFactionRep : undefined,
+      factionGraphUI:  factionGraphUI,
       titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
       activeQuestSummaries:    activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
       allActiveQuestSummaries: allActiveQuestSummaries.length > 0 ? allActiveQuestSummaries : undefined,
@@ -3148,13 +3414,12 @@ export class GameController {
 
   /** Directly start a structured encounter by ID, bypassing event flow. */
   async debugTriggerEncounter(encounterId: string): Promise<void> {
-    const resolved = this.encounterMgr.start(encounterId);
-    if (!resolved) {
+    if (!this.lore.getEncounter(encounterId)) {
       pushLine(`[Debug] 找不到遭遇：${encounterId}`, 'system');
       return;
     }
     pushLine(`[Debug] 觸發遭遇：${encounterId}`, 'system');
-    await this.renderEncounterNode(resolved, undefined, true);
+    await this.startAndRenderEncounter(encounterId, undefined, true);
   }
 
   /** Open the NPC dialogue panel for npcId and immediately fire any matching scripted trigger. */
@@ -3206,9 +3471,7 @@ export class GameController {
 
     // Launch encounter after narration completes (includes encounters from sub-event chains).
     if (debugEncounter) {
-      const encDef  = this.lore.getEncounter(debugEncounter.id);
-      const resolved = this.encounterMgr.start(debugEncounter.id);
-      if (resolved) await this.renderEncounterNode(resolved, encDef ?? undefined, true);
+      await this.startAndRenderEncounter(debugEncounter.id, this.lore.getEncounter(debugEncounter.id) ?? undefined, true);
       this.flushAcquisitions();
     }
 
@@ -3383,8 +3646,7 @@ export class GameController {
         await this.runEventDM(eventCtx, allTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
         this.flushAcquisitions();
         if (eventEncounter) {
-          const resolved = this.encounterMgr.start(eventEncounter.id);
-          if (resolved) await this.renderEncounterNode(resolved, eventEncounter.def ?? undefined);
+          await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
           this.flushAcquisitions();
         }
       }
@@ -3438,7 +3700,8 @@ export class GameController {
         activeFlags:     new Set(),
         titles:          [],
         conditions:      [],
-        knownIntelIds:   [],
+        knownIntelIds:       [],
+        contactedFactions:   [],
       },
       turn:                  0,
       phase:                 'exploring',

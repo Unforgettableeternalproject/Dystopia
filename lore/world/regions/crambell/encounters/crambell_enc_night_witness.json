@@ -1,0 +1,34 @@
+{
+  "id": "crambell_enc_night_witness",
+  "name": "深夜目擊",
+  "type": "story",
+  "description": "測試用劇情遭遇：玩家在深夜街道目擊一場拘捕行動。用於驗證 story 型別遭遇的 script 格式、遷入值與 result 流程。",
+  "script": [
+    {
+      "speaker": "narrator",
+      "text": "深夜的街道上，路燈在霧中暈出模糊的光圈。你正要回住所，轉角的方向出奇地安靜。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "三名管制人員把一個男人押向路邊的牆壁。他沒有反抗，也沒有說話。周圍的行人快步走過，沒有人停下。",
+      "effects": {
+        "statChanges": { "statusStats.stress": 1 }
+      }
+    },
+    {
+      "speaker": "管制人員",
+      "text": "識別碼確認。K-0471，帶走。"
+    },
+    {
+      "speaker": "narrator",
+      "text": "在移開目光前，你看清了他胸前的識別碼：K-0471。那串號碼留在腦海裡。",
+      "effects": {
+        "flagsSet": ["witnessed_crambell_arrest", "know_k0471"],
+        "statChanges": { "statusStats.stress": 1 }
+      }
+    }
+  ],
+  "result": {
+    "outcomeType": "neutral"
+  }
+}

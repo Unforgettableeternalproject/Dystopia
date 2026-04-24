@@ -4,9 +4,10 @@ import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
 import type { HistoryEntry, ShadowComparison } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
-import type { EncounterChoice, EncounterType } from '../types/encounter';
+import type { EncounterChoice, EncounterType, ScriptLine } from '../types/encounter';
 import type { InventoryItem } from '../types/item';
 import type { QuestType } from '../types/quest';
+import type { RollResult } from '../engine/DiceEngine';
 
 // ── Narrative Lines ────────────────────────────────────────────
 
@@ -124,6 +125,21 @@ export interface PlayerUIState {
   time?:            string;   // "AD 1498-06-12 21:23"
   timePeriod?:      string;   // "休息時段"
   topFactions?:     Array<{ id: string; name: string; rep: number }>;
+  /** 所有已有聲望的派系（供陣營關係圖使用） */
+  allFactionRep?:   Array<{ id: string; name: string; rep: number }>;
+  /** 陣營關係圖資料（節點座標與玩家投影由前端彈簧佈局演算法計算） */
+  factionGraphUI?: {
+    /** 已發現的派系節點（依 reputation 非零篩選） */
+    nodes: Array<{
+      id: string;
+      /** 已揭露時為派系真名，否則為 '???' */
+      displayName: string;
+      rep: number;
+      revealed: boolean;
+    }>;
+    /** 兩端均已發現的關係邊 */
+    edges: Array<{ a: string; b: string; weight: number }>;
+  };
   titles?:          string[];
   activeQuestSummaries?: Array<{
     questId:    string;
@@ -131,6 +147,7 @@ export interface PlayerUIState {
     type:       QuestType;
     stageSummary: string;
     objectives: Array<{ id: string; description: string; completed: boolean }>;
+    canAbandon: boolean;
   }>;
   /** Full list (all active quests, not capped at 3). Used by the quest list modal. */
   allActiveQuestSummaries?: Array<{
@@ -139,6 +156,7 @@ export interface PlayerUIState {
     type:       QuestType;
     stageSummary: string;
     objectives: Array<{ id: string; description: string; completed: boolean }>;
+    canAbandon: boolean;
   }>;
   totalActiveQuestCount?: number;
   conditions?:      Array<{ label: string }>;
@@ -303,7 +321,11 @@ export interface ActiveEncounterUI {
   /** 過濾後玩家可見的選項 */
   choices:       EncounterChoice[];
   /** 數值判定結果（若有的話） */
-  statCheckResult?: { stat: string; threshold: number; value: number; passed: boolean };
+  statCheckResult?: { stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult };
+  /** story 型別使用：完整劇情腳本，渲染時依 speaker 決定樣式 */
+  script?: ScriptLine[];
+  /** story 型別使用：目前已解鎖到的行索引（0-based，含此行） */
+  currentLineIndex?: number;
 }
 
 export const activeEncounterUI = writable<ActiveEncounterUI | null>(null);
@@ -311,8 +333,32 @@ export const activeEncounterUI = writable<ActiveEncounterUI | null>(null);
 // ── Stat check overlay ─────────────────────────────────────────
 // 設定後會觸發畫面中央的判定動畫視窗，顯示完畢後元件自行清除
 export const statCheckOverlay = writable<{
-  stat: string; threshold: number; value: number; passed: boolean;
+  stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult;
 } | null>(null);
+
+// ── Rest modal & result ────────────────────────────────────────
+
+export interface RestModalState {
+  /** full_available = 有休息點可完整休息；scuffed = 無休息點只能短眠 */
+  canFullRest: boolean;
+  /** scuffed 模式下的最大休息分鐘上限 */
+  scuffedMaxMinutes: number;
+}
+export const restModalOpen = writable<RestModalState | null>(null);
+
+export interface RestResultUIState {
+  plannedMinutes:   number;
+  actualMinutes:    number;
+  deviationMinutes: number;
+  quality:          string;
+  staminaDelta:     number;
+  stressDelta:      number;
+  resultTags:       string[];
+}
+export const restResultOverlay = writable<RestResultUIState | null>(null);
+
+// ── Faction graph modal ────────────────────────────────────────
+export const factionGraphOpen = writable(false);
 
 // ── Modal state ────────────────────────────────────────────────
 

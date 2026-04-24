@@ -54,6 +54,12 @@ export interface PlayerState {
   activeFlags: Set<string>;    // 已達成的旗標
   titles: string[];            // 已獲得的稱號
   conditions: PlayerCondition[]; // 當前生效的暫時性狀態
-  knownIntelIds: string[];     // 已發現的情報 ID（對應 lore/intel/ 資料）
-  melphin: number;             // 梅分 (Melphin) — 持有貨幣
+  knownIntelIds: string[];      // 已發現的情報 ID（對應 lore/intel/ 資料）
+  /**
+   * 已接觸派系的 ID 列表。
+   * 有聲望變動時自動加入；也可由事件明確觸發（contactFaction effect）。
+   * 接觸 ≠ 識別：識別名稱需再確認 Faction.revealFlag。
+   */
+  contactedFactions?: string[];
+  melphin: number;              // 梅分 (Melphin) — 持有貨幣
 }

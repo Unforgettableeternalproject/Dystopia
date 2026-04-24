@@ -10,7 +10,7 @@
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
   import { broadcastAppClose } from '$lib/utils/Logger';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType, loreItemOpen } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType, loreItemOpen, restModalOpen, restResultOverlay } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -32,6 +32,8 @@
   import DebugPanel           from '$lib/components/DebugPanel.svelte';
   import StatCheckOverlay     from '$lib/components/StatCheckOverlay.svelte';
   import LoreItemModal        from '$lib/components/LoreItemModal.svelte';
+  import RestModal            from '$lib/components/RestModal.svelte';
+  import RestResultOverlay    from '$lib/components/RestResultOverlay.svelte';
 
   import type { Thought, ActionTargetKind } from '$lib/types';
 
@@ -206,6 +208,11 @@
 
   function handleThoughtSelect(thought: Thought) {
     if (!controller) return;
+    // Rest thoughts open RestModal instead of going to DM
+    if (thought.actionType === 'rest') {
+      controller.openRestModal();
+      return;
+    }
     controller.submitAction(thought.text, thought.actionType, thought.targetId).catch(err => {
       pushLine('（動作處理時發生錯誤）', 'system');
       console.error(err);
@@ -228,6 +235,11 @@
   async function handleEncounterChoice(choiceId: string) {
     if (!controller) return;
     await controller.selectEncounterChoice(choiceId);
+  }
+
+  async function handleStoryAdvance() {
+    if (!controller) return;
+    await controller.selectEncounterStoryAdvance();
   }
 
   // ── Save ──────────────────────────────────────────────────────
@@ -356,7 +368,7 @@
       {/if}
       <NarrativePanel />
       {#if $activeEncounterUI}
-        <EncounterPanel onSelect={handleEncounterChoice} />
+        <EncounterPanel onSelect={handleEncounterChoice} onAdvance={handleStoryAdvance} />
       {:else if $activeScriptedDialogue}
         <ScriptedChoicePanel onSelect={handleDialogueChoice} />
       {:else}
@@ -387,17 +399,26 @@
 {/if}
 
 {#if $questDetailOpen}
-  <QuestDetailModal />
+  <QuestDetailModal {controller} />
 {/if}
 
 <LoreItemModal />
 
+{#if $restModalOpen}
+  <RestModal {controller} />
+{/if}
+
+{#if $restResultOverlay}
+  <RestResultOverlay />
+{/if}
+
 {#if $statCheckOverlay}
   <StatCheckOverlay
     stat={$statCheckOverlay.stat}
-    threshold={$statCheckOverlay.threshold}
+    dc={$statCheckOverlay.dc}
     value={$statCheckOverlay.value}
     passed={$statCheckOverlay.passed}
+    rollResult={$statCheckOverlay.rollResult}
   />
 {/if}
 

@@ -26,6 +26,10 @@ const factionMods = import.meta.glob(
   '../../../lore/world/regions/crambell/factions/*.json', { eager: true }
 ) as Record<string, any>;
 
+const factionGraphMods = import.meta.glob(
+  '../../../lore/world/regions/crambell/faction_graphs/*.json', { eager: true }
+) as Record<string, any>;
+
 const questMods = import.meta.glob(
   '../../../lore/world/regions/crambell/quests/*.json', { eager: true }
 ) as Record<string, any>;
@@ -123,7 +127,8 @@ export function loadCrambellLore(controller: GameController): void {
     locations:    byId(locationMods)   as any,
     npcs:         byId(npcMods)        as any,
     events:       byId(eventMods)      as any,
-    factions:     byId(factionMods)    as any,
+    factions:      byId(factionMods)      as any,
+    factionGraphs: byId(factionGraphMods) as any,
     quests:       byId(questMods)      as any,
     dialogues:    byId(dialogueMods)   as any,
     districts:    byId(districtMods)    as any,

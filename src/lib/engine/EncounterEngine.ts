@@ -12,8 +12,10 @@
 
 import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
-import type { EncounterDefinition, EncounterNode, EncounterChoice, EncounterChoiceEffects } from '../types/encounter';
+import type { EncounterDefinition, EncounterNode, EncounterChoice, EncounterChoiceEffects, ScriptLine } from '../types/encounter';
 import type { ItemRequirement } from '../types/item';
+import { DiceEngine } from './DiceEngine';
+import type { RollResult } from './DiceEngine';
 import { GameEvents } from './EventBus';
 import { createLogger } from '../utils/Logger';
 
@@ -30,13 +32,30 @@ export interface ResolvedNode {
   /** 是否為結局節點（遭遇在展示後應結束） */
   isOutcome: boolean;
   /** 數值判定結果（若此節點經過 stat check 解析才有值） */
-  statCheckResult?: { stat: string; threshold: number; value: number; passed: boolean };
+  statCheckResult?: { stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult };
 }
+
+/**
+ * start() 回傳的 discriminated union。
+ *   kind = 'node'  — event/dialogue/combat/shop：返回解析後的節點
+ *   kind = 'story' — story 型別：返回第一幕
+ */
+export type EncounterStartResult =
+  | { kind: 'node';  resolved: ResolvedNode }
+  | { kind: 'story'; script: ScriptLine[]; currentLineIndex: number };
 
 /** 待 GameController 處理的高層效果（需跨引擎協調） */
 export interface EncounterPendingEffects {
   questGrant?: string;
   questFail?: string;
+  /** 推進任務到指定階段（GameController 轉交 StateManager.advanceQuestStage） */
+  advanceQuestStage?: { questId: string; stageId: string };
+  /** 標記任務目標為已完成（GameController 轉交 QuestEngine） */
+  completeQuestObjective?: { questId: string; objectiveId: string };
+  /** 移動玩家到指定地點（GameController 轉交 StateManager.movePlayer） */
+  movePlayer?: string;
+  /** 推進遊戲時間（分鐘數，GameController 負責時段計算與 tick） */
+  timeAdvance?: number;
   /**
    * 當 isOutcome 節點被選中時設置。
    * GameController 渲染完成後應呼叫 conclude() 完成遭遇結束流程。
@@ -66,32 +85,68 @@ export class EncounterEngine {
   /**
    * 啟動遭遇。
    * 設定 GameState.phase = 'event' 並建立 activeEncounter。
-   * 返回入口節點的解析結果，供 GameController 渲染。
+   * story 型別回傳 { kind: 'story', scene, isLast }；
+   * 其他型別回傳 { kind: 'node', resolved }。
    */
-  start(encounterId: string): ResolvedNode | null {
+  start(encounterId: string): EncounterStartResult | null {
     const def = this.lore.getEncounter(encounterId);
     if (!def) {
       log.warn('Unknown encounter', { encounterId });
       return null;
     }
 
-    const entryNode = def.nodes[def.entryNodeId];
+    // ── story 型別：cutscene script ────────────────────────────
+    if (def.type === 'story') {
+      const script = def.script;
+      if (!script?.length) {
+        log.warn('Story encounter has no script', { encounterId });
+        return null;
+      }
+
+      // Batch-advance from line 0 to first pause (or end of script).
+      // Apply effects of every line we pass through.
+      let idx = 0;
+      while (idx < script.length) {
+        if (script[idx].effects) this.applyEffects(script[idx].effects!);
+        if (script[idx].pause) break;
+        idx++;
+      }
+      // idx = pause line index (inclusive), or script.length if no pause found.
+      // currentLineIndex = last line processed (clamped to last index).
+      const currentLineIndex = Math.min(idx, script.length - 1);
+
+      const collectedNarrative = script
+        .slice(0, currentLineIndex + 1)
+        .filter(l => l.text)
+        .map(l => l.speaker ? `${l.speaker}: ${l.text}` : l.text!)
+        .join('\n');
+
+      this.state.setPhase('event');
+      this.state.setActiveEncounter({ encounterId, currentLineIndex, collectedNarrative });
+      log.info('Story encounter started', { encounterId, currentLineIndex });
+      this.state.emit(GameEvents.ENCOUNTER_STARTED, { encounterId });
+      return { kind: 'story', script, currentLineIndex };
+    }
+
+    // ── node 型別：event / dialogue / combat / shop ────────────
+    const entryNodeId = def.entryNodeId;
+    const entryNode = entryNodeId ? def.nodes?.[entryNodeId] : undefined;
     if (!entryNode) {
-      log.warn('Missing entry node', { encounterId, entryNodeId: def.entryNodeId });
+      log.warn('Missing entry node', { encounterId, entryNodeId });
       return null;
     }
 
     this.state.setPhase('event');
     this.state.setActiveEncounter({
       encounterId,
-      currentNodeId: def.entryNodeId,
+      currentNodeId: entryNodeId,
       collectedNarrative: '',
     });
 
-    log.info('Encounter started', { encounterId, entryNodeId: def.entryNodeId });
+    log.info('Encounter started', { encounterId, entryNodeId });
     this.state.emit(GameEvents.ENCOUNTER_STARTED, { encounterId });
 
-    return this.resolveNode(def, entryNode);
+    return { kind: 'node', resolved: this.resolveNode(def, entryNode) };
   }
 
   /**
@@ -108,10 +163,10 @@ export class EncounterEngine {
     const def = this.lore.getEncounter(active.encounterId);
     if (!def) return null;
 
-    const currentNode = def.nodes[active.currentNodeId];
+    const currentNode = active.currentNodeId ? def.nodes?.[active.currentNodeId] : undefined;
     if (!currentNode) return null;
 
-    // '__continue__' is a synthetic "no choices" advance used by narrative nodes
+    // '__continue__' is a legacy synthetic choice ID; story type uses advanceStory() instead
     if (choiceId === '__continue__') {
       this.endEncounter(active.collectedNarrative);
       return null;
@@ -138,7 +193,7 @@ export class EncounterEngine {
       return null;
     }
 
-    const nextNode = def.nodes[choice.nextNodeId];
+    const nextNode = def.nodes?.[choice.nextNodeId];
     if (!nextNode) {
       log.warn('Missing next node', { nodeId: choice.nextNodeId });
       this.endEncounter(updatedNarrative);
@@ -188,6 +243,54 @@ export class EncounterEngine {
   }
 
   /**
+   * story 型別專用：玩家點「繼續」推進下一個批次。
+   * 從目前行的下一行開始，自動前進直到遇到 pause:true 或 script 結尾。
+   * 每行的 effects 依序套用。
+   * 返回新狀態供 GameController 渲染；所有行處理完後套用 result 並結束，返回 null。
+   */
+  advanceLine(): { script: ScriptLine[]; currentLineIndex: number } | null {
+    const active = this.state.getState().activeEncounter;
+    if (!active || active.currentLineIndex === undefined) {
+      log.warn('advanceLine called without active story encounter');
+      return null;
+    }
+
+    const def = this.lore.getEncounter(active.encounterId);
+    const script = def?.script;
+    if (!script) return null;
+
+    // Batch-advance from next line to next pause (or end).
+    let idx = active.currentLineIndex + 1;
+    while (idx < script.length) {
+      if (script[idx].effects) this.applyEffects(script[idx].effects!);
+      if (script[idx].pause) break;
+      idx++;
+    }
+
+    // Ran off end — apply result and end encounter
+    if (idx >= script.length) {
+      if (def!.result?.effects) this.applyEffects(def!.result.effects);
+      const outcomeType = def!.result?.outcomeType ?? 'neutral';
+      this.endEncounter(active.collectedNarrative, outcomeType);
+      return null;
+    }
+
+    // Stopped at a pause line (idx)
+    const newNarrative = script
+      .slice(active.currentLineIndex + 1, idx + 1)
+      .filter(l => l.text)
+      .map(l => l.speaker ? `${l.speaker}: ${l.text}` : l.text!)
+      .join('\n');
+
+    this.state.setActiveEncounter({
+      ...active,
+      currentLineIndex: idx,
+      collectedNarrative: [active.collectedNarrative, newNarrative].filter(Boolean).join('\n'),
+    });
+    return { script, currentLineIndex: idx };
+  }
+
+  /**
    * 強制結束遭遇（例如玩家移動、超時等外部原因）。
    */
   forceEnd(): void {
@@ -204,33 +307,62 @@ export class EncounterEngine {
    * stat check 節點會遞迴解析到下一個非 check 節點為止。
    */
   private resolveNode(def: EncounterDefinition, node: EncounterNode): ResolvedNode {
-    // Stat check: resolve automatically
+    // Stat check: resolve automatically using DiceEngine
     if (node.statCheck) {
-      const gs     = this.state.getState();
-      const { stat, threshold, successNodeId, failNodeId } = node.statCheck;
-      const value  = this.resolveStatValue(gs, stat);
-      const passed = value !== undefined && value >= threshold;
+      const gs       = this.state.getState();
+      const { stat, dc, successNodeId, failNodeId } = node.statCheck;
+      const baseStat = this.resolveStatValue(gs, stat) ?? 0;
+
+      const rollResult = DiceEngine.roll({
+        dice:         node.statCheck.dice ?? { count: 1, sides: 20 },
+        baseStat,
+        modifiers:    node.statCheck.modifiers ?? [],
+        advantage:    node.statCheck.advantage,
+        disadvantage: node.statCheck.disadvantage,
+      });
+      const passed = DiceEngine.passes(rollResult, dc);
       const nextId = passed ? successNodeId : failNodeId;
 
-      log.debug('Stat check', { stat, threshold, value, passed });
+      log.debug('Stat check (dice)', { stat, dc, rollResult, passed });
 
-      const nextNode = def.nodes[nextId];
+      const nextNode = def.nodes?.[nextId];
       if (!nextNode) {
         log.warn('Missing stat check target node', { nextId });
-        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, threshold, value: value ?? 0, passed } };
+        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult } };
       }
 
       // Recurse — the resolved node is the final destination
       const resolved = this.resolveNode(def, nextNode);
-      return { ...resolved, statCheckResult: { stat, threshold, value: value ?? 0, passed } };
+      return { ...resolved, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult } };
     }
 
-    // Filter choices by flag condition, item requirements, and melphin threshold
+    // Filter choices by conditions (flag, items, melphin, reputation, affinity)
     const gs = this.state.getState();
+    const { reputation, affinity } = gs.player.externalStats;
     const visibleChoices = (node.choices ?? []).filter(c => {
       if (c.condition && !this.state.flags.evaluate(c.condition)) return false;
       if (c.itemRequirements?.length && !this.meetsItemRequirements(c.itemRequirements, gs)) return false;
       if (c.minMelphin !== undefined && gs.player.melphin < c.minMelphin) return false;
+      if (c.minReputation) {
+        for (const [fid, min] of Object.entries(c.minReputation)) {
+          if ((reputation[fid] ?? 0) < min) return false;
+        }
+      }
+      if (c.maxReputation) {
+        for (const [fid, max] of Object.entries(c.maxReputation)) {
+          if ((reputation[fid] ?? 0) > max) return false;
+        }
+      }
+      if (c.minAffinity) {
+        for (const [nid, min] of Object.entries(c.minAffinity)) {
+          if ((affinity[nid] ?? 0) < min) return false;
+        }
+      }
+      if (c.maxAffinity) {
+        for (const [nid, max] of Object.entries(c.maxAffinity)) {
+          if ((affinity[nid] ?? 0) > max) return false;
+        }
+      }
       return true;
     });
 
@@ -270,6 +402,11 @@ export class EncounterEngine {
         });
       }
     }
+    if (effects.contactFactionIds?.length) {
+      for (const factionId of effects.contactFactionIds) {
+        this.state.contactFaction(factionId);
+      }
+    }
     if (effects.melphinChange) {
       this.state.modifyMelphin(effects.melphinChange);
     }
@@ -281,8 +418,20 @@ export class EncounterEngine {
       // Store for GameController to pick up via flushPendingEffects()
       this.pending.questFail = effects.failQuestId;
     }
+    if (effects.advanceQuestStage) {
+      this.pending.advanceQuestStage = effects.advanceQuestStage;
+    }
+    if (effects.completeQuestObjective) {
+      this.pending.completeQuestObjective = effects.completeQuestObjective;
+    }
     if (effects.grantIntelId) {
       this.state.addIntel(effects.grantIntelId);
+    }
+    if (effects.movePlayer) {
+      this.pending.movePlayer = effects.movePlayer;
+    }
+    if (effects.timeAdvance) {
+      this.pending.timeAdvance = (this.pending.timeAdvance ?? 0) + effects.timeAdvance;
     }
   }
 

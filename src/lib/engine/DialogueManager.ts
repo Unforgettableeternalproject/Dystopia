@@ -97,9 +97,11 @@ export class DialogueManager {
    */
   filterChoices(choices: ScriptedChoice[], flags: FlagSystem): ScriptedChoice[] {
     const player = this.state.getState().player;
-    const known: string[]        = player.knownIntelIds;
+    const known: string[]            = player.knownIntelIds;
     const inventory: InventoryItem[] = player.inventory ?? [];
-    const melphin: number        = player.melphin ?? 0;
+    const melphin: number            = player.melphin ?? 0;
+    const reputation                 = player.externalStats.reputation;
+    const affinity                   = player.externalStats.affinity;
 
     return choices.filter(c => {
       if (c.condition && !flags.evaluate(c.condition)) return false;
@@ -112,6 +114,26 @@ export class DialogueManager {
         )
       )) return false;
       if (c.minMelphin !== undefined && melphin < c.minMelphin) return false;
+      if (c.minReputation) {
+        for (const [fid, min] of Object.entries(c.minReputation)) {
+          if ((reputation[fid] ?? 0) < min) return false;
+        }
+      }
+      if (c.maxReputation) {
+        for (const [fid, max] of Object.entries(c.maxReputation)) {
+          if ((reputation[fid] ?? 0) > max) return false;
+        }
+      }
+      if (c.minAffinity) {
+        for (const [nid, min] of Object.entries(c.minAffinity)) {
+          if ((affinity[nid] ?? 0) < min) return false;
+        }
+      }
+      if (c.maxAffinity) {
+        for (const [nid, max] of Object.entries(c.maxAffinity)) {
+          if ((affinity[nid] ?? 0) > max) return false;
+        }
+      }
       return true;
     });
   }

@@ -223,9 +223,24 @@ export interface QuestDefinition {
   factionId?: string;
 
   /**
-   * 玩家是否可以主動放棄此任務。
-   * true = 允許 ditch，並套用 ditchConsequences。
+   * 玩家是否可以主動放棄此任務（MVP v1 Abandon 語意）。
+   * 省略時由引擎依 type 推導：type !== 'main' 的任務預設可放棄。
+   * Abandon 結果 = 直接視為 fail，套用當前階段 onFail / onFailDefault。
+   */
+  canAbandon?: boolean;
+
+  /**
+   * 與此任務相斥的任務 ID 列表。
+   * 玩家已接取列表中任何一個任務時，此任務不能被授予。
+   * 典型用途：敵對陣營主線任務互斥，請作者顯式標註。
+   */
+  cannotCoexist?: string[];
+
+  /**
+   * 玩家是否可以主動出賣此任務（MVP v2 Ditch 語意）。
+   * true = 允許 ditch，並套用 ditchConsequences（陣營背叛後果）。
    * 出身任務與事件任務通常不可放棄。
+   * @deprecated MVP v1 請使用 canAbandon；Ditch 語意留待 v2 實作。
    */
   canDitch?: boolean;
   ditchConsequences?: QuestDitchConsequences;

@@ -8,6 +8,7 @@ import type {
   DistrictIndex, RegionSchedule, FlagManifestEntry,
   TimePeriod, PathResult, PathSegment,
   PropNode,
+  FactionGraphDefinition,
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
@@ -22,26 +23,27 @@ import type { FlagSystem } from '../engine/FlagSystem';
 import type { NPCMemoryEntry } from '../types/game';
 
 interface LoreData {
-  locations:    Record<string, LocationNode>;
-  npcs:         Record<string, NPCNode>;
-  events:       Record<string, GameEvent>;
-  factions:     Record<string, Faction>;
-  dialogues:    Record<string, DialogueProfile>;
-  quests:       Record<string, QuestDefinition>;
-  encounters:   Record<string, EncounterDefinition>;
-  phases:       WorldPhase[];
-  regions:      Record<string, RegionIndex>;
-  districts:    Record<string, DistrictIndex>;
-  schedules:    Record<string, RegionSchedule>;
-  flagManifest: FlagManifestEntry[];
-  items:        Record<string, ItemNode>;
-  conditions:   Record<string, ConditionDefinition>;
-  props:        Record<string, PropNode>;
+  locations:     Record<string, LocationNode>;
+  npcs:          Record<string, NPCNode>;
+  events:        Record<string, GameEvent>;
+  factions:      Record<string, Faction>;
+  factionGraphs: Record<string, FactionGraphDefinition>;
+  dialogues:     Record<string, DialogueProfile>;
+  quests:        Record<string, QuestDefinition>;
+  encounters:    Record<string, EncounterDefinition>;
+  phases:        WorldPhase[];
+  regions:       Record<string, RegionIndex>;
+  districts:     Record<string, DistrictIndex>;
+  schedules:     Record<string, RegionSchedule>;
+  flagManifest:  FlagManifestEntry[];
+  items:         Record<string, ItemNode>;
+  conditions:    Record<string, ConditionDefinition>;
+  props:         Record<string, PropNode>;
 }
 
 export class LoreVault {
   private data: LoreData = {
-    locations: {}, npcs: {}, events: {}, factions: {},
+    locations: {}, npcs: {}, events: {}, factions: {}, factionGraphs: {},
     dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
     flagManifest: [], items: {}, conditions: {}, props: {},
   };
@@ -55,9 +57,10 @@ export class LoreVault {
         this.registerLocation(loc);
       }
     }
-    if (data.npcs)         Object.assign(this.data.npcs,       data.npcs);
-    if (data.events)       Object.assign(this.data.events,     data.events);
-    if (data.factions)     Object.assign(this.data.factions,   data.factions);
+    if (data.npcs)          Object.assign(this.data.npcs,          data.npcs);
+    if (data.events)        Object.assign(this.data.events,        data.events);
+    if (data.factions)      Object.assign(this.data.factions,      data.factions);
+    if (data.factionGraphs) Object.assign(this.data.factionGraphs, data.factionGraphs);
     if (data.dialogues)    Object.assign(this.data.dialogues,  data.dialogues);
     if (data.quests)       Object.assign(this.data.quests,     data.quests);
     if (data.regions)      Object.assign(this.data.regions,    data.regions);
@@ -233,11 +236,12 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
   ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
     if (!a) return { allowed: true };
 
     // ── Normal access check (AND) ──────────────────────────────────
-    const accessPassed =
+    let accessPassed =
       (!a.flag || flags.evaluate(a.flag)) &&
       (!a.timePeriods?.length || a.timePeriods.includes(timePeriod)) &&
       (!a.timeRanges?.length || (!!gameTime && a.timeRanges.some(r => this.isInTimeRange(r, gameTime)))) &&
@@ -253,6 +257,35 @@ export class LoreVault {
         )
       )) &&
       (a.minMelphin === undefined || (melphin ?? 0) >= a.minMelphin);
+
+    // Reputation conditions (AND)
+    if (accessPassed && extraCtx?.reputation) {
+      const rep = extraCtx.reputation;
+      if (a.minReputation) {
+        for (const [fid, min] of Object.entries(a.minReputation)) {
+          if ((rep[fid] ?? 0) < min) { accessPassed = false; break; }
+        }
+      }
+      if (accessPassed && a.maxReputation) {
+        for (const [fid, max] of Object.entries(a.maxReputation)) {
+          if ((rep[fid] ?? 0) > max) { accessPassed = false; break; }
+        }
+      }
+    }
+    // Affinity conditions (AND)
+    if (accessPassed && extraCtx?.affinity) {
+      const aff = extraCtx.affinity;
+      if (a.minAffinity) {
+        for (const [nid, min] of Object.entries(a.minAffinity)) {
+          if ((aff[nid] ?? 0) < min) { accessPassed = false; break; }
+        }
+      }
+      if (accessPassed && a.maxAffinity) {
+        for (const [nid, max] of Object.entries(a.maxAffinity)) {
+          if ((aff[nid] ?? 0) > max) { accessPassed = false; break; }
+        }
+      }
+    }
 
     if (accessPassed) return { allowed: true };
 
@@ -289,8 +322,9 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
   ): boolean {
-    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin).allowed;
+    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx).allowed;
   }
 
   /**
@@ -307,8 +341,9 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
   ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
-    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin);
+    return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx);
   }
 
   /**
@@ -324,11 +359,12 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
   ): boolean {
     const resolved = this.resolveLocation(locationId, flags);
     if (!resolved || !resolved.isAccessible) return false;
     const node = this.data.locations[locationId];
-    return this.evaluateAccessCondition(node?.base.accessCondition, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin).allowed;
+    return this.evaluateAccessCondition(node?.base.accessCondition, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx).allowed;
   }
 
   // -- Pathfinding -------------------------------------------------------
@@ -351,6 +387,8 @@ export class LoreVault {
       activeQuests?: QuestInstance[];
       inventory?: InventoryItem[];
       melphin?: number;
+      reputation?: Record<string, number>;
+      affinity?: Record<string, number>;
     },
     discovered: ReadonlySet<string>,
     allowBypass: boolean,
@@ -382,6 +420,7 @@ export class LoreVault {
         const result = this.evaluateAccessCondition(
           conn.access, flags, accessCtx.timePeriod, accessCtx.knownIntelIds,
           accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin,
+          { reputation: accessCtx.reputation, affinity: accessCtx.affinity },
         );
         if (!result.allowed) continue;
 
@@ -455,6 +494,8 @@ export class LoreVault {
       activeQuests?: QuestInstance[];
       inventory?: InventoryItem[];
       melphin?: number;
+      reputation?: Record<string, number>;
+      affinity?: Record<string, number>;
     },
     discoveredLocationIds: ReadonlySet<string>,
   ): PathResult | null {
@@ -545,6 +586,10 @@ export class LoreVault {
 
   getFaction(id: string): Faction | undefined {
     return this.data.factions[id];
+  }
+
+  getFactionGraph(id: string): FactionGraphDefinition | undefined {
+    return this.data.factionGraphs[id];
   }
 
   // -- World phases ----------------------------------------------------
@@ -720,7 +765,7 @@ export class LoreVault {
     locationId: string,
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
-    accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number },
+    accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number; reputation?: Record<string, number>; affinity?: Record<string, number> },
     options?: { includeNpcs?: boolean; includeProps?: boolean },
   ): string {
     const resolved = this.resolveLocation(locationId, flags);
@@ -747,7 +792,7 @@ export class LoreVault {
 
           // Show lock/bypass status when access context is provided
           if (accessCtx) {
-            const result = this.getConnectionAccessResult(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin);
+            const result = this.getConnectionAccessResult(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin, { reputation: accessCtx.reputation, affinity: accessCtx.affinity });
             if (!result.allowed) {
               const msg = c.access.lockedMessage ?? '此通道目前無法通行';
               parts.push('[LOCKED: ' + msg + ']');

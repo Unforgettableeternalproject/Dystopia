@@ -32,7 +32,7 @@
       "dmNarrative": "玩家悄悄把錢塞到對方手上。巡邏員低頭看了一眼。[TODO: 描述賄賂過程的緊張感]",
       "statCheck": {
         "stat": "primaryStats.luck",
-        "threshold": 3,
+        "dc": 3,
         "successNodeId": "bribed_away",
         "failNodeId": "detained"
       }
@@ -42,7 +42,7 @@
       "dmNarrative": "玩家打量著四周，思考是否有逃脫的機會。[TODO: 描述逃跑的機會與風險]",
       "statCheck": {
         "stat": "primaryStats.strength",
-        "threshold": 4,
+        "dc": 4,
         "successNodeId": "escaped",
         "failNodeId": "caught_running"
       }

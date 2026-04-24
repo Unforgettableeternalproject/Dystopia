@@ -84,7 +84,18 @@ export class StateManager {
 
   // ── External stats ───────────────────────────────────────────
 
+  /** 標記派系為已接觸（sidebar/關係圖可見）。重複呼叫安全。 */
+  contactFaction(factionId: string): void {
+    const cf = this.state.player.contactedFactions;
+    if (!cf) {
+      this.state.player.contactedFactions = [factionId];
+    } else if (!cf.includes(factionId)) {
+      cf.push(factionId);
+    }
+  }
+
   modifyReputation(factionId: string, delta: number): void {
+    this.contactFaction(factionId);   // 聲望變動自動標記接觸
     const current = this.state.player.externalStats.reputation[factionId] ?? 0;
     this.state.player.externalStats.reputation[factionId] = current + delta;
     this.notifyUpdate();

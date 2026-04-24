@@ -218,6 +218,34 @@ export class EventEngine {
       return false;
     }
 
+    // Reputation conditions (AND — all must pass)
+    if (condition.minReputation) {
+      const rep = gs.player.externalStats.reputation;
+      for (const [fid, min] of Object.entries(condition.minReputation)) {
+        if ((rep[fid] ?? 0) < min) return false;
+      }
+    }
+    if (condition.maxReputation) {
+      const rep = gs.player.externalStats.reputation;
+      for (const [fid, max] of Object.entries(condition.maxReputation)) {
+        if ((rep[fid] ?? 0) > max) return false;
+      }
+    }
+
+    // Affinity conditions (AND — all must pass)
+    if (condition.minAffinity) {
+      const aff = gs.player.externalStats.affinity;
+      for (const [nid, min] of Object.entries(condition.minAffinity)) {
+        if ((aff[nid] ?? 0) < min) return false;
+      }
+    }
+    if (condition.maxAffinity) {
+      const aff = gs.player.externalStats.affinity;
+      for (const [nid, max] of Object.entries(condition.maxAffinity)) {
+        if ((aff[nid] ?? 0) > max) return false;
+      }
+    }
+
     // Trigger chance — roll last so all hard conditions pass first
     if (event.condition.triggerChance !== undefined && event.condition.triggerChance < 1) {
       if (Math.random() > event.condition.triggerChance) return false;
