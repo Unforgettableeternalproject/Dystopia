@@ -45,8 +45,8 @@ export class FlagSystem {
    * - '&' / 'AND' = AND
    * - '!' / 'NOT' prefix = NOT (true when flag is absent)
    */
-  static evaluateAgainst(condition: string, flags: Set<string>): boolean {
-    if (!condition.trim()) return true;
+  static evaluateAgainst(condition: string | null | undefined, flags: Set<string>): boolean {
+    if (!condition || !condition.trim()) return true;
     const normalised = condition
       .replace(/\bOR\b/g, '|')
       .replace(/\bAND\b/g, '&')
@@ -68,7 +68,7 @@ export class FlagSystem {
   /**
    * Evaluate a condition string against this instance's flags.
    */
-  evaluate(condition: string): boolean {
+  evaluate(condition: string | null | undefined): boolean {
     return FlagSystem.evaluateAgainst(condition, this.flags);
   }
 

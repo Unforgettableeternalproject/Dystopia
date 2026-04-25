@@ -54,7 +54,7 @@
             "description": "往公共盥洗空間的走廊"
           }
         ],
-        "npcIds": [],
+        "npcIds": ["crambell_kach"],
         "eventIds": ["crambell_dormitory_blackout"],
         "propIds": ["delth_dormitory_long_table", "delth_dormitory_water_sink"],
         "isAccessible": true

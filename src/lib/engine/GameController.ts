@@ -475,7 +475,7 @@ export class GameController {
     });
     addTracePhase(traceId, 'input', { type: actionType ?? 'free', input, targetId, targetKind });
 
-    const resolvedForReg = this.lore.resolveLocation(gs0reg.player.currentLocationId, this.state.flags);
+    const resolvedForReg = this.lore.resolveLocation(gs0reg.player.currentLocationId, this.state.flags, gs0reg.timePeriod);
     const sceneNpcsForReg = (resolvedForReg?.npcIds ?? []).map(id => ({
       id,
       name: this.lore.getNPC(id)?.name ?? id,
@@ -540,7 +540,7 @@ export class GameController {
     // 1.5. Check for scripted dialogue trigger when player interacts with a scene NPC.
     // Regulator sets type="interact" + targetId when player names a specific NPC.
     const resolvedSceneNpcIds = this.lore.getNPCsByIds(
-      this.lore.resolveLocation(this.state.getState().player.currentLocationId, this.state.flags)?.npcIds ?? [],
+      this.lore.resolveLocation(this.state.getState().player.currentLocationId, this.state.flags, this.state.getState().timePeriod)?.npcIds ?? [],
       this.state.flags,
       this.state.getState().timePeriod,
     ).map(n => n.id);
@@ -556,6 +556,7 @@ export class GameController {
         if (scripted) {
           narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
           this._sessionFiredTriggers.add(scripted.nodeId);
+          this.updateActiveNpcUI(finalAction.targetId);
           await this.activateScriptedNode(
             finalAction.targetId, npc.activeDialogueId, npc.name,
             scripted.nodeId, scripted.node,
@@ -742,6 +743,24 @@ export class GameController {
     if (enc) {
       if (enc.type === 'dialogue' && enc.npcId) {
         this.updateActiveNpcUI(enc.npcId);
+        // Check scripted trigger before falling through to LLM opener
+        const encNpc = this.lore.resolveNPC(enc.npcId, this.state.flags, this.state.getState().timePeriod);
+        if (encNpc) {
+          const encInteractionCount = this.state.getState().npcMemory[enc.npcId]?.interactionCount ?? 0;
+          const encScripted = this.dialogueMgr.checkScriptedTrigger(
+            enc.npcId, encNpc.activeDialogueId, this.state.flags, encInteractionCount,
+            this._sessionFiredTriggers,
+          );
+          if (encScripted) {
+            this._sessionFiredTriggers.add(encScripted.nodeId);
+            await this.activateScriptedNode(
+              enc.npcId, encNpc.activeDialogueId, encNpc.name,
+              encScripted.nodeId, encScripted.node,
+            );
+            inputDisabled.set(false);
+            return;
+          }
+        }
         await this.handleDialogueInput('(opener)', enc.npcId, true);
         inputDisabled.set(false);
       } else if (enc.type === 'event' && enc.encounterId) {
@@ -1642,7 +1661,7 @@ export class GameController {
 
     // NPC info (presence + relationship status) is only injected for examine.
     // interact routes to dialogue handler before reaching buildSceneCtx.
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
     const sceneNpcIds = this.lore.getNPCsByIds(resolved?.npcIds ?? [], this.state.flags, gs.timePeriod).map(n => n.id);
 
     if (action?.type === 'examine' && sceneNpcIds.length > 0) {
@@ -1710,7 +1729,7 @@ export class GameController {
     // Re-validates that the target is actually present and visible in the current scene
     // to prevent leaking context for off-scene or invisible targets via direct API calls.
     if (action?.type === 'examine' && action?.targetId && action?.targetKind) {
-      const currentResolved = resolved ?? this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+      const currentResolved = resolved ?? this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
 
       if (action.targetKind === 'prop' && currentResolved) {
         const visibleProps = this.lore.getVisiblePropsForLocation(
@@ -2097,7 +2116,7 @@ export class GameController {
 
     // 3. Encounter validation: entity must be present and visible in the current scene.
     if (resolution.encounter) {
-      const resolvedLoc = this.lore.resolveLocation(sourceLocationId, this.state.flags);
+      const resolvedLoc = this.lore.resolveLocation(sourceLocationId, this.state.flags, sourcePeriod);
       const enc = resolution.encounter;
       if (enc.type === 'dialogue') {
         const inLocation = enc.npcId && (resolvedLoc?.npcIds.includes(enc.npcId) ?? false);
@@ -3169,7 +3188,7 @@ export class GameController {
     let   n = 0;
     const id = (prefix: string) => prefix + '_' + (n++);
 
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
 
     result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine' });
 
@@ -3206,7 +3225,7 @@ export class GameController {
    */
   getObserveSnapshot(): ObserveSnapshot {
     const gs = this.state.getState();
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
     if (!resolved) {
       return { location: { id: '', name: '' }, exits: [], npcs: [], props: [], canFullRest: false };
     }
@@ -3384,7 +3403,7 @@ export class GameController {
   // -- UI sync ----------------------------------------------------------
 
   private syncUIState(gs: Readonly<GameState>): void {
-    const resolved         = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved         = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
     const region           = this.lore.getRegion(this.currentRegionId);
     const activeQuestCount = Object.values(gs.activeQuests).filter(
       q => !q.isCompleted && !q.isFailed
@@ -4033,7 +4052,7 @@ export class GameController {
   /** Auto-set met_<npcId> discovery flags for NPCs visible in the current scene and time period. */
   private discoverSceneNpcs(): void {
     const gs       = this.state.getState();
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
     if (!resolved) return;
     const visibleNpcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod);
     for (const npc of visibleNpcs) {

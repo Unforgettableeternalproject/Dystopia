@@ -45,6 +45,7 @@
     "crambell_work_period_start",
     "crambell_rest_period_start",
     "crambell_delth_broadcast",
-    "crambell_transfer_wait"
+    "crambell_transfer_wait",
+    "crambell_event_curfew"
   ]
 }

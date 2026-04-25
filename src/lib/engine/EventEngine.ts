@@ -285,6 +285,13 @@ export class EventEngine {
       if (hasAny) return false;
     }
 
+    // Location exclusion — blocked if current location (or any ancestor) is in notLocationIds
+    if (condition.notLocationIds?.length) {
+      if (this.isInLocationOrAncestor(gs.player.currentLocationId, condition.notLocationIds)) {
+        return false;
+      }
+    }
+
     // Melphin minimum — player must hold at least this amount
     if (condition.minMelphin !== undefined && gs.player.melphin < condition.minMelphin) {
       return false;
@@ -522,6 +529,14 @@ export class EventEngine {
     // grantQuestId, startEncounterId, failQuestId are intentionally NOT applied here.
     // They require higher-level coordination (QuestEngine / EncounterEngine)
     // and are handled by GameController after processEventIds returns.
+  }
+
+  /** Returns true if locationId is in targetIds or any of its ancestors are. */
+  private isInLocationOrAncestor(locationId: string, targetIds: string[]): boolean {
+    if (targetIds.includes(locationId)) return true;
+    const resolved = this.lore.resolveLocation(locationId, this.state.flags);
+    if (!resolved?.parentId) return false;
+    return this.isInLocationOrAncestor(resolved.parentId, targetIds);
   }
 
   private resolveStatValue(gs: Readonly<import('../types').GameState>, key: string): number | undefined {

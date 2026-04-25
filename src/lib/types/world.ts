@@ -529,6 +529,12 @@ export interface EventCondition {
    */
   maxAffinity?: Record<string, number>;
   /**
+   * 位置排除條件：玩家當前位置（含所有上層父位置）若在此清單內，則不觸發事件。
+   * 用於「反向位置」判斷，例如宵禁事件：玩家不在宿舍區時才觸發。
+   * 只需填入父位置 ID，系統會自動向上遍歷 parentId 鏈涵蓋所有子位置。
+   */
+  notLocationIds?: string[];
+  /**
    * 僅在特定遊戲動作時觸發，而非正常事件輪詢。
    * 'rest_start' = 玩家開始休息時（時間推進前）觸發。
    * 省略 = 正常觸發（任何動作後輪詢）。

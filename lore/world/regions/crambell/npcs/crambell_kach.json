@@ -24,6 +24,24 @@
       "context": "凱奇本名凱爾斯·斯洛，前任領主厄羅·斯洛之子。他隱藏身份是為了等待時機，他的所有行動都圍繞著一個核心目標：找到父親，推翻現任政府。"
     }
   ],
+  "schedule": [
+    {
+      "id": "work_schedule",
+      "label": "工作時間的固定位置",
+      "condition": null,
+      "locationId": "delth_mine_worksite",
+      "priority": 10,
+      "timePeriods": ["work"]
+    },
+    {
+      "id": "rest_schedule",
+      "label": "休息時間的固定位置",
+      "condition": null,
+      "locationId": "delth_dormitory_common",
+      "priority": 10,
+      "timePeriods": ["rest"]
+    }
+  ],
   "dialogueId": "crambell_kach_default",
   "dialogueRules": [
     {
@@ -42,5 +60,5 @@
     }
   ],
   "questIds": [],
-  "availablePeriods": ["work"]
+  "availablePeriods": ["work", "rest"]
 }

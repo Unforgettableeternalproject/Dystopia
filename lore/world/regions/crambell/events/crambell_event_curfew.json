@@ -1,0 +1,22 @@
+{
+  "id": "crambell_event_curfew",
+  "name": "宵禁開始",
+  "_comment": "全域事件。每天 23:00 整點跨越時，若玩家不在宿舍區（含所有子位置），則觸發宵禁警示並增加壓力。",
+  "condition": {
+    "triggerHours": [23],
+    "notLocationIds": ["delth_dormitory"],
+    "cooldownMinutes": 300
+  },
+  "description": "報時鐘傳來一聲低沉的長鳴——宵禁開始了。走廊燈號切換成昏黃的警示色，廣播裡的聲音迴盪在空中：「宵禁時段已開始，所有人員請立即返回指定居住區。未遵守者將依規處置。」你環顧四周，意識到自己還不在宿舍。",
+  "outcomes": [
+    {
+      "id": "curfew_outside",
+      "description": "回宿舍的路已經管制了，而你還在外面。這種感覺不好受。",
+      "statChanges": {
+        "statusStats.stress": 1
+      }
+    }
+  ],
+  "isRepeatable": true,
+  "notification": true
+}

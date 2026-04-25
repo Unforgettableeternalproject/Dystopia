@@ -129,7 +129,7 @@ export class LoreVault {
   // Resolve a location to its current effective state given active flags.
   // localVariants handle location-scoped changes only.
   // Phase-level changes are applied separately via applyPhaseEffects().
-  resolveLocation(id: string, flags: FlagSystem): ResolvedLocation | undefined {
+  resolveLocation(id: string, flags: FlagSystem, timePeriod?: TimePeriod): ResolvedLocation | undefined {
     const node = this.data.locations[id];
     if (!node) return undefined;
 
@@ -163,7 +163,7 @@ export class LoreVault {
     // NPC schedule 過濾：只保留當前 resolvedLocation === 此地點的 NPC
     const filteredNpcs = new Set<string>();
     for (const npcId of npcSet) {
-      const resolvedLoc = this.resolveNPCLocation(npcId, flags);
+      const resolvedLoc = this.resolveNPCLocation(npcId, flags, timePeriod);
       if (resolvedLoc === id) filteredNpcs.add(npcId);
     }
 
@@ -825,7 +825,7 @@ export class LoreVault {
     accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number; reputation?: Record<string, number>; affinity?: Record<string, number> },
     options?: { includeNpcs?: boolean; includeProps?: boolean },
   ): string {
-    const resolved = this.resolveLocation(locationId, flags);
+    const resolved = this.resolveLocation(locationId, flags, accessCtx?.timePeriod);
     if (!resolved) return '[Unknown location]';
 
     const npcs = this.getNPCsByIds(resolved.npcIds, flags, accessCtx?.timePeriod);
