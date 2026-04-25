@@ -8,14 +8,24 @@ import type { WorldPhaseId } from '../types/phase';
 import type { QuestInstance, QuestSource, QuestDitchConsequences, QuestReward } from '../types/quest';
 import type { TimePeriod } from '../types/world';
 import type { PlayerAttitude } from '../types/dialogue';
+import type { PrimaryStatKey } from '../types/player';
 import { EventBus, GameEvents } from './EventBus';
 import { FlagSystem } from './FlagSystem';
+import {
+  computeFinalSkillXP,
+  resolveLevelUps,
+  clampGrantExp,
+  makeDateKey,
+  getCharExpBonuses,
+} from './ExperienceEngine';
 
 export type AcquisitionRecord =
-  | { type: 'item';       itemId: string; variantId?: string }
-  | { type: 'stat';       key: string; delta: number }
-  | { type: 'reputation'; factionId: string; delta: number }
-  | { type: 'affinity';   npcId: string; delta: number };
+  | { type: 'item';         itemId: string; variantId?: string }
+  | { type: 'stat';         key: string; delta: number }
+  | { type: 'reputation';   factionId: string; delta: number }
+  | { type: 'affinity';     npcId: string; delta: number }
+  | { type: 'skillExp';     statKey: PrimaryStatKey; finalAmount: number; levelUps: number }
+  | { type: 'characterExp'; delta: number };
 
 export class StateManager {
   private state: GameState;
@@ -80,6 +90,69 @@ export class StateManager {
       this.notifyUpdate();
       if (delta !== 0) this._acquisitions.push({ type: 'stat', key, delta });
     }
+  }
+
+  // ── Skill Experience ─────────────────────────────────────────
+
+  /**
+   * 發放技能 XP 給指定的主要技能。
+   *
+   * - `event` / `encounter` 來源：無每日上限，直接套用角色經驗加成與傾向加成。
+   * - `grant` 來源（DM 直接發放）：受每日上限限制，上限依角色經驗梯度決定。
+   *
+   * 若 XP 達到門檻，自動升級（可能連升多級），超出部分 carry over。
+   */
+  grantSkillExp(
+    statKey: PrimaryStatKey,
+    baseAmount: number,
+    source: 'event' | 'encounter' | 'grant',
+  ): void {
+    if (baseAmount <= 0) return;
+
+    const player  = this.state.player;
+    const charExp = player.statusStats.experience;
+
+    let finalAmount = computeFinalSkillXP(baseAmount, charExp, statKey, player.inclinationTracker);
+
+    if (source === 'grant') {
+      // Reset daily tracker if game date has changed
+      const { year, month, day } = this.state.time;
+      const today = makeDateKey(year, month, day);
+      if (player.dailyGrantTracker.dateKey !== today) {
+        player.dailyGrantTracker.dateKey    = today;
+        player.dailyGrantTracker.grantedExp = {};
+      }
+      finalAmount = clampGrantExp(finalAmount, statKey, charExp, player.dailyGrantTracker);
+      if (finalAmount <= 0) return;
+      player.dailyGrantTracker.grantedExp[statKey] =
+        (player.dailyGrantTracker.grantedExp[statKey] ?? 0) + finalAmount;
+    }
+
+    // Accumulate XP and increment inclination counter
+    player.primaryStatsExp[statKey]      += finalAmount;
+    player.inclinationTracker[statKey]   += 1;
+
+    // Resolve level-ups (may be multiple)
+    const { newLevel, newExp, levelUps } = resolveLevelUps(
+      player.primaryStats[statKey],
+      player.primaryStatsExp[statKey],
+    );
+    player.primaryStats[statKey]    = newLevel;
+    player.primaryStatsExp[statKey] = newExp;
+
+    this.notifyUpdate();
+    this._acquisitions.push({ type: 'skillExp', statKey, finalAmount, levelUps });
+  }
+
+  /**
+   * 發放角色經驗（全局 experience）。
+   * 角色經驗提升技能 XP 的加成梯度與每日 GRANT 上限，本身無上限。
+   */
+  grantCharacterExp(amount: number): void {
+    if (amount <= 0) return;
+    this.state.player.statusStats.experience += amount;
+    this.notifyUpdate();
+    this._acquisitions.push({ type: 'characterExp', delta: amount });
   }
 
   // ── External stats ───────────────────────────────────────────

@@ -112,6 +112,17 @@ export interface EncounterChoiceEffects {
    * 由 GameController 處理（包含時段更新、物品過期）。
    */
   timeAdvance?: number;
+  /**
+   * 技能經驗獲得，key = primaryStat 名稱，value = 基礎 XP 量。
+   * 引擎套用角色經驗加成與傾向加成後發放，來源為 'encounter'（無每日上限）。
+   * 例：{ "strength": 15, "knowledge": 5 }
+   */
+  skillExpChanges?: Partial<Record<string, number>>;
+  /**
+   * 角色經驗（全局）獲得量。
+   * 累積後提升技能 XP 加成梯度與每日 GRANT 上限。
+   */
+  characterExpGrant?: number;
 }
 
 /** 遭遇中的單一選項 */

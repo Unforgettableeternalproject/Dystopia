@@ -1,6 +1,7 @@
 <script lang="ts">
   import { afterUpdate } from 'svelte';
-  import { narrativeLines, isStreaming, eventToast, acquisitionNotifs } from '$lib/stores/gameStore';
+  import { fade, fly } from 'svelte/transition';
+  import { narrativeLines, isStreaming, inputDisabled, previousSnapshot, rewindAction, eventToast, acquisitionNotifs } from '$lib/stores/gameStore';
 
   let scrollEl: HTMLDivElement;
   let autoScroll  = true;
@@ -59,21 +60,84 @@
     scrollEl.scrollTop = scrollEl.scrollHeight;
     showScrollBtn = false;
   }
+
+  // ── Edit last action ───────────────────────────────────────────
+
+  let editingInline = false;
+  let editText = '';
+  let rewindModalOpen = false;
+  let isRewinding = false;
+
+  $: lastPlayerLineId = (() => {
+    for (let i = $narrativeLines.length - 1; i >= 0; i--) {
+      const t = $narrativeLines[i].type;
+      if (t === 'player' || t === 'player-dialogue') return $narrativeLines[i].id;
+    }
+    return null;
+  })();
+
+  $: canEdit = !!$previousSnapshot && !$isStreaming && !$inputDisabled && !isRewinding && !editingInline;
+
+  function startInlineEdit() {
+    editText = $previousSnapshot?.originalInput ?? '';
+    editingInline = true;
+  }
+
+  function cancelInlineEdit() {
+    editingInline = false;
+    editText = '';
+  }
+
+  function handleInlineKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmRewind(); }
+    if (e.key === 'Escape') cancelInlineEdit();
+  }
+
+  async function confirmRewind() {
+    if (!editText.trim() || !$rewindAction) return;
+    editingInline = false;
+    rewindModalOpen = true;
+    isRewinding = true;
+    await new Promise(r => setTimeout(r, 1400));
+    rewindModalOpen = false;
+    isRewinding = false;
+    await $rewindAction(editText.trim());
+  }
 </script>
 
 <div class="narrative-wrap">
   <div
     class="narrative-panel"
+    class:rewind-active={isRewinding}
     bind:this={scrollEl}
     on:scroll={onScroll}
   >
     <div class="content">
       {#each $narrativeLines as line (line.id)}
-        <p class="line line--{line.type}" class:streaming={line.isStreaming} class:thinking={line.type === 'system' && line.text === '···'}>
+        <p class="line line--{line.type}" class:streaming={line.isStreaming} class:thinking={line.type === 'system' && line.text === '···'} class:editing={line.id === lastPlayerLineId && editingInline}>
           {#if line.type === 'player'}
-            <span class="prompt">&gt;</span>{line.text.replace(/^> /, '')}
+            {#if line.id === lastPlayerLineId && editingInline}
+              <span class="prompt">&gt;</span>
+              <input class="inline-edit-input" bind:value={editText} on:keydown={handleInlineKey} autofocus />
+              <button class="inline-confirm" on:click={confirmRewind} disabled={!editText.trim()} title="確認">✓</button>
+              <button class="inline-cancel" on:click={cancelInlineEdit} title="取消">✗</button>
+            {:else}
+              <span class="prompt">&gt;</span>{line.text.replace(/^> /, '')}
+              {#if line.id === lastPlayerLineId && canEdit}
+                <button class="edit-btn" on:click={startInlineEdit} title="重新考慮此行動">✎</button>
+              {/if}
+            {/if}
           {:else if line.type === 'player-dialogue'}
-            {line.text}
+            {#if line.id === lastPlayerLineId && editingInline}
+              <input class="inline-edit-input" bind:value={editText} on:keydown={handleInlineKey} autofocus />
+              <button class="inline-confirm" on:click={confirmRewind} disabled={!editText.trim()} title="確認">✓</button>
+              <button class="inline-cancel" on:click={cancelInlineEdit} title="取消">✗</button>
+            {:else}
+              {line.text}
+              {#if line.id === lastPlayerLineId && canEdit}
+                <button class="edit-btn" on:click={startInlineEdit} title="重新考慮此行動">✎</button>
+              {/if}
+            {/if}
           {:else if line.type === 'system'}
             <span class="sys-prefix">—</span>{line.text}
           {:else if line.type === 'rejected'}
@@ -109,6 +173,17 @@
 
   {#if showScrollBtn}
     <button class="scroll-btn" on:click={scrollToLatest} title="回到最新">↓</button>
+  {/if}
+
+  {#if rewindModalOpen}
+    <div class="rewind-overlay" transition:fade={{duration: 120}}>
+      <div class="rewind-modal" transition:fly={{y: 8, duration: 250}}>
+        <div class="rewind-clock">◴</div>
+        <p class="rewind-label">REWINDING</p>
+        <div class="rewind-scanline"></div>
+        <p class="rewind-wip">⚠ 此功能仍在開發測試階段</p>
+      </div>
+    </div>
   {/if}
 </div>
 
@@ -325,6 +400,189 @@
   @keyframes acqOut {
     from { opacity: 1; }
     to   { opacity: 0; }
+  }
+
+  /* Edit-last-action button */
+  .edit-btn {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 0 4px;
+    background: transparent;
+    border: 1px solid var(--border-accent);
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.4;
+    cursor: pointer;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    vertical-align: middle;
+  }
+
+  .line--player:hover .edit-btn,
+  .line--player-dialogue:hover .edit-btn {
+    opacity: 1;
+  }
+
+  .edit-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Inline edit input */
+  .inline-edit-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--accent-dim);
+    color: var(--text-player);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    padding: 0 2px;
+    width: min(320px, 60%);
+    outline: none;
+    vertical-align: baseline;
+  }
+
+  .inline-edit-input:focus {
+    border-bottom-color: var(--accent);
+  }
+
+  .inline-confirm,
+  .inline-cancel {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 5px;
+    background: transparent;
+    border: 1px solid transparent;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 2px;
+    vertical-align: middle;
+    transition: color 0.12s, border-color 0.12s;
+  }
+
+  .inline-confirm {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+
+  .inline-confirm:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  .inline-confirm:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .inline-cancel {
+    color: var(--text-dim);
+    border-color: var(--border-muted);
+  }
+
+  .inline-cancel:hover {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+  }
+
+  /* Rewind flash on content */
+  @keyframes rewindFlash {
+    0%   { opacity: 1;   filter: none; }
+    15%  { opacity: 0.6; filter: brightness(1.8) saturate(0); }
+    35%  { opacity: 0.2; filter: brightness(2.5) saturate(0) hue-rotate(120deg); }
+    60%  { opacity: 0.5; filter: brightness(0.7) saturate(0); }
+    80%  { opacity: 0.8; filter: brightness(1.2); }
+    100% { opacity: 1;   filter: none; }
+  }
+
+  .narrative-panel.rewind-active .content {
+    animation: rewindFlash 1.4s ease-in-out;
+    pointer-events: none;
+  }
+
+  /* Rewind animation overlay */
+  .rewind-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+  }
+
+  .rewind-modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-accent);
+    border-radius: 3px;
+    padding: 28px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+    min-width: 200px;
+  }
+
+  @keyframes spinClock {
+    0%   { content: '◴'; }
+    25%  { content: '◷'; }
+    50%  { content: '◶'; }
+    75%  { content: '◵'; }
+    100% { content: '◴'; }
+  }
+
+  @keyframes clockSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
+
+  .rewind-clock {
+    font-size: 32px;
+    color: var(--accent);
+    animation: clockSpin 0.8s linear infinite;
+    display: inline-block;
+    line-height: 1;
+  }
+
+  @keyframes rewindPulse {
+    0%, 100% { opacity: 0.5; letter-spacing: 0.25em; }
+    50%       { opacity: 1;   letter-spacing: 0.35em; }
+  }
+
+  .rewind-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin: 0;
+    animation: rewindPulse 0.9s ease-in-out infinite;
+  }
+
+  @keyframes scanMove {
+    0%   { top: 0%; opacity: 0.6; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .rewind-scanline {
+    position: relative;
+    width: 100%;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+    animation: scanMove 0.7s linear infinite;
+    margin: 2px 0;
+  }
+
+  .rewind-wip {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    margin: 4px 0 0;
+    opacity: 0.6;
   }
 
   /* "Back to latest" button */

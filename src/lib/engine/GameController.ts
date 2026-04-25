@@ -64,7 +64,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -112,11 +112,14 @@ export class GameController {
 
   /** 暫存休息敘述上下文，在 overlay 關閉後由 narrateRestResult() 使用 */
   private _pendingRestNarration: {
-    sceneCtx:           string;
-    result:             RestResult;
-    plannedMinutes:     number;
-    wasInterrupted:     boolean;
-    interruptTriggered: TriggeredEvent[];
+    sceneCtx:              string;
+    result:                RestResult;
+    plannedMinutes:        number;
+    wasInterrupted:        boolean;
+    wasRestStartInterrupt: boolean;
+    interruptTriggered:    TriggeredEvent[];
+    /** rest_start 事件觸發的遭遇 ID，narration 完成後啟動。 */
+    restEncounterId?:      string;
   } | null = null;
 
 
@@ -171,6 +174,9 @@ export class GameController {
     // Wire up BroadcastChannel so /console window can request full state
     listenForSyncRequests();
     listenForLogSyncRequests();
+
+    // Register rewind callback so UI can call rewindAndResubmit via the store
+    rewindAction.set((input: string) => this.rewindAndResubmit(input));
   }
 
   /** 將 StateManager 積累的獲取記錄轉成通知顯示。在每段敘事結束後呼叫。 */
@@ -203,6 +209,17 @@ export class GameController {
         showStatDelta(`rep:${rec.factionId}`, rec.delta, rec.delta > 0 ? 'good' : 'bad');
       } else if (rec.type === 'affinity') {
         showStatDelta(`aff:${rec.npcId}`, rec.delta, rec.delta > 0 ? 'good' : 'bad');
+      } else if (rec.type === 'skillExp') {
+        const statLabel = STAT_LABELS['primaryStats']?.[rec.statKey] ?? rec.statKey;
+        if (rec.levelUps > 0) {
+          const stats = this.state.getState().player.primaryStats as unknown as Record<string, number>;
+          const newLevel = stats[rec.statKey] ?? '?';
+          showAcquisitionNotif(`${statLabel} 提升至 Lv ${newLevel}！`, true);
+        } else {
+          showAcquisitionNotif(`${statLabel} +${rec.finalAmount} XP`, true);
+        }
+      } else if (rec.type === 'characterExp') {
+        showAcquisitionNotif(`角色經驗 +${rec.delta}`, true);
       }
     }
   }
@@ -406,6 +423,13 @@ export class GameController {
     inputDisabled.set(true);
     const inDialogue = !!get(activeNpcUI) && !get(activeScriptedDialogue);
     if (!silent) {
+      previousSnapshot.set({
+        gameState:      JSON.parse(JSON.stringify(this.state.getState())),
+        flags:          this.state.flags.toArray(),
+        activeFlags:    [...this.state.getState().player.activeFlags],
+        narrativeLines: get(narrativeLines),
+        originalInput:  input.trim(),
+      });
       pushLine(inDialogue ? '「' + input.trim() + '」' : '> ' + input, inDialogue ? 'player-dialogue' : 'player');
     }
 
@@ -794,37 +818,62 @@ export class GameController {
       fatigue:    s.fatigue ?? 0,
     };
 
+    // ── Rest-start event check ────────────────────────────────────────────────
+    // Check for events that should trigger when rest begins, before time advance.
+    // If any fire, skip normal resolution and force a minimal "couldn't sleep" outcome.
+    const restStartTriggered = this.events.checkRestStartEvents(
+      this.currentRegionId,
+      gs.player.currentLocationId,
+    );
+    const hasRestStartInterrupt = restStartTriggered.length > 0;
+    let restEncounterId: string | undefined;
+    let restStartExtra: TriggeredEvent[] = [];
+    if (hasRestStartInterrupt) {
+      const { eventEncounter, extraTriggered } = this.processTriggeredEvents(restStartTriggered);
+      if (eventEncounter) restEncounterId = eventEncounter.id;
+      restStartExtra = extraTriggered;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Initial resolve to get projected actual duration
     const fullResult = RestResolver.resolve({ plannedMinutes, ...resolveArgs });
 
     // ── Sleep interrupt detection ─────────────────────────────────────────────
     // Scan crossed hours to find the earliest triggerHours event. If found,
     // truncate sleep so the player wakes up at that boundary instead.
-    const projectedEnd  = this.timeMgr.advance(gs.time, fullResult.actualMinutes);
-    const allCrossed    = this.timeMgr.computeCrossedHours(gs.time, projectedEnd);
+    // Skipped when rest_start already interrupted (player never fell asleep).
     let interruptMinutes: number | null = null;
+    if (!hasRestStartInterrupt) {
+      const projectedEnd = this.timeMgr.advance(gs.time, fullResult.actualMinutes);
+      const allCrossed   = this.timeMgr.computeCrossedHours(gs.time, projectedEnd);
 
-    for (const h of allCrossed) {
-      const wouldFire = this.events.peekHourlyInterrupts(
-        this.currentRegionId,
-        gs.player.currentLocationId,
-        [h],
-      );
-      if (wouldFire.length > 0) {
-        const startMins  = gs.time.hour * 60 + gs.time.minute;
-        const targetMins = h * 60;
-        let diff = targetMins - startMins;
-        if (diff <= 0) diff += 1440;   // overnight wrap
-        interruptMinutes = diff;
-        break;
+      for (const h of allCrossed) {
+        const wouldFire = this.events.peekHourlyInterrupts(
+          this.currentRegionId,
+          gs.player.currentLocationId,
+          [h],
+        );
+        if (wouldFire.length > 0) {
+          const startMins  = gs.time.hour * 60 + gs.time.minute;
+          const targetMins = h * 60;
+          let diff = targetMins - startMins;
+          if (diff <= 0) diff += 1440;   // overnight wrap
+          interruptMinutes = diff;
+          break;
+        }
       }
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Re-resolve with truncated duration if sleep is interrupted
-    const result = interruptMinutes !== null
-      ? RestResolver.resolve({ plannedMinutes: interruptMinutes, ...resolveArgs })
-      : fullResult;
+    // Determine final rest result:
+    //   rest_start interrupt → force minimal "couldn't sleep" outcome
+    //   hourly interrupt     → re-resolve with truncated duration
+    //   normal               → use full projected result
+    const result = hasRestStartInterrupt
+      ? GameController.buildRestStartInterruptResult(plannedMinutes, s.staminaMax)
+      : interruptMinutes !== null
+        ? RestResolver.resolve({ plannedMinutes: interruptMinutes, ...resolveArgs })
+        : fullResult;
 
     // Apply stat changes (stamina recovery + stress reduction)
     if (result.staminaDelta !== 0) {
@@ -850,7 +899,7 @@ export class GameController {
 
     // Post-rest system sweeps — fire events at the (possibly truncated) wake time.
     // If sleep was interrupted, these are the events that caused the wake-up.
-    let interruptTriggered: TriggeredEvent[] = [];
+    let interruptTriggered: TriggeredEvent[] = [...restStartTriggered, ...restStartExtra];
     const crossedHours = this.timeMgr.computeCrossedHours(beforeTime, newTime);
     if (crossedHours.length > 0) {
       if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
@@ -882,8 +931,10 @@ export class GameController {
       sceneCtx,
       result,
       plannedMinutes,
-      wasInterrupted:     interruptMinutes !== null,
+      wasInterrupted:        interruptMinutes !== null || hasRestStartInterrupt,
+      wasRestStartInterrupt: hasRestStartInterrupt,
       interruptTriggered,
+      restEncounterId,
     };
 
     // Show result overlay
@@ -906,6 +957,26 @@ export class GameController {
   }
 
   /**
+   * 當 rest_start 事件觸發時，直接強制產生「完全沒睡著」的極差休息結果。
+   * 不走 RestResolver，品質固定為「喪失時間觀」，體力僅微量回復。
+   */
+  private static buildRestStartInterruptResult(
+    plannedMinutes: number,
+    staminaMax: number,
+  ): RestResult {
+    const actualMinutes = 45;
+    return {
+      actualMinutes,
+      deviationMinutes: actualMinutes - plannedMinutes,
+      quality:          '喪失時間觀',
+      staminaDelta:     Math.max(1, Math.round(staminaMax * 0.05)),
+      stressDelta:      0,
+      fatigueDelta:     0,
+      resultTags:       ['喪失時間觀', 'undersleep', 'rest_interrupted'],
+    };
+  }
+
+  /**
    * 休息 overlay 關閉後，觸發 DM 敘述休息結果。
    * 由 RestResultOverlay 在 dismiss 動畫結束後呼叫。
    */
@@ -914,7 +985,7 @@ export class GameController {
     this._pendingRestNarration = null;
     if (!ctx || !this.dmClient) return;
 
-    const { sceneCtx, result, plannedMinutes, wasInterrupted, interruptTriggered } = ctx;
+    const { sceneCtx, result, plannedMinutes, wasInterrupted, wasRestStartInterrupt, interruptTriggered } = ctx;
     const gs = this.state.getState();
 
     const fmtMin = (m: number) => {
@@ -924,7 +995,9 @@ export class GameController {
     };
 
     const interruptLine = wasInterrupted
-      ? `[SLEEP INTERRUPTED] Player was woken up early by: ${interruptTriggered.map(t => t.event.name).join(', ')}`
+      ? wasRestStartInterrupt
+        ? `[COULDN'T SLEEP] Player failed to fall asleep due to: ${interruptTriggered.map(t => t.event.name).join(', ')}`
+        : `[SLEEP INTERRUPTED] Player was woken up early by: ${interruptTriggered.map(t => t.event.name).join(', ')}`
       : '';
 
     const restSummary = [
@@ -979,6 +1052,13 @@ export class GameController {
 
     const action: PlayerAction = { type: 'rest', input: '（休息）' };
     this.state.appendHistory(action, fullText.slice(0, 200));
+
+    // Launch encounter triggered by rest_start event (e.g. restless night).
+    if (ctx.restEncounterId) {
+      await this.startAndRenderEncounter(ctx.restEncounterId);
+      this.flushAcquisitions();
+      this.releaseInput();
+    }
   }
 
   /**
@@ -1277,6 +1357,18 @@ export class GameController {
     this.encounterMgr = new EncounterEngine(this.lore, this.state);
     this.syncUIState(gs);
     log.info('State loaded from save', { turn: gs.turn });
+  }
+
+  /** Restore previous snapshot and resubmit with a new input (edit-last-action). */
+  async rewindAndResubmit(newInput: string): Promise<void> {
+    const snap = get(previousSnapshot);
+    if (!snap) return;
+    // JSON.parse/stringify converts Set<string> to {} — reconstruct before loadState
+    snap.gameState.player.activeFlags = new Set(snap.activeFlags);
+    this.loadState(snap.gameState, snap.flags);
+    narrativeLines.set(snap.narrativeLines);
+    previousSnapshot.set(null);
+    await this.submitAction(newInput);
   }
 
   // -- Quest fail condition scan ----------------------------------------
@@ -3324,6 +3416,7 @@ export class GameController {
           isCurrent:           node.id === currentLocId,
           isVisited:           visited,
           isKnownButUnvisited: !visited,
+          isHidden:            false,
           districtId:          node.districtId,
           areaId:              areaId,
         });
@@ -3345,6 +3438,17 @@ export class GameController {
           if (targetIsAreaRoot && currentLocId !== areaId) continue;
 
           const tVisited = isVisited(conn.targetLocationId);
+
+          // Evaluate map visibility condition (mapVisible only applies when not yet visited)
+          let nodeIsHidden = false;
+          if (conn.mapVisible && !tVisited) {
+            const knowledgeOk = !conn.mapVisible.knowledgeIds?.length
+              || conn.mapVisible.knowledgeIds.every(k => gs.player.knownIntelIds.includes(k));
+            const flagsOk = !conn.mapVisible.flags
+              || this.state.flags.evaluate(conn.mapVisible.flags);
+            nodeIsHidden = !(knowledgeOk && flagsOk);
+          }
+
           mapNodes.push({
             id:                  conn.targetLocationId,
             label:               target.name,
@@ -3352,12 +3456,16 @@ export class GameController {
             isCurrent:           false,
             isVisited:           tVisited,
             isKnownButUnvisited: !tVisited,
+            isHidden:            nodeIsHidden,
             districtId:          target.districtId,
             areaId:              target.parentId ?? conn.targetLocationId,
           });
           mapNodeIds.add(conn.targetLocationId);
         }
       }
+
+      // Build lookup set for hidden nodes (used to propagate isHidden to edges)
+      const hiddenNodeIds = new Set(mapNodes.filter(n => n.isHidden).map(n => n.id));
 
       // 3. Build edges with access metadata
       for (const node of allAreaNodes) {
@@ -3396,6 +3504,7 @@ export class GameController {
             hasBypass,
             isTraversable:       traversable,
             targetIsForeignArea: !inArea,
+            isHidden:            hiddenNodeIds.has(conn.targetLocationId),
             lockedMessage:       conn.access?.lockedMessage,
             bypassMessage:       conn.access?.bypass?.bypassMessage,
           });
@@ -3429,7 +3538,14 @@ export class GameController {
         const areaNodes: RegionMapData['districtAreaGraphs'][string]['nodes'] = [];
         const areaEdges: RegionMapData['districtAreaGraphs'][string]['edges'] = [];
         const areaIdsInDistrict = new Set(district.locationIds);
-        const seenAreaEdges = new Set<string>();
+        // Map from edgeKey → accumulated lock info (consider ALL connections between two areas)
+        const areaEdgeMap = new Map<string, {
+          fromId: string; toId: string;
+          anyTraversable: boolean;
+          hasBypass: boolean;
+          lockedMessage?: string;
+          bypassMessage?: string;
+        }>();
 
         for (const lid of district.locationIds) {
           const loc = this.lore.getLocation(lid);
@@ -3446,7 +3562,7 @@ export class GameController {
             totalSubCount:      subs.length,
           });
 
-          // Build edges: check root + sublocation connections to other areas in same district
+          // Build edges: collect ALL connections to other areas (accumulate lock state)
           const allLocs = [loc, ...subs];
           for (const sub of allLocs) {
             const resolved = this.lore.resolveLocation(sub.id, this.state.flags);
@@ -3457,12 +3573,56 @@ export class GameController {
               const targetAreaId = targetRoot.parentId ?? conn.targetLocationId;
               if (targetAreaId === lid) continue; // same area
               if (!areaIdsInDistrict.has(targetAreaId)) continue; // cross-district
+
               const ek = [lid, targetAreaId].sort().join('|');
-              if (seenAreaEdges.has(ek)) continue;
-              seenAreaEdges.add(ek);
-              areaEdges.push({ fromId: lid, toId: targetAreaId });
+
+              // Evaluate access for this specific connection
+              let connTraversable = true;
+              let connHasBypass   = false;
+              let connLockedMsg: string | undefined;
+              let connBypassMsg: string | undefined;
+              if (conn.access) {
+                const result = this.lore.getConnectionAccessResult(
+                  conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+                  Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+                  { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity },
+                );
+                connTraversable = result.allowed && !result.wasBypass;
+                connHasBypass   = !!conn.access.bypass;
+                connLockedMsg   = conn.access.lockedMessage;
+                connBypassMsg   = conn.access.bypass?.bypassMessage;
+              }
+
+              const existing = areaEdgeMap.get(ek);
+              if (existing) {
+                // Union: any traversable connection makes the edge traversable
+                existing.anyTraversable = existing.anyTraversable || connTraversable;
+                existing.hasBypass      = existing.hasBypass || connHasBypass;
+                if (!existing.lockedMessage && connLockedMsg) existing.lockedMessage = connLockedMsg;
+                if (!existing.bypassMessage && connBypassMsg) existing.bypassMessage = connBypassMsg;
+              } else {
+                areaEdgeMap.set(ek, {
+                  fromId:         lid,
+                  toId:           targetAreaId,
+                  anyTraversable: connTraversable,
+                  hasBypass:      connHasBypass,
+                  lockedMessage:  connLockedMsg,
+                  bypassMessage:  connBypassMsg,
+                });
+              }
             }
           }
+        }
+
+        for (const info of areaEdgeMap.values()) {
+          areaEdges.push({
+            fromId:         info.fromId,
+            toId:           info.toId,
+            isLocked:       !info.anyTraversable,
+            hasBypass:      info.hasBypass,
+            lockedMessage:  info.lockedMessage,
+            bypassMessage:  info.bypassMessage,
+          });
         }
 
         districtAreaGraphs[did] = { nodes: areaNodes, edges: areaEdges };
@@ -4136,6 +4296,9 @@ export class GameController {
         origin:           'worker',
         currentLocationId: 'delth_dormitory_room',
         primaryStats:    { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
+        primaryStatsExp: { strength: 0, knowledge: 0, talent: 0, spirit: 0, luck: 0 },
+        inclinationTracker: { strength: 0, knowledge: 0, talent: 0, spirit: 0, luck: 0 },
+        dailyGrantTracker:  { dateKey: '1498-6-12', grantedExp: {} },
         secondaryStats:  { consciousness: 2, mysticism: 0, technology: 3 },
         statusStats:     { stamina: 10, staminaMax: 10, stress: 2, stressMax: 10, endo: 0, endoMax: 0, experience: 0, fatigue: 3 },
         externalStats:   { reputation: {}, affinity: {}, familiarity: {} },

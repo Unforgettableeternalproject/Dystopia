@@ -156,6 +156,7 @@
             class:edge-cross={e.kind === 'cross-area'}
             class:edge-remote={e.kind === 'remote-link'}
             class:edge-locked={e.isLocked}
+            class:edge-hidden={e.isHidden}
           />
 
           <!-- Lock icon for locked edges -->
@@ -202,13 +203,25 @@
               class:node-area={node.kind === 'area-root' && !node.isCurrent}
               class:node-adjacent={node.kind === 'adjacent-area'}
               class:node-remote={node.kind === 'remote-sublocation'}
-              class:node-known={node.isKnownButUnvisited}
-              class:node-fog={!node.isVisited && !node.isKnownButUnvisited}
+              class:node-known={node.isKnownButUnvisited && !node.isHidden}
+              class:node-fog={!node.isVisited && !node.isKnownButUnvisited && !node.isHidden}
+              class:node-hidden={node.isHidden}
               on:mouseenter={() => (hoveredId = node.id)}
               on:mouseleave={() => (hoveredId = null)}
             >
-              <title>{node.label}</title>
+              <title>{node.isHidden ? '???' : node.label}</title>
             </circle>
+
+            <!-- Hidden node: ghost circle + ??? label on hover -->
+            {#if node.isHidden && hoveredId === node.id}
+              <circle cx={pos.x} cy={pos.y} r={r} class="node-hidden-ghost" />
+              <text
+                x={pos.x}
+                y={pos.y - r - 5}
+                class="label label-hidden"
+                text-anchor="middle"
+              >???</text>
+            {/if}
 
             <!-- Persistent label for current node -->
             {#if node.isCurrent}
@@ -220,8 +233,8 @@
               >{node.label}</text>
             {/if}
 
-            <!-- Hover label for non-current nodes -->
-            {#if hoveredId === node.id && !node.isCurrent}
+            <!-- Hover label for non-current, visible nodes -->
+            {#if hoveredId === node.id && !node.isCurrent && !node.isHidden}
               <text
                 x={pos.x}
                 y={pos.y - r - 5}
@@ -289,6 +302,10 @@
   .edge-locked {
     opacity: 0.35;
   }
+  /* Edge to a hidden node — invisible */
+  .edge-hidden {
+    opacity: 0 !important;
+  }
 
   /* ── Edge icons ─────────────────────────────── */
   .edge-lock-icon {
@@ -345,6 +362,19 @@
     stroke-dasharray: 2 2;
     opacity: 0.35;
   }
+  /* Hidden node: invisible but still in DOM for hover detection */
+  .node-hidden {
+    opacity: 0;
+  }
+  /* Ghost outline shown on hover over hidden node */
+  .node-hidden-ghost {
+    fill: transparent;
+    stroke: #2a3a48;
+    stroke-dasharray: 2 2;
+    stroke-width: 1;
+    opacity: 0.5;
+    pointer-events: none;
+  }
 
   /* ── Pulse animation ────────────────────────── */
   .pulse-ring {
@@ -374,6 +404,11 @@
   .label-current {
     fill: var(--accent, #00c8e0);
     font-size: 9px;
+  }
+  .label-hidden {
+    fill: #3a4a58;
+    font-style: italic;
+    opacity: 0.7;
   }
 
   /* ── Breadcrumb ─────────────────────────────── */

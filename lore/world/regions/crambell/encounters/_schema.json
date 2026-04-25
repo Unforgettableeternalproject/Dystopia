@@ -131,7 +131,12 @@
     "  advanceQuestStage    — 推進任務到指定階段 { questId, stageId }",
     "  completeQuestObjective — 標記任務目標為已完成 { questId, objectiveId }",
     "  movePlayer           — 移動玩家到指定地點 ID（字串）",
-    "  timeAdvance          — 推進遊戲時間（分鐘數，整數）"
+    "  timeAdvance          — 推進遊戲時間（分鐘數，整數）",
+    "  skillExpChanges      — 技能 XP 獲得，key = primaryStat 名稱，value = 基礎 XP 量（正整數）",
+    "                         可用 key: strength / knowledge / talent / spirit / luck",
+    "                         引擎套用角色經驗加成與傾向加成後發放，無每日上限",
+    "                         例：{ \"strength\": 15, \"knowledge\": 5 }",
+    "  characterExpGrant    — 角色經驗（全局）獲得量，影響技能 XP 加成梯度與每日 GRANT 上限"
   ],
 
   "_comment_stat_check": [

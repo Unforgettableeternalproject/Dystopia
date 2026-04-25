@@ -101,6 +101,31 @@
         }
       },
       {
+        "_comment_mapVisible": [
+          "mapVisible（選填）：地圖可見條件，控制目標節點是否在小地圖上顯示。",
+          "與 access 無關——access 控制是否能通行，mapVisible 只影響地圖顯示。",
+          "若玩家已到訪目標地點，mapVisible 條件不滿足也仍然顯示（已知地點不會被遺忘）。",
+          "條件不滿足時，節點在地圖上不可見，但滑鼠 hover 時會出現 ??? 提示。",
+          "省略 = 目標節點永遠在地圖上可見。",
+          "",
+          "knowledgeIds：玩家需已知的情報 ID（AND 關係，全部滿足才算通過）。",
+          "flags：旗標運算式，評估為 true 時才可見。",
+          "兩個欄位皆為選填；若都省略等同於不設條件（永遠顯示）。",
+          "",
+          "常見用法：密道或隱藏地點的情報門檻。",
+          "例：倉庫密道只有在玩家知道 crambell_warehouse_secret 情報後才在地圖上顯示。"
+        ],
+        "targetLocationId": "hidden_location_id",
+        "description": "看起來什麼都沒有的地方",
+        "access": {
+          "knowledgeIds": ["required_intel_id"],
+          "lockedMessage": "你並沒有發現什麼不尋常之處。"
+        },
+        "mapVisible": {
+          "knowledgeIds": ["required_intel_id"]
+        }
+      },
+      {
         "_comment": "無 access 欄位、無 traverseTime = 永遠開放、耗時預設 5 分鐘的出口",
         "targetLocationId": "always_open_destination",
         "description": "離開"

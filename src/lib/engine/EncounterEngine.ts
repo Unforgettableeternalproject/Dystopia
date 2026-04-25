@@ -13,6 +13,7 @@
 import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { EncounterDefinition, EncounterNode, EncounterChoice, EncounterChoiceEffects, ScriptLine } from '../types/encounter';
+import type { PrimaryStatKey } from '../types/player';
 import type { ItemRequirement } from '../types/item';
 import { DiceEngine } from './DiceEngine';
 import type { RollResult } from './DiceEngine';
@@ -33,7 +34,7 @@ export interface ResolvedNode {
   /** 是否為結局節點（遭遇在展示後應結束） */
   isOutcome: boolean;
   /** 數值判定結果（若此節點經過 stat check 解析才有值） */
-  statCheckResult?: { stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult };
+  statCheckResult?: { stat: string; dc: number; value: number; passed: boolean; rollResult?: RollResult; sides?: number };
 }
 
 /**
@@ -455,6 +456,16 @@ export class EncounterEngine {
     }
     if (effects.timeAdvance) {
       this.pending.timeAdvance = (this.pending.timeAdvance ?? 0) + effects.timeAdvance;
+    }
+    if (effects.skillExpChanges) {
+      for (const [statKey, baseAmount] of Object.entries(effects.skillExpChanges)) {
+        if (baseAmount !== undefined) {
+          this.state.grantSkillExp(statKey as PrimaryStatKey, baseAmount, 'encounter');
+        }
+      }
+    }
+    if (effects.characterExpGrant) {
+      this.state.grantCharacterExp(effects.characterExpGrant);
     }
   }
 

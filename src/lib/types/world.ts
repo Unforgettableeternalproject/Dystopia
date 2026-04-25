@@ -220,6 +220,18 @@ export interface LocationConnection {
   traverseTime?: number;
   /** 進入條件；省略 = 永遠開放 */
   access?: ConnectionAccess;
+  /**
+   * 地圖可見條件。若設定，且條件不滿足，且玩家未到訪目標地點，
+   * 則此連線的目標節點在小地圖上不顯示（隱藏節點，仍可 hover 顯示 ???）。
+   * 省略 = 目標節點永遠在地圖上可見。
+   * 注意：此欄位只影響地圖顯示，不影響實際通行能力（由 access 控制）。
+   */
+  mapVisible?: {
+    /** 玩家需已知的情報 ID（AND 關係，全部知道才算通過） */
+    knowledgeIds?: string[];
+    /** 旗標運算式；由 FlagSystem.evaluate 評估，true = 可見 */
+    flags?: string;
+  };
 }
 
 export interface LocationBase {
@@ -452,6 +464,12 @@ export interface EventCondition {
    * NPC 好感上限（AND 關係）。key = npcId，value = 最高好感值。
    */
   maxAffinity?: Record<string, number>;
+  /**
+   * 僅在特定遊戲動作時觸發，而非正常事件輪詢。
+   * 'rest_start' = 玩家開始休息時（時間推進前）觸發。
+   * 省略 = 正常觸發（任何動作後輪詢）。
+   */
+  triggerOn?: 'rest_start';
 }
 
 /** 物品發放項目（用於 EventOutcome.grantItems） */
@@ -508,6 +526,17 @@ export interface EventOutcome {
   applyConditionId?: string;
   /** 移除指定狀態條件的 ID 列表。 */
   removeConditionIds?: string[];
+  /**
+   * 技能經驗獲得，key = primaryStat 名稱，value = 基礎 XP 量。
+   * 引擎套用角色經驗加成與傾向加成後發放，來源為 'event'（無每日上限）。
+   * 例：{ "strength": 15, "knowledge": 5 }
+   */
+  skillExpChanges?: Partial<Record<string, number>>;
+  /**
+   * 角色經驗（全局）獲得量。
+   * 累積後提升技能 XP 加成梯度與每日 GRANT 上限。
+   */
+  characterExpGrant?: number;
 }
 
 export interface GameEvent {

@@ -11,7 +11,13 @@
     "connections": [
       {
         "targetLocationId": "delth_dormitory",
-        "description": "前往宿舍區"
+        "description": "往宿舍區回去的路",
+        "access": {
+          "timeRanges": [
+            { "startHour": 4, "startMinute": 0, "endHour": 23, "endMinute": 0 }
+          ],
+          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。"
+        }
       },
       {
         "targetLocationId": "delth_mine_path",

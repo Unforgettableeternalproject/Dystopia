@@ -12,6 +12,32 @@ export interface PrimaryStats {
   luck: number;         // 運氣 — 機率、奇遇判定
 }
 
+/** 主要技能的 key 名稱（用於型別安全的 XP / 傾向操作） */
+export type PrimaryStatKey = keyof PrimaryStats;
+
+/**
+ * 各主要技能的當前累積 XP。
+ * XP 滿後自動升級，升級後 XP 繼承（carry over）。
+ */
+export type PrimaryStatsExp = Record<PrimaryStatKey, number>;
+
+/**
+ * 各主要技能獲得 XP 的次數累積，用於計算傾向。
+ * 次數越多的技能，其傾向強度越高。
+ */
+export type InclinationTracker = Record<PrimaryStatKey, number>;
+
+/**
+ * 每日 GRANT XP 上限的追蹤記錄，依遊戲內日期重置。
+ * GRANT 來源（DM 直接發放）受每日上限限制；事件/遭遇來源不受此限。
+ */
+export interface DailyGrantTracker {
+  /** 當前日期 key，格式：`${year}-${month}-${day}` */
+  dateKey: string;
+  /** 今日已透過 GRANT 發放的技能 XP 量 */
+  grantedExp: Partial<Record<PrimaryStatKey, number>>;
+}
+
 /** 內部數值 — 玩家對世界三大領域的理解程度 */
 export interface SecondaryStats {
   consciousness: number; // 意識 — 與精神學領域相關
@@ -48,6 +74,9 @@ export interface PlayerState {
   origin: string;              // 出身背景 ID，影響初始數值與劇情
   currentLocationId: string;
   primaryStats: PrimaryStats;
+  primaryStatsExp: PrimaryStatsExp;      // 各主要技能當前累積 XP
+  inclinationTracker: InclinationTracker; // 各技能獲得 XP 次數（傾向計算用）
+  dailyGrantTracker: DailyGrantTracker;   // 每日 GRANT 上限追蹤
   secondaryStats: SecondaryStats;
   statusStats: StatusStats;
   externalStats: ExternalStats;

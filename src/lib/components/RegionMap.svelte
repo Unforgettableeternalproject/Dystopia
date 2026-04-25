@@ -88,13 +88,27 @@
     ? bfsLayout(expandedLayoutNodes, expandedStartId, SVG_W, SVG_H)
     : new Map<string, { x: number; y: number }>();
 
+  interface PositionedAreaEdge {
+    x1: number; y1: number; x2: number; y2: number;
+    fromId: string; toId: string;
+    isLocked: boolean;
+    hasBypass: boolean;
+    lockedMessage?: string;
+    bypassMessage?: string;
+  }
+
   $: expandedEdges = (() => {
-    if (!expandedGraph) return [] as Array<{ x1:number; y1:number; x2:number; y2:number }>;
-    const result: Array<{ x1:number; y1:number; x2:number; y2:number }> = [];
+    if (!expandedGraph) return [] as PositionedAreaEdge[];
+    const result: PositionedAreaEdge[] = [];
     for (const e of expandedGraph.edges) {
       const from = expandedLayout.get(e.fromId);
       const to   = expandedLayout.get(e.toId);
-      if (from && to) result.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y });
+      if (from && to) result.push({
+        x1: from.x, y1: from.y, x2: to.x, y2: to.y,
+        fromId: e.fromId, toId: e.toId,
+        isLocked: e.isLocked, hasBypass: e.hasBypass,
+        lockedMessage: e.lockedMessage, bypassMessage: e.bypassMessage,
+      });
     }
     return result;
   })();
@@ -314,7 +328,37 @@
             <g class="view-layer" class:view-active={viewMode === 'areas'} class:view-hidden={viewMode !== 'areas'}>
               {#if expandedGraph}
                 {#each expandedEdges as e}
-                  <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} class="a-edge" />
+                  <line
+                    x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+                    class="a-edge"
+                    class:a-edge-locked={e.isLocked}
+                  />
+
+                  <!-- Lock icon at edge midpoint -->
+                  {#if e.isLocked}
+                    {@const mx = (e.x1 + e.x2) / 2}
+                    {@const my = (e.y1 + e.y2) / 2}
+                    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+                    <text x={mx} y={my} class="a-edge-lock-icon" text-anchor="middle" dominant-baseline="central"
+                      on:click|stopPropagation={() => {}}>
+                      ✕{#if e.lockedMessage}<title>{e.lockedMessage}</title>{/if}
+                    </text>
+
+                    <!-- Bypass arrow -->
+                    {#if e.hasBypass}
+                      {@const angle = Math.atan2(e.y2 - e.y1, e.x2 - e.x1) * (180 / Math.PI)}
+                      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+                      <text
+                        x={mx + 8 * Math.cos(angle * Math.PI / 180)}
+                        y={my + 8 * Math.sin(angle * Math.PI / 180)}
+                        class="a-edge-bypass-arrow"
+                        text-anchor="middle"
+                        dominant-baseline="central"
+                        transform="rotate({angle}, {mx + 8 * Math.cos(angle * Math.PI / 180)}, {my + 8 * Math.sin(angle * Math.PI / 180)})"
+                        on:click|stopPropagation={() => {}}
+                      >→{#if e.bypassMessage}<title>{e.bypassMessage}</title>{/if}</text>
+                    {/if}
+                  {/if}
                 {/each}
                 {#each expandedGraph.nodes as area}
                   {@const pos = expandedLayout.get(area.id)}
@@ -602,6 +646,9 @@
 
   /* ── Area elements ───────────────────── */
   .a-edge { stroke: #1e3545; stroke-width: 1.5; opacity: 0.5; }
+  .a-edge-locked { opacity: 0.35; }
+  .a-edge-lock-icon { font-size: 9px; fill: #d35f5f; opacity: 0.75; cursor: default; }
+  .a-edge-bypass-arrow { font-size: 9px; fill: #8a7a40; opacity: 0.85; cursor: default; }
   .a-node { fill: #0e2233; stroke: #3a6878; stroke-width: 1.2; transition: stroke 0.12s, fill 0.12s; }
   .a-node:hover { stroke: #5a8a98; }
   .a-current { fill: var(--accent, #00c8e0); stroke: var(--accent, #00c8e0); filter: drop-shadow(0 0 4px var(--accent, #00c8e0)); }

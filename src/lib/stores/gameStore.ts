@@ -2,7 +2,7 @@
 
 import { writable, derived } from 'svelte/store';
 import type { Thought } from '../types';
-import type { HistoryEntry, ShadowComparison } from '../types/game';
+import type { GameState, HistoryEntry, ShadowComparison } from '../types/game';
 import type { ScriptedChoice } from '../types/dialogue';
 import type { EncounterChoice, EncounterType, ScriptLine } from '../types/encounter';
 import type { InventoryItem } from '../types/item';
@@ -24,6 +24,23 @@ export interface NarrativeLine {
 
 export const narrativeLines = writable<NarrativeLine[]>([]);
 export const isStreaming = writable(false);
+
+// ── Rewind / Edit-Last-Action ──────────────────────────────────
+
+export interface PreviousSnapshot {
+  gameState: GameState;
+  flags: string[];
+  /** player.activeFlags serialized as array (JSON loses Set → {}) */
+  activeFlags: string[];
+  narrativeLines: NarrativeLine[];
+  originalInput: string;
+}
+
+/** Snapshot saved before each player action; cleared after use or after rewind. */
+export const previousSnapshot = writable<PreviousSnapshot | null>(null);
+
+/** Set by GameController to let UI components trigger rewind + resubmit. */
+export const rewindAction = writable<((newInput: string) => Promise<void>) | null>(null);
 
 export function pushLine(
   text:      string,
@@ -176,6 +193,8 @@ export interface MiniMapNode {
   isCurrent:   boolean;
   isVisited:   boolean;
   isKnownButUnvisited: boolean;
+  /** 地圖隱藏節點：條件不滿足且未到訪，地圖上不顯示但可 hover 顯示 ??? */
+  isHidden:    boolean;
   districtId?: string;
   areaId?:     string;
 }
@@ -188,6 +207,8 @@ export interface MiniMapEdge {
   hasBypass:            boolean;
   isTraversable:       boolean;
   targetIsForeignArea: boolean;
+  /** 目標節點為隱藏節點時邊線也隱藏 */
+  isHidden:            boolean;
   lockedMessage?:      string;
   bypassMessage?:      string;
 }
@@ -228,8 +249,14 @@ export interface RegionMapAreaNode {
 }
 
 export interface RegionMapAreaEdge {
-  fromId: string;
-  toId:   string;
+  fromId:          string;
+  toId:            string;
+  /** 兩地之間所有連線皆鎖定時為 true */
+  isLocked:        boolean;
+  /** 至少一條連線有 bypass 路徑時為 true */
+  hasBypass:       boolean;
+  lockedMessage?:  string;
+  bypassMessage?:  string;
 }
 
 export interface RegionMapData {

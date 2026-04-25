@@ -25,13 +25,16 @@ function makeState(): GameState {
       name: 'Route1 Tester',
       origin: 'worker',
       currentLocationId: 'delth_mine_worksite',
-      primaryStats: { strength: 6, knowledge: 5, talent: 5, spirit: 5, luck: 3 },
+      primaryStats:       { strength: 6, knowledge: 5, talent: 5, spirit: 5, luck: 3 },
+      primaryStatsExp:    { strength: 0, knowledge: 0, talent: 0, spirit: 0, luck: 0 },
+      inclinationTracker: { strength: 0, knowledge: 0, talent: 0, spirit: 0, luck: 0 },
+      dailyGrantTracker:  { dateKey: '1498-6-12', grantedExp: {} },
       secondaryStats: { consciousness: 2, mysticism: 0, technology: 3 },
       statusStats: {
         stamina: 10, staminaMax: 10,
         stress: 0, stressMax: 10,
         endo: 0, endoMax: 0,
-        experience: 0,
+        experience: 0, fatigue: 0,
       },
       externalStats: { reputation: {}, affinity: {}, familiarity: {} },
       inventory: [],
@@ -186,9 +189,9 @@ describe('Crambell route1 integration', () => {
 
       const triggerStart = encounters.start('crambell_enc_transfer_trigger');
       expect(triggerStart?.kind === 'node' && triggerStart.resolved.node.id).toBe('broadcast');
-      // strength=6 → statModifier=-1; need roll≥7 to pass DC 6.
-      // Inject one passing roll (0.5 → floor(0.5*20)+1=11, total=10≥6).
-      randomSpy.mockReturnValueOnce(0.5);
+      // strength=6 → statModifier=-1; need roll≥13 to pass DC 12.
+      // Inject one passing roll (0.65 → floor(0.65*20)+1=14, total=13≥12).
+      randomSpy.mockReturnValueOnce(0.65);
       const triggerOutcome = resolveEncounter(encounters, quests, 'try');
       expect(triggerOutcome.node.id).toBe('qualified');
       expect(state.getState().activeQuests.crambell_transfer_opportunity?.currentStageId).toBe('apply');
@@ -201,9 +204,9 @@ describe('Crambell route1 integration', () => {
 
       const applyStart = encounters.start('crambell_enc_transfer_apply');
       expect(applyStart?.kind === 'node' && applyStart.resolved.node.id).toBe('at_post');
-      // luck=3 → statModifier=-2; need roll≥5 to pass DC 3.
-      // Inject one passing roll (0.5 → roll=11, total=9≥3).
-      randomSpy.mockReturnValueOnce(0.5);
+      // luck=3 → statModifier=-2; need roll≥15 to pass DC 13.
+      // Inject one passing roll (0.75 → floor(0.75*20)+1=16, total=14≥13).
+      randomSpy.mockReturnValueOnce(0.75);
       const applyOutcome = resolveEncounter(encounters, quests, 'apply_formally');
       expect(applyOutcome.node.id).toBe('approved');
 

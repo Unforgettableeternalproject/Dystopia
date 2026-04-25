@@ -9,6 +9,7 @@ import type { GameEvent, EventOutcome, RegionSchedule, ItemRequirement } from '.
 import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { TimeManager } from './TimeManager';
+import type { PrimaryStatKey } from '../types/player';
 import { GameEvents } from './EventBus';
 import { checkDateTimeConditions, checkTimeRanges } from '../utils/dateTimeCondition';
 
@@ -112,6 +113,39 @@ export class EventEngine {
       ev.condition.triggerHours?.length &&
       this.canTrigger(ev, /* skipChance */ true),
     );
+  }
+
+  /**
+   * 在休息開始時（時間推進前）檢查 rest_start 事件。
+   * 只處理 condition.triggerOn === 'rest_start' 的事件。
+   * 若有事件觸發，GameController 將強制套用極差休息結果。
+   */
+  checkRestStartEvents(regionId: string, locationId: string): TriggeredEvent[] {
+    const resolved = this.lore.resolveLocation(locationId, this.state.flags);
+    this.checkCtx = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours: [] };
+
+    const region = this.lore.getRegion(regionId);
+    const globalIds = region?.globalEventIds ?? [];
+
+    const locationIds: string[] = [];
+    if (resolved) {
+      locationIds.push(...resolved.eventIds);
+      let parentId = resolved.parentId;
+      while (parentId) {
+        const parent = this.lore.resolveLocation(parentId, this.state.flags);
+        if (!parent) break;
+        locationIds.push(...parent.eventIds);
+        parentId = parent.parentId;
+      }
+    }
+
+    const allIds    = [...globalIds, ...locationIds];
+    const allEvents = this.lore.getEventsByIds(allIds);
+    const restStartIds = allEvents
+      .filter(ev => ev.condition.triggerOn === 'rest_start')
+      .map(ev => ev.id);
+
+    return this.processEventIds(restStartIds);
   }
 
   // -- Internal ----------------------------------------------------------
@@ -471,6 +505,16 @@ export class EventEngine {
       for (const id of outcome.removeConditionIds) {
         this.state.removeCondition(id);
       }
+    }
+    if (outcome.skillExpChanges) {
+      for (const [statKey, baseAmount] of Object.entries(outcome.skillExpChanges)) {
+        if (baseAmount !== undefined) {
+          this.state.grantSkillExp(statKey as PrimaryStatKey, baseAmount, 'event');
+        }
+      }
+    }
+    if (outcome.characterExpGrant) {
+      this.state.grantCharacterExp(outcome.characterExpGrant);
     }
     // grantQuestId, startEncounterId, failQuestId are intentionally NOT applied here.
     // They require higher-level coordination (QuestEngine / EncounterEngine)

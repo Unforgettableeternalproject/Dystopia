@@ -25,13 +25,16 @@ function makeState(): GameState {
       name: 'Story Tester',
       origin: 'worker',
       currentLocationId: 'loc_start',
-      primaryStats: { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
+      primaryStats:       { strength: 5, knowledge: 5, talent: 5, spirit: 5, luck: 5 },
+      primaryStatsExp:    { strength: 0, knowledge: 0, talent: 0, spirit: 0, luck: 0 },
+      inclinationTracker: { strength: 0, knowledge: 0, talent: 0, spirit: 0, luck: 0 },
+      dailyGrantTracker:  { dateKey: '1498-6-12', grantedExp: {} },
       secondaryStats: { consciousness: 0, mysticism: 0, technology: 0 },
       statusStats: {
         stamina: 10, staminaMax: 10,
         stress: 0,  stressMax: 10,
         endo: 0,    endoMax: 0,
-        experience: 0,
+        experience: 0, fatigue: 0,
       },
       externalStats: { reputation: {}, affinity: {}, familiarity: {} },
       inventory: [],
@@ -133,6 +136,11 @@ describe('EncounterEngine — story type', () => {
     // 停在第一個 pause（line 2）
     expect(result.currentLineIndex).toBe(2);
 
+    // 模擬 GameController 逐行渲染後套用效果（lines 0–2）
+    for (let i = 0; i <= result.currentLineIndex; i++) {
+      encounters.applyLineEffects(i);
+    }
+
     // line 1 的 stress+2 已套用
     expect(state.getState().player.statusStats.stress).toBe(2);
 
@@ -145,13 +153,24 @@ describe('EncounterEngine — story type', () => {
 
   it('advanceLine() advances to second pause and applies only that batch effects', () => {
     const { state, encounters } = setup();
-    encounters.start('test_story_enc');
+    const startResult = encounters.start('test_story_enc');
+    if (startResult?.kind !== 'story') return;
+
+    // 模擬 GameController 套用第一批效果（lines 0–2）
+    for (let i = 0; i <= startResult.currentLineIndex; i++) {
+      encounters.applyLineEffects(i);
+    }
 
     const result = encounters.advanceLine();
 
     // 推進到第二個 pause（line 4），返回非 null
     expect(result).not.toBeNull();
     expect(result?.currentLineIndex).toBe(4);
+
+    // 模擬 GameController 套用第二批效果（lines 3–4）
+    for (let i = startResult.currentLineIndex + 1; i <= result!.currentLineIndex; i++) {
+      encounters.applyLineEffects(i);
+    }
 
     // line 4 的 mid_flag 已套用
     expect(state.flags.has('mid_flag')).toBe(true);
@@ -165,13 +184,32 @@ describe('EncounterEngine — story type', () => {
 
   it('advanceLine() at end applies result effects and returns null', () => {
     const { state, encounters } = setup();
-    encounters.start('test_story_enc');
-    encounters.advanceLine(); // advance to second pause
+    const startResult = encounters.start('test_story_enc');
+    if (startResult?.kind !== 'story') return;
 
-    const result = encounters.advanceLine();
+    // 第一批：lines 0–2
+    for (let i = 0; i <= startResult.currentLineIndex; i++) {
+      encounters.applyLineEffects(i);
+    }
+
+    const midResult = encounters.advanceLine();
+    if (!midResult) return;
+
+    // 第二批：lines 3–4
+    for (let i = startResult.currentLineIndex + 1; i <= midResult.currentLineIndex; i++) {
+      encounters.applyLineEffects(i);
+    }
+
+    const finalResult = encounters.advanceLine();
 
     // script 結束，返回 null
-    expect(result).toBeNull();
+    expect(finalResult).toBeNull();
+
+    // 剩餘行（line 5）套用效果後呼叫 concludeStory()
+    for (let i = midResult.currentLineIndex + 1; i < STORY_DEF.script.length; i++) {
+      encounters.applyLineEffects(i);
+    }
+    encounters.concludeStory();
 
     // result.effects 套用：result_flag set、stress -1（2 - 1 = 1）
     expect(state.flags.has('result_flag')).toBe(true);
