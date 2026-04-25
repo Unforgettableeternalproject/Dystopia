@@ -1,25 +1,31 @@
 <script lang="ts">
   import type { GameController } from '$lib/engine/GameController';
   import { playerUI, detailedPlayer, type EndingType, shadowComparisons, shadowModeActive, statCheckOverlay } from '$lib/stores/gameStore';
-  import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-
   export let controller: GameController;
   export let onClose: () => void;
 
+  const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
   async function openConsoleWindow() {
-    const existing = await WebviewWindow.getByLabel('console');
-    if (existing) {
-      await existing.setFocus();
-      return;
+    if (IS_TAURI) {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const existing = await WebviewWindow.getByLabel('console');
+      if (existing) {
+        await existing.setFocus();
+        return;
+      }
+      new WebviewWindow('console', {
+        url: '/console',
+        title: 'Dystopia Console',
+        width: 900,
+        height: 600,
+        resizable: true,
+        decorations: true,
+      });
+    } else {
+      const win = window.open('/console', 'dystopia_console', 'width=900,height=600,resizable=yes');
+      win?.focus();
     }
-    new WebviewWindow('console', {
-      url: '/console',
-      title: 'Dystopia Console',
-      width: 900,
-      height: 600,
-      resizable: true,
-      decorations: true,
-    });
   }
 
   type Tab = 'encounter' | 'npc' | 'event' | 'quest' | 'location' | 'flag' | 'player' | 'ending' | 'judge' | 'item' | 'rep' | 'dice';

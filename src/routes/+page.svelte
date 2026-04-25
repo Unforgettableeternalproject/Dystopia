@@ -286,17 +286,31 @@
 
   let deleteConfirmSlot: number | null = null;
 
+  const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
   async function handleExportSlot(slotId: number) {
     try {
       const json     = await controller.exportSave(slotId);
       const filename = `dystopia_slot${slotId}.dys`;
-      const filePath = await saveDialog({
-        defaultPath: filename,
-        filters: [{ name: 'Dystopia Save', extensions: ['dys'] }],
-      });
-      if (!filePath) return; // user cancelled
-      await writeTextFile(filePath, json);
-      pushLine(`（存檔已匯出：${filePath}）`, 'system');
+      if (IS_TAURI) {
+        const filePath = await saveDialog({
+          defaultPath: filename,
+          filters: [{ name: 'Dystopia Save', extensions: ['dys'] }],
+        });
+        if (!filePath) return; // user cancelled
+        await writeTextFile(filePath, json);
+        pushLine(`（存檔已匯出：${filePath}）`, 'system');
+      } else {
+        // Browser fallback: trigger a download
+        const blob = new Blob([json], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        pushLine(`（存檔已匯出：${filename}）`, 'system');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       pushLine(`匯出失敗：${msg}`, 'system');

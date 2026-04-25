@@ -1144,6 +1144,9 @@ export class GameController {
       await this.startAndRenderEncounter(ctx.restEncounterId);
       this.flushAcquisitions();
       this.releaseInput();
+      // Thoughts will be refreshed when the encounter ends via selectEncounterChoice.
+    } else {
+      await this.refreshThoughts();
     }
   }
 
@@ -1197,6 +1200,8 @@ export class GameController {
       finishLastLine();
       isStreaming.set(false);
     }
+
+    await this.refreshThoughts();
   }
 
   // -- Save / load -------------------------------------------------------
@@ -2689,7 +2694,7 @@ export class GameController {
 
     if (resolved) {
       // Render node via DM (passing def explicitly so it works even after endEncounter clears state)
-      await this.renderEncounterNode(resolved, preDef ?? undefined);
+      const nodeSuggestions = await this.renderEncounterNode(resolved, preDef ?? undefined);
       this.flushAcquisitions();
 
       if (pending.outcomeType !== undefined) {
@@ -2697,18 +2702,19 @@ export class GameController {
         this.encounterMgr.conclude(pending.outcomeType);
         activeEncounterUI.set(null);
         this.syncUIState(this.state.getState());
-        await this.refreshThoughts();
+        await this.refreshThoughts(nodeSuggestions);
       }
     } else {
       // Encounter ended without an outcome node (nextNodeId === null or __continue__).
       // Generate a DM closing summary before returning to exploration.
+      let closeSuggestions: string[] = [];
       if (preDef && preActive && !this.mockMode) {
-        await this.streamEncounterClose(preDef, preActive.collectedNarrative);
+        closeSuggestions = await this.streamEncounterClose(preDef, preActive.collectedNarrative);
       }
       this.flushAcquisitions();
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
-      await this.refreshThoughts();
+      await this.refreshThoughts(closeSuggestions);
     }
 
     // Launch fail-event encounter after the current encounter fully concludes
@@ -2821,12 +2827,13 @@ export class GameController {
   /**
    * Renders a ResolvedNode to the narrative log and updates activeEncounterUI.
    * If the node has a dmNarrative (no hardcoded displayText), streams DM-generated narration.
+   * Returns DM-generated thought suggestions when the node is an outcome node.
    */
   private async renderEncounterNode(
     resolved: ResolvedNode,
     def?: EncounterDefinition,
     isDebug = false,
-  ): Promise<void> {
+  ): Promise<string[]> {
     const gs = this.state.getState();
     // Use the explicitly-passed def when available (e.g., after endEncounter clears state).
     const effectiveDef = def ?? this.lore.getEncounter(gs.activeEncounter?.encounterId ?? '');
@@ -2875,7 +2882,7 @@ export class GameController {
         nodeText:        '',
         choices:         [],
       });
-      // Stream narration
+      // Stream narration — outcome nodes use a prompt that appends <<THOUGHTS:...>>
       let ctx = this.buildEncounterContext(effectiveDef, resolved);
       if (isDebug) {
         ctx = `[DEBUG MODE — 此遭遇由開發人員手動觸發，玩家實際位置可能與遭遇預期地點不符。請直接根據以下 Context 描述遭遇情況，無需顧慮地點一致性，以模擬測試為目的即可。]\n\n` + ctx;
@@ -2883,10 +2890,20 @@ export class GameController {
       nodeText = '';
       isStreaming.set(true);
       pushLine('', lineType, true);
+      let encSignalCutoff = -1;
       try {
-        for await (const chunk of this.dm.narrateEncounterNode(ctx, gs.history)) {
+        for await (const chunk of this.dm.narrateEncounterNode(ctx, gs.history, resolved.isOutcome)) {
+          const prevLen = nodeText.length;
           nodeText += chunk;
-          appendToLastLine(chunk);
+          if (encSignalCutoff === -1) {
+            const idx = nodeText.indexOf('<<THOUGHTS');
+            if (idx !== -1) {
+              if (idx > prevLen) appendToLastLine(nodeText.slice(prevLen, idx));
+              encSignalCutoff = idx;
+            } else {
+              appendToLastLine(chunk);
+            }
+          }
         }
       } catch (err) {
         log.error('Encounter DM narration failed', err);
@@ -2897,14 +2914,28 @@ export class GameController {
         finishLastLine();
       }
       // Reveal choices after narration completes
+      const displayText = (encSignalCutoff === -1 ? nodeText : nodeText.slice(0, encSignalCutoff)).trimEnd();
+      // Patch narrative line to remove any signal artifact at the cutoff boundary
+      if (encSignalCutoff !== -1) {
+        narrativeLines.update(lines => {
+          if (lines.length === 0) return lines;
+          const last = lines[lines.length - 1];
+          if (last.text === displayText) return lines;
+          return [...lines.slice(0, -1), { ...last, text: displayText }];
+        });
+      }
       activeEncounterUI.set({
         encounterId:     resolved.node.id,
         encounterName:   effectiveDef.name,
         type:            effectiveDef.type ?? 'event',
-        nodeText,
+        nodeText:        displayText,
         choices:         resolved.visibleChoices,
         statCheckResult: resolved.statCheckResult,
       });
+      // Return extracted thoughts suggestions for outcome nodes
+      if (resolved.isOutcome) {
+        return extractEncounterThoughts(nodeText);
+      }
     } else {
       // Fallback: raw dmNarrative or placeholder (mock mode / no definition)
       nodeText = resolved.node.dmNarrative ?? '...';
@@ -2918,6 +2949,7 @@ export class GameController {
         statCheckResult: resolved.statCheckResult,
       });
     }
+    return [];
   }
 
   /**
@@ -3036,11 +3068,12 @@ export class GameController {
   /**
    * Streams a DM closing narration when an encounter ends without an explicit outcome node.
    * Called when selectChoice() returns null (nextNodeId === null or __continue__).
+   * Returns DM-generated thought suggestions parsed from the <<THOUGHTS:...>> signal.
    */
   private async streamEncounterClose(
     def: EncounterDefinition,
     collectedNarrative: string,
-  ): Promise<void> {
+  ): Promise<string[]> {
     const gs = this.state.getState();
     const parts: string[] = [];
     parts.push(`## 遭遇名稱：${def.name}`);
@@ -3059,18 +3092,39 @@ export class GameController {
       def.type === 'story' ? 'scene' :
                              'narrative';
 
+    let fullText = '';
+    let closeSignalCutoff = -1;
     isStreaming.set(true);
     pushLine('', closeLineType, true);
     try {
       for await (const chunk of this.dm.narrateEncounterClose(closeCtx, gs.history)) {
-        appendToLastLine(chunk);
+        const prevLen = fullText.length;
+        fullText += chunk;
+        if (closeSignalCutoff === -1) {
+          const idx = fullText.indexOf('<<THOUGHTS');
+          if (idx !== -1) {
+            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            closeSignalCutoff = idx;
+          } else {
+            appendToLastLine(chunk);
+          }
+        }
       }
+      // Patch displayed text to exact cutoff
+      const displayText = (closeSignalCutoff === -1 ? fullText : fullText.slice(0, closeSignalCutoff)).trimEnd();
+      narrativeLines.update(lines => {
+        if (lines.length === 0) return lines;
+        const last = lines[lines.length - 1];
+        if (last.text === displayText) return lines;
+        return [...lines.slice(0, -1), { ...last, text: displayText }];
+      });
     } catch (err) {
       log.error('Encounter close narration failed', err);
     } finally {
       isStreaming.set(false);
       finishLastLine();
     }
+    return extractEncounterThoughts(fullText);
   }
 
   /**
@@ -4463,6 +4517,19 @@ export class GameController {
       eventCounters:  {},
     };
   }
+}
+
+/**
+ * Extract <<THOUGHTS: a | b | c>> signal from encounter DM narration.
+ * Returns parsed suggestions (empty array if signal not found or malformed).
+ */
+function extractEncounterThoughts(raw: string): string[] {
+  const match = raw.match(/<<THOUGHTS:\s*([^>]+)>>/i);
+  if (!match) return [];
+  return match[1]
+    .split('|')
+    .map(s => s.trim())
+    .filter(s => s.length > 0 && s.length <= 30);
 }
 
 function sleep(ms: number): Promise<void> {

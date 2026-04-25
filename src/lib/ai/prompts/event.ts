@@ -28,9 +28,28 @@ Output only the narration. No signal lines of any kind.`;
 
 export const EVENT_NARRATION_PROMPT = EVENT_BASE;
 
+// ── Outcome / closing narration (appends THOUGHTS signal) ────────────────────
+
+const THOUGHTS_SUFFIX = `
+
+After the narration, on a NEW LINE, append exactly one signal in this format:
+<<THOUGHTS: 建議行動1 | 建議行動2 | 建議行動3>>
+Rules for the signal:
+- 2–3 follow-up action suggestions in Traditional Chinese, max 20 characters each.
+- Must reflect what the player can realistically do next given the encounter outcome.
+- Pipe-separated, no extra spaces around pipes.
+- Do NOT skip this line.`;
+
+/** Used for outcome nodes — the last narrative beat before returning to exploration. */
+export const EVENT_OUTCOME_PROMPT = EVENT_BASE.replace(
+  'Output only the narration. No signal lines of any kind.',
+  'Output the narration (2–4 sentences).' + THOUGHTS_SUFFIX,
+);
+
 // ── Event encounter closing narration ────────────────────────────────────────
 
-export const EVENT_CLOSE_PROMPT = EVENT_BASE + `
-
-This is the CLOSING narration of the encounter. Briefly describe how the situation resolves
-and the player returns to the normal flow. 1–3 sentences.`;
+export const EVENT_CLOSE_PROMPT = EVENT_BASE.replace(
+  'Output only the narration. No signal lines of any kind.',
+  `This is the CLOSING narration of the encounter. Briefly describe how the situation resolves
+and the player returns to the normal flow. 1–3 sentences.` + THOUGHTS_SUFFIX,
+);

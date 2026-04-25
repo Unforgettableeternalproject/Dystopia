@@ -14,7 +14,7 @@ import type { ILLMClient } from './ILLMClient';
 import type { TurnResolution, DialogueResolution } from '../types/game';
 import { DM_NARRATION_PROMPT, DM_INTENT_PROMPT } from './prompts/exploration';
 import { DIALOGUE_INTENT_PROMPT, DIALOGUE_NARRATION_PROMPT } from './prompts/dialogue';
-import { EVENT_NARRATION_PROMPT, EVENT_CLOSE_PROMPT } from './prompts/event';
+import { EVENT_NARRATION_PROMPT, EVENT_OUTCOME_PROMPT, EVENT_CLOSE_PROMPT } from './prompts/event';
 import { createLogger } from '../utils/Logger';
 
 const log = createLogger('DM');
@@ -277,6 +277,7 @@ export class DMAgent {
   async *narrateEncounterNode(
     encounterCtx: string,
     history: HistoryEntry[],
+    isOutcome = false,
   ): AsyncGenerator<string> {
     const historyText = history
       .slice(-3)
@@ -291,7 +292,8 @@ export class DMAgent {
       historyText || '(game start)',
     ].join('\n');
 
-    yield* this.client.stream(EVENT_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
+    const prompt = isOutcome ? EVENT_OUTCOME_PROMPT : EVENT_NARRATION_PROMPT;
+    yield* this.client.stream(prompt, [{ role: 'user', content: userMessage }]);
   }
 
   /**
