@@ -86,11 +86,9 @@ function makeNpc(id: string, availablePeriods?: Array<'work' | 'rest' | 'special
   return {
     id,
     name: '測試 NPC',
-    type: 'stationed',
-    baseLocationId: 'delth_dormitory_room',
+    defaultLocationId: 'delth_dormitory_room',
     publicDescription: '一個測試用 NPC',
     dialogueId: id,
-    isVisible: true,
     ...(availablePeriods ? { availablePeriods } : {}),
   };
 }
@@ -197,7 +195,7 @@ describe('JudgeValidation — dialogue encounter deterministic check', () => {
     const client = new JudgeTestClient(npcId);
     const controller = new GameController({ dm: client, regulator: client });
 
-    const invisibleNpc: NPCNode = { ...makeNpc(npcId), isVisible: false };
+    const invisibleNpc: NPCNode = { ...makeNpc(npcId), visibleWhen: '__never_visible__' };
     controller.loadLore({
       locations: { delth_dormitory_room: makeLocation(npcId) },
       npcs:      { [npcId]: invisibleNpc },

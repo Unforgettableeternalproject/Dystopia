@@ -39,15 +39,14 @@ export class FlagSystem {
   }
 
   /**
-   * Evaluate a condition string.
+   * Evaluate a condition string against an arbitrary flag Set.
    * Supports both symbol form ('flag1 & flag2 | !flag3') and word form ('flag1 AND flag2 OR NOT flag3').
    * - '|' / 'OR'  = OR (lowest precedence)
    * - '&' / 'AND' = AND
    * - '!' / 'NOT' prefix = NOT (true when flag is absent)
    */
-  evaluate(condition: string): boolean {
+  static evaluateAgainst(condition: string, flags: Set<string>): boolean {
     if (!condition.trim()) return true;
-    // Normalise word-form operators to symbol form so lore files can use either style.
     const normalised = condition
       .replace(/\bOR\b/g, '|')
       .replace(/\bAND\b/g, '&')
@@ -60,10 +59,17 @@ export class FlagSystem {
           .split('&')
           .every((token) => {
             const t = token.trim();
-            if (t.startsWith('!')) return !this.flags.has(t.slice(1).trim());
-            return this.flags.has(t);
+            if (t.startsWith('!')) return !flags.has(t.slice(1).trim());
+            return flags.has(t);
           })
       );
+  }
+
+  /**
+   * Evaluate a condition string against this instance's flags.
+   */
+  evaluate(condition: string): boolean {
+    return FlagSystem.evaluateAgainst(condition, this.flags);
   }
 
   toArray(): string[] {

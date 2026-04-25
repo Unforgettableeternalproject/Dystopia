@@ -45,6 +45,13 @@ export interface ChoiceEffects {
 
   /** Mark a quest objective as completed. */
   completeObjective?: { questId: string; objectiveId: string };
+
+  /**
+   * 設置 NPC 本地認知旗標。key = npcId，value = 要設置的旗標 ID 陣列。
+   * 用於「從這個 NPC 的對話中得知另一個 NPC 的秘密」等場景。
+   * 例：{ "crambell_kach": ["treffen_trust_gained"] }
+   */
+  npcFlagsSet?: Record<string, string[]>;
 }
 
 /**

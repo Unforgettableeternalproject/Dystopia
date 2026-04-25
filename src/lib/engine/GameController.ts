@@ -19,6 +19,7 @@ import { autoClients }      from '../ai/LLMClientFactory';
 import type { ILLMClient }  from '../ai/ILLMClient';
 import { LoreVault }        from '../lore/LoreVault';
 import { EventBus, GameEvents } from './EventBus';
+import { FlagSystem }       from './FlagSystem';
 import { StateManager }     from './StateManager';
 import { EventEngine }      from './EventEngine';
 import { PhaseManager }     from './PhaseManager';
@@ -544,19 +545,19 @@ export class GameController {
       this.state.getState().timePeriod,
     ).map(n => n.id);
     if (finalAction.type === 'interact' && finalAction.targetId && resolvedSceneNpcIds.includes(finalAction.targetId)) {
-      const npc = this.lore.getNPC(finalAction.targetId);
+      const npc = this.lore.resolveNPC(finalAction.targetId, this.state.flags, this.state.getState().timePeriod);
       if (npc) {
         const interactionCount =
           this.state.getState().npcMemory[finalAction.targetId]?.interactionCount ?? 0;
         const scripted = this.dialogueMgr.checkScriptedTrigger(
-          finalAction.targetId, npc.dialogueId, this.state.flags, interactionCount,
+          finalAction.targetId, npc.activeDialogueId, this.state.flags, interactionCount,
           this._sessionFiredTriggers,
         );
         if (scripted) {
           narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
           this._sessionFiredTriggers.add(scripted.nodeId);
           await this.activateScriptedNode(
-            finalAction.targetId, npc.dialogueId, npc.name,
+            finalAction.targetId, npc.activeDialogueId, npc.name,
             scripted.nodeId, scripted.node,
           );
           inputDisabled.set(false);
@@ -1732,14 +1733,14 @@ export class GameController {
         const visibleNpcs = this.lore.getNPCsByIds(currentResolved.npcIds, this.state.flags, gs.timePeriod);
         const npc = visibleNpcs.find(n => n.id === action.targetId);
         if (npc) {
+          const npcLocalFlags = this.state.getNPCFlags(npc.id);
           const revealedSecrets = (npc.secretLayers ?? [])
-            .filter(s => this.state.flags.evaluate(s.condition))
+            .filter(s => FlagSystem.evaluateAgainst(s.condition, npcLocalFlags))
             .map(s => s.context);
           const mem = gs.npcMemory[npc.id];
           const focusedLines = [
             '\n### Focused NPC',
             'Name: ' + npc.name,
-            'Type: ' + npc.type,
             'Description: ' + npc.publicDescription,
             ...revealedSecrets.map(s => 'Secret: ' + s),
             mem ? 'Relationship: met ' + mem.interactionCount + ' times, attitude: ' + mem.playerAttitude : 'Relationship: first encounter',
@@ -2330,7 +2331,7 @@ export class GameController {
   }
 
   private async handleDialogueInput(text: string, npcId: string, opener = false): Promise<void> {
-    const npc = this.lore.getNPC(npcId);
+    const npc = this.lore.resolveNPC(npcId, this.state.flags, this.state.getState().timePeriod);
     if (!npc) {
       // NPC gone — exit encounter silently
       activeNpcUI.set(null);
@@ -2343,17 +2344,17 @@ export class GameController {
     if (!opener) {
       const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
       const scripted = this.dialogueMgr.checkScriptedTrigger(
-        npcId, npc.dialogueId, this.state.flags, interactionCount,
+        npcId, npc.activeDialogueId, this.state.flags, interactionCount,
         this._sessionFiredTriggers,
       );
       if (scripted) {
         this._sessionFiredTriggers.add(scripted.nodeId);
-        await this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
+        await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node);
         return;
       }
     }
 
-    const npcContext = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.dialogueId, this.state.flags);
+    const npcContext = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.activeDialogueId, this.state.flags);
 
     // ── Trace: start dialogue turn ────────────────────────────────────
     const gs = this.state.getState();
@@ -2507,6 +2508,7 @@ export class GameController {
     // ── Apply NPC state from resolution ────────────────────────────────
     if (resolution.npcState) {
       this.state.recordNPCInteraction(npcId);
+      this.checkNPCKnowledgeTriggers(npcId);
       this.state.updateNPCDialogueState(npcId, resolution.npcState.topic, resolution.npcState.attitude);
     }
 
@@ -3943,6 +3945,23 @@ export class GameController {
     }
   }
 
+  /**
+   * After recordNPCInteraction, check if any knowledgeTriggers thresholds have been
+   * reached and auto-set the corresponding NPC-local flags.
+   */
+  private checkNPCKnowledgeTriggers(npcId: string): void {
+    const npc = this.lore.getNPC(npcId);
+    if (!npc?.knowledgeTriggers?.length) return;
+    const mem = this.state.getState().npcMemory[npcId];
+    if (!mem) return;
+    const count = mem.interactionCount;
+    for (const trigger of npc.knowledgeTriggers) {
+      if (count < trigger.interactionCount) continue;
+      if (trigger.condition && !this.state.flags.evaluate(trigger.condition)) continue;
+      this.state.setNPCFlag(npcId, trigger.flagId);
+    }
+  }
+
   private async endScriptedDialogue(): Promise<void> {
     const current = get(activeScriptedDialogue);
     if (!current) return;
@@ -3951,6 +3970,7 @@ export class GameController {
 
     // Increment NPC interaction count first — this creates npcMemory entry if first contact.
     this.state.recordNPCInteraction(npcId);
+    this.checkNPCKnowledgeTriggers(npcId);
 
     // Build a topic summary from the player choices recorded in collectedNarrative.
     // "[玩家]: <choice text>" lines are appended by selectDialogueChoice().
@@ -4003,7 +4023,6 @@ export class GameController {
     activeNpcUI.set({
       npcId,
       name:             npc.name,
-      type:             npc.type,
       publicDescription: npc.publicDescription,
       affinity:         gs.player.externalStats.affinity[npcId] ?? 0,
       attitude:         mem?.playerAttitude ?? 'neutral',
@@ -4103,7 +4122,7 @@ export class GameController {
 
   /** Open the NPC dialogue panel for npcId and immediately fire any matching scripted trigger. */
   async debugStartNpcDialogue(npcId: string): Promise<void> {
-    const npc = this.lore.getNPC(npcId);
+    const npc = this.lore.resolveNPC(npcId, this.state.flags, this.state.getState().timePeriod);
     if (!npc) {
       pushLine(`[Debug] 找不到 NPC：${npcId}`, 'system');
       return;
@@ -4116,12 +4135,12 @@ export class GameController {
     // Fire scripted trigger immediately (same logic as interact action flow)
     const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
     const scripted = this.dialogueMgr.checkScriptedTrigger(
-      npcId, npc.dialogueId, this.state.flags, interactionCount,
+      npcId, npc.activeDialogueId, this.state.flags, interactionCount,
       this._sessionFiredTriggers,
     );
     if (scripted) {
       this._sessionFiredTriggers.add(scripted.nodeId);
-      await this.activateScriptedNode(npcId, npc.dialogueId, npc.name, scripted.nodeId, scripted.node);
+      await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node);
     } else {
       // No scripted trigger — NPC opens the conversation via LLM
       await this.handleDialogueInput('(opener)', npcId, true);
@@ -4234,12 +4253,12 @@ export class GameController {
   debugInspectContext(npcId?: string): void {
     if (npcId) {
       // Dialogue context for a specific NPC
-      const npc = this.lore.getNPC(npcId);
+      const npc = this.lore.resolveNPC(npcId, this.state.flags, this.state.getState().timePeriod);
       if (!npc) {
         pushLine(`[Debug] 找不到 NPC：${npcId}`, 'system');
         return;
       }
-      const ctx = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.dialogueId, this.state.flags);
+      const ctx = this.dialogueMgr.buildNPCDialogueContext(npcId, npc.activeDialogueId, this.state.flags);
       pushLine(`[Debug] 對話 context — ${npcId}:\n\n${ctx || '（空）'}`, 'system');
     } else {
       // Scene context (what the exploration DM receives)

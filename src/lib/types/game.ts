@@ -149,6 +149,14 @@ export interface NPCMemoryEntry {
    * DM 用於避免重複相同的對話內容。
    */
   lastTopic?: string;
+
+  /**
+   * NPC 專屬的認知旗標集合。
+   * 儲存玩家對這個 NPC 的了解深度（如「曾交談兩次」、「知道真實身份」等）。
+   * 由 knowledgeTriggers、對話節點 npcFlagsSet、或 EventOutcome npcFlagsSet 設置。
+   * secretLayers.condition 只評估此陣列，不查全局 FlagSystem。
+   */
+  flags?: string[];
 }
 
 /**

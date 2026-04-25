@@ -315,7 +315,6 @@ export const detailedPlayer = writable<DetailedPlayerState | null>(null);
 export interface ActiveNpcUIState {
   npcId:            string;
   name:             string;
-  type:             string;
   publicDescription: string;
   affinity:         number;
   attitude:         string;

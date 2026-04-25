@@ -181,6 +181,10 @@ export class DialogueManager {
     if (effects.grantIntel) {
       for (const intelId of effects.grantIntel) this.state.grantIntel(intelId);
     }
+
+    if (effects.npcFlagsSet) {
+      this.state.applyNPCFlagsSet(effects.npcFlagsSet);
+    }
   }
 
   // ── LLM Context Builder ───────────────────────────────────────

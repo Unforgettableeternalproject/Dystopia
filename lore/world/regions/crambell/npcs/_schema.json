@@ -2,17 +2,25 @@
   "_schema": "NPCNode — one file per NPC",
   "id": "region_npc_name",
   "name": "NPC顯示名稱",
-  "type": "stationed",
-  "baseLocationId": "region_location_id",
+  "defaultLocationId": "region_location_id",
   "factionId": "faction_id",
 
-  "_comment_description": [
-    "publicDescription: DM 永遠可見的表面資訊，只寫公開人設，絕對不含任何秘密或隱藏身份。",
-    "secretLayers: 依旗標條件分層揭露。每層獨立解鎖，知道 A 不代表知道 B。",
-    "  condition: 旗標運算式，為 true 時此層 context 被加入 DM prompt。",
-    "  context: 此層揭露的角色深度資訊，只給 DM，不直接顯示給玩家。",
-    "  dialogueId: 選填，此層解鎖後切換的對話樹。",
-    "phaseOverrides: 只處理狀態/行為變化（位置、可見性、對話樹），不放描述內容。"
+  "_comment_fields": [
+    "defaultLocationId: NPC 預設所在地點。省略代表預設不在任何地方，需靠 schedule 觸發出現。",
+    "publicDescription: DM 永遠可見的表面資訊，只寫公開人設，絕對不含任何秘密。",
+    "secretLayers: 依旗標條件分層揭露給 DM 的角色深度資訊。每層獨立解鎖。",
+    "  secretLayers 的 condition 對照 NPC 本地旗標（npcMemory[npcId].flags），而非全局旗標。",
+    "dialogueId: 預設對話樹 ID（指向 dialogues/<id>.json）。",
+    "dialogueRules: 條件式對話樹切換。priority 高者優先；無規則命中則用 dialogueId。",
+    "visibleWhen: 旗標運算式。省略 = 永遠可見。為 false 時 NPC 完全不出現。",
+    "availablePeriods: 整體時段限制。省略 = 不限時段。",
+    "schedule: 位置排程。依 priority 取第一個成立條件決定當前位置。",
+    "  locationId 省略 = 此條件下不在任何地方（暫時消失）。",
+    "  location 白名單：NPC 可能出現的所有地點都要在 LocationNode.npcIds 預先列出。",
+    "knowledgeTriggers: 互動次數門檻觸發的 NPC 本地認知旗標。",
+    "  interactionCount: 達到此互動次數時自動設置旗標（含等於）。",
+    "  flagId: 要設置的 NPC 本地旗標 ID。",
+    "  condition: （選填）全局旗標前置條件，不符則跳過此觸發。"
   ],
 
   "publicDescription": "DM-facing 表面人設。只寫公開可見的資訊，不含任何秘密。",
@@ -21,19 +29,38 @@
       "id": "layer_id",
       "label": "這層代表什麼資訊（設計備注，不進 prompt）",
       "condition": "flag_expression",
-      "context": "此層解鎖後 DM 額外獲得的角色 context。",
-      "dialogueId": "optional_new_dialogue_id"
+      "context": "此層解鎖後 DM 額外獲得的角色 context。"
     }
   ],
 
   "dialogueId": "region_npc_name",
-  "questIds": [],
-  "isVisible": true,
-  "phaseOverrides": {
-    "flag_expression": {
+  "dialogueRules": [
+    {
+      "id": "rule_id",
+      "label": "設計備注",
+      "condition": "flag_expression",
       "dialogueId": "region_npc_name_variant",
-      "isVisible": true,
-      "baseLocationId": "new_location_id"
+      "priority": 10
     }
-  }
+  ],
+  "questIds": [],
+  "visibleWhen": "flag_expression",
+  "availablePeriods": ["work"],
+  "schedule": [
+    {
+      "id": "schedule_id",
+      "label": "設計備注",
+      "condition": "flag_expression",
+      "locationId": "new_location_id",
+      "priority": 10,
+      "timePeriods": ["rest"]
+    }
+  ],
+  "knowledgeTriggers": [
+    {
+      "flagId": "npc_trusted_player",
+      "interactionCount": 3,
+      "condition": "optional_global_flag"
+    }
+  ]
 }

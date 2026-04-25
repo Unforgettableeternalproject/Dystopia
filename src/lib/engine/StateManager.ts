@@ -438,6 +438,7 @@ export class StateManager {
         lastInteractedTurn: this.state.turn,
         interactionCount:   1,
         playerAttitude:     'neutral',
+        flags:              [],
       };
     } else {
       existing.lastInteractedTurn = this.state.turn;
@@ -455,6 +456,42 @@ export class StateManager {
     if (!mem) return;
     if (topic)    mem.lastTopic      = topic;
     if (attitude) mem.playerAttitude = attitude;
+    this.notifyUpdate();
+  }
+
+  /**
+   * 取得指定 NPC 的本地認知旗標集合。
+   */
+  getNPCFlags(npcId: string): Set<string> {
+    return new Set(this.state.npcMemory[npcId]?.flags ?? []);
+  }
+
+  /**
+   * 設置指定 NPC 的本地認知旗標。
+   * 若旗標已存在則不重複設置。
+   */
+  setNPCFlag(npcId: string, flagId: string): void {
+    const mem = this.state.npcMemory[npcId];
+    if (!mem) return;
+    if (!mem.flags) mem.flags = [];
+    if (!mem.flags.includes(flagId)) {
+      mem.flags.push(flagId);
+      this.notifyUpdate();
+    }
+  }
+
+  /**
+   * 批量設置多個 NPC 的本地認知旗標（用於 EventOutcome / ChoiceEffects.npcFlagsSet）。
+   */
+  applyNPCFlagsSet(npcFlagsSet: Record<string, string[]>): void {
+    for (const [npcId, flagIds] of Object.entries(npcFlagsSet)) {
+      const mem = this.state.npcMemory[npcId];
+      if (!mem) continue;
+      if (!mem.flags) mem.flags = [];
+      for (const flagId of flagIds) {
+        if (!mem.flags.includes(flagId)) mem.flags.push(flagId);
+      }
+    }
     this.notifyUpdate();
   }
 

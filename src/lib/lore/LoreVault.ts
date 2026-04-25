@@ -3,7 +3,7 @@
 
 import type {
   LocationNode, ResolvedLocation, LocationConnection, ConnectionAccess,
-  NPCNode, NPCOverride,
+  NPCNode, ResolvedNPC,
   GameEvent, Faction, RegionIndex,
   DistrictIndex, RegionSchedule, FlagManifestEntry,
   TimePeriod, PathResult, PathSegment,
@@ -20,7 +20,7 @@ import type { ProximityContext } from '../engine/FlagRegistry';
 import type { DialogueProfile } from '../types/dialogue';
 import type { QuestDefinition, QuestInstance } from '../types/quest';
 import type { WorldPhase, WorldPhaseId, PhaseEffect } from '../types/phase';
-import type { FlagSystem } from '../engine/FlagSystem';
+import { FlagSystem } from '../engine/FlagSystem';
 import type { NPCMemoryEntry } from '../types/game';
 import { checkDateTimeConditions, checkTimeRanges } from '../utils/dateTimeCondition';
 
@@ -160,6 +160,13 @@ export class LoreVault {
       if (v.transitionNote) transitionNotes.push(v.transitionNote);
     }
 
+    // NPC schedule 過濾：只保留當前 resolvedLocation === 此地點的 NPC
+    const filteredNpcs = new Set<string>();
+    for (const npcId of npcSet) {
+      const resolvedLoc = this.resolveNPCLocation(npcId, flags);
+      if (resolvedLoc === id) filteredNpcs.add(npcId);
+    }
+
     const effectiveName = node.base.name ?? node.name;
     return {
       id: node.id,
@@ -167,7 +174,7 @@ export class LoreVault {
       areaName: node.base.name ? node.name : undefined,
       regionId: node.regionId, tags: node.tags,
       description, ambience, connections,
-      npcIds: Array.from(npcSet), eventIds: Array.from(evtSet), propIds: Array.from(propSet),
+      npcIds: Array.from(filteredNpcs), eventIds: Array.from(evtSet), propIds: Array.from(propSet),
       isAccessible, activeVariants, transitionNotes,
       districtId:   node.districtId,
       parentId:     node.parentId,
@@ -523,26 +530,54 @@ export class LoreVault {
     return this.data.npcs[id];
   }
 
-  // Resolve NPC with phase overrides and optional time period filter applied.
-  resolveNPC(id: string, flags: FlagSystem, timePeriod?: TimePeriod): NPCNode | undefined {
+  /**
+   * NPC 當前實際所在的地點 ID。
+   * - 有 schedule：依 priority 取第一個條件成立的項目；locationId 省略代表暫時不在任何地方
+   * - 無 schedule：回傳 defaultLocationId（可能為 undefined）
+   */
+  resolveNPCLocation(id: string, flags: FlagSystem, timePeriod?: TimePeriod): string | undefined {
     const npc = this.data.npcs[id];
-    if (!npc || !npc.isVisible) return undefined;
-    if (timePeriod && npc.availablePeriods?.length && !npc.availablePeriods.includes(timePeriod)) return undefined;
-    if (!npc.phaseOverrides) return npc;
+    if (!npc) return undefined;
+    if (!npc.schedule?.length) return npc.defaultLocationId;
 
-    let patch: NPCOverride = {};
-    for (const [condition, override] of Object.entries(npc.phaseOverrides)) {
-      if (flags.evaluate(condition)) {
-        patch = { ...patch, ...override };
-      }
+    const sorted = [...npc.schedule].sort((a, b) => b.priority - a.priority);
+    for (const entry of sorted) {
+      if (timePeriod && entry.timePeriods?.length && !entry.timePeriods.includes(timePeriod)) continue;
+      if (flags.evaluate(entry.condition)) return entry.locationId;
     }
-    return { ...npc, ...patch };
+    return npc.defaultLocationId;
   }
 
-  getNPCsByIds(ids: string[], flags: FlagSystem, timePeriod?: TimePeriod): NPCNode[] {
+  /**
+   * 解析 NPC，回傳附帶 currentLocationId 與 activeDialogueId 的 ResolvedNPC。
+   * 若 NPC 不存在、visibleWhen 條件不通過、或時段不符，回傳 undefined。
+   */
+  resolveNPC(id: string, flags: FlagSystem, timePeriod?: TimePeriod): ResolvedNPC | undefined {
+    const npc = this.data.npcs[id];
+    if (!npc) return undefined;
+    if (npc.visibleWhen !== undefined && !flags.evaluate(npc.visibleWhen)) return undefined;
+    if (timePeriod && npc.availablePeriods?.length && !npc.availablePeriods.includes(timePeriod)) return undefined;
+
+    const currentLocationId = this.resolveNPCLocation(id, flags, timePeriod);
+
+    let activeDialogueId = npc.dialogueId;
+    if (npc.dialogueRules?.length) {
+      const sorted = [...npc.dialogueRules].sort((a, b) => b.priority - a.priority);
+      for (const rule of sorted) {
+        if (flags.evaluate(rule.condition)) {
+          activeDialogueId = rule.dialogueId;
+          break;
+        }
+      }
+    }
+
+    return { ...npc, currentLocationId, activeDialogueId };
+  }
+
+  getNPCsByIds(ids: string[], flags: FlagSystem, timePeriod?: TimePeriod): ResolvedNPC[] {
     return ids
       .map(id => this.resolveNPC(id, flags, timePeriod))
-      .filter((n): n is NPCNode => !!n);
+      .filter((n): n is ResolvedNPC => !!n);
   }
 
   // -- Dialogue Profiles -----------------------------------------------
@@ -756,7 +791,7 @@ export class LoreVault {
   /** Returns all loadable IDs + display names for the debug launcher. */
   getDebugCatalog(): {
     encounters: { id: string; name: string; type: string }[];
-    npcs:       { id: string; name: string; type: string }[];
+    npcs:       { id: string; name: string }[];
     events:     { id: string; name: string }[];
     quests:     { id: string; name: string }[];
     locations:  { id: string; name: string }[];
@@ -766,7 +801,7 @@ export class LoreVault {
   } {
     return {
       encounters: Object.values(this.data.encounters).map(e => ({ id: e.id, name: e.name, type: e.type ?? 'event' })),
-      npcs:       Object.values(this.data.npcs).map(n => ({ id: n.id, name: n.name, type: n.type })),
+      npcs:       Object.values(this.data.npcs).map(n => ({ id: n.id, name: n.name })),
       events:     Object.values(this.data.events).map(e => ({ id: e.id, name: e.name ?? e.id })),
       quests:     Object.values(this.data.quests).map(q => ({ id: q.id, name: q.name })),
       locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
@@ -833,13 +868,14 @@ export class LoreVault {
 
     const npcLines = npcs
       .map(n => {
-        // 公開描述永遠包含，秘密層依旗標條件追加
+        // 公開描述永遠包含，秘密層依 NPC 本地旗標條件追加
+        const npcLocalFlags = new Set(npcMemory?.[n.id]?.flags ?? []);
         const revealedSecrets = (n.secretLayers ?? [])
-          .filter(s => flags.evaluate(s.condition))
+          .filter(s => FlagSystem.evaluateAgainst(s.condition, npcLocalFlags))
           .map(s => s.context)
           .join(' ');
         const desc = n.publicDescription + (revealedSecrets ? ' | ' + revealedSecrets : '');
-        const base = '- ' + n.name + ' (' + n.type + '): ' + desc;
+        const base = '- ' + n.name + ': ' + desc;
 
         if (!npcMemory) return base;
         const mem = npcMemory[n.id];

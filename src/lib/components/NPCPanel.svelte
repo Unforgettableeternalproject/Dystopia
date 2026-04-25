@@ -17,11 +17,7 @@
     hostile:  '敵對',
   };
 
-  const NPC_TYPE_LABEL: Record<string, string> = {
-    hub:     '據點型',
-    quest:   '任務型',
-    roaming: '遊歷型',
-  };
+
 
   $: npc = $activeNpcUI;
   $: attitudeColor = npc ? (ATTITUDE_COLOR[npc.attitude] ?? 'var(--text-dim)') : '';
@@ -35,10 +31,9 @@
       <div class="avatar">{initial}</div>
     </div>
 
-    <!-- Name + type -->
+    <!-- Name -->
     <div class="npc-header">
       <div class="npc-name">{npc.name}</div>
-      <div class="npc-type">{NPC_TYPE_LABEL[npc.type] ?? npc.type}</div>
     </div>
 
     <!-- Description -->

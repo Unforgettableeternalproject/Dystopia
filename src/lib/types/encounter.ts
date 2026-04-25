@@ -130,6 +130,11 @@ export interface EncounterChoiceEffects {
   applyConditionId?: string;
   /** 移除指定狀態條件的 ID 列表。 */
   removeConditionIds?: string[];
+  /**
+   * 設置 NPC 本地認知旗標。key = npcId，value = 要設置的旗標 ID 陣列。
+   * 例：{ "crambell_kach": ["treffen_trust_gained"] }
+   */
+  npcFlagsSet?: Record<string, string[]>;
 }
 
 /** 遭遇中的單一選項 */

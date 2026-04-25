@@ -73,7 +73,10 @@
             "_quest_init": "Quest lifecycle effects.",
             "grantQuest": "quest_id — immediately grants the quest (player does not manually accept).",
             "advanceQuestStage": { "questId": "quest_id", "stageId": "next_stage_id" },
-            "completeObjective": { "questId": "quest_id", "objectiveId": "objective_id" }
+            "completeObjective": { "questId": "quest_id", "objectiveId": "objective_id" },
+
+            "_npc_knowledge": "Set NPC-local knowledge flags. key = npcId, value = flag ID array. Flags are scoped to npcMemory[npcId].flags, NOT global FlagSystem. Used for 'player learns about another NPC from this NPC' scenarios.",
+            "npcFlagsSet": { "target_npc_id": ["flag_id_to_set_on_target_npc"] }
           }
         },
         {

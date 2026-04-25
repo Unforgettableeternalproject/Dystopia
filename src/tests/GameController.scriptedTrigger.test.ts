@@ -81,10 +81,8 @@ function makeNpc(): NPCNode {
     id:                NPC_ID,
     name:              'Test NPC',
     dialogueId:        DIALOGUE_ID,
-    type:              'stationed',
-    baseLocationId:    LOCATION_ID,
+    defaultLocationId: LOCATION_ID,
     publicDescription: 'A test NPC.',
-    isVisible:         true,
   };
 }
 

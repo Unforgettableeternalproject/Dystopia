@@ -471,6 +471,9 @@ export class EncounterEngine {
       this.state.addCondition(effects.applyConditionId, id => this.lore.getCondition(id));
     }
     effects.removeConditionIds?.forEach(id => this.state.removeCondition(id));
+    if (effects.npcFlagsSet) {
+      this.state.applyNPCFlagsSet(effects.npcFlagsSet);
+    }
   }
 
   /** 玩家是否持有所有指定未失效物品 */

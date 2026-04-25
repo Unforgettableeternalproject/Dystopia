@@ -1,8 +1,7 @@
 {
   "id": "crambell_orland",
   "name": "奧蘭",
-  "type": "wandering",
-  "baseLocationId": "delth_warehouse",
+  "defaultLocationId": "delth_warehouse",
   "factionId": "crambell_treffen",
   "publicDescription": "穿梭於各象限的物流司機，貨物百分之百準時無損到達，這個紀錄在坎貝爾幾乎是個傳說。他與政府有很深的交情。沒有確鑿證據的情況下誣賴他，玩家自己會陷入麻煩。",
   "secretLayers": [
@@ -16,12 +15,18 @@
       "id": "orland_treffen_member",
       "label": "舊會議成員，奧克利·尼可羅",
       "condition": "crambell_treffen_trust_high",
-      "context": "奧蘭本名奧克利·尼可羅，是舊會議成員，負責在三區內部運送重要物資與情報，是凱奇長期信賴的夥伴。他完全知道玩家已經知道他的身份，這次開口是他主動選擇的。",
-      "dialogueId": "crambell_orland_revealed"
+      "context": "奧蘭本名奧克利·尼可羅，是舊會議成員，負責在三區內部運送重要物資與情報，是凱奇長期信賴的夥伴。他完全知道玩家已經知道他的身份，這次開口是他主動選擇的。"
     }
   ],
   "dialogueId": "crambell_orland_default",
-  "questIds": [],
-  "isVisible": true,
-  "phaseOverrides": {}
+  "dialogueRules": [
+    {
+      "id": "rule_revealed",
+      "label": "身份揭露後切換舊會議對話",
+      "condition": "crambell_treffen_trust_high",
+      "dialogueId": "crambell_orland_revealed",
+      "priority": 10
+    }
+  ],
+  "questIds": []
 }

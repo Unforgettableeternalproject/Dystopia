@@ -516,6 +516,9 @@ export class EventEngine {
     if (outcome.characterExpGrant) {
       this.state.grantCharacterExp(outcome.characterExpGrant);
     }
+    if (outcome.npcFlagsSet) {
+      this.state.applyNPCFlagsSet(outcome.npcFlagsSet);
+    }
     // grantQuestId, startEncounterId, failQuestId are intentionally NOT applied here.
     // They require higher-level coordination (QuestEngine / EncounterEngine)
     // and are handled by GameController after processEventIds returns.

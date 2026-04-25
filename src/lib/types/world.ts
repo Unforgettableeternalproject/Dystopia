@@ -6,8 +6,6 @@ import type { ItemRequirement } from './item';
 
 // ── NPC ──────────────────────────────────────────────────────────
 
-export type NPCType = 'stationed' | 'quest' | 'wandering';
-
 /**
  * NPC 的單層知識。每層有自己的解鎖條件，只有在 flags 滿足時
  * 該層的 context 才會被加入 DM 的場景 prompt。
@@ -25,36 +23,102 @@ export interface NPCSecretLayer {
   condition: string;
   /** 此層解鎖後 DM 額外獲得的角色 context */
   context: string;
-  /** 此層解鎖後切換的對話樹 ID（選填） */
-  dialogueId?: string;
 }
 
 /**
- * phaseOverrides：只處理狀態/行為變化（位置、可見性、對話樹）。
- * 描述層的知識變化請用 NPCNode.secretLayers，不要在這裡加 description。
+ * NPC 位置排程項目。
+ * condition 成立時，NPC 出現在 locationId 指定的地點。
+ * locationId 省略 = 此條件下 NPC 不在任何地方（暫時消失）。
  */
-export interface NPCOverride {
-  dialogueId?: string;
-  isVisible?: boolean;
-  baseLocationId?: string;
+export interface NPCScheduleEntry {
+  id: string;
+  /** 設計備注（不出現在 prompt 中） */
+  label: string;
+  /** 旗標運算式；為 true 時套用此項目 */
+  condition: string;
+  /** NPC 所在地點；省略 = 不在任何地方 */
+  locationId?: string;
+  /** 優先序；數值高者優先；相同優先序取第一個成立的 */
+  priority: number;
+  /** 額外時段限制；省略 = 不限時段 */
+  timePeriods?: TimePeriod[];
+  timeRanges?: GameTimeRange[];
+}
+
+/**
+ * 條件式對話樹切換。
+ * condition 成立時，NPC 的對話樹改為 dialogueId。
+ */
+export interface NPCDialogueRule {
+  id: string;
+  /** 設計備注（不出現在 prompt 中） */
+  label: string;
+  /** 旗標運算式；為 true 時套用此規則 */
+  condition: string;
+  dialogueId: string;
+  /** 優先序；數值高者優先 */
+  priority: number;
+}
+
+/**
+ * NPC 認知觸發規則。
+ * 累積與此 NPC 的互動次數達到 interactionCount 後，
+ * 自動在 npcMemory[npcId].flags 中設置 flagId。
+ * 可附加前置旗標條件（全局旗標運算式）。
+ */
+export interface NPCKnowledgeTrigger {
+  /** 要設置的 NPC 本地旗標 ID */
+  flagId: string;
+  /** 累積與此 NPC 的互動次數達到此數後觸發 */
+  interactionCount: number;
+  /**
+   * 選填：全局旗標前置條件。
+   * 省略 = 無前置條件（純粹依互動次數觸發）。
+   */
+  condition?: string;
 }
 
 export interface NPCNode {
   id: string;
   name: string;
-  type: NPCType;
-  baseLocationId: string;        // primary location (wandering type may change at runtime)
+  /** 預設位置 ID；省略 = 預設不在任何地方（須靠 schedule 觸發出現） */
+  defaultLocationId?: string;
   factionId?: string;
   /** DM 永遠可見的表面資訊，只寫公開人設，不含任何秘密 */
   publicDescription: string;
   /** 知識層：依旗標條件分層揭露給 DM 的角色深度資訊 */
   secretLayers?: NPCSecretLayer[];
-  dialogueId: string;            // points to dialogues/<id>.json
+  /** 預設對話樹 ID */
+  dialogueId: string;
+  /** 條件式對話樹切換；優先序高者勝出，無規則命中則用 dialogueId */
+  dialogueRules?: NPCDialogueRule[];
   questIds?: string[];
-  isVisible: boolean;
-  /** 時段限制；省略 = 任何時段皆可出現 */
+  /**
+   * NPC 可見條件（旗標運算式）。
+   * 省略 = 永遠可見（位置由 schedule / defaultLocationId 決定）。
+   * 設定後，運算式為 false 時 NPC 完全不出現，無論位置如何。
+   */
+  visibleWhen?: string;
+  /** 整體時段限制；省略 = 任何時段皆可出現 */
   availablePeriods?: TimePeriod[];
-  phaseOverrides?: Record<string, NPCOverride>;  // flag expression -> patch
+  /** 位置排程；依 priority 取第一個成立的條件決定 NPC 當前位置 */
+  schedule?: NPCScheduleEntry[];
+  /**
+   * 認知觸發規則。互動次數達到閾值後自動設置 NPC 本地旗標。
+   * 設置的旗標儲存在 npcMemory[id].flags，供 secretLayers.condition 評估。
+   */
+  knowledgeTriggers?: NPCKnowledgeTrigger[];
+}
+
+/**
+ * resolveNPC 的回傳型別。
+ * 在 NPCNode 的基礎上附加計算後的位置與對話樹。
+ */
+export interface ResolvedNPC extends NPCNode {
+  /** 當前實際所在地點 ID；undefined = 目前不在任何地方 */
+  currentLocationId: string | undefined;
+  /** 當前生效的對話樹 ID（已套用 dialogueRules） */
+  activeDialogueId: string;
 }
 
 // ── Location ─────────────────────────────────────────────────────
@@ -537,6 +601,12 @@ export interface EventOutcome {
    * 累積後提升技能 XP 加成梯度與每日 GRANT 上限。
    */
   characterExpGrant?: number;
+  /**
+   * 設置 NPC 本地認知旗標。key = npcId，value = 要設置的旗標 ID 陣列。
+   * 設置的旗標儲存在 npcMemory[npcId].flags，供 secretLayers.condition 評估。
+   * 用於「從事件或另一個 NPC 處得知某人的秘密」等場景。
+   */
+  npcFlagsSet?: Record<string, string[]>;
 }
 
 export interface GameEvent {

@@ -1,8 +1,7 @@
 {
   "id": "crambell_kane",
   "name": "凱恩·梅西斯",
-  "type": "quest",
-  "baseLocationId": "delth_mining_shafts",
+  "defaultLocationId": "delth_mining_shafts",
   "factionId": "crambell_government",
   "publicDescription": "負責第三到第四象限治安的地區警監（內勤2★），高挑，面容嚴肅，制服永遠整潔。對違規者沒有同情心，對反抗政府的人認為那不過是找死。一般會叼著一根菸。",
   "secretLayers": [
@@ -22,19 +21,26 @@
       "id": "kane_leverage_network",
       "label": "情報與把柄網絡",
       "condition": "crambell_kane_deeply_known",
-      "context": "凱恩掌握著大量工人、低階官員、甚至部分高層的把柄，這是他真正的護身符。他的晉升路徑依賴的不是工作表現，而是讓上面的人需要他、又怕他開口。",
-      "dialogueId": "crambell_kane_deal"
+      "context": "凱恩掌握著大量工人、低階官員、甚至部分高層的把柄，這是他真正的護身符。他的晉升路徑依賴的不是工作表現，而是讓上面的人需要他、又怕他開口。"
     }
   ],
   "dialogueId": "crambell_kane_default",
-  "questIds": [],
-  "isVisible": true,
-  "phaseOverrides": {
-    "crambell_player_allied_government": {
-      "dialogueId": "crambell_kane_cooperative"
+  "dialogueRules": [
+    {
+      "id": "rule_allied",
+      "label": "與政府結盟後切換合作對話",
+      "condition": "crambell_player_allied_government",
+      "dialogueId": "crambell_kane_cooperative",
+      "priority": 10
     },
-    "crambell_player_exposed_kane": {
-      "isVisible": false
+    {
+      "id": "rule_deal",
+      "label": "深入了解後可談條件",
+      "condition": "crambell_kane_deeply_known",
+      "dialogueId": "crambell_kane_deal",
+      "priority": 5
     }
-  }
+  ],
+  "questIds": [],
+  "visibleWhen": "!crambell_player_exposed_kane"
 }

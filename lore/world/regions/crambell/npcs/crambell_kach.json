@@ -1,8 +1,7 @@
 {
   "id": "crambell_kach",
   "name": "凱奇·巴頓",
-  "type": "quest",
-  "baseLocationId": "delth_mine_worksite",
+  "defaultLocationId": "delth_mine_worksite",
   "factionId": "crambell_treffen",
   "publicDescription": "玩家的室友兼工班夥伴，表面上是個普通的礦工，做事沉穩，話不多但可靠。他有一種讓待在他周圍的人莫名安心的氣質，這種特質並非刻意營造。他對整個坎貝爾的地理格局和高層動向的了解似乎超出一個普通工人應有的程度，但從不主動展示這些知識。",
   "secretLayers": [
@@ -16,8 +15,7 @@
       "id": "kach_treffen_member",
       "label": "舊會議成員",
       "condition": "crambell_treffen_trust_gained",
-      "context": "凱奇是舊會議成員，對三區的地下通道網路瞭若指掌。他一直在評估玩家的可靠性，他說的每一句話都比表面上更有目的。",
-      "dialogueId": "crambell_kach_treffen"
+      "context": "凱奇是舊會議成員，對三區的地下通道網路瞭若指掌。他一直在評估玩家的可靠性，他說的每一句話都比表面上更有目的。"
     },
     {
       "id": "kach_true_identity",
@@ -27,15 +25,22 @@
     }
   ],
   "dialogueId": "crambell_kach_default",
-  "questIds": [],
-  "isVisible": true,
-  "availablePeriods": ["work"],
-  "phaseOverrides": {
-    "crambell_treffen_trust_gained": {
-      "dialogueId": "crambell_kach_treffen"
+  "dialogueRules": [
+    {
+      "id": "rule_treffen_deep",
+      "label": "信任度高時切換深度對話",
+      "condition": "crambell_treffen_trust_high",
+      "dialogueId": "crambell_kach_deep",
+      "priority": 20
     },
-    "crambell_treffen_trust_high": {
-      "dialogueId": "crambell_kach_deep"
+    {
+      "id": "rule_treffen_gained",
+      "label": "信任建立後切換舊會議對話",
+      "condition": "crambell_treffen_trust_gained",
+      "dialogueId": "crambell_kach_treffen",
+      "priority": 10
     }
-  }
+  ],
+  "questIds": [],
+  "availablePeriods": ["work"]
 }
