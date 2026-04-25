@@ -27,8 +27,8 @@ import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode, EncounterPendingEffects } from './EncounterEngine';
-import { RestResolver }     from './RestResolver';
-import type { RestResult }  from './RestResolver';
+import { RestResolver, QUALITY_LABEL } from './RestResolver';
+import type { RestResult }             from './RestResolver';
 import type { EncounterDefinition, ScriptLine } from '../types/encounter';
 import type { PlayerAction, ActionType, ActionTargetKind, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
 import type { ObserveSnapshot, RestContext } from '../types/prop';
@@ -672,8 +672,12 @@ export class GameController {
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
     // Downward correction (resolution < default) is deferred — TimeManager.advance() only
     // supports positive values. Over-advance by a few minutes is acceptable for now.
-    if (resolution.timeMinutes != null && resolution.timeMinutes > defaultMinutes) {
-      const extra       = resolution.timeMinutes - defaultMinutes;
+    const timeCostMultiplier = this.getActionTimeCostMultiplier();
+    const effectiveResolutionTime = resolution.timeMinutes != null
+      ? Math.round(resolution.timeMinutes * timeCostMultiplier)
+      : null;
+    if (effectiveResolutionTime != null && effectiveResolutionTime > defaultMinutes) {
+      const extra       = effectiveResolutionTime - defaultMinutes;
       const gs1         = this.state.getState();
       const lateStartTime = { ...gs1.time };
       const laterTime   = this.timeMgr.advance(gs1.time, extra);
@@ -887,6 +891,15 @@ export class GameController {
       this.state.modifyStat('statusStats.fatigue', result.fatigueDelta);
     }
 
+    // 依休息品質移除可被治癒的狀態（如扭傷、輕微流血）。
+    // 每個 condition 在定義中聲明 curedByRestQuality，此處直接比對並移除，不依賴旗標。
+    for (const c of this.state.getState().player.conditions) {
+      const def = this.lore.getCondition(c.id);
+      if (def?.curedByRestQuality?.includes(result.quality)) {
+        this.state.removeCondition(c.id);
+      }
+    }
+
     // Advance time by actual rest duration (may be truncated)
     const gs2        = this.state.getState();
     const beforeTime = gs2.time;  // snapshot before advanceTime replaces this.state.time
@@ -957,6 +970,59 @@ export class GameController {
   }
 
   /**
+   * 依 ConditionDefinition 的機制欄位自動生成玩家可見的效果摘要字串。
+   */
+  private static buildConditionEffectSummary(def: import('../types/condition').ConditionDefinition): string {
+    const parts: string[] = [];
+
+    const STAT_LABEL: Record<string, string> = {
+      'statusStats.stamina': '體力',
+      'statusStats.stress':  '壓力',
+      'statusStats.endo':    '靈能',
+      'statusStats.fatigue': '疲勞',
+      strength:  '力量',
+      knowledge: '知識',
+      talent:    '才能',
+      spirit:    '精神',
+      luck:      '運氣',
+    };
+
+    if (def.tickEffect) {
+      const { everyNTurns, statChanges, maxTicks } = def.tickEffect;
+      const effects = Object.entries(statChanges)
+        .map(([key, val]) => {
+          if (val === undefined) return null;
+          const name = STAT_LABEL[key] ?? key;
+          return `${name} ${val > 0 ? '+' : ''}${val}`;
+        })
+        .filter(Boolean)
+        .join('、');
+      if (effects) {
+        parts.push(`每 ${everyNTurns} 回合：${effects}（最多 ${maxTicks} 次）`);
+      }
+    }
+
+    if (def.statModifiers) {
+      const mods = Object.entries(def.statModifiers)
+        .map(([key, val]) => {
+          if (val === undefined || val === 0) return null;
+          const name = STAT_LABEL[key] ?? key;
+          return `${name} ${val > 0 ? '+' : ''}${val}`;
+        })
+        .filter(Boolean)
+        .join('、');
+      if (mods) parts.push(`主要數值：${mods}`);
+    }
+
+    if (def.actionTimeCostMultiplier && def.actionTimeCostMultiplier !== 1) {
+      const pct = Math.round((def.actionTimeCostMultiplier - 1) * 100);
+      parts.push(`行動時間 ${pct > 0 ? '+' : ''}${pct}%`);
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
    * 當 rest_start 事件觸發時，直接強制產生「完全沒睡著」的極差休息結果。
    * 不走 RestResolver，品質固定為「喪失時間觀」，體力僅微量回復。
    */
@@ -968,11 +1034,11 @@ export class GameController {
     return {
       actualMinutes,
       deviationMinutes: actualMinutes - plannedMinutes,
-      quality:          '喪失時間觀',
+      quality:          'disoriented',
       staminaDelta:     Math.max(1, Math.round(staminaMax * 0.05)),
       stressDelta:      0,
       fatigueDelta:     0,
-      resultTags:       ['喪失時間觀', 'undersleep', 'rest_interrupted'],
+      resultTags:       ['disoriented', 'undersleep', 'rest_interrupted'],
     };
   }
 
@@ -1001,7 +1067,7 @@ export class GameController {
       : '';
 
     const restSummary = [
-      `Quality: ${result.quality}`,
+      `Quality: ${QUALITY_LABEL[result.quality] ?? result.quality}`,
       `Planned: ${fmtMin(plannedMinutes)} → Actual: ${fmtMin(result.actualMinutes)} (${result.deviationMinutes > 0 ? '+' : ''}${result.deviationMinutes}min deviation)`,
       result.staminaDelta !== 0 ? `Stamina: ${result.staminaDelta > 0 ? '+' : ''}${result.staminaDelta}` : '',
       result.stressDelta  !== 0 ? `Stress: ${result.stressDelta > 0 ? '+' : ''}${result.stressDelta}`   : '',
@@ -2457,13 +2523,16 @@ export class GameController {
     appendEncounterLog('npc', cleanNarrative);
 
     // ── Advance time + sweep time-crossing events ──────────────────────
-    const timeMinutes = resolution.timeMinutes;
+    const rawTimeMinutes = resolution.timeMinutes;
+    const dlgTimeMinutes = rawTimeMinutes
+      ? Math.round(rawTimeMinutes * this.getActionTimeCostMultiplier())
+      : undefined;
     let timeTriggeredEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
-    if (timeMinutes) {
+    if (dlgTimeMinutes) {
       const gs         = this.state.getState();
       const beforeTime = gs.time;  // snapshot before advanceTime replaces this.state.time
       const schedule   = this.lore.getSchedule(this.currentRegionId) ?? null;
-      const newTime    = this.timeMgr.advance(beforeTime, timeMinutes);
+      const newTime    = this.timeMgr.advance(beforeTime, dlgTimeMinutes);
       const newPeriod  = schedule
         ? this.timeMgr.getCurrentPeriod(newTime, schedule, gs.player.activeFlags)
         : gs.timePeriod;
@@ -2672,6 +2741,20 @@ export class GameController {
 
     if (this.checkEndingConditions()) return;
     this.releaseInput();
+  }
+
+  /**
+   * 計算玩家當前所有 condition 的行動時間乘數（相乘疊加）。
+   * 供各個 timeMinutes 應用點呼叫。
+   */
+  private getActionTimeCostMultiplier(): number {
+    const conditions = this.state.getState().player.conditions;
+    let multiplier = 1;
+    for (const c of conditions) {
+      const def = this.lore.getCondition(c.id);
+      if (def?.actionTimeCostMultiplier) multiplier *= def.actionTimeCostMultiplier;
+    }
+    return multiplier;
   }
 
   /**
@@ -3674,7 +3757,14 @@ export class GameController {
 
     const visibleConditions = gs.player.conditions
       .filter(c => !(this.lore.getCondition(c.id)?.isHidden ?? c.isHidden))
-      .map(c => ({ label: this.lore.getCondition(c.id)?.label ?? c.label ?? c.id }));
+      .map(c => {
+        const def = this.lore.getCondition(c.id);
+        return {
+          label:           def?.label ?? c.label ?? c.id,
+          effectSummary:   def ? GameController.buildConditionEffectSummary(def) : undefined,
+          removeCondition: def?.removeCondition,
+        };
+      });
 
     // Preserve the displayed name if the state name reverts to the unset default.
     // This prevents debug stat edits (or any syncUIState call before setPlayerName)
@@ -3716,8 +3806,9 @@ export class GameController {
     observeSnapshot.set(this.getObserveSnapshot());
 
     detailedPlayer.set({
-      primaryStats:   { ...gs.player.primaryStats },
-      secondaryStats: { ...gs.player.secondaryStats },
+      primaryStats:    { ...gs.player.primaryStats },
+      primaryStatsExp: { ...gs.player.primaryStatsExp },
+      secondaryStats:  { ...gs.player.secondaryStats },
       statusStats: {
         stamina:    gs.player.statusStats.stamina,
         staminaMax: gs.player.statusStats.staminaMax,

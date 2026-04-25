@@ -1,7 +1,7 @@
 {
   "id": "crambell_event_singing_child",
   "name": "歌唱的孩子",
-  "locationId": "delth_mine_plaza",
+  "locationId": ["delth_mine_worksite", "delth_mine_plaza"],
   "condition": {
     "timePeriods": ["rest"],
     "notFlags": ["crambell_singing_child_witnessed"],

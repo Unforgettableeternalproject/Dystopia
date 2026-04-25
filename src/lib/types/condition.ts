@@ -53,6 +53,12 @@ export interface ConditionDefinition {
   curedByItemIds?: string[];
   /** 這些旗標被設置時自動解除此狀態 */
   curedByFlags?: string[];
+  /**
+   * 達到指定休息品質後自動解除此狀態。
+   * 例：["full"] 表示只有完整休息才能治癒；["full", "partial"] 則任意休息皆可。
+   * 對應 RestQuality 的英文 ID（full / partial / disoriented）。
+   */
+  curedByRestQuality?: string[];
 }
 
 // ── Runtime State ─────────────────────────────────────────────────

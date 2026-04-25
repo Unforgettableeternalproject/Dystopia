@@ -25,7 +25,16 @@
     };
   }
 
-  function closeStatPopup() { activeStatPopup = null; }
+  let activeCondPopup: { label: string; effectSummary?: string; removeCondition?: string; px: number; py: number } | null = null;
+
+  function toggleCondPopup(e: MouseEvent, cond: { label: string; effectSummary?: string; removeCondition?: string }) {
+    e.stopPropagation();
+    if (activeCondPopup?.label === cond.label) { activeCondPopup = null; return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    activeCondPopup = { ...cond, px: rect.left, py: rect.top };
+  }
+
+  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; }
 </script>
 
 <svelte:window on:click={closeStatPopup} />
@@ -110,7 +119,14 @@
     {#if $playerUI.conditions && $playerUI.conditions.length > 0}
       <div class="cond-list">
         {#each $playerUI.conditions as c}
-          <span class="cond-tag">{c.label}</span>
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <span
+            class="cond-tag"
+            class:active={activeCondPopup?.label === c.label}
+            on:click={(e) => toggleCondPopup(e, c)}
+            title={c.label}
+          >{c.label}</span>
         {/each}
       </div>
     {:else}
@@ -166,6 +182,28 @@
   >
     <div class="stat-popup-name">{activeStatPopup.name}</div>
     <div class="stat-popup-desc">{activeStatPopup.desc}</div>
+  </div>
+{/if}
+
+{#if activeCondPopup}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    class="stat-popup cond-popup"
+    style="top:{Math.max(4, activeCondPopup.py - 10)}px; right:{Math.max(4, window.innerWidth - activeCondPopup.px + 8)}px;"
+    on:click|stopPropagation
+  >
+    <div class="stat-popup-name cond-popup-name">{activeCondPopup.label}</div>
+    {#if activeCondPopup.effectSummary}
+      <div class="cond-popup-cure-label">效果</div>
+      <div class="stat-popup-desc">{activeCondPopup.effectSummary}</div>
+    {/if}
+    {#if activeCondPopup.removeCondition}
+      <div class="cond-popup-cure-label">解除方式</div>
+      <div class="stat-popup-desc">{activeCondPopup.removeCondition}</div>
+    {:else}
+      <div class="stat-popup-desc" style="margin-top:4px">無已知解除方式。</div>
+    {/if}
   </div>
 {/if}
 
@@ -409,6 +447,27 @@
     color: var(--accent-red);
     border-radius: 2px;
     opacity: 0.85;
+    cursor: pointer;
+    transition: background 0.12s, opacity 0.12s;
+  }
+
+  .cond-tag:hover,
+  .cond-tag.active {
+    background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+    opacity: 1;
+  }
+
+  .cond-popup-name {
+    color: var(--accent-red) !important;
+  }
+
+  .cond-popup-cure-label {
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 6px;
+    margin-bottom: 2px;
   }
 
   .cond-normal {

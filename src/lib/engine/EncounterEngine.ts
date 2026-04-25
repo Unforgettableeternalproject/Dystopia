@@ -467,6 +467,10 @@ export class EncounterEngine {
     if (effects.characterExpGrant) {
       this.state.grantCharacterExp(effects.characterExpGrant);
     }
+    if (effects.applyConditionId) {
+      this.state.addCondition(effects.applyConditionId, id => this.lore.getCondition(id));
+    }
+    effects.removeConditionIds?.forEach(id => this.state.removeCondition(id));
   }
 
   /** 玩家是否持有所有指定未失效物品 */

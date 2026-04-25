@@ -396,10 +396,9 @@ export class StateManager {
     const before = this.state.player.conditions.length;
     this.state.player.conditions = this.state.player.conditions.filter(c => {
       if (c.expiresOnTurn !== undefined && c.expiresOnTurn <= currentTurn) return false;
-      if (c.tickState) {
-        const def = getCondition(c.id);
-        if (def?.tickEffect && c.tickState.ticksApplied >= def.tickEffect.maxTicks) return false;
-      }
+      const def = getCondition(c.id);
+      if (c.tickState && def?.tickEffect && c.tickState.ticksApplied >= def.tickEffect.maxTicks) return false;
+      if (def?.curedByFlags?.some(f => this.flags.has(f))) return false;
       return true;
     });
 

@@ -1,12 +1,12 @@
 {
   "_note": "開發用初始設定。修改此檔案調整遊戲起始狀態，不涉及玩家可設定項目。title 為 MVP 初始顯示稱號；完整稱號系統之後另行實作。",
-
+  "_comment": "為了方便起見，我們先把day 0 suppression給繞過。",
   "world": {
     "startLocationId": "delth_dormitory_room",
     "startTime": { "year": 1498, "month": 6, "day": 12, "hour": 21, "minute": 23 },
     "startPeriod": "rest",
     "worldPhase": "grace_period",
-    "startingFlags": []
+    "startingFlags": ["game_day1_started"]
   },
 
   "player": {

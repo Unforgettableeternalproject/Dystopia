@@ -27,9 +27,9 @@
   }
 
   const QUALITY_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
-    '成功休息':   { color: '#7ec8a0', label: '成功休息',  icon: '◆' },
-    '不完整休息': { color: '#c9a96e', label: '不完整休息', icon: '◈' },
-    '喪失時間觀': { color: '#d35f5f', label: '喪失時間觀', icon: '◇' },
+    full:        { color: '#7ec8a0', label: '成功休息',  icon: '◆' },
+    partial:     { color: '#c9a96e', label: '不完整休息', icon: '◈' },
+    disoriented: { color: '#d35f5f', label: '喪失時間觀', icon: '◇' },
   };
 
   $: r = $restResultOverlay;

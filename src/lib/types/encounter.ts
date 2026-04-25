@@ -123,6 +123,13 @@ export interface EncounterChoiceEffects {
    * 累積後提升技能 XP 加成梯度與每日 GRANT 上限。
    */
   characterExpGrant?: number;
+  /**
+   * 套用一個狀態條件（buff / debuff / 受傷等）。
+   * 填入 ConditionDefinition.id，由引擎查表取得完整定義。
+   */
+  applyConditionId?: string;
+  /** 移除指定狀態條件的 ID 列表。 */
+  removeConditionIds?: string[];
 }
 
 /** 遭遇中的單一選項 */

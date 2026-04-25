@@ -136,7 +136,9 @@
     "                         可用 key: strength / knowledge / talent / spirit / luck",
     "                         引擎套用角色經驗加成與傾向加成後發放，無每日上限",
     "                         例：{ \"strength\": 15, \"knowledge\": 5 }",
-    "  characterExpGrant    — 角色經驗（全局）獲得量，影響技能 XP 加成梯度與每日 GRANT 上限"
+    "  characterExpGrant    — 角色經驗（全局）獲得量，影響技能 XP 加成梯度與每日 GRANT 上限",
+    "  applyConditionId     — 套用狀態條件（buff / debuff / 受傷），填入 ConditionDefinition.id",
+    "  removeConditionIds   — 移除指定狀態條件 ID 列表（陣列）"
   ],
 
   "_comment_stat_check": [

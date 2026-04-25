@@ -44,7 +44,7 @@ describe('RestResolver — 品質分級', () => {
     };
     const result = RestResolver.resolve(input);
     // bias=0, noise=0 → deviation=0 → |0| <= 60 → 成功休息
-    expect(result.quality).toBe('成功休息');
+    expect(result.quality).toBe('full');
     expect(result.deviationMinutes).toBe(0);
   });
 
@@ -59,7 +59,7 @@ describe('RestResolver — 品質分級', () => {
     };
     const result = RestResolver.resolve(input);
     expect(Math.abs(result.deviationMinutes)).toBeLessThanOrEqual(60);
-    expect(result.quality).toBe('成功休息');
+    expect(result.quality).toBe('full');
   });
 
   it('|deviation| = 180（壓力全滿, noise=0）→ 不完整休息', () => {
@@ -73,7 +73,7 @@ describe('RestResolver — 品質分級', () => {
     const result = RestResolver.resolve(input);
     // bias = -180, noise=0 → deviation=-180 → |180| <= 180 → 不完整休息
     expect(result.deviationMinutes).toBe(-180);
-    expect(result.quality).toBe('不完整休息');
+    expect(result.quality).toBe('partial');
   });
 
   it('|deviation| > 180（壓力全滿 + 負noise）→ 喪失時間觀', () => {
@@ -87,7 +87,7 @@ describe('RestResolver — 品質分級', () => {
     const result = RestResolver.resolve(input);
     // bias = -180, noise = -30 → deviation = -210 → |210| > 180 → 喪失時間觀
     expect(result.deviationMinutes).toBe(-210);
-    expect(result.quality).toBe('喪失時間觀');
+    expect(result.quality).toBe('disoriented');
   });
 
   it('低體力正偏移 → 不完整休息', () => {
@@ -101,7 +101,7 @@ describe('RestResolver — 品質分級', () => {
     const result = RestResolver.resolve(input);
     // bias = 1*180 - 0 = +180 → deviation=180 → 不完整休息
     expect(result.deviationMinutes).toBe(180);
-    expect(result.quality).toBe('不完整休息');
+    expect(result.quality).toBe('partial');
   });
 });
 
@@ -131,7 +131,7 @@ describe('RestResolver — scuffed 模式', () => {
       stress: 0, stressMax: 10,
     };
     const result = RestResolver.resolve(input);
-    expect(result.quality).toBe('喪失時間觀');
+    expect(result.quality).toBe('disoriented');
   });
 
   it('scuffed tag 加入 resultTags', () => {
@@ -169,8 +169,8 @@ describe('RestResolver — scuffed 模式', () => {
       stress: 0, stressMax: 10,
     };
     const result = RestResolver.resolve(input);
-    expect(result.quality).not.toBe('成功休息');
-    expect(result.quality).toBe('不完整休息');
+    expect(result.quality).not.toBe('full');
+    expect(result.quality).toBe('partial');
   });
 });
 
@@ -227,7 +227,7 @@ describe('RestResolver — resultTags', () => {
       stress: 0, stressMax: 10,
     };
     const result = RestResolver.resolve(input);
-    expect(result.resultTags).toContain('成功休息');
+    expect(result.resultTags).toContain('full');
   });
 
   it('high_stress → stressRatio > 0.7 時加入', () => {

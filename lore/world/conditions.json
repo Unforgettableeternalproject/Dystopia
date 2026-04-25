@@ -9,13 +9,15 @@
       "maxTicks": 3
     },
     "removeCondition": "使用繃帶包紮，或在安全地點完整休息一次",
-    "curedByItemIds": ["bandage"]
+    "curedByItemIds": ["bandage"],
+    "curedByRestQuality": ["full"]
   },
   "sprain": {
     "id": "sprain",
     "label": "扭傷",
     "description": "關節受到扭傷，行動遲緩。所有動作所消耗的時間額外增加 5%。",
     "actionTimeCostMultiplier": 1.05,
-    "removeCondition": "充分休息後自然痊癒，約需靜養一天"
+    "removeCondition": "充分休息後自然痊癒，約需靜養一天",
+    "curedByRestQuality": ["full"]
   }
 }

@@ -176,7 +176,7 @@ export interface PlayerUIState {
     canAbandon: boolean;
   }>;
   totalActiveQuestCount?: number;
-  conditions?:      Array<{ label: string }>;
+  conditions?:      Array<{ label: string; effectSummary?: string; removeCondition?: string }>;
   melphin?:         number;
   /** Structured data for the SVG mini-map (current area). */
   miniMap?:         MiniMapData;
@@ -296,6 +296,7 @@ export interface ResolvedInventoryItem {
 
 export interface DetailedPlayerState {
   primaryStats:      Record<string, number>;
+  primaryStatsExp:   Record<string, number>;
   secondaryStats:    Record<string, number>;
   statusStats:       Record<string, number>;
   conditions:        Array<{ label: string }>;

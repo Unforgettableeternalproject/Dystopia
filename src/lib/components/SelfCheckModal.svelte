@@ -2,6 +2,7 @@
   import { selfCheckOpen, detailedPlayer, playerUI } from '$lib/stores/gameStore';
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
+  import { getRequiredExpForLevel, STAT_MAX_LEVEL } from '$lib/engine/ExperienceEngine';
 
   const STAT_LABEL: Record<string, string> = {
     strength: '力量', knowledge: '知識', talent: '才能', spirit: '精神', luck: '幸運',
@@ -34,11 +35,28 @@
       <!-- Primary stats -->
       <section class="section">
         <div class="section-label">基礎能力</div>
-        <div class="stat-grid">
+        <div class="primary-stat-list">
           {#each Object.entries(dp.primaryStats) as [k, v]}
-            <div class="stat-item">
-              <span class="sk">{STAT_LABEL[k] ?? k}</span>
-              <span class="sv">{v}</span>
+            {@const xp = dp.primaryStatsExp?.[k] ?? 0}
+            {@const isMax = v >= STAT_MAX_LEVEL}
+            {@const req = isMax ? 1 : getRequiredExpForLevel(v)}
+            {@const pct = isMax ? 100 : Math.min(100, Math.floor(xp / req * 100))}
+            <div class="primary-stat-item">
+              <div class="stat-row">
+                <span class="sk">{STAT_LABEL[k] ?? k}</span>
+                <span class="sv">{v}</span>
+              </div>
+              {#if isMax}
+                <div class="xp-row">
+                  <div class="xp-bar"><div class="xp-fill" style="width:100%"></div></div>
+                  <span class="xp-text xp-max">MAX</span>
+                </div>
+              {:else}
+                <div class="xp-row">
+                  <div class="xp-bar"><div class="xp-fill" style="width:{pct}%"></div></div>
+                  <span class="xp-text">{xp} / {req}</span>
+                </div>
+              {/if}
             </div>
           {/each}
         </div>
@@ -206,6 +224,59 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  /* Primary stats with XP */
+  .primary-stat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .primary-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .xp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .xp-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .xp-fill {
+    height: 100%;
+    background: var(--accent-blue, #4a7aaa);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  .xp-text {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    min-width: 52px;
+    text-align: right;
+  }
+
+  .xp-max {
+    color: var(--accent-gold, #aa8844);
   }
 
   .sk {

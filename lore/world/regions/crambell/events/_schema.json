@@ -1,7 +1,7 @@
 {
   "_schema": "GameEvent — one file per event",
   "id": "region_event_name",
-  "locationId": "optional_location_id (省略 = 全域事件，由 RegionIndex.globalEventIds 掛載)",
+  "locationId": "optional_location_id or array of location IDs (省略 = 全域事件，由 RegionIndex.globalEventIds 掛載；填陣列 = 同一事件掛載至多個地點)",
 
   "_comment_condition": [
     "flags:          這些旗標全部存在才觸發",

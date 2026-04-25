@@ -42,7 +42,7 @@
       "dmNarrative": "玩家打量著四周，思考是否有逃脫的機會。[TODO: 描述逃跑的機會與風險]",
       "statCheck": {
         "stat": "primaryStats.strength",
-        "dc": 4,
+        "dc": 13,
         "successNodeId": "escaped",
         "failNodeId": "caught_running"
       }

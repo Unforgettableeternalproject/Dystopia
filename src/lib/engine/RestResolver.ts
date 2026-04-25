@@ -27,7 +27,13 @@ import type { RestContext } from '../types/prop';
 
 // ── Types ─────────────────────────────────────────────────────
 
-export type RestQuality = '成功休息' | '不完整休息' | '喪失時間觀';
+export type RestQuality = 'full' | 'partial' | 'disoriented';
+
+export const QUALITY_LABEL: Record<RestQuality, string> = {
+  full:        '成功休息',
+  partial:     '不完整休息',
+  disoriented: '喪失時間觀',
+};
 
 export interface RestInput {
   /** 玩家預計休息分鐘數 */
@@ -114,18 +120,18 @@ export class RestResolver {
     // ── 3. 品質分級 ───────────────────────────────────────────
     const absDeviation = Math.abs(deviationMinutes);
     const rawQuality: RestQuality =
-      absDeviation <= 60  ? '成功休息' :
-      absDeviation <= 180 ? '不完整休息' :
-                            '喪失時間觀';
+      absDeviation <= 60  ? 'full' :
+      absDeviation <= 180 ? 'partial' :
+                            'disoriented';
     // Scuffed 環境不可能達成「成功休息」—— 不完整休息為上限
-    const quality: RestQuality = (isScuffed && rawQuality === '成功休息') ? '不完整休息' : rawQuality;
+    const quality: RestQuality = (isScuffed && rawQuality === 'full') ? 'partial' : rawQuality;
 
     // ── 4. 回復量計算 ─────────────────────────────────────────
     const baseRecoveryRatio = Math.min(actualMinutes / 480, 1);
 
     const qualityScale =
-      quality === '成功休息'   ? 1.0 :
-      quality === '不完整休息' ? 0.5 : 0.25;
+      quality === 'full'    ? 1.0 :
+      quality === 'partial' ? 0.5 : 0.25;
 
     const contextScale = restCtx.statusEffectScale;
     const effectScale  = qualityScale * contextScale;
@@ -147,7 +153,7 @@ export class RestResolver {
       fatigueDelta = postSleepFatigue - fatigue; // 通常為負值
 
       // 長時間睡眠（>8h）但品質差 → 疲勞 +1
-      if (actualMinutes > 480 && (quality === '不完整休息' || quality === '喪失時間觀')) {
+      if (actualMinutes > 480 && (quality === 'partial' || quality === 'disoriented')) {
         const adjusted = Math.min(5, postSleepFatigue + 1);
         fatigueDelta = adjusted - fatigue;
       }

@@ -42,7 +42,7 @@
           }
         ],
         "npcIds": ["crambell_kach"],
-        "eventIds": [],
+        "eventIds": ["crambell_event_singing_child"],
         "propIds": ["delth_mine_worksite_cart", "delth_mine_worksite_pickaxe_rack"],
         "isAccessible": true
       },

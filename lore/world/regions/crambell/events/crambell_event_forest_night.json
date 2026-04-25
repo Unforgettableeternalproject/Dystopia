@@ -3,7 +3,7 @@
   "name": "森林的言語 — 夜",
   "locationId": "delth_forest_clearing",
   "condition": {
-    "timePeriods": ["rest"],
+    "timeRanges": [{ "startHour": 18, "startMinute": 0, "endHour": 23, "endMinute": 59 }],
     "triggerChance": 0.25,
     "cooldownMinutes": 240
   },

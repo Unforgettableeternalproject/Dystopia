@@ -35,10 +35,7 @@
       "id": "approved",
       "dmNarrative": "申請被蓋章受理。書記員告知玩家，能否取得通行證，取決於後續的配額達成情況。",
       "isOutcome": true,
-      "outcomeType": "success",
-      "effects": {
-        "flagsSet": []
-      }
+      "outcomeType": "success"
     },
     "rejected": {
       "id": "rejected",

@@ -542,7 +542,7 @@ export interface EventOutcome {
 export interface GameEvent {
   id: string;
   name?: string;
-  locationId?: string;
+  locationId?: string | string[];
   condition: EventCondition;
   description: string;
   outcomes: EventOutcome[];
