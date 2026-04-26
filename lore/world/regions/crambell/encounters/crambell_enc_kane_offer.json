@@ -1,0 +1,103 @@
+{
+  "id": "crambell_enc_kane_offer",
+  "name": "凱恩的提議",
+  "type": "event",
+  "description": "凱恩趁四下無人時攔下玩家，以低沉的語調說他注意到玩家最近在做一些不尋常的事。他沒有威脅，只是——提出了一個交易。",
+  "entryNodeId": "kane_approach",
+  "nodes": {
+    "kane_approach": {
+      "id": "kane_approach",
+      "dmNarrative": "凱恩在人群中對玩家使了個眼色，示意跟上。他走到廣場邊緣一處監視盲角，背靠牆，叼著菸，等著。語氣不急不徐：「最近有人在做一些不太像工人會做的事。你也是其中之一。」他頓了頓，「不過我不是來問罪的。」",
+      "choices": [
+        {
+          "id": "follow_kane",
+          "text": "跟上去。聽他說什麼。",
+          "nextNodeId": "kane_proposition"
+        },
+        {
+          "id": "ignore_kane",
+          "text": "當作沒看見，繼續走。",
+          "nextNodeId": "avoided_end"
+        }
+      ]
+    },
+    "kane_proposition": {
+      "id": "kane_proposition",
+      "dmNarrative": "凱恩把菸吐了一口，壓低聲音：「你最近幫一個人做了些他不方便做的事。我們都知道那個人不只是普通工人。」他直視玩家，「告訴我他在搞什麼，去了哪裡，接觸過什麼人。你給我這些，我安排你離開這裡。轉移通行證，真的那種，不用等三個月。」",
+      "choices": [
+        {
+          "id": "ask_more",
+          "text": "「你說的是誰？你已經知道多少？」",
+          "nextNodeId": "kane_clarify"
+        },
+        {
+          "id": "refuse_outright",
+          "text": "「我不知道你在說什麼。」",
+          "nextNodeId": "denied_end"
+        }
+      ]
+    },
+    "kane_clarify": {
+      "id": "kane_clarify",
+      "dmNarrative": "凱恩冷冷地笑了一下：「別裝了。凱奇·巴頓。你替他打掩護，我的人看著的。」他彈了彈菸灰，「你不需要毀掉他。只需要告訴我他去了哪裡、見了誰、在做什麼。然後你就可以走了。」",
+      "choices": [
+        {
+          "id": "consider_betrayal",
+          "text": "「……讓我想想。」",
+          "nextNodeId": "betrayal_warning"
+        },
+        {
+          "id": "refuse_after_clarify",
+          "text": "「這種事我做不來。」",
+          "nextNodeId": "refused_end"
+        }
+      ]
+    },
+    "betrayal_warning": {
+      "id": "betrayal_warning",
+      "dmNarrative": "片刻的靜默。玩家知道這意味著什麼——一旦開口，凱奇就再也安全不了。凱恩還在等，菸快燒到頭了。這個決定沒有辦法撤回。",
+      "choices": [
+        {
+          "id": "confirm_betrayal",
+          "text": "「好。我告訴你我知道的。」\n[警告：這將背叛凱奇，此決定無法撤回。]",
+          "nextNodeId": "betrayal_committed"
+        },
+        {
+          "id": "back_out",
+          "text": "「……不。我沒辦法。」",
+          "nextNodeId": "refused_end"
+        }
+      ]
+    },
+    "betrayal_committed": {
+      "id": "betrayal_committed",
+      "dmNarrative": "玩家把知道的說了出來——凱奇消失的時間、他去的方向、他讓玩家掩護的理由。凱恩聽完，把菸踩滅，點了點頭。「聰明。」他從口袋摸出一張便條紙，遞過來，「林間空地。休息時段。我在那裡等你。」他轉身就走，好像什麼都沒發生過。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "ditchQuestId": "crambell_kach_test1",
+        "grantQuestId": "crambell_kane_double_agent",
+        "flagsSet": ["crambell_kane_deal_started"],
+        "characterExpGrant": 20
+      }
+    },
+    "avoided_end": {
+      "id": "avoided_end",
+      "dmNarrative": "玩家繼續走，沒有回頭。凱恩的目光在後背停留了幾秒，然後消失了。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "denied_end": {
+      "id": "denied_end",
+      "dmNarrative": "凱恩盯著玩家看了幾秒，嘴角微微揚起。「當然。」他走開，彷彿這次接觸從未發生。但他說的話留在空氣裡。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "refused_end": {
+      "id": "refused_end",
+      "dmNarrative": "凱恩沉默地看了玩家一眼，把菸踩滅。「想好了再說。」他走開了，沒有再回頭。門沒關死，只是——暫時關著。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "id": "crambell_enc_kane_forest_handoff",
+  "name": "林間交易",
+  "type": "event",
+  "description": "凱恩獨自等在林間空地，確認四下無人後完成交易。玩家在這裡領取前往瓦爾的轉移通行證。",
+  "entryNodeId": "kane_waiting",
+  "nodes": {
+    "kane_waiting": {
+      "id": "kane_waiting",
+      "dmNarrative": "林間空地只有樹影和風聲。凱恩獨自站在角落，沒有制服，只是一件深色外套。他看了看玩家，又環顧四周，確認沒有其他人。「你來了。」語氣是一種公事公辦的平靜。「我說話算數。」",
+      "choices": [
+        {
+          "id": "proceed",
+          "text": "「我在。按約定來的。」",
+          "nextNodeId": "handoff_check"
+        },
+        {
+          "id": "back_out",
+          "text": "「我改變主意了。我不想要那張通行證。」",
+          "nextNodeId": "backed_out"
+        }
+      ]
+    },
+    "handoff_check": {
+      "id": "handoff_check",
+      "dmNarrative": "凱恩從外套內袋取出一個信封，準備遞過來。遠處傳來腳步聲，兩人同時屏住呼吸。",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "dc": 10,
+        "successNodeId": "handoff_clean",
+        "failNodeId": "handoff_tense"
+      }
+    },
+    "handoff_clean": {
+      "id": "handoff_clean",
+      "dmNarrative": "腳步聲越來越近，又漸漸走遠。只是林間動物。凱恩把信封遞了過來，玩家接住，沉甸甸的。裡面是一張蓋章的轉移通行證，目的地：瓦爾。「凌晨四點到六點之間去傳送點，持通行證通行。別讓我後悔。」他轉身走進黑暗中。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "grantItems": [{ "itemId": "transit_pass", "variantId": "wyar" }],
+        "flagsSet": ["crambell_kane_pass_received", "crambell_player_allied_government"],
+        "reputationChanges": { "crambell_government": 10 },
+        "characterExpGrant": 50,
+        "skillExpChanges": { "knowledge": 15 }
+      }
+    },
+    "handoff_tense": {
+      "id": "handoff_tense",
+      "dmNarrative": "腳步聲在幾步外停住了，然後繼續走。一名夜間巡邏員從空地邊緣掠過，沒有轉頭。等確認他走遠，凱恩才把信封遞過來，手比平常快了一點。通行證是真的，目的地瓦爾。「快走。」他先消失了。玩家握著信封，心還沒緩下來。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "grantItems": [{ "itemId": "transit_pass", "variantId": "wyar" }],
+        "flagsSet": ["crambell_kane_pass_received", "crambell_player_allied_government"],
+        "reputationChanges": { "crambell_government": 10 },
+        "statChanges": { "statusStats.stress": 2 },
+        "characterExpGrant": 50,
+        "skillExpChanges": { "knowledge": 15 }
+      }
+    },
+    "backed_out": {
+      "id": "backed_out",
+      "dmNarrative": "凱恩的眼神冷了一度。「你的選擇。」他把信封收回口袋，轉身就走。「不過別以為你可以回頭去找那些人——他們已經知道你接觸過我了。」黑暗吞沒了他的背影。玩家一個人站在空地中央。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "flagsSet": ["crambell_kane_deal_abandoned"],
+        "statChanges": { "statusStats.stress": 3 }
+      }
+    }
+  }
+}

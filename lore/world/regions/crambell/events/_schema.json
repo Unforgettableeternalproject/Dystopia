@@ -33,6 +33,45 @@
     "  -> 同一時段只觸發一次，下一次條件重設時再觸發"
   ],
 
+  "_comment_triggerVariants": [
+    "triggerVariants（可選）：條件分支陣列，按順序取第一個符合條件的分支執行，完全取代頂層 triggerChance / cooldownMinutes / notification。",
+    "若設定此欄位，頂層 condition 中的 triggerChance / cooldownMinutes 不再生效，改由分支各自管控。",
+    "頂層 condition 的其他欄位（timePeriods、flags、notFlags 等）仍作為所有分支的共享前置門（shared gate）。",
+    "",
+    "分支 condition 可用欄位：",
+    "  flags / anyFlags / notFlags  旗標條件（AND / OR / 反向）",
+    "  questActiveId / questStageId 任務狀態條件",
+    "  minReputation / maxReputation 派系聲望上下限",
+    "  minAffinity / maxAffinity     NPC 好感上下限",
+    "  triggerChance                 機率（0–1），省略 = 必定觸發",
+    "  cooldownMinutes               此分支獨立冷卻時間",
+    "",
+    "分支控制欄位：",
+    "  notification        是否顯示 HUD 提示（覆蓋頂層 notification）",
+    "  notificationVariant 提示樣式，可選 'normal' | 'negative' | 'danger' | 'rare'",
+    "",
+    "引擎實作：EventEngine.canTrigger() 在 shared gate 通過後評估 triggerVariants"
+  ],
+
+  "triggerVariants": [
+    {
+      "_comment": "範例：任務進行中必定觸發（無機率），顯示 warning 提示",
+      "condition": {
+        "questActiveId": "some_quest_id",
+        "notFlags": ["cover_held", "cover_blown"]
+      },
+      "notification": true,
+      "notificationVariant": "danger"
+    },
+    {
+      "_comment": "範例：一般機率觸發，有冷卻",
+      "condition": {
+        "triggerChance": 0.3,
+        "cooldownMinutes": 180
+      }
+    }
+  ],
+
   "condition": {
     "flags": ["required_flag"],
     "anyFlags": ["any_of_these"],

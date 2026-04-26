@@ -633,7 +633,7 @@ export class GameController {
     // This keeps event narration and action response from bleeding together.
     if (allTriggered.length > 0) {
       const eventCtx = this.buildSceneCtx(allTriggered, periodChanged);
-      const hasNotification = allTriggered.some(t => t.event.notification);
+      const hasNotification = allTriggered.some(t => t.notification);
       await this.runEventDM(eventCtx, hasNotification ? 'event' : 'narrative');
       this.flushAcquisitions();
     }
@@ -706,7 +706,7 @@ export class GameController {
 
         if (allLateTriggered.length > 0) {
           const lateEventCtx = this.buildSceneCtx(allLateTriggered, latePeriodChanged);
-          const hasNotification = allLateTriggered.some(t => t.event.notification);
+          const hasNotification = allLateTriggered.some(t => t.notification);
           await this.runEventDM(lateEventCtx, hasNotification ? 'event' : 'narrative');
           this.flushAcquisitions();
         }
@@ -787,7 +787,9 @@ export class GameController {
   }
 
   ditchQuest(questId: string): boolean {
-    return this.quests.ditchQuest(questId);
+    const result = this.quests.ditchQuest(questId);
+    if (result) this.syncUIState(this.state.getState());
+    return result;
   }
 
   /**
@@ -2007,8 +2009,8 @@ export class GameController {
         eventEncounter = { id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) };
         log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
       }
-      if (t.event.notification) {
-        showEventToast(t.event.name ?? t.event.id, t.event.notificationVariant ?? 'normal');
+      if (t.notification) {
+        showEventToast(t.event.name ?? t.event.id, t.notificationVariant ?? 'normal');
       }
     }
 
@@ -2581,7 +2583,7 @@ export class GameController {
           const { eventEncounter, extraTriggered } = this.processTriggeredEvents(timeTriggered);
           const allTimeTriggered = [...timeTriggered, ...extraTriggered];
           const timeEventCtx = this.buildSceneCtx(allTimeTriggered, periodChanged);
-          await this.runEventDM(timeEventCtx, allTimeTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
+          await this.runEventDM(timeEventCtx, allTimeTriggered.some(t => t.notification) ? 'event' : 'narrative');
           this.flushAcquisitions();
           timeTriggeredEncounter = eventEncounter;
         }
@@ -2657,7 +2659,13 @@ export class GameController {
 
     // Handle high-level effects that EncounterEngine stored for us
     const pending = this.encounterMgr.flushPendingEffects();
-    if (pending.questGrant) {
+    // Ditch must run before grant: if ditch fails the dependent grant is suppressed
+    let questGrantAllowed = true;
+    if (pending.questDitch) {
+      questGrantAllowed = this.quests.ditchQuest(pending.questDitch);
+      log.info('Quest ditched by encounter choice', { questId: pending.questDitch, success: questGrantAllowed });
+    }
+    if (questGrantAllowed && pending.questGrant) {
       this.quests.grantQuest(pending.questGrant);
       log.info('Quest granted by encounter choice', { questId: pending.questGrant });
     }
@@ -2691,7 +2699,6 @@ export class GameController {
         }
       }
     }
-
     if (resolved) {
       // Render node via DM (passing def explicitly so it works even after endEncounter clears state)
       const nodeSuggestions = await this.renderEncounterNode(resolved, preDef ?? undefined);
@@ -2804,8 +2811,13 @@ export class GameController {
    * 供 renderStoryScript 每行後及 concludeStory 後使用，避免重複代碼。
    */
   private applyStoryPendingEffects(pending: EncounterPendingEffects): void {
-    if (pending.questGrant) this.quests.grantQuest(pending.questGrant);
     if (pending.questFail)  this.quests.applyQuestFail(pending.questFail);
+    // Ditch before grant: grant is suppressed if ditch fails
+    let storyGrantAllowed = true;
+    if (pending.questDitch) {
+      storyGrantAllowed = this.quests.ditchQuest(pending.questDitch);
+    }
+    if (storyGrantAllowed && pending.questGrant) this.quests.grantQuest(pending.questGrant);
     if (pending.advanceQuestStage) {
       const { questId, stageId } = pending.advanceQuestStage;
       this.state.advanceQuestStage(questId, stageId);
@@ -3517,6 +3529,8 @@ export class GameController {
         const stage = def?.stages[q.currentStageId!];
         if (!def || !stage) return [];
         const canAbandon = def.canAbandon !== false && (def.type !== 'main' || def.canAbandon === true);
+        const canDitch   = !!def.canDitch;
+        const ditchBeneficiaryFactionId = def.ditchConsequences?.beneficiaryFactionId;
         return [{
           questId:      q.questId,
           name:         def.name,
@@ -3528,6 +3542,8 @@ export class GameController {
             completed:   q.completedObjectiveIds.includes(o.id),
           })),
           canAbandon,
+          canDitch,
+          ...(ditchBeneficiaryFactionId ? { ditchBeneficiaryFactionId } : {}),
         }];
       });
     const activeQuestSummaries = allActiveQuestSummaries.slice(0, 3);
@@ -4237,7 +4253,7 @@ export class GameController {
     // Narrate the event (and any sub-events) first so event text appears before encounter UI.
     const debugPrefix = `[DEBUG MODE — 此事件由開發人員手動強制觸發，玩家實際位置可能與事件預期地點不符。請直接根據提供的事件 Context 描述情況，模擬此事件的發生，無需顧慮地點一致性。]\n\n`;
     const eventCtx = debugPrefix + this.buildSceneCtx(allDebugTriggered);
-    await this.runEventDM(eventCtx, allDebugTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
+    await this.runEventDM(eventCtx, allDebugTriggered.some(t => t.notification) ? 'event' : 'narrative');
     this.flushAcquisitions();
 
     // Launch encounter after narration completes (includes encounters from sub-event chains).
@@ -4414,7 +4430,7 @@ export class GameController {
         const { eventEncounter, extraTriggered } = this.processTriggeredEvents(timeTriggered);
         const allTriggered = [...timeTriggered, ...extraTriggered];
         const eventCtx = this.buildSceneCtx(allTriggered);
-        await this.runEventDM(eventCtx, allTriggered.some(t => t.event.notification) ? 'event' : 'narrative');
+        await this.runEventDM(eventCtx, allTriggered.some(t => t.notification) ? 'event' : 'narrative');
         this.flushAcquisitions();
         if (eventEncounter) {
           await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);

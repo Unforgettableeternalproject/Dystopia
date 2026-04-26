@@ -30,7 +30,6 @@
     showAbandonConfirm = false;
   }
 
-  // Mirror engine logic: canAbandon flag is pre-computed by GameController.syncUIState
   $: canAbandon = $questDetailOpen?.canAbandon ?? false;
 </script>
 
@@ -295,4 +294,6 @@
     background: var(--accent-red, #c0392b);
     color: var(--text-primary);
   }
+
+
 </style>

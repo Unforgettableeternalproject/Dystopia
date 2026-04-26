@@ -165,6 +165,8 @@ export interface PlayerUIState {
     stageSummary: string;
     objectives: Array<{ id: string; description: string; completed: boolean }>;
     canAbandon: boolean;
+    canDitch: boolean;
+    ditchBeneficiaryFactionId?: string;
   }>;
   /** Full list (all active quests, not capped at 3). Used by the quest list modal. */
   allActiveQuestSummaries?: Array<{
@@ -174,6 +176,8 @@ export interface PlayerUIState {
     stageSummary: string;
     objectives: Array<{ id: string; description: string; completed: boolean }>;
     canAbandon: boolean;
+    canDitch: boolean;
+    ditchBeneficiaryFactionId?: string;
   }>;
   totalActiveQuestCount?: number;
   conditions?:      Array<{ label: string; effectSummary?: string; removeCondition?: string }>;

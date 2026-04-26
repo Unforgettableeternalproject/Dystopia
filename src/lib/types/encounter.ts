@@ -135,6 +135,12 @@ export interface EncounterChoiceEffects {
    * 例：{ "crambell_kach": ["treffen_trust_gained"] }
    */
   npcFlagsSet?: Record<string, string[]>;
+  /**
+   * 背叛並永久棄置指定任務（等同 GameController.ditchQuest）。
+   * 套用任務的 ditchConsequences 與當前階段的 onDitch 效果。
+   * 只對 canDitch: true 的任務有效；不符合時此欄位被忽略。
+   */
+  ditchQuestId?: string;
 }
 
 /** 遭遇中的單一選項 */

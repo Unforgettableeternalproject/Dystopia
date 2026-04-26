@@ -275,7 +275,7 @@
         <div class="item-list">
           {#each filteredNpcs as npc (npc.id)}
             <div class="item-row">
-              <span class="item-type-badge">{npc.type}</span>
+              <span class="item-type-badge">npc</span>
               <div class="item-info">
                 <span class="item-name">{npc.name}</span>
                 <span class="item-id">{npc.id}</span>
@@ -743,7 +743,7 @@
                   <div class="rep-row">
                     <div class="rep-info">
                       <span class="item-name">{n.name}</span>
-                      <span class="item-id">{n.id} · {n.type}</span>
+                      <span class="item-id">{n.id}</span>
                     </div>
                     <input
                       class="num-input"

@@ -206,7 +206,7 @@ describe('EncounterEngine — story type', () => {
     expect(finalResult).toBeNull();
 
     // 剩餘行（line 5）套用效果後呼叫 concludeStory()
-    for (let i = midResult.currentLineIndex + 1; i < STORY_DEF.script.length; i++) {
+    for (let i = midResult.currentLineIndex + 1; i < STORY_DEF.script!.length; i++) {
       encounters.applyLineEffects(i);
     }
     encounters.concludeStory();

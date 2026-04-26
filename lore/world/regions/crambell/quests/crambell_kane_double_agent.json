@@ -1,0 +1,38 @@
+{
+  "id": "crambell_kane_double_agent",
+  "name": "雙面人的報酬",
+  "type": "hidden",
+  "source": "npc",
+  "giverNpcId": "crambell_kane",
+  "regionId": "crambell",
+  "autoAccept": true,
+  "canAbandon": false,
+  "canDitch": false,
+
+  "_comment": [
+    "路線四：政府合作路線。",
+    "玩家將舊會議情報出賣給凱恩，換取前往瓦爾的轉移通行證。",
+    "由 crambell_enc_kane_offer 遭遇中的出賣選項觸發 ditch + grantQuest。",
+    "此任務不可放棄、不可再出賣，只有完成（領取通行證）一途。"
+  ],
+
+  "entryStageId": "meet_for_handoff",
+  "stages": {
+    "meet_for_handoff": {
+      "id": "meet_for_handoff",
+      "description": "凱恩說他會在深夜出現在林間空地，在那裡完成交易並交付報酬。在休息時段前往林間空地。",
+      "objectives": [
+        {
+          "id": "receive_pass",
+          "type": "flag_check",
+          "description": "在休息時段前往林間空地領取轉移通行證",
+          "flag": "crambell_kane_pass_received"
+        }
+      ],
+      "onComplete": {
+        "nextStageId": null,
+        "flagsSet": ["crambell_kane_deal_completed"]
+      }
+    }
+  }
+}

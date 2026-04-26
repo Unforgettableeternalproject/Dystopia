@@ -622,4 +622,60 @@ describe('QuestEngine.ditchQuest()', () => {
     engine.ditchQuest('q_simple');
     expect(state.getState().activeQuests['q_simple']).toBeDefined();
   });
+
+  it('有 beneficiaryFactionId — ditch 後任務進入 completedQuestIds（不可再接）', () => {
+    const questWithBeneficiary: QuestDefinition = {
+      id: 'q_betray', name: '背叛任務', type: 'side', source: 'npc',
+      canDitch: true,
+      ditchConsequences: {
+        reputationChanges: { faction_a: -30 },
+        beneficiaryFactionId: 'faction_gov',
+      },
+      entryStageId: 's1',
+      stages: {
+        s1: {
+          id: 's1', description: '目標',
+          objectives: [{ id: 'obj1', type: 'flag_check', description: '旗標', flag: 'd_flag' }],
+          onComplete: { nextStageId: null },
+        },
+      },
+    };
+    const { engine, state } = makeSetup([questWithBeneficiary]);
+    engine.grantQuest('q_betray');
+    engine.ditchQuest('q_betray');
+    expect(state.getState().activeQuests['q_betray']).toBeUndefined();
+    expect(state.getState().completedQuestIds).toContain('q_betray');
+  });
+
+  it('stage onDitch 效果與 ditchConsequences 均套用', () => {
+    const questWithOnDitch: QuestDefinition = {
+      id: 'q_onditch', name: '階段背叛任務', type: 'side', source: 'npc',
+      canDitch: true,
+      ditchConsequences: {
+        reputationChanges: { faction_z: -20 },
+        flagsSet: ['global_betrayed'],
+      },
+      entryStageId: 's1',
+      stages: {
+        s1: {
+          id: 's1', description: '目標',
+          objectives: [{ id: 'obj1', type: 'flag_check', description: '旗標', flag: 'd_flag' }],
+          onComplete: { nextStageId: null },
+          onDitch: {
+            flagsSet: ['stage_betrayed'],
+            reputationChanges: { faction_y: -10 },
+          },
+        },
+      },
+    };
+    const { engine, state } = makeSetup([questWithOnDitch]);
+    engine.grantQuest('q_onditch');
+    engine.ditchQuest('q_onditch');
+    // ditchConsequences 效果
+    expect(state.getState().player.externalStats.reputation['faction_z']).toBe(-20);
+    expect(state.flags.has('global_betrayed')).toBe(true);
+    // stage onDitch 效果
+    expect(state.getState().player.externalStats.reputation['faction_y']).toBe(-10);
+    expect(state.flags.has('stage_betrayed')).toBe(true);
+  });
 });

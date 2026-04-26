@@ -615,11 +615,45 @@ export interface EventOutcome {
   npcFlagsSet?: Record<string, string[]>;
 }
 
+/**
+ * 觸發 Variant — 讓同一個事件可依不同條件走不同的觸發邏輯。
+ * 引擎在通過 top-level condition 的 shared gates（timePeriods、flags 等）後，
+ * 依序檢查 triggerVariants，第一個符合的 variant 生效：
+ *   - 它的 triggerChance / cooldownMinutes 取代 top-level 的對應設定
+ *   - 沒有 triggerChance = 必定觸發（無機率篩選）
+ *   - 沒有 cooldownMinutes = 不受冷卻限制（即使 isRepeatable）
+ *   - notification / notificationVariant 覆蓋整個事件的通知設定
+ * 若所有 variant 均不符合 → 事件不觸發。
+ * 省略 triggerVariants = 沿用 top-level condition（現有行為）。
+ */
+export interface EventTriggerVariant {
+  condition: {
+    flags?: string[];
+    anyFlags?: string[];
+    notFlags?: string[];
+    questActiveId?: string;
+    questStageId?: string;
+    triggerChance?: number;
+    cooldownMinutes?: number;
+    minReputation?: Record<string, number>;
+    maxReputation?: Record<string, number>;
+    minAffinity?: Record<string, number>;
+    maxAffinity?: Record<string, number>;
+  };
+  notification?: boolean;
+  notificationVariant?: 'normal' | 'negative' | 'danger' | 'rare';
+}
+
 export interface GameEvent {
   id: string;
   name?: string;
   locationId?: string | string[];
   condition: EventCondition;
+  /**
+   * 觸發 variant 列表（可選）。存在時取代 top-level condition 的 triggerChance / cooldownMinutes。
+   * 詳見 EventTriggerVariant。
+   */
+  triggerVariants?: EventTriggerVariant[];
   description: string;
   outcomes: EventOutcome[];
   isRepeatable: boolean;

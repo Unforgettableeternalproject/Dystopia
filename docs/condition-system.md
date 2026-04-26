@@ -13,6 +13,7 @@
 |---|---|---|
 | `ConnectionAccess` | 通道進入、地點進入 (`accessCondition`)、Props 可見性 (`visibleWhen`) | `src/lib/types/world.ts` |
 | `EventCondition` | 事件觸發條件 | `src/lib/types/world.ts` |
+| `EventTriggerVariant` | 事件觸發條件分支（`triggerVariants[]`），按優先序覆蓋 chance / cooldown / notification | `src/lib/types/world.ts` |
 | `QuestFailCondition` | 任務/階段失敗條件 | `src/lib/types/quest.ts` |
 | 散裝欄位 | 對話選項前置條件、遭遇選項前置條件 | `src/lib/types/dialogue.ts`, `src/lib/types/encounter.ts` |
 
@@ -119,6 +120,60 @@
 | `triggerChance` | `number` | 觸發機率 0--1（條件通過後擲骰） |
 
 **引擎實作：** `EventEngine.canTrigger()` (`src/lib/engine/EventEngine.ts`)
+
+---
+
+### 2b. EventTriggerVariant（觸發條件分支）
+
+**使用位置：** `GameEvent.triggerVariants[]` — 事件條件分支（可選）
+
+**運算邏輯：**
+- 若設定 `triggerVariants`，引擎在 shared gate（頂層 `condition` 的非機率欄位）通過後，按陣列順序取第一個符合條件的分支
+- 分支完全取代頂層的 `triggerChance` 和 `cooldownMinutes`
+- 若所有分支條件均不符合，事件**不觸發**
+- 頂層 `condition` 中的 `triggerChance` / `cooldownMinutes` 在 `triggerVariants` 存在時**無效**
+
+**分支 `condition` 欄位（與 EventCondition 的旗標/任務/聲望欄位相同）：**
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `flags` | `string[]` | 所有旗標必須存在（AND） |
+| `anyFlags` | `string[]` | 至少一個旗標存在（OR） |
+| `notFlags` | `string[]` | 所有旗標必須不存在（AND） |
+| `questActiveId` | `string` | 指定任務需進行中 |
+| `questStageId` | `string` | 指定任務階段（需搭配 `questActiveId`） |
+| `minReputation` | `Record<string, number>` | 派系聲望下限（AND） |
+| `maxReputation` | `Record<string, number>` | 派系聲望上限（AND） |
+| `minAffinity` | `Record<string, number>` | NPC 好感下限（AND） |
+| `maxAffinity` | `Record<string, number>` | NPC 好感上限（AND） |
+| `triggerChance` | `number` | 此分支的觸發機率（0–1），省略 = 必定觸發 |
+| `cooldownMinutes` | `number` | 此分支的冷卻時間（遊戲內分鐘） |
+
+**分支控制欄位：**
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `notification` | `boolean` | 觸發時是否顯示 HUD 提示（覆蓋頂層設定） |
+| `notificationVariant` | `string` | 提示樣式：`'normal'` / `'negative'` / `'danger'` / `'rare'` |
+
+**典型用法（crambell_survey 範例）：**
+```json
+"triggerVariants": [
+  {
+    "condition": {
+      "questActiveId": "crambell_kach_test1",
+      "notFlags": ["crambell_kach_cover_held", "crambell_kach_cover_blown"]
+    },
+    "notification": true,
+    "notificationVariant": "danger"
+  },
+  {
+    "condition": { "triggerChance": 0.3, "cooldownMinutes": 180 }
+  }
+]
+```
+
+**引擎實作：** `EventEngine.meetsVariantCondition()`, `EventEngine.canTrigger()` (`src/lib/engine/EventEngine.ts`)
 
 ---
 

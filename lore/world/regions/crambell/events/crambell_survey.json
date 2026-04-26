@@ -1,0 +1,36 @@
+{
+  "id": "crambell_survey",
+  "name": "勘查",
+  "locationId": "delth_patrol_zone",
+  "condition": {
+    "timePeriods": ["work"]
+  },
+  "triggerVariants": [
+    {
+      "_comment": "凱奇任務進行中且尚未解決掩護問題時，必定觸發（無機率）",
+      "condition": {
+        "questActiveId": "crambell_kach_test1",
+        "notFlags": ["crambell_kach_cover_held", "crambell_kach_cover_blown"]
+      },
+      "notification": true,
+      "notificationVariant": "danger"
+    },
+    {
+      "_comment": "一般例行抽查：30% 機率，180 分鐘冷卻",
+      "condition": {
+        "triggerChance": 0.3,
+        "cooldownMinutes": 180
+      }
+    }
+  ],
+  "description": "工作時段的例行抽查，工頭在工作區挑選工人核對配額進度與身份。",
+  "outcomes": [
+    {
+      "id": "survey_trigger",
+      "description": "工頭走向玩家，開始例行盤查。",
+      "startEncounterId": "crambell_enc_survey"
+    }
+  ],
+  "isRepeatable": true,
+  "notification": false
+}

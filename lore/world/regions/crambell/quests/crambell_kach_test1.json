@@ -1,0 +1,74 @@
+{
+  "id": "crambell_kach_test1",
+  "name": "凱奇的測試一",
+  "type": "side",
+  "source": "npc",
+  "giverNpcId": "crambell_kach",
+  "regionId": "crambell",
+  "canDitch": true,
+  "autoAccept": false,
+
+  "_comment": [
+    "路線四/五前置任務：凱奇讓玩家在指定工作日代替他完成兩倍配額，",
+    "並應對這天必定出現的勘查事件，掩護凱奇的去向。",
+    "完成後取得凱奇的初步信任，且玩家手上已有足以讓凱恩感興趣的線索。",
+    "Ditch (路線四)：玩家在回報階段遭遇凱恩後選擇出賣任務，",
+    "把凱奇的異常行為透露給凱恩，換取轉移通行證。"
+  ],
+
+  "ditchConsequences": {
+    "beneficiaryFactionId": "crambell_government",
+    "reputationChanges": { "crambell_treffen": -30, "crambell_government": 20 },
+    "affinityChanges": { "crambell_kach": -15, "crambell_kane": 10 },
+    "flagsSet": ["crambell_kach_betrayed", "crambell_treffen_betrayed_early"]
+  },
+
+  "entryStageId": "cover_for_kach",
+  "stages": {
+    "cover_for_kach": {
+      "id": "cover_for_kach",
+      "description": "在凱奇指定的工作日完成兩倍配額，並在勘查事件中掩護凱奇的行蹤",
+      "objectives": [
+        {
+          "id": "kach_covered",
+          "type": "flag_check",
+          "description": "在勘查中為凱奇提供掩護",
+          "flag": "crambell_kach_cover_held"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_kach_test1_completed", "crambell_treffen_lead_known"],
+        "nextStageId": "report_back"
+      },
+      "onDitch": {
+        "reputationChanges": { "crambell_government": 10 }
+      }
+    },
+    "report_back": {
+      "id": "report_back",
+      "description": "向凱奇回報今天的結果",
+      "objectives": [
+        {
+          "id": "kach_reported",
+          "type": "flag_check",
+          "description": "找到凱奇並回報今天的狀況",
+          "flag": "crambell_kach_test1_reported"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_kach_trust_gained"],
+        "reputationChanges": { "crambell_treffen": 5 },
+        "nextStageId": null
+      },
+      "onDitch": {
+        "reputationChanges": { "crambell_government": 15 }
+      }
+    }
+  },
+
+  "rewards": {
+    "experience": 80,
+    "affinityChanges": { "crambell_kach": 5 },
+    "reputationChanges": { "crambell_treffen": 5 }
+  }
+}

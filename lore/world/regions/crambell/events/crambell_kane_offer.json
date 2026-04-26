@@ -1,0 +1,24 @@
+{
+  "id": "crambell_kane_offer",
+  "name": "凱恩的眼色",
+  "locationId": "delth_patrol_zone",
+  "condition": {
+    "timePeriods": ["work"],
+    "flags": ["crambell_treffen_lead_known"],
+    "questActiveId": "crambell_kach_test1",
+    "notFlags": [
+      "crambell_kane_deal_started",
+      "crambell_kach_betrayed"
+    ]
+  },
+  "description": "凱恩在管制區工作時段注意到玩家，趁人不注意做了個示意的眼色。玩家手上已有足以讓凱恩感興趣的線索。",
+  "outcomes": [
+    {
+      "id": "kane_offer_trigger",
+      "description": "凱恩把玩家攔到廣場邊緣的監視盲角，提出以情報換取轉移通行證的交易。",
+      "startEncounterId": "crambell_enc_kane_offer"
+    }
+  ],
+  "isRepeatable": false,
+  "notification": false
+}

@@ -63,6 +63,8 @@ export interface EncounterPendingEffects {
    * GameController 渲染完成後應呼叫 conclude() 完成遭遇結束流程。
    */
   outcomeType?: 'success' | 'failure' | 'neutral';
+  /** 背叛並永久棄置指定任務（GameController 轉交 QuestEngine.ditchQuest） */
+  questDitch?: string;
 }
 
 export class EncounterEngine {
@@ -473,6 +475,10 @@ export class EncounterEngine {
     effects.removeConditionIds?.forEach(id => this.state.removeCondition(id));
     if (effects.npcFlagsSet) {
       this.state.applyNPCFlagsSet(effects.npcFlagsSet);
+    }
+    if (effects.ditchQuestId) {
+      // Store for GameController to pick up via flushPendingEffects()
+      this.pending.questDitch = effects.ditchQuestId;
     }
   }
 

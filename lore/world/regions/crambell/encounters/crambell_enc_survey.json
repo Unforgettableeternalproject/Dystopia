@@ -1,0 +1,95 @@
+{
+  "id": "crambell_enc_survey",
+  "name": "勘查",
+  "type": "event",
+  "description": "工作時段中，一名配戴識別徽章的工頭在工作區進行例行抽查。",
+  "entryNodeId": "inspector_arrives",
+  "nodes": {
+    "inspector_arrives": {
+      "id": "inspector_arrives",
+      "dmNarrative": "工頭舉起記錄板，在人群中掃了一圈。他在玩家面前停下，「配額進度？」語氣是例行公事的平靜，但目光很銳利，不像只是走個過場。",
+      "choices": [
+        {
+          "id": "answer_straight",
+          "text": "直接回報進度，態度配合。",
+          "condition": "!crambell_kach_test1_started | crambell_kach_cover_held | crambell_kach_cover_blown",
+          "nextNodeId": "survey_passed"
+        },
+        {
+          "id": "answer_straight_kach_absent",
+          "text": "直接回報進度，態度配合。",
+          "condition": "crambell_kach_test1_started & !crambell_kach_cover_held & !crambell_kach_cover_blown",
+          "nextNodeId": "kach_question"
+        },
+        {
+          "id": "answer_vague",
+          "text": "含糊其辭，只說「差不多」。",
+          "nextNodeId": "survey_suspicion"
+        }
+      ]
+    },
+    "kach_question": {
+      "id": "kach_question",
+      "dmNarrative": "工頭在記錄板上寫了什麼，然後往旁邊掃了一眼。「凱奇·巴頓。他今天沒在崗位上。」他直接看著玩家，「你有看到他嗎？」",
+      "choices": [
+        {
+          "id": "cover_inside",
+          "text": "「他在裡面搬貨，我剛看到的。」",
+          "nextNodeId": "kach_covered"
+        },
+        {
+          "id": "play_dumb",
+          "text": "「我只管自己的工作，不太注意別人。」",
+          "nextNodeId": "kach_neutral"
+        },
+        {
+          "id": "expose_kach",
+          "text": "「他今天一直沒到，我也覺得奇怪。」",
+          "nextNodeId": "kach_exposed"
+        }
+      ]
+    },
+    "survey_passed": {
+      "id": "survey_passed",
+      "dmNarrative": "工頭在記錄板上打了個勾，轉身離開，連正眼都沒再看一次。算過了。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "reputationChanges": { "crambell_government": 1 }
+      }
+    },
+    "survey_suspicion": {
+      "id": "survey_suspicion",
+      "dmNarrative": "工頭停下來，再看了玩家一眼，「拿工作證。」他盯著證件核對了很久，才把它還回來，什麼都沒說就走了。玩家的名字現在在他的記錄板上多了一個圈。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "reputationChanges": { "crambell_government": -1 }
+      }
+    },
+    "kach_covered": {
+      "id": "kach_covered",
+      "dmNarrative": "工頭往裡頭看了幾步，沒看到什麼明顯異狀，轉身繼續巡。玩家把今天的工作額度做到兩份，撐到工作時段結束。凱奇在人群散去後悄悄回到原位。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["crambell_kach_cover_held"]
+      }
+    },
+    "kach_neutral": {
+      "id": "kach_neutral",
+      "dmNarrative": "工頭看了玩家一眼，沒有再多問，走向另一邊繼續巡邏。凱奇沒有被追查，但玩家也沒能主動提供掩護——靠著「不知道」勉強矇混過去。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    },
+    "kach_exposed": {
+      "id": "kach_exposed",
+      "dmNarrative": "工頭的臉色變了，立刻叫來另一個人，開始往各個角落搜。今天的局面對凱奇來說很不妙。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "flagsSet": ["crambell_kach_cover_blown"]
+      }
+    }
+  }
+}

@@ -26,7 +26,9 @@
     "crambell_worker_daily_quota",
     "crambell_transfer_opportunity",
     "crambell_treffen_contact",
-    "crambell_mildore_rescue"
+    "crambell_kach_test1",
+    "crambell_mildore_rescue",
+    "crambell_kane_double_agent"
   ],
   "factionIds": [
     "crambell_government",

@@ -6,6 +6,7 @@
 //   checkGlobalEvents(regionId) — global events (from RegionIndex.globalEventIds)
 
 import type { GameEvent, EventOutcome, RegionSchedule, ItemRequirement } from '../types';
+import type { EventTriggerVariant } from '../types/world';
 import type { LoreVault } from '../lore/LoreVault';
 import type { StateManager } from './StateManager';
 import type { TimeManager } from './TimeManager';
@@ -22,6 +23,9 @@ export interface TriggeredEvent {
   startEncounterId?: string;
   /** 此結果需要觸發失敗的任務 ID（由 GameController 轉交 QuestEngine.applyQuestFail） */
   failQuestId?: string;
+  /** 有效通知設定（可能被匹配的 triggerVariant 覆蓋）。消費方應優先使用此欄位而非 event.notification。 */
+  notification?: boolean;
+  notificationVariant?: 'normal' | 'negative' | 'danger' | 'rare';
 }
 
 export class EventEngine {
@@ -43,6 +47,17 @@ export class EventEngine {
     sceneNpcIds: [],
     crossedHours: [],
   };
+
+  /**
+   * Populated by canTrigger() when a triggerVariant matches.
+   * Stores only the values needed by processEventIds to avoid class-property narrowing issues.
+   */
+  private _matchedVariantCache: {
+    notification: boolean | undefined;
+    notificationVariant: 'normal' | 'negative' | 'danger' | 'rare' | undefined;
+    cooldownMinutes: number | undefined;
+    hasVariant: boolean;
+  } = { notification: undefined, notificationVariant: undefined, cooldownMinutes: undefined, hasVariant: false };
 
   /**
    * Check all events at the current location.
@@ -155,27 +170,40 @@ export class EventEngine {
     const triggered: TriggeredEvent[] = [];
 
     for (const ev of events) {
+      this._matchedVariantCache = { notification: undefined, notificationVariant: undefined, cooldownMinutes: undefined, hasVariant: false };
       if (!this.canTrigger(ev)) continue;
 
       const outcome = this.selectOutcome(ev);
       if (!outcome) continue;
 
       this.applyOutcome(outcome);
+
+      // Resolve effective notification and cooldown from matched variant (if any).
+      const cache = this._matchedVariantCache;
+      const notification        = cache.hasVariant ? cache.notification        : ev.notification;
+      const notificationVariant = cache.hasVariant ? cache.notificationVariant : ev.notificationVariant;
+
       triggered.push({
         event: ev,
         outcome,
         grantQuestId:     outcome.grantQuestId,
         startEncounterId: outcome.startEncounterId,
         failQuestId:      outcome.failQuestId,
+        notification,
+        notificationVariant,
       });
 
       // Non-repeatable: mark as permanently fired
       if (!ev.isRepeatable) {
         this.state.flags.set(ev.id + ':fired');
       } else {
-        // Repeatable: record cooldown timestamp
-        const gs = this.state.getState();
-        this.state.setEventCooldown(ev.id, gs.time.totalMinutes);
+        // Repeatable: record cooldown only if the matched variant (or top-level) has cooldownMinutes.
+        // Variants without cooldownMinutes bypass the cooldown mechanism entirely.
+        const effectiveCooldown = cache.hasVariant ? cache.cooldownMinutes : ev.condition.cooldownMinutes;
+        if (effectiveCooldown && effectiveCooldown > 0) {
+          const gs = this.state.getState();
+          this.state.setEventCooldown(ev.id, gs.time.totalMinutes);
+        }
       }
 
       this.state.emit(GameEvents.GAME_EVENT_TRIGGERED, { eventId: ev.id, outcomeId: outcome.id });
@@ -234,8 +262,9 @@ export class EventEngine {
     // Time range condition (daily recurring, OR within array)
     if (!checkTimeRanges(condition.timeRanges, gs.time)) return false;
 
-    // Cooldown condition (repeatable events only)
-    if (event.isRepeatable && condition.cooldownMinutes && condition.cooldownMinutes > 0) {
+    // Cooldown condition (repeatable events only).
+    // Skipped when triggerVariants is present — each variant manages its own cooldown.
+    if (!event.triggerVariants?.length && event.isRepeatable && condition.cooldownMinutes && condition.cooldownMinutes > 0) {
       const lastFired = gs.eventCooldowns[event.id];
       if (lastFired !== undefined) {
         const elapsed = gs.time.totalMinutes - lastFired;
@@ -328,11 +357,80 @@ export class EventEngine {
       }
     }
 
+    // Trigger variant resolution — if triggerVariants is defined, it takes over from here
+    // and handles its own cooldown + chance checks (top-level values are ignored for these).
+    if (event.triggerVariants?.length) {
+      const matched = event.triggerVariants.find(v => this.meetsVariantCondition(v, gs));
+      if (!matched) return false;
+      this._matchedVariantCache = {
+        notification:        matched.notification,
+        notificationVariant: matched.notificationVariant,
+        cooldownMinutes:     matched.condition.cooldownMinutes,
+        hasVariant:          true,
+      };
+
+      // Variant-specific cooldown
+      const vc = matched.condition.cooldownMinutes;
+      if (event.isRepeatable && vc && vc > 0) {
+        const last = gs.eventCooldowns[event.id];
+        if (last !== undefined && gs.time.totalMinutes - last < vc) return false;
+      }
+
+      // Variant-specific chance
+      if (!skipChance && matched.condition.triggerChance !== undefined && matched.condition.triggerChance < 1) {
+        if (Math.random() > matched.condition.triggerChance) return false;
+      }
+
+      return true;
+    }
+
     // Trigger chance — roll last so all hard conditions pass first
     if (!skipChance && event.condition.triggerChance !== undefined && event.condition.triggerChance < 1) {
       if (Math.random() > event.condition.triggerChance) return false;
     }
 
+    return true;
+  }
+
+  /** Evaluate whether a triggerVariant's condition matches the current game state. */
+  private meetsVariantCondition(variant: EventTriggerVariant, gs: ReturnType<StateManager['getState']>): boolean {
+    const c = variant.condition;
+    if (c.flags    && !this.state.flags.hasAll(c.flags))   return false;
+    if (c.anyFlags && !this.state.flags.hasAny(c.anyFlags)) return false;
+    if (c.notFlags) {
+      for (const f of c.notFlags) {
+        if (this.state.flags.has(f)) return false;
+      }
+    }
+    if (c.questActiveId) {
+      const q = gs.activeQuests[c.questActiveId];
+      if (!q || q.isCompleted || q.isFailed) return false;
+      if (c.questStageId && q.currentStageId !== c.questStageId) return false;
+    }
+    if (c.minReputation) {
+      const rep = gs.player.externalStats.reputation;
+      for (const [fid, min] of Object.entries(c.minReputation)) {
+        if ((rep[fid] ?? 0) < min) return false;
+      }
+    }
+    if (c.maxReputation) {
+      const rep = gs.player.externalStats.reputation;
+      for (const [fid, max] of Object.entries(c.maxReputation)) {
+        if ((rep[fid] ?? 0) > max) return false;
+      }
+    }
+    if (c.minAffinity) {
+      const aff = gs.player.externalStats.affinity;
+      for (const [nid, min] of Object.entries(c.minAffinity)) {
+        if ((aff[nid] ?? 0) < min) return false;
+      }
+    }
+    if (c.maxAffinity) {
+      const aff = gs.player.externalStats.affinity;
+      for (const [nid, max] of Object.entries(c.maxAffinity)) {
+        if ((aff[nid] ?? 0) > max) return false;
+      }
+    }
     return true;
   }
 
@@ -372,9 +470,11 @@ export class EventEngine {
     return {
       event,
       outcome,
-      grantQuestId:     outcome.grantQuestId,
-      startEncounterId: outcome.startEncounterId,
-      failQuestId:      outcome.failQuestId,
+      grantQuestId:        outcome.grantQuestId,
+      startEncounterId:    outcome.startEncounterId,
+      failQuestId:         outcome.failQuestId,
+      notification:        event.notification,
+      notificationVariant: event.notificationVariant,
     };
   }
 
@@ -409,9 +509,11 @@ export class EventEngine {
     return {
       event,
       outcome,
-      grantQuestId:     outcome.grantQuestId,
-      startEncounterId: outcome.startEncounterId,
-      failQuestId:      outcome.failQuestId,
+      grantQuestId:        outcome.grantQuestId,
+      startEncounterId:    outcome.startEncounterId,
+      failQuestId:         outcome.failQuestId,
+      notification:        event.notification,
+      notificationVariant: event.notificationVariant,
     };
   }
 
