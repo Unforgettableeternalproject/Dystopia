@@ -43,6 +43,7 @@
 | 冷卻 | -- | `cooldownMinutes` | -- | -- | -- |
 | 機率 | -- | `triggerChance` | -- | -- | -- |
 | 繞過 | `bypass{}` | -- | -- | -- | -- |
+| 嘗試遭遇 | `attemptEncounterId` | -- | -- | -- | -- |
 
 ---
 
@@ -71,6 +72,8 @@
 | `minMelphin` | `number` | 最低梅分門檻 |
 | `lockedMessage` | `string` | 條件不滿足時的提示文字 |
 | `bypass` | `ConnectionBypass` | 繞過條件（OR 覆蓋 AND），見下方 |
+| `attemptEncounterId` | `string` | 嘗試遭遇 ID。條件與 bypass 皆不通過時觸發該遭遇，結果決定放行與否 |
+| `attemptLabel` | `string` | 嘗試通道的地圖標籤提示（預設「可嘗試通行」） |
 
 **ConnectionBypass（繞過條件）：**
 
@@ -262,7 +265,7 @@
 |---|---|
 | `locations/_schema.json` | `LocationNode`, `LocationBase`, `ConnectionAccess`, `ConnectionBypass` |
 | `events/_schema.json` | `GameEvent`, `EventCondition`, `EventOutcome` |
-| `encounters/_schema.json` | `EncounterDefinition`, `EncounterNode`, `EncounterChoice`, `EncounterStatCheck` |
+| `encounters/_schema.json` | `EncounterDefinition`, `EncounterNode`（含 `weightedBranch` 機率分支）, `EncounterChoice`, `EncounterStatCheck` |
 | `dialogues/_schema.json` | `DialogueProfile`, `ScriptedNode`, `ScriptedChoice`, `ContextSnippet` |
 | `quests/_schema.json` | `QuestDefinition`, `QuestStage`, `QuestFailCondition`, `QuestObjective` |
 | `npcs/_schema.json` | `NPCNode` |

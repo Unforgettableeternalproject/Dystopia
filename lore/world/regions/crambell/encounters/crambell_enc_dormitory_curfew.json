@@ -1,0 +1,152 @@
+{
+  "id": "crambell_enc_dormitory_curfew",
+  "name": "宿舍門禁",
+  "type": "event",
+  "description": "門禁時間，宿舍大門緊閉。玩家試圖回到宿舍，但管理員正在值班。玩家可以嘗試說服、賄賂、繞過，或者乾脆放棄。",
+  "entryNodeId": "gate",
+  "nodes": {
+    "gate": {
+      "id": "gate",
+      "dmNarrative": "宿舍大門緊閉，門口的燈還亮著。透過窗戶可以看到管理員坐在值班室裡。門禁時間已經開始了。",
+      "choices": [
+        {
+          "id": "persuade",
+          "text": "嘗試說服管理員開門",
+          "nextNodeId": "persuade_check"
+        },
+        {
+          "id": "bribe",
+          "text": "塞點錢給管理員，請他通融一下",
+          "minMelphin": 10,
+          "nextNodeId": "bribe_check"
+        },
+        {
+          "id": "sneak",
+          "text": "繞到側面，找別的方式進去",
+          "nextNodeId": "sneak_check"
+        },
+        {
+          "id": "abandon",
+          "text": "算了，今晚另找地方待著",
+          "nextNodeId": "abandon_end"
+        }
+      ]
+    },
+
+    "persuade_check": {
+      "id": "persuade_check",
+      "dmNarrative": "玩家敲了敲門，管理員不耐煩地打開小窗。玩家試著說服他，表示自己只是晚了一點回來。",
+      "statCheck": {
+        "stat": "primaryStats.talent",
+        "dc": 12,
+        "successNodeId": "persuade_pass",
+        "failNodeId": "persuade_fail"
+      }
+    },
+    "persuade_pass": {
+      "id": "persuade_pass",
+      "dmNarrative": "管理員嘆了口氣，嘟囔著「下不為例」，把門打開了一條縫讓玩家進去。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "movePlayer": "crambell_dormitory_lobby",
+        "statChanges": { "statusStats.stress": 1 }
+      }
+    },
+    "persuade_fail": {
+      "id": "persuade_fail",
+      "dmNarrative": "管理員搖了搖頭，把小窗關上了。「規矩就是規矩，明天早上再來。」",
+      "isOutcome": true,
+      "outcomeType": "failure"
+    },
+
+    "bribe_check": {
+      "id": "bribe_check",
+      "dmNarrative": "玩家悄悄把梅分遞到窗口邊。管理員低頭看了一眼。",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "dc": 7,
+        "successNodeId": "bribe_pass",
+        "failNodeId": "bribe_fail_pass"
+      }
+    },
+    "bribe_pass": {
+      "id": "bribe_pass",
+      "dmNarrative": "管理員嫻熟地把錢收進口袋，門悄悄打開了。「快進去，別被人看到。」",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "melphinChange": -10,
+        "movePlayer": "crambell_dormitory_lobby"
+      }
+    },
+    "bribe_fail_pass": {
+      "id": "bribe_fail_pass",
+      "dmNarrative": "管理員皺了皺眉，「就這麼點？你是在打發叫花子嗎？」他伸出手比了一個數字——要雙倍。無奈之下只好再掏一份。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "melphinChange": -20,
+        "movePlayer": "crambell_dormitory_lobby",
+        "statChanges": { "statusStats.stress": 2 }
+      }
+    },
+
+    "sneak_check": {
+      "id": "sneak_check",
+      "dmNarrative": "玩家繞到宿舍側面，觀察著圍牆的高度。似乎有個地方可以翻過去。",
+      "statCheck": {
+        "stat": "primaryStats.luck",
+        "dc": 12,
+        "successNodeId": "sneak_pass",
+        "failNodeId": "sneak_fail_branch"
+      }
+    },
+    "sneak_pass": {
+      "id": "sneak_pass",
+      "dmNarrative": "玩家輕巧地翻過圍牆，悄無聲息地落在另一邊。沒有人發現。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "movePlayer": "crambell_dormitory_lobby",
+        "timeAdvance": 10
+      }
+    },
+    "sneak_fail_branch": {
+      "id": "sneak_fail_branch",
+      "dmNarrative": "攀爬的途中出了差錯——",
+      "weightedBranch": [
+        { "nodeId": "sneak_fail_blocked", "weight": 1 },
+        { "nodeId": "sneak_fail_injured", "weight": 1 }
+      ]
+    },
+    "sneak_fail_blocked": {
+      "id": "sneak_fail_blocked",
+      "dmNarrative": "圍牆上的碎石鬆了，玩家滑落回地面，還驚動了附近的巡邏。只好趕緊離開，今晚是進不去了。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "statChanges": { "statusStats.stress": 2 }
+      }
+    },
+    "sneak_fail_injured": {
+      "id": "sneak_fail_injured",
+      "dmNarrative": "玩家勉強翻了過去，但落地時腳踝扭了一下。疼痛傳來，但至少人已經在裡面了。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "movePlayer": "crambell_dormitory_lobby",
+        "applyConditionId": "sprain",
+        "timeAdvance": 15,
+        "statChanges": { "statusStats.stress": 3 }
+      }
+    },
+
+    "abandon_end": {
+      "id": "abandon_end",
+      "dmNarrative": "玩家轉身離開了宿舍大門。今晚得另找地方過夜了。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

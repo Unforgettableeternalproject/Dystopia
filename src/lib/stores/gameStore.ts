@@ -216,6 +216,10 @@ export interface MiniMapEdge {
   isHidden:            boolean;
   lockedMessage?:      string;
   bypassMessage?:      string;
+  /** 封鎖但可嘗試通行（會觸發嘗試遭遇） */
+  hasAttempt?:         boolean;
+  /** 嘗試通道的標籤提示 */
+  attemptLabel?:       string;
 }
 
 export interface MiniMapData {
@@ -262,6 +266,9 @@ export interface RegionMapAreaEdge {
   hasBypass:       boolean;
   lockedMessage?:  string;
   bypassMessage?:  string;
+  /** 至少一條連線有嘗試遭遇時為 true */
+  hasAttempt?:     boolean;
+  attemptLabel?:   string;
 }
 
 export interface RegionMapData {

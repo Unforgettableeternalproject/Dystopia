@@ -39,6 +39,7 @@ export interface SaveSnapshot {
   timePeriod:           TimePeriod;
   eventCooldowns:       Record<string, number>;
   eventCounters:        Record<string, number>;
+  attemptCooldowns?:    Record<string, number>;
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -74,8 +75,9 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     flags,
     time:           gs.time,
     timePeriod:     gs.timePeriod,
-    eventCooldowns: gs.eventCooldowns,
-    eventCounters:  gs.eventCounters,
+    eventCooldowns:   gs.eventCooldowns,
+    eventCounters:    gs.eventCounters,
+    attemptCooldowns: gs.attemptCooldowns,
   };
 
   const json       = JSON.stringify(snapshot);
@@ -154,8 +156,9 @@ export async function decode(code: string): Promise<DecodeResult> {
     // Fallbacks for saves from before time system was added
     time:           snapshot.time           ?? { year: 1498, month: 6, day: 12, hour: 21, minute: 23, totalMinutes: 0 },
     timePeriod:     snapshot.timePeriod     ?? 'rest',
-    eventCooldowns: snapshot.eventCooldowns ?? {},
-    eventCounters:  snapshot.eventCounters  ?? {},
+    eventCooldowns:   snapshot.eventCooldowns   ?? {},
+    eventCounters:    snapshot.eventCounters    ?? {},
+    attemptCooldowns: snapshot.attemptCooldowns ?? {},
   };
 
   return { snapshot, state, flags: snapshot.flags };

@@ -781,6 +781,14 @@ export class StateManager {
     this.state.eventCooldowns[eventId] = totalMinutes;
   }
 
+  setAttemptCooldown(connectionKey: string, totalMinutes: number): void {
+    this.state.attemptCooldowns[connectionKey] = totalMinutes;
+  }
+
+  getAttemptCooldown(connectionKey: string): number | undefined {
+    return this.state.attemptCooldowns[connectionKey];
+  }
+
   getEventCounter(counterId: string): number {
     return this.state.eventCounters[counterId] ?? 0;
   }

@@ -229,6 +229,12 @@ export interface EncounterNode {
    * 用於判斷任務目標 encounter_completed 的成功條件。
    */
   outcomeType?: 'success' | 'failure' | 'neutral';
+  /**
+   * 機率分支。到達此節點時按權重隨機選一條路跳轉。
+   * 與 statCheck / choices 互斥——有 weightedBranch 時其他兩者不適用。
+   * 權重為相對值，例如 [{ weight: 1 }, { weight: 1 }] = 各 50%。
+   */
+  weightedBranch?: { nodeId: string; weight: number }[];
 }
 
 // ── Story (cutscene) types ────────────────────────────────────

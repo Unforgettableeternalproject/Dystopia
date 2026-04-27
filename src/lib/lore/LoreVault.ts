@@ -238,8 +238,8 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
-  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number>; attemptCooldowns?: Record<string, number>; connectionKey?: string },
+  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number; attemptEncounterId?: string; attemptLabel?: string } {
     if (!a) return { allowed: true };
 
     // ── Normal access check (AND) ──────────────────────────────────
@@ -310,6 +310,18 @@ export class LoreVault {
       }
     }
 
+    // ── Attempt encounter — blocked but player can try ─────────────
+    if (a.attemptEncounterId) {
+      // Check cooldown: if still on cooldown, treat as fully locked
+      if (a.attemptCooldownMinutes && extraCtx?.connectionKey && extraCtx.attemptCooldowns && gameTime) {
+        const lastAttempt = extraCtx.attemptCooldowns[extraCtx.connectionKey];
+        if (lastAttempt !== undefined && (gameTime.totalMinutes - lastAttempt) < a.attemptCooldownMinutes) {
+          return { allowed: false };
+        }
+      }
+      return { allowed: false, attemptEncounterId: a.attemptEncounterId, attemptLabel: a.attemptLabel };
+    }
+
     return { allowed: false };
   }
 
@@ -325,7 +337,7 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number>; attemptCooldowns?: Record<string, number>; connectionKey?: string },
   ): boolean {
     return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx).allowed;
   }
@@ -344,8 +356,8 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
-  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number>; attemptCooldowns?: Record<string, number>; connectionKey?: string },
+  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number; attemptEncounterId?: string; attemptLabel?: string } {
     return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx);
   }
 
@@ -863,7 +875,10 @@ export class LoreVault {
           // Show lock/bypass status when access context is provided
           if (accessCtx) {
             const result = this.getConnectionAccessResult(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin, { reputation: accessCtx.reputation, affinity: accessCtx.affinity });
-            if (!result.allowed) {
+            if (!result.allowed && result.attemptEncounterId) {
+              const label = result.attemptLabel ?? '可嘗試通行';
+              parts.push('[ATTEMPT: ' + label + ' | encounter: ' + result.attemptEncounterId + ']');
+            } else if (!result.allowed) {
               const msg = c.access.lockedMessage ?? '此通道目前無法通行';
               parts.push('[LOCKED: ' + msg + ']');
             } else if (result.wasBypass || result.bypassMessage || result.timePenalty !== undefined) {

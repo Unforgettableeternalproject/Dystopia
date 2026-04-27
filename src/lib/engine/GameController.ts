@@ -3264,9 +3264,15 @@ export class GameController {
 
     if (resolved) {
       const exits = resolved.connections
-        .filter(c => this.lore.canAccessConnection(
-          c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds, Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
-        ))
+        .filter(c => {
+          const r = this.lore.getConnectionAccessResult(
+            c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+            Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+            { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity,
+              attemptCooldowns: gs.attemptCooldowns, connectionKey: gs.player.currentLocationId + '→' + c.targetLocationId },
+          );
+          return r.allowed || !!r.attemptEncounterId;
+        })
         .slice(0, 3);
       for (const exit of exits) {
         result.push({ id: id('move'), text: 'Go to ' + exit.description, actionType: 'move' });
@@ -3305,13 +3311,18 @@ export class GameController {
       const result = this.lore.getConnectionAccessResult(
         c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
         Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
-        { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity },
+        { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity,
+          attemptCooldowns: gs.attemptCooldowns, connectionKey: gs.player.currentLocationId + '→' + c.targetLocationId },
       );
+      const hasAttempt = !result.allowed && !!result.attemptEncounterId;
       return {
         targetLocationId: c.targetLocationId,
         description: c.description,
-        isLocked: !result.allowed,
-        lockedMessage: !result.allowed ? (c.access?.lockedMessage ?? '此通道目前無法通行') : undefined,
+        isLocked: !result.allowed && !hasAttempt,
+        lockedMessage: !result.allowed && !hasAttempt ? (c.access?.lockedMessage ?? '此通道目前無法通行') : undefined,
+        hasAttempt,
+        attemptEncounterId: hasAttempt ? result.attemptEncounterId : undefined,
+        attemptLabel: hasAttempt ? (result.attemptLabel ?? '可嘗試通行') : undefined,
       };
     });
 
@@ -3661,16 +3672,21 @@ export class GameController {
 
           let isLocked = false;
           let hasBypass = false;
+          let hasAttempt = false;
+          let attemptLabel: string | undefined;
           let traversable = true;
           if (conn.access) {
             const result = this.lore.getConnectionAccessResult(
               conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
               Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
-              { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity },
+              { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity,
+                attemptCooldowns: gs.attemptCooldowns, connectionKey: node.id + '→' + conn.targetLocationId },
             );
             traversable = result.allowed;
-            // 路被鎖 = 直接條件不過（無論 bypass 是否可走）
-            isLocked = !result.allowed || (result.allowed && !!result.wasBypass);
+            hasAttempt = !result.allowed && !!result.attemptEncounterId;
+            attemptLabel = hasAttempt ? (result.attemptLabel ?? '可嘗試通行') : undefined;
+            // 路被鎖 = 直接條件不過（無論 bypass 是否可走），但有嘗試遭遇則不算純鎖
+            isLocked = (!result.allowed && !hasAttempt) || (result.allowed && !!result.wasBypass);
             hasBypass = !!conn.access.bypass;
           }
 
@@ -3680,11 +3696,13 @@ export class GameController {
             kind:                inArea ? 'local' : (targetIsAreaRoot ? 'cross-area' : 'remote-link'),
             isLocked,
             hasBypass,
-            isTraversable:       traversable,
+            isTraversable:       traversable || hasAttempt,
             targetIsForeignArea: !inArea,
             isHidden:            hiddenNodeIds.has(conn.targetLocationId),
             lockedMessage:       conn.access?.lockedMessage,
             bypassMessage:       conn.access?.bypass?.bypassMessage,
+            hasAttempt,
+            attemptLabel,
           });
         }
       }
@@ -3721,6 +3739,8 @@ export class GameController {
           fromId: string; toId: string;
           anyTraversable: boolean;
           hasBypass: boolean;
+          hasAttempt: boolean;
+          attemptLabel?: string;
           lockedMessage?: string;
           bypassMessage?: string;
         }>();
@@ -3757,14 +3777,19 @@ export class GameController {
               // Evaluate access for this specific connection
               let connTraversable = true;
               let connHasBypass   = false;
+              let connHasAttempt  = false;
+              let connAttemptLabel: string | undefined;
               let connLockedMsg: string | undefined;
               let connBypassMsg: string | undefined;
               if (conn.access) {
                 const result = this.lore.getConnectionAccessResult(
                   conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
                   Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
-                  { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity },
+                  { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity,
+                    attemptCooldowns: gs.attemptCooldowns, connectionKey: sub.id + '→' + conn.targetLocationId },
                 );
+                connHasAttempt  = !result.allowed && !!result.attemptEncounterId;
+                connAttemptLabel = connHasAttempt ? (result.attemptLabel ?? '可嘗試通行') : undefined;
                 connTraversable = result.allowed && !result.wasBypass;
                 connHasBypass   = !!conn.access.bypass;
                 connLockedMsg   = conn.access.lockedMessage;
@@ -3776,6 +3801,8 @@ export class GameController {
                 // Union: any traversable connection makes the edge traversable
                 existing.anyTraversable = existing.anyTraversable || connTraversable;
                 existing.hasBypass      = existing.hasBypass || connHasBypass;
+                existing.hasAttempt     = existing.hasAttempt || connHasAttempt;
+                if (!existing.attemptLabel && connAttemptLabel) existing.attemptLabel = connAttemptLabel;
                 if (!existing.lockedMessage && connLockedMsg) existing.lockedMessage = connLockedMsg;
                 if (!existing.bypassMessage && connBypassMsg) existing.bypassMessage = connBypassMsg;
               } else {
@@ -3784,6 +3811,8 @@ export class GameController {
                   toId:           targetAreaId,
                   anyTraversable: connTraversable,
                   hasBypass:      connHasBypass,
+                  hasAttempt:     connHasAttempt,
+                  attemptLabel:   connAttemptLabel,
                   lockedMessage:  connLockedMsg,
                   bypassMessage:  connBypassMsg,
                 });
@@ -3796,10 +3825,12 @@ export class GameController {
           areaEdges.push({
             fromId:         info.fromId,
             toId:           info.toId,
-            isLocked:       !info.anyTraversable,
+            isLocked:       !info.anyTraversable && !info.hasAttempt,
             hasBypass:      info.hasBypass,
             lockedMessage:  info.lockedMessage,
             bypassMessage:  info.bypassMessage,
+            hasAttempt:     info.hasAttempt,
+            attemptLabel:   info.attemptLabel,
           });
         }
 
@@ -4540,8 +4571,9 @@ export class GameController {
         totalMinutes: 0,
       },
       timePeriod:     'rest',
-      eventCooldowns: {},
-      eventCounters:  {},
+      eventCooldowns:   {},
+      eventCounters:    {},
+      attemptCooldowns: {},
     };
   }
 }

@@ -16,7 +16,10 @@
           "timeRanges": [
             { "startHour": 4, "startMinute": 0, "endHour": 22, "endMinute": 59 }
           ],
-          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。"
+          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。",
+          "attemptEncounterId": "crambell_enc_dormitory_curfew",
+          "attemptLabel": "門禁中（可嘗試闖入）",
+          "attemptCooldownMinutes": 1440
         }
       },
       {

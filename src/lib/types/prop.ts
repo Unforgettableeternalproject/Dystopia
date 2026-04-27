@@ -56,10 +56,16 @@ export interface PropItemGrant {
 export interface ObserveExit {
   targetLocationId: string;
   description: string;
-  /** true = 不可通行（access 與 bypass 皆不通過） */
+  /** true = 不可通行（access 與 bypass 皆不通過，且無嘗試遭遇） */
   isLocked: boolean;
   /** 鎖住時的說明文字 */
   lockedMessage?: string;
+  /** true = 封鎖但可嘗試通行（會觸發嘗試遭遇） */
+  hasAttempt?: boolean;
+  /** 嘗試遭遇 ID */
+  attemptEncounterId?: string;
+  /** 嘗試通道的標籤提示 */
+  attemptLabel?: string;
 }
 
 export interface ObserveNPC {

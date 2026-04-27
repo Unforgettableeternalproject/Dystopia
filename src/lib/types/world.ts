@@ -271,6 +271,25 @@ export interface ConnectionAccess {
    * 省略 = 不啟用繞過機制。
    */
   bypass?: ConnectionBypass;
+  /**
+   * 嘗試遭遇 ID。條件不滿足（且 bypass 也不通過）時，若設定此欄位，
+   * 通道不顯示為「封鎖」而是「可嘗試」——玩家選擇通行時進入該遭遇事件，
+   * 根據遭遇結果決定是否放行。
+   * 省略 = 條件不滿足時直接封鎖。
+   */
+  attemptEncounterId?: string;
+  /**
+   * 嘗試通道的地圖標籤提示。
+   * 例：「門禁中（可嘗試）」、「有守衛把守」
+   * 省略 = 使用預設提示「可嘗試通行」
+   */
+  attemptLabel?: string;
+  /**
+   * 嘗試遭遇的冷卻時間（遊戲內分鐘）。
+   * 遭遇結束後，此通道在冷卻期間內視為完全封鎖（不可再次嘗試）。
+   * 省略 = 無冷卻，隨時可再次嘗試。
+   */
+  attemptCooldownMinutes?: number;
 }
 
 export interface LocationConnection {
