@@ -136,7 +136,7 @@
       <div class="ref-label">NPC</div>
       {#each getArr(getBase(), 'npcIds') as npcId, i}
         <div class="ref-item">
-          <EntityPicker type="npc" value={npcId} placeholder="NPC..." />
+          <EntityPicker type="npc" value={npcId} placeholder="NPC..." onSelect={(id) => { getArr(getBase(), 'npcIds')[i] = id; data = data; onChange(); }} />
           <button class="rm" on:click={() => removeFromArr(getBase(), 'npcIds', i)}>✕</button>
         </div>
       {/each}
@@ -147,7 +147,7 @@
       <div class="ref-label">事件</div>
       {#each getArr(getBase(), 'eventIds') as evtId, i}
         <div class="ref-item">
-          <EntityPicker type="event" value={evtId} placeholder="事件..." />
+          <EntityPicker type="event" value={evtId} placeholder="事件..." onSelect={(id) => { getArr(getBase(), 'eventIds')[i] = id; data = data; onChange(); }} />
           <button class="rm" on:click={() => removeFromArr(getBase(), 'eventIds', i)}>✕</button>
         </div>
       {/each}
@@ -158,7 +158,7 @@
       <div class="ref-label">物件</div>
       {#each getArr(getBase(), 'propIds') as propId, i}
         <div class="ref-item">
-          <EntityPicker type="prop" value={propId} placeholder="物件..." />
+          <EntityPicker type="prop" value={propId} placeholder="物件..." onSelect={(id) => { getArr(getBase(), 'propIds')[i] = id; data = data; onChange(); }} />
           <button class="rm" on:click={() => removeFromArr(getBase(), 'propIds', i)}>✕</button>
         </div>
       {/each}
@@ -180,7 +180,7 @@
           <div class="card-body">
             <div class="field">
               <label class="field-label">目標地點</label>
-              <EntityPicker type="location" value={String(conn.targetLocationId ?? '')} placeholder="地點 ID..." />
+              <EntityPicker type="location" value={String(conn.targetLocationId ?? '')} placeholder="地點 ID..." onSelect={(id) => { getConns()[i].targetLocationId = id; data = data; onChange(); }} />
             </div>
             <div class="field">
               <label class="field-label">描述</label>

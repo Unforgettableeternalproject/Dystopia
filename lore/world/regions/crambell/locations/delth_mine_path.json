@@ -31,7 +31,7 @@
           "timePeriods": ["work"],
           "lockedMessage": "礦坑入口在休息時段鎖閉",
           "bypass": {
-            "knowledgeIds": ["crambell_mine_storage_access"],
+            "intelIds": ["crambell_mine_storage_access"],
             "bypassMessage": "你知道怎麼透過儲藏室的小路偷溜進礦區。"
           }
         }
@@ -40,7 +40,7 @@
         "targetLocationId": "delth_mine_storage",
         "description": "進入礦坑儲藏室的路",
         "access": {
-          "knowledgeIds": ["crambell_mine_storage_access"],
+          "intelIds": ["crambell_mine_storage_access"],
           "lockedMessage": "遠處的建築有很多人在走動著，沒有理由最好不要隨便過去。"
         }
       }

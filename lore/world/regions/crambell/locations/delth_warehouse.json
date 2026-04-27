@@ -17,7 +17,7 @@
         "targetLocationId": "delth_forest",
         "description": "前往邊緣森林",
         "access": {
-          "knowledgeIds": ["crambell_warehouse_secret"],
+          "intelIds": ["crambell_warehouse_secret"],
           "lockedMessage": "你在樹叢間並沒有發現什麼不尋常之處。"
         }
       },

@@ -37,7 +37,7 @@
 
           "_pre_conditions": "All pre-conditions are evaluated BEFORE the choice is shown. Hidden if any fail.",
           "condition": "flag_expression — choice hidden if false. Supports &, |, ! operators.",
-          "knowledgeIds": ["intel_id_1", "intel_id_2"],
+          "intelIds": ["intel_id_1", "intel_id_2"],
           "itemRequirements": [{ "itemId": "transit_permit", "variantId": "delth" }],
           "minMelphin": 10,
           "minReputation": { "crambell_government": 10 },
@@ -67,7 +67,7 @@
             "flagsUnset": ["flag_to_remove"],
             "attitude": "friendly | neutral | cautious | hostile",
 
-            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds and can be checked via knowledgeIds conditions.",
+            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds and can be checked via intelIds conditions.",
             "grantIntel": ["intel_id_1", "intel_id_2"],
 
             "_quest_init": "Quest lifecycle effects.",

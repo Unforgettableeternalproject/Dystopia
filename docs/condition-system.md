@@ -28,7 +28,7 @@
 | 時鐘範圍 | `timeRanges[]` | -- | -- | -- | -- |
 | 日期時間 | `dateTimeConditions[]` | `dateTimeConditions[]` | -- | `dateTimeConditions[]` | `dateTimeConditions[]` |
 | 觸發整點 | -- | `triggerHours[]` | `triggerHours[]` | -- | -- |
-| 情報/知識 | `knowledgeIds[]` | -- | -- | `knowledgeIds[]` | -- |
+| 情報/知識 | `intelIds[]` | -- | -- | `intelIds[]` | -- |
 | 任務階段 | `questStages[]` | `questActiveId` + `questStageId` | -- | -- | -- |
 | 物品持有 | `itemRequirements[]` | `itemRequirements[]` | -- | `itemRequirements[]` | `itemRequirements[]` |
 | 反向物品 | -- | `notItemIds[]` | -- | -- | -- |
@@ -65,7 +65,7 @@
 | `timePeriods` | `TimePeriod[]` | 僅在這些時段開放（`work` / `rest` / `special`） |
 | `timeRanges` | `GameTimeRange[]` | 精確時鐘範圍（陣列內 OR），支援跨午夜 |
 | `dateTimeConditions` | `GameDateTimeCondition[]` | 進階日期時間條件（陣列內 OR）。支援 `before` / `after` / `between`，可同時考量日期（年月日）與時刻（時分），各欄位皆可省略（省略視為 0） |
-| `knowledgeIds` | `string[]` | 玩家需擁有所有指定情報（AND） |
+| `intelIds` | `string[]` | 玩家需擁有所有指定情報（AND） |
 | `questStages` | `QuestStageRef[]` | 玩家在指定任務階段時開放（陣列內 OR） |
 | `itemRequirements` | `ItemRequirement[]` | 玩家需持有所有指定物品（AND） |
 | `minMelphin` | `number` | 最低梅分門檻 |
@@ -77,7 +77,7 @@
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | `flag` | `string` | 旗標表達式，true 時繞過 |
-| `knowledgeIds` | `string[]` | 持有任一情報即繞過（OR） |
+| `intelIds` | `string[]` | 持有任一情報即繞過（OR） |
 | `itemRequirements` | `ItemRequirement[]` | 持有任一物品即繞過（OR） |
 | `bypassMessage` | `string` | DM context：繞過時的提示語 |
 | `timePenaltyMinutes` | `number` | 繞過時的額外時間消耗 |
@@ -206,7 +206,7 @@
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | `condition` | `string` | 旗標表達式 |
-| `knowledgeIds` | `string[]` | 所有情報必須已知（AND） |
+| `intelIds` | `string[]` | 所有情報必須已知（AND） |
 | `itemRequirements` | `ItemRequirement[]` | 所有物品必須持有（AND） |
 | `minMelphin` | `number` | 最低梅分門檻 |
 | `minReputation` | `Record<string, number>` | 派系聲望下限（AND），key = factionId |
@@ -250,7 +250,7 @@
 |---|---|---|
 | 時段條件 | `timePeriods` | `timePeriod`（已全部修正：型別、schema 註解、文件） |
 | 物品需求 | `itemRequirements` | `itemRequired`（Dialogue）, `itemCondition`（Encounter） |
-| 知識需求 | `knowledgeIds` | `knowledgeRequired`（Dialogue） |
+| 知識需求 | `intelIds` | `knowledgeRequired`（Dialogue） |
 
 ---
 

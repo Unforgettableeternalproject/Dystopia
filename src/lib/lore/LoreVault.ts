@@ -13,6 +13,7 @@ import type {
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
+import type { IntelEntry } from '../types/intel';
 import type { EncounterDefinition } from '../types/encounter';
 import type { GameTime } from '../types/game';
 import { FlagRegistry } from '../engine/FlagRegistry';
@@ -41,13 +42,14 @@ interface LoreData {
   items:         Record<string, ItemNode>;
   conditions:    Record<string, ConditionDefinition>;
   props:         Record<string, PropNode>;
+  intels:        Record<string, IntelEntry>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {}, factionGraphs: {},
     dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
-    flagManifest: [], items: {}, conditions: {}, props: {},
+    flagManifest: [], items: {}, conditions: {}, props: {}, intels: {},
   };
 
   /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
@@ -78,6 +80,7 @@ export class LoreVault {
     if (data.encounters)   Object.assign(this.data.encounters,  data.encounters);
     if (data.conditions)   Object.assign(this.data.conditions,  data.conditions);
     if (data.props)        Object.assign(this.data.props,       data.props);
+    if (data.intels)       Object.assign(this.data.intels,      data.intels);
   }
 
   /**
@@ -245,7 +248,7 @@ export class LoreVault {
       (!a.timePeriods?.length || a.timePeriods.includes(timePeriod)) &&
       checkTimeRanges(a.timeRanges, gameTime) &&
       checkDateTimeConditions(a.dateTimeConditions, gameTime) &&
-      (!a.knowledgeIds?.length || a.knowledgeIds.every(id => knownIntelIds.includes(id))) &&
+      (!a.intelIds?.length || a.intelIds.every(id => knownIntelIds.includes(id))) &&
       (!a.questStages?.length || a.questStages.some(qs =>
         activeQuests?.some(qi => qi.questId === qs.questId && qi.currentStageId === qs.stageId)
       )) &&
@@ -294,7 +297,7 @@ export class LoreVault {
       const b = a.bypass;
       const bypassGranted =
         (b.flag !== undefined && flags.evaluate(b.flag)) ||
-        (b.knowledgeIds?.some(id => knownIntelIds.includes(id)) ?? false) ||
+        (b.intelIds?.some(id => knownIntelIds.includes(id)) ?? false) ||
         (b.itemRequirements?.some(req =>
           (inventory ?? []).some(i =>
             i.itemId === req.itemId &&
@@ -780,6 +783,16 @@ export class LoreVault {
     return Object.values(this.data.conditions);
   }
 
+  // -- Intel -----------------------------------------------------------
+
+  getIntel(id: string): IntelEntry | undefined {
+    return this.data.intels[id];
+  }
+
+  getIntelList(ids: string[]): IntelEntry[] {
+    return ids.map(id => this.data.intels[id]).filter(Boolean) as IntelEntry[];
+  }
+
   // -- Encounters ------------------------------------------------------
 
   getEncounter(id: string): EncounterDefinition | undefined {
@@ -839,7 +852,7 @@ export class LoreVault {
           const reqs: string[] = [];
           if (c.access.timePeriods?.length) reqs.push('time: ' + c.access.timePeriods.join('/'));
           if (c.access.flag)                reqs.push('flag: ' + c.access.flag);
-          if (c.access.knowledgeIds?.length) reqs.push('knowledge: ' + c.access.knowledgeIds.join(', '));
+          if (c.access.intelIds?.length) reqs.push('knowledge: ' + c.access.intelIds.join(', '));
           if (c.access.itemRequirements?.length) {
             const itemDescs = c.access.itemRequirements.map(r => r.itemId + (r.variantId ? ':' + r.variantId : ''));
             reqs.push('item: ' + itemDescs.join(', '));

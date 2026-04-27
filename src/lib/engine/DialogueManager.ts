@@ -98,7 +98,7 @@ export class DialogueManager {
   /**
    * Filter a node's choices by pre-conditions:
    *   - `condition`        : flag expression must be true
-   *   - `knowledgeIds`     : all listed intel IDs must be in player's knownIntelIds
+   *   - `intelIds`     : all listed intel IDs must be in player's knownIntelIds
    *   - `itemRequirements` : all listed items must be held and not expired (AND)
    *   - `minMelphin`       : player's melphin must be >= this value
    */
@@ -113,7 +113,7 @@ export class DialogueManager {
 
     return choices.filter(c => {
       if (c.condition && !flags.evaluate(c.condition)) return false;
-      if (c.knowledgeIds?.some(id => !known.includes(id))) return false;
+      if (c.intelIds?.some(id => !known.includes(id))) return false;
       if (c.itemRequirements?.some(req =>
         !inventory.some(i =>
           i.itemId === req.itemId &&

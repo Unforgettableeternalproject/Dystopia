@@ -61,11 +61,11 @@
   <div class="field-row">
     <div class="field" style="flex:1">
       <label class="field-label">預設位置</label>
-      <EntityPicker type="location" value={String(data.defaultLocationId ?? '')} placeholder="地點 ID..." />
+      <EntityPicker type="location" value={String(data.defaultLocationId ?? '')} placeholder="地點 ID..." onSelect={(id) => { data.defaultLocationId = id; data = data; onChange(); }} />
     </div>
     <div class="field" style="flex:1">
       <label class="field-label">所屬派系</label>
-      <EntityPicker type="faction" value={String(data.factionId ?? '')} placeholder="派系 ID..." />
+      <EntityPicker type="faction" value={String(data.factionId ?? '')} placeholder="派系 ID..." onSelect={(id) => { data.factionId = id; data = data; onChange(); }} />
     </div>
   </div>
 
@@ -78,7 +78,7 @@
   <div class="field-row">
     <div class="field" style="flex:1">
       <label class="field-label">預設對話 ID</label>
-      <EntityPicker type="dialogue" value={String(data.dialogueId ?? '')} placeholder="對話 ID..." />
+      <EntityPicker type="dialogue" value={String(data.dialogueId ?? '')} placeholder="對話 ID..." onSelect={(id) => { data.dialogueId = id; data = data; onChange(); }} />
     </div>
   </div>
 
@@ -88,7 +88,7 @@
     <div class="ref-list">
       {#each getQuestIds() as qid, i}
         <div class="ref-item">
-          <EntityPicker type="quest" value={qid} placeholder="任務 ID..." />
+          <EntityPicker type="quest" value={qid} placeholder="任務 ID..." onSelect={(id) => { getQuestIds()[i] = id; data = data; onChange(); }} />
           <button class="rm" on:click={() => { data.questIds = getQuestIds().filter((_q, j) => j !== i); onChange(); }}>✕</button>
         </div>
       {/each}
@@ -122,7 +122,7 @@
             </div>
             <div class="field">
               <label class="field-label">地點</label>
-              <EntityPicker type="location" value={String(sched.locationId ?? '')} placeholder="地點 ID..." />
+              <EntityPicker type="location" value={String(sched.locationId ?? '')} placeholder="地點 ID..." onSelect={(id) => { getSchedule()[i].locationId = id; data = data; onChange(); }} />
             </div>
             <div class="field">
               <label class="field-label">時段（逗號分隔）</label>

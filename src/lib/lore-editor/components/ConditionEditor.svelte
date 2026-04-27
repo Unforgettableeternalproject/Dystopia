@@ -5,6 +5,7 @@
    */
   import EntityPicker from './EntityPicker.svelte';
   import ArrayEditor from './ArrayEditor.svelte';
+  import KeyValueEditor from './KeyValueEditor.svelte';
 
   export let data: Record<string, unknown> = {};
   export let onChange: () => void = () => {};
@@ -21,6 +22,8 @@
     { group: '地點', fields: ['npcIds', 'notLocationIds'] },
     { group: '數值', fields: ['minStats', 'minMelphin', 'triggerChance'] },
     { group: '聲望/好感', fields: ['minReputation', 'maxReputation', 'minAffinity', 'maxAffinity'] },
+    { group: '事件計數', fields: ['minEventCounters', 'maxEventCounters', 'exactEventCounters'] },
+    { group: '進階時間', fields: ['dateTimeConditions'] },
   ];
 
   const FIELD_LABELS: Record<string, string> = {
@@ -38,13 +41,17 @@
     notItemIds: '排除物品',
     npcIds: '需 NPC 在場',
     notLocationIds: '排除地點',
-    minStats: '最低數值 (JSON)',
+    minStats: '最低數值',
     minMelphin: '最低梅分',
     triggerChance: '觸發機率 (0-1)',
-    minReputation: '聲望下限 (JSON)',
-    maxReputation: '聲望上限 (JSON)',
-    minAffinity: '���感下限 (JSON)',
-    maxAffinity: '好感上限 (JSON)',
+    minReputation: '聲望下限',
+    maxReputation: '聲望上限',
+    minAffinity: '好感下限',
+    maxAffinity: '好感上限',
+    minEventCounters: '計數器最小值',
+    maxEventCounters: '計數器最大值',
+    exactEventCounters: '計數器精確值',
+    dateTimeConditions: '日期時間條件 (JSON)',
   };
 
   // Fields that are string arrays
@@ -53,8 +60,16 @@
   const NUMBER_FIELDS = ['cooldownMinutes', 'minMelphin', 'triggerChance'];
   // Fields that are single strings
   const STRING_FIELDS = ['questActiveId', 'questStageId', 'triggerOn'];
-  // Fields that are JSON objects
-  const JSON_FIELDS = ['minStats', 'timeRanges', 'minReputation', 'maxReputation', 'minAffinity', 'maxAffinity'];
+  // Fields that are Record<factionId, number>
+  const FACTION_KV_FIELDS = ['minReputation', 'maxReputation'];
+  // Fields that are Record<npcId, number>
+  const NPC_KV_FIELDS = ['minAffinity', 'maxAffinity'];
+  // Fields that are Record<statPath, number>
+  const STAT_KV_FIELDS = ['minStats'];
+  // Fields that are Record<counterId, number>
+  const COUNTER_KV_FIELDS = ['minEventCounters', 'maxEventCounters', 'exactEventCounters'];
+  // Fields that remain as raw JSON (complex nested structures)
+  const JSON_FIELDS = ['timeRanges', 'dateTimeConditions'];
   // Fields that are item requirement arrays (special)
   const ITEM_REQ_FIELD = 'itemRequirements';
 
@@ -74,14 +89,32 @@
   }
 
   let showAddMenu = false;
+  let addBtnEl: HTMLButtonElement;
+  let addMenuStyle = '';
+
+  function toggleAddMenu() {
+    showAddMenu = !showAddMenu;
+    if (showAddMenu && addBtnEl) {
+      const rect = addBtnEl.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow >= 200) {
+        addMenuStyle = `top:${rect.bottom + 2}px; left:${rect.left}px; width:${rect.width}px;`;
+      } else {
+        addMenuStyle = `bottom:${window.innerHeight - rect.top + 2}px; left:${rect.left}px; width:${rect.width}px;`;
+      }
+    }
+  }
+
+  const KV_FIELDS = [...FACTION_KV_FIELDS, ...NPC_KV_FIELDS, ...STAT_KV_FIELDS, ...COUNTER_KV_FIELDS];
 
   function addField(field: string) {
     if (STRING_ARRAY_FIELDS.includes(field)) data[field] = [];
     else if (NUMBER_FIELDS.includes(field)) data[field] = 0;
     else if (STRING_FIELDS.includes(field)) data[field] = '';
-    else if (JSON_FIELDS.includes(field)) data[field] = {};
+    else if (KV_FIELDS.includes(field)) data[field] = {};
+    else if (JSON_FIELDS.includes(field)) data[field] = field === 'dateTimeConditions' ? [] : {};
     else if (field === ITEM_REQ_FIELD) data[field] = [];
-    data = data; // trigger reactivity
+    data = data;
     showAddMenu = false;
     onChange();
   }
@@ -93,6 +126,7 @@
   }
 
   function getArr(field: string): string[] { return (data[field] || []) as string[]; }
+  function getKv(field: string): Record<string, unknown> { return (data[field] && typeof data[field] === 'object' && !Array.isArray(data[field])) ? data[field] as Record<string, unknown> : {}; }
   function getJson(field: string): string {
     const v = data[field];
     return (v && typeof v === 'object') ? JSON.stringify(v, null, 2) : '{}';
@@ -141,6 +175,22 @@
           <input class="cond-input" value={data[field] ?? ''} on:input={(e) => { data[field] = val(e); onChange(); }} />
         {/if}
 
+      {:else if FACTION_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyEntityType="faction" keyPlaceholder="派系 ID" valuePlaceholder="數值"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if NPC_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyEntityType="npc" keyPlaceholder="NPC ID" valuePlaceholder="數值"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if STAT_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyPlaceholder="statusStats.stamina" valuePlaceholder="數值"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if COUNTER_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyPlaceholder="計數器 ID" valuePlaceholder="數值"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
       {:else if JSON_FIELDS.includes(field)}
         <textarea class="cond-textarea" rows="3" value={getJson(field)}
           on:input={(e) => {
@@ -151,7 +201,7 @@
       {:else if field === ITEM_REQ_FIELD}
         {#each getItemReqs() as req, i}
           <div class="tag-item">
-            <EntityPicker type="item" value={req.itemId ?? ''} placeholder="物品 ID..." />
+            <EntityPicker type="item" value={req.itemId ?? ''} placeholder="物品 ID..." onSelect={(id) => { getItemReqs()[i].itemId = id; data[ITEM_REQ_FIELD] = getItemReqs(); onChange(); }} />
             <button class="tag-remove" on:click={() => {
               data[field] = getItemReqs().filter((_r, j) => j !== i); onChange();
             }}>✕</button>
@@ -164,29 +214,31 @@
 
   <!-- Add field button -->
   {#if inactiveFields().length > 0}
-    <div class="cond-add-wrap">
-      <button class="cond-add-btn" on:click={() => { showAddMenu = !showAddMenu; }}>
-        + 新增條件
-      </button>
-      {#if showAddMenu}
-        <div class="cond-add-menu">
-          {#each FIELD_GROUPS as group}
-            {#if group.fields.some(f => inactiveFields().includes(f))}
-              <div class="add-group-label">{group.group}</div>
-              {#each group.fields.filter(f => inactiveFields().includes(f)) as f}
-                <button class="add-field-btn" on:click={() => addField(f)}>{FIELD_LABELS[f] ?? f}</button>
-              {/each}
-            {/if}
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <button class="cond-add-btn" bind:this={addBtnEl} on:click={toggleAddMenu}>
+      + 新增條件
+    </button>
   {/if}
 
   {#if activeFields().length === 0}
     <div class="cond-empty">無觸發條件（永遠觸發）</div>
   {/if}
 </div>
+
+{#if showAddMenu}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="cond-add-backdrop" on:click={() => { showAddMenu = false; }}></div>
+  <div class="cond-add-menu" style={addMenuStyle}>
+    {#each FIELD_GROUPS as group}
+      {#if group.fields.some(f => inactiveFields().includes(f))}
+        <div class="add-group-label">{group.group}</div>
+        {#each group.fields.filter(f => inactiveFields().includes(f)) as f}
+          <button class="add-field-btn" on:click={() => addField(f)}>{FIELD_LABELS[f] ?? f}</button>
+        {/each}
+      {/if}
+    {/each}
+  </div>
+{/if}
 
 <style>
   .cond-wrap {
@@ -254,7 +306,6 @@
   }
   .tag-add:hover { border-color: var(--accent-dim); color: var(--accent); }
 
-  .cond-add-wrap { position: relative; }
   .cond-add-btn {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
     font-family: var(--font-mono); font-size: 9px; padding: 3px 10px; cursor: pointer;
@@ -262,10 +313,15 @@
   }
   .cond-add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
 
+  .cond-add-backdrop {
+    position: fixed; inset: 0; z-index: 9998;
+  }
+
   .cond-add-menu {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+    position: fixed; z-index: 9999;
     background: var(--bg-secondary); border: 1px solid var(--border-accent);
     border-radius: 2px; padding: 4px 0; max-height: 200px; overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
 
   .add-group-label {

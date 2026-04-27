@@ -27,7 +27,7 @@
         "targetLocationId": "delth_south_ground",
         "description": "前往南方空地",
         "access": {
-          "knowledgeIds": ["crambell_south_ground_access"],
+          "intelIds": ["crambell_south_ground_access"],
           "lockedMessage": "南方空地被鐵柵欄圍起來，沒有明顯的入口。"
         }
       },
@@ -35,10 +35,10 @@
         "targetLocationId": "delth_warehouse",
         "description": "前往經濟資源倉庫",
         "access": {
-          "knowledgeIds": ["crambell_warehouse_access"],
+          "intelIds": ["crambell_warehouse_access"],
           "lockedMessage": "西邊的建築很多，但你從來不知道那些是為什麼而建的。",
           "bypass": {
-            "knowledgeIds": ["crambell_warehouse_secret"],
+            "intelIds": ["crambell_warehouse_secret"],
             "bypassMessage": "你無法用正當手段進入，所幸你知道在邊緣森林裡有個秘密入口可以通往倉庫。"
           }
         }

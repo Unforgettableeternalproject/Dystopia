@@ -90,7 +90,7 @@
     <div class="loc-list">
       {#each getLocationIds() as locId, i}
         <div class="loc-item">
-          <EntityPicker type="location" value={locId} placeholder="地點 ID..." />
+          <EntityPicker type="location" value={locId} placeholder="地點 ID..." onSelect={(id) => { const ids = getLocationIds(); ids[i] = id; setLocationIds(ids); }} />
           <button class="rm-btn" on:click={() => { const ids = getLocationIds(); ids.splice(i, 1); setLocationIds(ids); }}>✕</button>
         </div>
       {/each}
@@ -144,7 +144,9 @@
 
             {#if outcome.condition !== undefined}
               <div class="field">
-                <label class="field-label">Outcome 條件（旗標字串）</label>
+                <label class="field-label">Outcome 條件（旗標字串）
+                  <button class="rm-btn sm" on:click={() => { delete getOutcomes()[i].condition; data.outcomes = getOutcomes(); onChange(); }}>移除</button>
+                </label>
                 <input class="field-input sm" value={s(outcome, 'condition')} on:input={(e) => {
                   getOutcomes()[i].condition = val(e); data.outcomes = getOutcomes(); onChange();
                 }} />

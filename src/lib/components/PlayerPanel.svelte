@@ -39,6 +39,19 @@
     activeCondPopup = { ...cond, px: rect.left, py: rect.top };
   }
 
+  let activeIntelPopup: { id: string; label: string; description: string; category: string; px: number; py: number } | null = null;
+
+  function toggleIntelPopup(e: MouseEvent, intel: { id: string; label: string; description: string; category: string }) {
+    e.stopPropagation();
+    if (activeIntelPopup?.id === intel.id) { activeIntelPopup = null; return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    activeIntelPopup = { ...intel, px: rect.left, py: rect.top };
+  }
+
+  const INTEL_CATEGORY_LABELS: Record<string, string> = {
+    political: '政', personal: '人', threat: '威', location: '地', rumor: '謠',
+  };
+
   const melphinDesc = '由理想國發行，世界的通行貨幣\n可用於購買物品或支付各種費用。\n有絕對的信用存在。';
 
   let melphinPopupOpen = false;
@@ -52,7 +65,7 @@
     melphinPopupOpen = true;
   }
 
-  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; }
+  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; activeIntelPopup = null; }
 </script>
 
 <svelte:window on:click={closeStatPopup} />
@@ -163,6 +176,27 @@
     {/if}
   </div>
 
+  <!-- Known intel -->
+  {#if $playerUI.knownIntels && $playerUI.knownIntels.length > 0}
+    <div class="section">
+      <div class="section-label">情報</div>
+      <div class="intel-list">
+        {#each $playerUI.knownIntels as intel}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="intel-row"
+            class:active={activeIntelPopup?.id === intel.id}
+            on:click={(e) => toggleIntelPopup(e, intel)}
+          >
+            <span class="intel-category intel-category-{intel.category}">{INTEL_CATEGORY_LABELS[intel.category] ?? '?'}</span>
+            <span class="intel-label">{intel.label}</span>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
   <!-- Active quests -->
   {#if ($playerUI.activeQuestSummaries && $playerUI.activeQuestSummaries.length > 0) || $questOutcomeFlash.length > 0}
     <div class="section">
@@ -246,6 +280,22 @@
     {:else}
       <div class="stat-popup-desc" style="margin-top:4px">無已知解除方式。</div>
     {/if}
+  </div>
+{/if}
+
+{#if activeIntelPopup}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    class="stat-popup intel-popup"
+    style="top:{Math.max(4, activeIntelPopup.py - 10)}px; right:{Math.max(4, window.innerWidth - activeIntelPopup.px + 8)}px;"
+    on:click|stopPropagation
+  >
+    <div class="stat-popup-name intel-popup-name">
+      <span class="intel-category intel-category-{activeIntelPopup.category}" style="margin-right:5px">{INTEL_CATEGORY_LABELS[activeIntelPopup.category] ?? '?'}</span>
+      {activeIntelPopup.label}
+    </div>
+    <div class="stat-popup-desc">{activeIntelPopup.description}</div>
   </div>
 {/if}
 
@@ -567,6 +617,58 @@
     color: var(--text-dim);
     font-style: italic;
     letter-spacing: 0.02em;
+  }
+
+  /* ── Intel ────────────────────────────────────────── */
+  .intel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .intel-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.12s;
+  }
+
+  .intel-row:hover,
+  .intel-row.active {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+  }
+
+  .intel-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .intel-category {
+    font-size: 8px;
+    padding: 0px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    border: 1px solid;
+  }
+
+  .intel-category-political { color: var(--accent);      border-color: var(--accent);      opacity: 0.85; }
+  .intel-category-personal  { color: #c8a84b;            border-color: #c8a84b;            opacity: 0.85; }
+  .intel-category-threat    { color: var(--accent-red);  border-color: var(--accent-red);  opacity: 0.85; }
+  .intel-category-location  { color: var(--accent-blue); border-color: var(--accent-blue); opacity: 0.85; }
+  .intel-category-rumor     { color: var(--text-dim);    border-color: var(--border);      opacity: 0.75; }
+
+  .intel-popup-name {
+    display: flex;
+    align-items: center;
   }
 
   /* ── Quests ───────────────────────────────────────── */

@@ -33,7 +33,7 @@ export interface ChoiceEffects {
 
   /**
    * Grant intel IDs to the player's knowledge.
-   * Each id is added to knownIntelIds and can be checked via knowledgeIds conditions.
+   * Each id is added to knownIntelIds and can be checked via intelIds conditions.
    */
   grantIntel?: string[];
 
@@ -58,7 +58,7 @@ export interface ChoiceEffects {
  * Post-condition branch: evaluated after a choice is selected.
  * Evaluated in array order — first matching condition routes to its nodeId.
  * Falls back to the choice's `nextNodeId` if none match.
- * Supports flag expressions; use knowledgeIds conditions to check player intel.
+ * Supports flag expressions; use intelIds conditions to check player intel.
  */
 export interface ChoiceBranch {
   condition: string;
@@ -102,7 +102,7 @@ export interface ScriptedChoice {
    * Pre-condition: all listed intel IDs must be in player's knownIntelIds.
    * Choice is hidden if any are missing.
    */
-  knowledgeIds?: string[];
+  intelIds?: string[];
 
   /**
    * Pre-condition: player must hold ALL listed items (AND).

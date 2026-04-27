@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
    * EntityPicker — searchable dropdown to select an entity ID by type.
-   * Loads the entity list for the given type and lets the user search + pick.
+   * Uses position:fixed dropdown to avoid overflow clipping from parent containers.
    */
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { ENTITY_TYPES, type EntityType } from '../entityTypes';
   import { listLoreDir } from '../fileUtils';
 
@@ -11,12 +11,15 @@
   export let value: string = '';
   export let placeholder: string = '';
   export let allowClear: boolean = true;
+  /** Callback when a value is selected or cleared. */
+  export let onSelect: ((id: string) => void) | undefined = undefined;
 
   const val = (e: Event) => (e.target as HTMLInputElement).value;
   let entries: { id: string; name: string }[] = [];
   let filter = '';
   let open = false;
   let inputEl: HTMLInputElement;
+  let dropStyle = '';
 
   $: meta = ENTITY_TYPES.find(t => t.type === type);
   $: filtered = entries.filter(e =>
@@ -33,26 +36,43 @@
     value = id;
     filter = '';
     open = false;
+    if (onSelect) onSelect(id);
   }
 
   function clear() {
     value = '';
     filter = '';
+    if (onSelect) onSelect('');
   }
 
-  function handleFocus() {
+  function updateDropPosition() {
+    if (!inputEl) return;
+    const rect = inputEl.getBoundingClientRect();
+    const maxH = 180;
+    // Check if dropdown fits below, otherwise show above
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow >= maxH || spaceBelow >= rect.top) {
+      dropStyle = `top:${rect.bottom}px; left:${rect.left}px; width:${rect.width}px; max-height:${Math.min(maxH, spaceBelow - 4)}px;`;
+    } else {
+      dropStyle = `bottom:${window.innerHeight - rect.top}px; left:${rect.left}px; width:${rect.width}px; max-height:${Math.min(maxH, rect.top - 4)}px;`;
+    }
+  }
+
+  async function handleFocus() {
     open = true;
+    await tick();
+    updateDropPosition();
   }
 
   function handleBlur() {
-    // Delay to allow click on dropdown items
-    setTimeout(() => { open = false; }, 150);
+    setTimeout(() => { open = false; }, 180);
   }
 
   onMount(load);
-  // Reload when type changes
   $: type, load();
 </script>
+
+<svelte:window on:scroll={() => { if (open) updateDropPosition(); }} />
 
 <div class="ep-wrap">
   <div class="ep-input-row">
@@ -71,28 +91,29 @@
       <button class="ep-clear" on:click={clear} title="清除">✕</button>
     {/if}
   </div>
-  {#if open}
-    <div class="ep-dropdown">
-      {#each filtered.slice(0, 30) as entry (entry.id)}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-          class="ep-option"
-          class:selected={entry.id === value}
-          on:mousedown|preventDefault={() => select(entry.id)}
-        >
-          {entry.id}
-        </div>
-      {/each}
-      {#if filtered.length === 0}
-        <div class="ep-empty">無結果</div>
-      {/if}
-      {#if filtered.length > 30}
-        <div class="ep-more">還有 {filtered.length - 30} 個...</div>
-      {/if}
-    </div>
-  {/if}
 </div>
+
+{#if open}
+  <div class="ep-dropdown" style={dropStyle}>
+    {#each filtered.slice(0, 30) as entry (entry.id)}
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <div
+        class="ep-option"
+        class:selected={entry.id === value}
+        on:mousedown|preventDefault={() => select(entry.id)}
+      >
+        {entry.id}
+      </div>
+    {/each}
+    {#if filtered.length === 0}
+      <div class="ep-empty">無結果</div>
+    {/if}
+    {#if filtered.length > 30}
+      <div class="ep-more">還有 {filtered.length - 30} 個...</div>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .ep-wrap {
@@ -132,18 +153,15 @@
 
   .ep-clear:hover { color: var(--accent-red); }
 
+  /* Fixed-position dropdown — escapes all parent overflow:hidden */
   .ep-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 50;
-    max-height: 180px;
+    position: fixed;
+    z-index: 9999;
     overflow-y: auto;
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
-    border-top: none;
-    border-radius: 0 0 2px 2px;
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
 
   .ep-option {

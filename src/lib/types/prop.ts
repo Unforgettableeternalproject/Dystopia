@@ -16,7 +16,7 @@ export interface PropNode {
   isVisible?: boolean;
   /**
    * 動態可見條件。使用 ConnectionAccess 結構，支援所有現有條件類型
-   * （flag、timePeriods、timeRanges、knowledgeIds、questStages、itemRequirements、minMelphin）。
+   * （flag、timePeriods、timeRanges、intelIds、questStages、itemRequirements、minMelphin）。
    * 省略 = 無額外條件限制。bypass 與 lockedMessage 欄位不適用，會被忽略。
    */
   visibleWhen?: ConnectionAccess;

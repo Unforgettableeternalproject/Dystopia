@@ -71,7 +71,7 @@
             type="faction"
             value={relField(item, 'targetFactionId')}
             placeholder="目標派系..."
-            on:change
+            onSelect={(id) => { getRelations()[index].targetFactionId = id; data.relations = getRelations(); onChange(); }}
           />
         </div>
         <input

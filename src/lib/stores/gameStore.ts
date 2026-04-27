@@ -181,6 +181,7 @@ export interface PlayerUIState {
   }>;
   totalActiveQuestCount?: number;
   conditions?:      Array<{ label: string; effectSummary?: string; removeCondition?: string }>;
+  knownIntels?:     Array<{ id: string; label: string; description: string; category: string }>;
   melphin?:         number;
   /** Structured data for the SVG mini-map (current area). */
   miniMap?:         MiniMapData;

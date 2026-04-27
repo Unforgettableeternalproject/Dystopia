@@ -45,6 +45,21 @@ export async function readLoreFile(path: string): Promise<string> {
   }
 }
 
+/** Delete a lore file. */
+export async function deleteLoreFile(path: string): Promise<void> {
+  if (IS_TAURI) {
+    const { remove } = await import('@tauri-apps/plugin-fs');
+    await remove(path);
+  } else {
+    const res = await fetch('/api/lore/write', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  }
+}
+
 /** Write text content to a lore file. Validates JSON before writing. */
 export async function writeLoreFile(path: string, content: string): Promise<void> {
   JSON.parse(content); // validate

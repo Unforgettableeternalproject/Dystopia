@@ -3620,8 +3620,8 @@ export class GameController {
           // Evaluate map visibility condition (mapVisible only applies when not yet visited)
           let nodeIsHidden = false;
           if (conn.mapVisible && !tVisited) {
-            const knowledgeOk = !conn.mapVisible.knowledgeIds?.length
-              || conn.mapVisible.knowledgeIds.every(k => gs.player.knownIntelIds.includes(k));
+            const knowledgeOk = !conn.mapVisible.intelIds?.length
+              || conn.mapVisible.intelIds.every(k => gs.player.knownIntelIds.includes(k));
             const flagsOk = !conn.mapVisible.flags
               || this.state.flags.evaluate(conn.mapVisible.flags);
             nodeIsHidden = !(knowledgeOk && flagsOk);
@@ -3861,6 +3861,8 @@ export class GameController {
         };
       });
 
+    const knownIntels = this.lore.getIntelList(gs.player.knownIntelIds);
+
     // Preserve the displayed name if the state name reverts to the unset default.
     // This prevents debug stat edits (or any syncUIState call before setPlayerName)
     // from wiping a name that was already established.
@@ -3892,6 +3894,7 @@ export class GameController {
       allActiveQuestSummaries: allActiveQuestSummaries.length > 0 ? allActiveQuestSummaries : undefined,
       totalActiveQuestCount:   allActiveQuestSummaries.length > 0 ? allActiveQuestSummaries.length : undefined,
       conditions:      visibleConditions,
+      knownIntels:     knownIntels.length > 0 ? knownIntels : undefined,
       melphin:         gs.player.melphin,
       miniMap,
       regionMap,

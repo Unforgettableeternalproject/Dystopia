@@ -50,7 +50,7 @@
       "effects": {
         "grantQuestId": "crambell_kach_test1",
         "flagsSet": ["crambell_kach_test1_invited", "crambell_kach_test1_started"],
-        "grantIntelId": "crambell_warehouse_location"
+        "grantIntelId": "crambell_warehouse_secret"
       }
     },
     "kach_accepted_no": {

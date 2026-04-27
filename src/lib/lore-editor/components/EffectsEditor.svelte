@@ -4,6 +4,7 @@
    * Shows only non-empty fields with "add field" to reveal more.
    */
   import EntityPicker from './EntityPicker.svelte';
+  import KeyValueEditor from './KeyValueEditor.svelte';
 
   export let data: Record<string, unknown> = {};
   export let onChange: () => void = () => {};
@@ -23,20 +24,28 @@
 
   const FIELD_LABELS: Record<string, string> = {
     flagsSet: '設置旗標', flagsUnset: '取消旗標', npcFlagsSet: 'NPC 旗標 (JSON)',
-    statChanges: '數值變更 (JSON)', melphinChange: '梅分變更', skillExpChanges: '技能經驗 (JSON)', characterExpGrant: '角色經驗',
+    statChanges: '數值變更', melphinChange: '梅分變更', skillExpChanges: '技能經驗', characterExpGrant: '角色經驗',
     grantItems: '給予物品', grantQuestId: '給予任務', failQuestId: '失敗任務',
-    advanceQuestStage: '推進任務階段 (JSON)', completeQuestObjective: '完成任務目標 (JSON)',
-    reputationChanges: '聲望變更 (JSON)', affinityChanges: '好感變更 (JSON)',
+    advanceQuestStage: '推進任務階段', completeQuestObjective: '完成任務目標',
+    reputationChanges: '聲望變更', affinityChanges: '好感變更',
     movePlayer: '移動玩家', timeAdvance: '推進時間 (分鐘)',
     applyConditionId: '施加狀態', removeConditionIds: '解除狀態',
     grantIntelId: '給予情報', startEncounterId: '啟動遭遇',
-    eventCounterSet: '事件計數設置 (JSON)', eventCounterChanges: '事件計數變更 (JSON)', eventCounterReset: '事件計數重置',
+    eventCounterSet: '事件計數設置', eventCounterChanges: '事件計數變更', eventCounterReset: '事件計數重置',
   };
 
   const STRING_ARRAY_FIELDS = ['flagsSet', 'flagsUnset', 'removeConditionIds', 'eventCounterReset'];
   const NUMBER_FIELDS = ['melphinChange', 'characterExpGrant', 'timeAdvance'];
   const STRING_FIELDS = ['grantQuestId', 'failQuestId', 'movePlayer', 'applyConditionId', 'grantIntelId', 'startEncounterId'];
-  const JSON_FIELDS = ['statChanges', 'reputationChanges', 'affinityChanges', 'npcFlagsSet', 'skillExpChanges', 'advanceQuestStage', 'completeQuestObjective', 'eventCounterSet', 'eventCounterChanges'];
+  // Key-value fields with proper editors
+  const STAT_KV_FIELDS = ['statChanges', 'skillExpChanges'];
+  const FACTION_KV_FIELDS = ['reputationChanges'];
+  const NPC_KV_FIELDS = ['affinityChanges'];
+  const COUNTER_KV_FIELDS = ['eventCounterSet', 'eventCounterChanges'];
+  // Structured object fields
+  const QUEST_STAGE_FIELDS = ['advanceQuestStage', 'completeQuestObjective'];
+  // Remaining raw JSON
+  const JSON_FIELDS = ['npcFlagsSet'];
 
   function activeFields(): string[] {
     return Object.keys(data).filter(k => data[k] !== undefined && data[k] !== null && data[k] !== '' && !k.startsWith('_'));
@@ -50,12 +59,30 @@
   }
 
   let showAddMenu = false;
+  let addBtnEl: HTMLButtonElement;
+  let addMenuStyle = '';
+
+  function toggleAddMenu() {
+    showAddMenu = !showAddMenu;
+    if (showAddMenu && addBtnEl) {
+      const rect = addBtnEl.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow >= 200) {
+        addMenuStyle = `top:${rect.bottom + 2}px; left:${rect.left}px; width:${rect.width}px;`;
+      } else {
+        addMenuStyle = `bottom:${window.innerHeight - rect.top + 2}px; left:${rect.left}px; width:${rect.width}px;`;
+      }
+    }
+  }
+
+  const KV_FIELDS = [...STAT_KV_FIELDS, ...FACTION_KV_FIELDS, ...NPC_KV_FIELDS, ...COUNTER_KV_FIELDS];
 
   function addField(field: string) {
     if (STRING_ARRAY_FIELDS.includes(field)) data[field] = [];
     else if (NUMBER_FIELDS.includes(field)) data[field] = 0;
     else if (STRING_FIELDS.includes(field)) data[field] = '';
-    else if (JSON_FIELDS.includes(field)) data[field] = {};
+    else if (KV_FIELDS.includes(field) || JSON_FIELDS.includes(field)) data[field] = {};
+    else if (QUEST_STAGE_FIELDS.includes(field)) data[field] = { questId: '', stageId: '' };
     else if (field === 'grantItems') data[field] = [];
     data = data;
     showAddMenu = false;
@@ -65,6 +92,7 @@
   function removeField(field: string) { delete data[field]; data = data; onChange(); }
 
   function getArr(f: string): string[] { return (data[f] || []) as string[]; }
+  function getKv(f: string): Record<string, unknown> { return (data[f] && typeof data[f] === 'object' && !Array.isArray(data[f])) ? data[f] as Record<string, unknown> : {}; }
   function getJson(f: string): string { const v = data[f]; return (v && typeof v === 'object') ? JSON.stringify(v, null, 2) : '{}'; }
   function getGrantItems(): Record<string, string>[] { return (data.grantItems || []) as Record<string, string>[]; }
 </script>
@@ -96,14 +124,41 @@
 
       {:else if STRING_FIELDS.includes(field)}
         {#if field === 'movePlayer'}
-          <EntityPicker type="location" value={String(data[field] ?? '')} placeholder="地點 ID..." />
+          <EntityPicker type="location" value={String(data[field] ?? '')} placeholder="地點 ID..." onSelect={(id) => { data[field] = id; onChange(); }} />
         {:else if field === 'startEncounterId'}
-          <EntityPicker type="encounter" value={String(data[field] ?? '')} placeholder="遭遇 ID..." />
+          <EntityPicker type="encounter" value={String(data[field] ?? '')} placeholder="遭遇 ID..." onSelect={(id) => { data[field] = id; onChange(); }} />
         {:else if field === 'grantQuestId' || field === 'failQuestId'}
-          <EntityPicker type="quest" value={String(data[field] ?? '')} placeholder="任務 ID..." />
+          <EntityPicker type="quest" value={String(data[field] ?? '')} placeholder="任務 ID..." onSelect={(id) => { data[field] = id; onChange(); }} />
         {:else}
           <input class="eff-input" value={data[field] ?? ''} on:input={(e) => { data[field] = val(e); onChange(); }} />
         {/if}
+
+      {:else if STAT_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyPlaceholder="statusStats.stamina" valuePlaceholder="delta"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if FACTION_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyEntityType="faction" keyPlaceholder="派系 ID" valuePlaceholder="delta"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if NPC_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyEntityType="npc" keyPlaceholder="NPC ID" valuePlaceholder="delta"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if COUNTER_KV_FIELDS.includes(field)}
+        <KeyValueEditor data={getKv(field)} keyPlaceholder="計數器 ID" valuePlaceholder="數值"
+          onChange={() => { data[field] = getKv(field); onChange(); }} />
+
+      {:else if QUEST_STAGE_FIELDS.includes(field)}
+        <div class="qs-row">
+          <EntityPicker type="quest" value={String(getKv(field).questId ?? '')} placeholder="任務 ID..." onSelect={(id) => { getKv(field).questId = id; data[field] = getKv(field); onChange(); }} />
+          <input class="eff-input" value={String(getKv(field).stageId ?? getKv(field).objectiveId ?? '')}
+            placeholder={field === 'advanceQuestStage' ? '階段 ID' : '目標 ID'}
+            on:input={(e) => {
+              const k = field === 'advanceQuestStage' ? 'stageId' : 'objectiveId';
+              getKv(field)[k] = val(e); data[field] = getKv(field); onChange();
+            }} />
+        </div>
 
       {:else if JSON_FIELDS.includes(field)}
         <textarea class="eff-textarea" rows="3" value={getJson(field)}
@@ -115,7 +170,7 @@
       {:else if field === 'grantItems'}
         {#each getGrantItems() as gi, i}
           <div class="tag-item">
-            <EntityPicker type="item" value={gi.itemId ?? ''} placeholder="物品 ID..." />
+            <EntityPicker type="item" value={gi.itemId ?? ''} placeholder="物品 ID..." onSelect={(id) => { getGrantItems()[i].itemId = id; data.grantItems = getGrantItems(); onChange(); }} />
             <button class="tag-rm" on:click={() => { data.grantItems = getGrantItems().filter((_g, j) => j !== i); onChange(); }}>✕</button>
           </div>
         {/each}
@@ -125,27 +180,29 @@
   {/each}
 
   {#if inactiveFields().length > 0}
-    <div class="eff-add-wrap">
-      <button class="eff-add-btn" on:click={() => { showAddMenu = !showAddMenu; }}>+ 新增效果</button>
-      {#if showAddMenu}
-        <div class="eff-add-menu">
-          {#each FIELD_GROUPS as group}
-            {#if group.fields.some(f => inactiveFields().includes(f))}
-              <div class="add-group-label">{group.group}</div>
-              {#each group.fields.filter(f => inactiveFields().includes(f)) as f}
-                <button class="add-field-btn" on:click={() => addField(f)}>{FIELD_LABELS[f] ?? f}</button>
-              {/each}
-            {/if}
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <button class="eff-add-btn" bind:this={addBtnEl} on:click={toggleAddMenu}>+ 新增效果</button>
   {/if}
 
   {#if activeFields().length === 0}
     <div class="eff-empty">無效果</div>
   {/if}
 </div>
+
+{#if showAddMenu}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div class="eff-add-backdrop" on:click={() => { showAddMenu = false; }}></div>
+  <div class="eff-add-menu" style={addMenuStyle}>
+    {#each FIELD_GROUPS as group}
+      {#if group.fields.some(f => inactiveFields().includes(f))}
+        <div class="add-group-label">{group.group}</div>
+        {#each group.fields.filter(f => inactiveFields().includes(f)) as f}
+          <button class="add-field-btn" on:click={() => addField(f)}>{FIELD_LABELS[f] ?? f}</button>
+        {/each}
+      {/if}
+    {/each}
+  </div>
+{/if}
 
 <style>
   .eff-wrap {
@@ -185,7 +242,6 @@
   }
   .tag-add:hover { border-color: var(--accent-dim); color: var(--accent); }
 
-  .eff-add-wrap { position: relative; }
   .eff-add-btn {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
     font-family: var(--font-mono); font-size: 9px; padding: 3px 10px; cursor: pointer;
@@ -193,10 +249,13 @@
   }
   .eff-add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
 
+  .eff-add-backdrop { position: fixed; inset: 0; z-index: 9998; }
+
   .eff-add-menu {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+    position: fixed; z-index: 9999;
     background: var(--bg-secondary); border: 1px solid var(--border-accent);
     border-radius: 2px; padding: 4px 0; max-height: 200px; overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
   .add-group-label { font-size: 8px; color: var(--text-dim); padding: 4px 8px 1px; letter-spacing: 0.08em; text-transform: uppercase; }
   .add-field-btn {
@@ -206,6 +265,7 @@
   .add-field-btn:hover { background: var(--bg-tertiary); }
 
   .eff-empty { font-size: 9px; color: var(--text-dim); font-style: italic; text-align: center; padding: 4px; }
+  .qs-row { display: flex; gap: 6px; align-items: center; }
   .eff-add-menu::-webkit-scrollbar { width: 4px; }
   .eff-add-menu::-webkit-scrollbar-track { background: var(--scrollbar-track); }
   .eff-add-menu::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }

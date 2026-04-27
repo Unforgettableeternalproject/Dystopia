@@ -54,6 +54,10 @@ const propMods = import.meta.glob(
   '../../../lore/world/regions/crambell/props/*.json', { eager: true }
 ) as Record<string, any>;
 
+const intelMods = import.meta.glob(
+  '../../../lore/world/regions/crambell/intels/*.json', { eager: true }
+) as Record<string, any>;
+
 const crambellIndex = import.meta.glob(
   '../../../lore/world/regions/crambell/index.json', { eager: true }
 ) as Record<string, any>;
@@ -134,6 +138,7 @@ export function loadCrambellLore(controller: GameController): void {
     districts:    byId(districtMods)    as any,
     encounters:   byId(encounterMods)   as any,
     props:        byId(propMods)        as any,
+    intels:       byId(intelMods)       as any,
     flagManifest: concatArrays(flagMods) as any,
   });
 

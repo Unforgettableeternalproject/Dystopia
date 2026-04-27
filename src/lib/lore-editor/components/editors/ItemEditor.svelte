@@ -4,6 +4,7 @@
    * Type-dependent sub-forms: consumable, equipment, key, info.
    */
   import ArrayEditor from '../ArrayEditor.svelte';
+  import KeyValueEditor from '../KeyValueEditor.svelte';
 
   export let data: Record<string, unknown>;
   export let onChange: () => void = () => {};
@@ -49,6 +50,16 @@
     if (!data.effect || typeof data.effect !== 'object') {
       data.effect = {};
     }
+  }
+  function getStatusChanges(): Record<string, unknown> {
+    ensureEffect();
+    const eff = getEffect();
+    if (!eff.statusChanges || typeof eff.statusChanges !== 'object') eff.statusChanges = {};
+    return eff.statusChanges as Record<string, unknown>;
+  }
+  function getStatBonus(): Record<string, unknown> {
+    if (!data.statBonus || typeof data.statBonus !== 'object') data.statBonus = {};
+    return data.statBonus as Record<string, unknown>;
   }
 
   function handleVariantChange(variants: unknown[]) {
@@ -119,37 +130,26 @@
         <textarea class="field-textarea" rows="2" bind:value={data.useNarrative} on:input={onChange}></textarea>
       </div>
       <div class="field">
-        <label class="field-label">效果 — statusChanges（JSON）</label>
-        <textarea
-          class="field-textarea mono"
-          rows="3"
-          value={effectJson()}
-          on:input={(e) => {
-            ensureEffect();
-            try {
-              getEffect().statusChanges = JSON.parse(val(e));
-              onChange();
-            } catch { /* invalid json, ignore */ }
-          }}
-        ></textarea>
+        <label class="field-label">效果 — statusChanges</label>
+        <KeyValueEditor
+          data={getStatusChanges()}
+          keyPlaceholder="statusStats.stamina"
+          valuePlaceholder="delta"
+          onChange={() => { onChange(); }}
+        />
       </div>
     </div>
   {:else if data.type === 'equipment'}
     <div class="sub-section">
       <div class="sub-label">裝備設定</div>
       <div class="field">
-        <label class="field-label">加成 — statBonus（JSON）</label>
-        <textarea
-          class="field-textarea mono"
-          rows="3"
-          value={bonusJson()}
-          on:input={(e) => {
-            try {
-              data.statBonus = JSON.parse(val(e));
-              onChange();
-            } catch { /* invalid json, ignore */ }
-          }}
-        ></textarea>
+        <label class="field-label">加成 — statBonus</label>
+        <KeyValueEditor
+          data={getStatBonus()}
+          keyPlaceholder="strength / knowledge / ..."
+          valuePlaceholder="加成值"
+          onChange={() => { onChange(); }}
+        />
       </div>
     </div>
   {:else if data.type === 'key'}
