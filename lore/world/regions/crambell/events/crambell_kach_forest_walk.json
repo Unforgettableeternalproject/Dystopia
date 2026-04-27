@@ -1,0 +1,19 @@
+{
+  "id": "crambell_kach_forest_walk",
+  "name": "凱奇的森林邀約",
+  "locationId": "delth_forest_clearing",
+  "condition": {
+    "timePeriods": ["rest"],
+    "flags": ["crambell_kach_test1_briefed", "kach_hangout_accepted"],
+    "notFlags": ["crambell_kach_test1_invited"]
+  },
+  "isRepeatable": false,
+  "notification": false,
+  "outcomes": [
+    {
+      "id": "forest_walk_start",
+      "description": "凱奇在森林空地等候，準備告訴玩家委託的細節。",
+      "startEncounterId": "crambell_enc_kach_forest_walk"
+    }
+  ]
+}

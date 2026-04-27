@@ -98,7 +98,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": [],
+        "eventIds": ["crambell_kach_mine_invite"],
         "propIds": ["delth_mine_storage_crates", "delth_mine_storage_shelf"],
         "isAccessible": true
       },

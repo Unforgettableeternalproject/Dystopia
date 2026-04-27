@@ -1,0 +1,66 @@
+{
+  "id": "crambell_enc_kach_forest_walk",
+  "name": "清晨的森林，凱奇的委託",
+  "type": "event",
+  "description": "凱奇帶著玩家在森林空地漫步，在人煙稀少的環境中說明委託的內容。",
+  "entryNodeId": "walk_start",
+  "nodes": {
+    "walk_start": {
+      "id": "walk_start",
+      "dmNarrative": "清晨的森林比你想像的還要安靜。凱奇踩著落葉走在你身邊，等到確認附近沒有人跟著之後，他才放慢腳步，開口說話。「謝謝你過來。」他說，「我要請你幫我頂住配額——今天和明天，各兩份。多出來的那份算我的。如果有人問我在哪，就說我去搬貨了。」他停頓了一下，視線轉向林子深處。「……倉庫的方向，你應該知道的。」",
+      "choices": [
+        {
+          "id": "ask_what_for",
+          "text": "「你到底要去做什麼？」",
+          "nextNodeId": "kach_evasive"
+        },
+        {
+          "id": "accept_no_question",
+          "text": "「好，我幫你。」",
+          "nextNodeId": "kach_grateful"
+        },
+        {
+          "id": "decline",
+          "text": "「這不太對，我不想卷進去。」",
+          "nextNodeId": "kach_accepted_no"
+        }
+      ]
+    },
+    "kach_evasive": {
+      "id": "kach_evasive",
+      "dmNarrative": "凱奇轉頭看了你一眼，沉默片刻。「有個地方需要確認一件事。」他說，「我說不出太多，但如果成功的話，對你也有幫助——包括之後出去的事。」他還在等你的答覆。",
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「好吧。我幫你。」",
+          "nextNodeId": "kach_grateful"
+        },
+        {
+          "id": "decline",
+          "text": "「你說的話我沒辦法信。」",
+          "nextNodeId": "kach_accepted_no"
+        }
+      ]
+    },
+    "kach_grateful": {
+      "id": "kach_grateful",
+      "dmNarrative": "凱奇點了點頭，神情輕鬆了一些。「這樣就夠了。」他繼續往前走，踩過幾根乾樹枝。「配額超出的部分你留著，不用幫我移轉。」他在轉角停下，回頭補了一句：「出去之後找我，我不會虧待你。」",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "grantQuestId": "crambell_kach_test1",
+        "flagsSet": ["crambell_kach_test1_invited", "crambell_kach_test1_started"],
+        "knowledgeGrant": "crambell_warehouse_location"
+      }
+    },
+    "kach_accepted_no": {
+      "id": "kach_accepted_no",
+      "dmNarrative": "凱奇低下頭，沉默片刻。「……好。」他說，什麼多餘的話都沒有，繼續往前走，好像只是出來散散步一樣。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "flagsSet": ["crambell_kach_test1_invited"]
+      }
+    }
+  }
+}

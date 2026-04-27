@@ -53,7 +53,7 @@
             }
           ],
           "npcIds": [],
-          "eventIds": ["crambell_event_forest_day", "crambell_event_forest_night", "crambell_kane_forest_handoff"],
+          "eventIds": ["crambell_event_forest_day", "crambell_event_forest_night", "crambell_kach_forest_walk", "crambell_kane_forest_handoff"],
           "propIds": ["delth_forest_clearing_remnants"],
           "isAccessible": true
         },

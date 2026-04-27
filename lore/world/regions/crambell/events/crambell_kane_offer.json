@@ -4,7 +4,8 @@
   "locationId": "delth_patrol_zone",
   "condition": {
     "timePeriods": ["work"],
-    "flags": ["crambell_treffen_lead_known"],
+    "flags": ["crambell_treffen_lead_known", "crambell_kane_met"],
+    "minAffinity": { "crambell_kane": 1 },
     "questActiveId": "crambell_kach_test1",
     "notFlags": [
       "crambell_kane_deal_started",

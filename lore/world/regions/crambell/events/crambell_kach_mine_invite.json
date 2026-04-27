@@ -1,0 +1,19 @@
+{
+  "id": "crambell_kach_mine_invite",
+  "name": "礦坑儲藏室的低語",
+  "locationId": "delth_mine_storage",
+  "condition": {
+    "timePeriods": ["work"],
+    "flags": ["crambell_kach_test1_briefed"],
+    "notFlags": ["kach_hangout_accepted", "crambell_kach_test1_invited"]
+  },
+  "isRepeatable": false,
+  "notification": false,
+  "outcomes": [
+    {
+      "id": "mine_invite_start",
+      "description": "凱奇在礦坑儲藏室等候，準備告訴玩家委託的細節。",
+      "startEncounterId": "crambell_enc_kach_mine_invite"
+    }
+  ]
+}

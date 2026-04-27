@@ -1,0 +1,66 @@
+{
+  "id": "crambell_enc_kach_mine_invite",
+  "name": "礦坑儲藏室裡的委託",
+  "type": "event",
+  "description": "凱奇在礦坑儲藏室低聲說明委託內容，並告知玩家倉庫的秘密入口位置。",
+  "entryNodeId": "storage_enter",
+  "nodes": {
+    "storage_enter": {
+      "id": "storage_enter",
+      "dmNarrative": "儲藏室的空間不大，堆滿了工具和礦石袋。凱奇靠在牆邊等你，看到你進來後只是抬了一下眼皮。他拉上門，聲音壓得很低。「你過來了。」他說，「我長話短說——我需要你幫我頂住配額，今天和明天，各兩份。有人問我在哪，就說我去倉庫搬貨了。」",
+      "choices": [
+        {
+          "id": "ask_what_for",
+          "text": "「你要去做什麼？」",
+          "nextNodeId": "kach_evasive"
+        },
+        {
+          "id": "accept_no_question",
+          "text": "「我幫你。」",
+          "nextNodeId": "kach_grateful"
+        },
+        {
+          "id": "decline",
+          "text": "「我不想卷進去。」",
+          "nextNodeId": "kach_accepted_no"
+        }
+      ]
+    },
+    "kach_evasive": {
+      "id": "kach_evasive",
+      "dmNarrative": "凱奇沉默了一下。「我去確認一件事。」他說，「說多了沒意義，但如果我辦到了，你往後的路會好走一些。」他看著你，等你的答覆。",
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「好吧，我幫你。」",
+          "nextNodeId": "kach_grateful"
+        },
+        {
+          "id": "decline",
+          "text": "「你說的話不夠讓我信任。」",
+          "nextNodeId": "kach_accepted_no"
+        }
+      ]
+    },
+    "kach_grateful": {
+      "id": "kach_grateful",
+      "dmNarrative": "凱奇點了頭。「多出來的配額你留著。」他把手放在牆上的一個箱子邊緣，「倉庫在西邊，主入口你應該知道，不過更安全的進法是從礦場邊緣的森林繞過去——有個缺口，走過去就看到了。這裡的人不太會往那個方向走。」他說完，走到門邊推開一條縫，確認走廊沒人。「別讓任何人跟著你。」",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "grantQuestId": "crambell_kach_test1",
+        "flagsSet": ["crambell_kach_test1_invited", "crambell_kach_test1_started"],
+        "knowledgeGrant": "crambell_warehouse_location"
+      }
+    },
+    "kach_accepted_no": {
+      "id": "kach_accepted_no",
+      "dmNarrative": "凱奇靜靜地看了你一眼。「沒事。」他推開門，走了出去，腳步沒有任何猶豫，好像這不過是一次普通的工班休息。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {
+        "flagsSet": ["crambell_kach_test1_invited"]
+      }
+    }
+  }
+}

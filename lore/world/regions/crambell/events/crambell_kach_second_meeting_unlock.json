@@ -1,0 +1,23 @@
+{
+  "id": "crambell_kach_second_meeting_unlock",
+  "name": "隔日的機會",
+  "locationId": "delth_patrol_zone",
+  "condition": {
+    "triggerHours": [6],
+    "flags": ["crambell_kach_met"],
+    "notFlags": [
+      "crambell_kach_second_meeting_ready",
+      "crambell_kach_test1_invited",
+      "crambell_kach_betrayed"
+    ]
+  },
+  "isRepeatable": false,
+  "notification": false,
+  "outcomes": [
+    {
+      "id": "second_meeting_unlock",
+      "description": "凱奇似乎有些事想對玩家說。",
+      "flagsSet": ["crambell_kach_second_meeting_ready"]
+    }
+  ]
+}

@@ -249,6 +249,163 @@ describe('EventEngine', () => {
     expect(exactHarness.mgr.getEventCounter('transfer_progress')).toBe(0);
   });
 
+  describe('triggerVariants', () => {
+    it('first-match: fires the first matching variant, not the second', () => {
+      const event: GameEvent = {
+        id: 'multi_variant_event',
+        description: 'Multi-variant event',
+        condition: {},
+        triggerVariants: [
+          {
+            condition: { flags: ['special_flag'] },
+            notification: true,
+            notificationVariant: 'danger',
+          },
+          {
+            condition: {},
+            notification: false,
+          },
+        ],
+        outcomes: [{ id: 'out', description: 'Fired', flagsSet: ['variant_fired'] }],
+        isRepeatable: true,
+      };
+
+      // With special_flag: first variant matches → danger notification
+      const withFlag = makeHarness({ locationEventIds: ['multi_variant_event'], events: [event] });
+      withFlag.mgr.flags.set('special_flag');
+      const t1 = withFlag.engine.checkAndApply('loc_a');
+      expect(t1).toHaveLength(1);
+      expect(t1[0].notification).toBe(true);
+      expect(t1[0].notificationVariant).toBe('danger');
+
+      // Without special_flag: second variant matches → notification false
+      const withoutFlag = makeHarness({ locationEventIds: ['multi_variant_event'], events: [event] });
+      const t2 = withoutFlag.engine.checkAndApply('loc_a');
+      expect(t2).toHaveLength(1);
+      expect(t2[0].notification).toBe(false);
+      expect(t2[0].notificationVariant).toBeUndefined();
+    });
+
+    it('does not fire when no variant condition matches', () => {
+      const event: GameEvent = {
+        id: 'gated_variant_event',
+        description: 'Gated by variant',
+        condition: {},
+        triggerVariants: [
+          { condition: { flags: ['missing_flag'] } },
+        ],
+        outcomes: [{ id: 'out', description: 'Fired', flagsSet: ['should_not_fire'] }],
+        isRepeatable: true,
+      };
+
+      const { engine, mgr } = makeHarness({ locationEventIds: ['gated_variant_event'], events: [event] });
+      expect(engine.checkAndApply('loc_a')).toHaveLength(0);
+      expect(mgr.flags.has('should_not_fire')).toBe(false);
+    });
+
+    it('variant-specific chance controls firing', () => {
+      const event: GameEvent = {
+        id: 'chance_variant_event',
+        description: 'Chance via variant',
+        condition: {},
+        triggerVariants: [
+          { condition: { triggerChance: 0.5 } },
+        ],
+        outcomes: [{ id: 'out', description: 'Fired', flagsSet: ['chance_fired'] }],
+        isRepeatable: true,
+      };
+
+      const spy = vi.spyOn(Math, 'random');
+      try {
+        // random < chance → fires
+        spy.mockReturnValue(0.3);
+        const hit = makeHarness({ locationEventIds: ['chance_variant_event'], events: [event] });
+        expect(hit.engine.checkAndApply('loc_a')).toHaveLength(1);
+        expect(hit.mgr.flags.has('chance_fired')).toBe(true);
+
+        // random > chance → does not fire
+        spy.mockReturnValue(0.7);
+        const miss = makeHarness({ locationEventIds: ['chance_variant_event'], events: [event] });
+        expect(miss.engine.checkAndApply('loc_a')).toHaveLength(0);
+        expect(miss.mgr.flags.has('chance_fired')).toBe(false);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('variant-specific cooldown blocks re-trigger within the window', () => {
+      const event: GameEvent = {
+        id: 'cooldown_variant_event',
+        description: 'Cooldown via variant',
+        condition: {},
+        triggerVariants: [
+          { condition: { cooldownMinutes: 60 } },
+        ],
+        outcomes: [{ id: 'out', description: 'Fired', flagsSet: ['cooldown_fired'] }],
+        isRepeatable: true,
+      };
+
+      const { engine, mgr } = makeHarness({ locationEventIds: ['cooldown_variant_event'], events: [event] });
+
+      // First trigger succeeds
+      expect(engine.checkAndApply('loc_a')).toHaveLength(1);
+      expect(mgr.flags.has('cooldown_fired')).toBe(true);
+
+      // Second trigger at same time is blocked by cooldown
+      mgr.flags.unset('cooldown_fired');
+      expect(engine.checkAndApply('loc_a')).toHaveLength(0);
+      expect(mgr.flags.has('cooldown_fired')).toBe(false);
+
+      // Advance time past cooldown → fires again (event was recorded at minute 0)
+      (mgr.getState() as GameState).time.totalMinutes = 61;
+      const t3 = engine.checkAndApply('loc_a');
+      expect(t3).toHaveLength(1);
+    });
+
+    it('top-level shared gate still blocks when variant condition matches', () => {
+      const event: GameEvent = {
+        id: 'gated_shared_event',
+        description: 'Shared gate blocks variant',
+        condition: { notFlags: ['global_block'] },
+        triggerVariants: [
+          { condition: {} },
+        ],
+        outcomes: [{ id: 'out', description: 'Fired', flagsSet: ['shared_gate_fired'] }],
+        isRepeatable: true,
+      };
+
+      // global_block is set → top-level notFlags gate fails, variant never evaluated
+      const { engine, mgr } = makeHarness({ locationEventIds: ['gated_shared_event'], events: [event] });
+      mgr.flags.set('global_block');
+      expect(engine.checkAndApply('loc_a')).toHaveLength(0);
+      expect(mgr.flags.has('shared_gate_fired')).toBe(false);
+
+      // Without the blocking flag → variant fires
+      mgr.flags.unset('global_block');
+      expect(engine.checkAndApply('loc_a')).toHaveLength(1);
+    });
+
+    it('variant without cooldownMinutes does not record cooldown (can re-fire immediately)', () => {
+      const event: GameEvent = {
+        id: 'no_cooldown_variant_event',
+        description: 'No cooldown variant',
+        condition: {},
+        triggerVariants: [
+          { condition: { flags: ['active_flag'] } },
+        ],
+        outcomes: [{ id: 'out', description: 'Fired', flagsSet: ['no_cooldown_fired'] }],
+        isRepeatable: true,
+      };
+
+      const { engine, mgr } = makeHarness({ locationEventIds: ['no_cooldown_variant_event'], events: [event] });
+      mgr.flags.set('active_flag');
+
+      expect(engine.checkAndApply('loc_a')).toHaveLength(1);
+      // No cooldown set → fires again immediately
+      expect(engine.checkAndApply('loc_a')).toHaveLength(1);
+    });
+  });
+
   it('supports single-event probability curves driven by event counters', () => {
     const transferEvent: GameEvent = {
       id: 'transfer_event',

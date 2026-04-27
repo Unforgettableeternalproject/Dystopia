@@ -25,7 +25,8 @@
         {
           "id": "cold",
           "text": "（點點頭，沒有回應）",
-          "nextNodeId": null
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_met"] }
         }
       ]
     },
@@ -38,7 +39,7 @@
           "id": "accept",
           "text": "「可以啊，正合我意。」",
           "nextNodeId": null,
-          "effects": { "affinity": 1, "flagsSet": ["kach_hangout_accepted"] }
+          "effects": { "affinity": 1, "flagsSet": ["kach_hangout_accepted", "crambell_kach_met"] }
         },
         {
           "id": "push_forest",
@@ -61,7 +62,7 @@
           "id": "accept",
           "text": "「可以啊，正合我意。」",
           "nextNodeId": null,
-          "effects": { "affinity": 1, "flagsSet": ["kach_hangout_accepted"] }
+          "effects": { "affinity": 1, "flagsSet": ["kach_hangout_accepted", "crambell_kach_met"] }
         },
         {
           "id": "decline",
@@ -93,7 +94,7 @@
         { "speaker": "npc", "text": "可以的話...不要把這件事大肆宣揚。" }
       ],
       "choices": [
-        { "id": "end", "text": "「我知道了。」", "nextNodeId": null}
+        { "id": "end", "text": "「我知道了。」", "nextNodeId": null, "effects": { "flagsSet": ["crambell_kach_met"] } }
       ]
     },
     "kach_general_disappoint": {
@@ -101,7 +102,7 @@
         { "speaker": "npc", "text": "哦...好吧，沒關係的，我們下次還有機會。" }
       ],
       "choices": [
-        { "id": "end", "text": "「我知道了。」", "nextNodeId": null}
+        { "id": "end", "text": "「我知道了。」", "nextNodeId": null, "effects": { "flagsSet": ["crambell_kach_met"] } }
       ]
     },
     "kach_general_netural": {
@@ -109,7 +110,81 @@
         { "speaker": "npc", "text": "嗯嗯。 *向著{user}微笑著*" }
       ],
       "choices": [
-        { "id": "end", "text": "「那就先這樣好了。」", "nextNodeId": null}
+        { "id": "end", "text": "「那就先這樣好了。」", "nextNodeId": null, "effects": { "flagsSet": ["crambell_kach_met"] } }
+      ]
+    },
+
+    "second_meeting": {
+      "lines": [
+        { "speaker": "npc", "text": "……{user}，可以借一步說話嗎？ *壓低聲音，確認四周沒有人注意* 有件事我想請你幫個忙，不算是什麼大事，不過暫時不方便讓太多人知道。" }
+      ],
+      "choices": [
+        {
+          "id": "listen_forest",
+          "text": "「說吧，我聽著。」",
+          "condition": "kach_hangout_accepted",
+          "nextNodeId": "kach_invite_forest"
+        },
+        {
+          "id": "listen_mine",
+          "text": "「說吧，我聽著。」",
+          "condition": "!kach_hangout_accepted",
+          "nextNodeId": "kach_invite_mine"
+        }
+      ]
+    },
+    "kach_invite_forest": {
+      "lines": [
+        { "speaker": "npc", "text": "你還記得之前說的，去森林走走的事嗎？ *停頓了一下* 如果休息時段你沒什麼安排的話，可以來那裡找我。我在那裡說給你聽，比較方便在那邊談。" }
+      ],
+      "choices": [
+        {
+          "id": "agree",
+          "text": "「好，休息時段見。」",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_test1_briefed"] }
+        },
+        {
+          "id": "ask_now",
+          "text": "「現在直接說不行嗎？」",
+          "nextNodeId": "kach_too_risky"
+        }
+      ]
+    },
+    "kach_invite_mine": {
+      "lines": [
+        { "speaker": "npc", "text": "等你今天的配額做完，去礦場的儲藏室找我。就是通道盡頭那個帶鎖的房間，平常不太有人去。我在那裡等你。" }
+      ],
+      "choices": [
+        {
+          "id": "agree",
+          "text": "「好，我去找你。」",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_test1_briefed"], "knowledgeGrant": "crambell_mine_storage_access" }
+        },
+        {
+          "id": "ask_why_there",
+          "text": "「為什麼要去那裡？」",
+          "nextNodeId": "kach_too_risky"
+        }
+      ]
+    },
+    "kach_too_risky": {
+      "lines": [
+        { "speaker": "npc", "text": "……這裡眼睛太多了。到時候你就知道了。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「好。」",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_test1_briefed"] }
+        },
+        {
+          "id": "forget_it",
+          "text": "「算了，不感興趣。」",
+          "nextNodeId": null
+        }
       ]
     }
   },
@@ -118,6 +193,10 @@
     {
       "nodeId": "first_meeting",
       "firstMeetingOnly": true
+    },
+    {
+      "nodeId": "second_meeting",
+      "condition": "crambell_kach_second_meeting_ready & !crambell_kach_test1_invited & !crambell_kach_betrayed"
     }
   ],
 

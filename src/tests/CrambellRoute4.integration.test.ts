@@ -2,15 +2,23 @@
 //
 // Integration test for Route 4 (Kane/Ditch path).
 // Flow:
-//   1. crambell_kach_test1_start event fires; player accepts kach briefing encounter (grants quest).
-//   1.5. crambell_survey event fires (guaranteed when kach_test1 active); player covers for Kach → cover_for_kach stage complete.
-//   2. crambell_kane_offer event triggers and starts the offer encounter.
-//   3. Player navigates through the encounter and confirms betrayal.
-//   4. Assert: kach_test1 ditched, reputations changed, kane_double_agent granted.
-//   5. Move to delth_forest_clearing at rest time.
-//   6. crambell_kane_forest_handoff event triggers and starts the handoff encounter.
-//   7. Player proceeds and receives transit_pass:wyar.
-//   8. Assert inventory contains the transit pass.
+//   1a. crambell_kach first_meeting dialogue fires; player agrees to hang out (kach_hangout_accepted + crambell_kach_met).
+//   1b. Day boundary crossed at 06:00 → crambell_kach_second_meeting_unlock fires → crambell_kach_second_meeting_ready.
+//   1c. crambell_kach second_meeting dialogue fires; player routed to kach_invite_forest (has kach_hangout_accepted).
+//       → crambell_kach_test1_briefed set.
+//   1d. Move to delth_forest_clearing at rest → crambell_kach_forest_walk event triggers.
+//       → Player accepts → crambell_kach_test1 granted, started.
+//   1.5. crambell_kane first_meeting dialogue fires; cooperative → kane_pass_check.
+//       → crambell_kane_met set, affinity +1.
+//   2.  crambell_survey event fires (kach_test1 active); player covers for Kach.
+//       → cover_for_kach objective complete, treffen_lead_known set.
+//   3.  crambell_kane_offer event triggers (met + affinity + treffen_lead_known + kach_test1 active).
+//   4.  Player navigates encounter and confirms betrayal.
+//   5.  Assert: kach_test1 ditched, reputations changed, kane_double_agent granted.
+//   6.  Move to delth_forest_clearing at rest time.
+//   7.  crambell_kane_forest_handoff event triggers → starts handoff encounter.
+//   8.  Player proceeds → receives transit_pass:wyar.
+//   9.  Assert inventory contains the transit pass.
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
@@ -20,11 +28,13 @@ import { EventEngine } from '../lib/engine/EventEngine';
 import { QuestEngine } from '../lib/engine/QuestEngine';
 import { StateManager } from '../lib/engine/StateManager';
 import { TimeManager } from '../lib/engine/TimeManager';
+import { DialogueManager } from '../lib/engine/DialogueManager';
 import { LoreVault } from '../lib/lore/LoreVault';
 import type { EncounterDefinition } from '../lib/types/encounter';
 import type { GameState } from '../lib/types/game';
 import type { GameEvent, LocationNode, RegionIndex, RegionSchedule } from '../lib/types/world';
 import type { QuestDefinition } from '../lib/types/quest';
+import type { DialogueProfile } from '../lib/types/dialogue';
 
 const REPO_ROOT = new URL('../../', import.meta.url);
 
@@ -102,20 +112,25 @@ function loadRoute4Lore() {
     regions:   { crambell: region },
     schedules: { crambell: schedule },
     events: {
-      crambell_kach_test1_start:    readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kach_test1_start.json'),
-      crambell_survey:              readJson<GameEvent>('lore/world/regions/crambell/events/crambell_survey.json'),
-      crambell_kane_offer:          readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kane_offer.json'),
-      crambell_kane_forest_handoff: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kane_forest_handoff.json'),
+      crambell_kach_second_meeting_unlock: readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kach_second_meeting_unlock.json'),
+      crambell_kach_forest_walk:           readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kach_forest_walk.json'),
+      crambell_survey:                     readJson<GameEvent>('lore/world/regions/crambell/events/crambell_survey.json'),
+      crambell_kane_offer:                 readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kane_offer.json'),
+      crambell_kane_forest_handoff:        readJson<GameEvent>('lore/world/regions/crambell/events/crambell_kane_forest_handoff.json'),
     },
     quests: {
       crambell_kach_test1:         readJson<QuestDefinition>('lore/world/regions/crambell/quests/crambell_kach_test1.json'),
       crambell_kane_double_agent:  readJson<QuestDefinition>('lore/world/regions/crambell/quests/crambell_kane_double_agent.json'),
     },
     encounters: {
-      crambell_enc_kach_briefing:       readJson<EncounterDefinition>('lore/world/regions/crambell/encounters/crambell_enc_kach_briefing.json'),
+      crambell_enc_kach_forest_walk:    readJson<EncounterDefinition>('lore/world/regions/crambell/encounters/crambell_enc_kach_forest_walk.json'),
       crambell_enc_survey:              readJson<EncounterDefinition>('lore/world/regions/crambell/encounters/crambell_enc_survey.json'),
       crambell_enc_kane_offer:          readJson<EncounterDefinition>('lore/world/regions/crambell/encounters/crambell_enc_kane_offer.json'),
       crambell_enc_kane_forest_handoff: readJson<EncounterDefinition>('lore/world/regions/crambell/encounters/crambell_enc_kane_forest_handoff.json'),
+    },
+    dialogues: {
+      crambell_kach_default: readJson<DialogueProfile>('lore/world/regions/crambell/dialogues/crambell_kach_default.json'),
+      crambell_kane_default: readJson<DialogueProfile>('lore/world/regions/crambell/dialogues/crambell_kane_default.json'),
     },
   });
 
@@ -148,36 +163,117 @@ function resolveChoice(
 describe('Crambell route4 integration — Kane/Ditch path', () => {
   it('player betrays kach_test1 and receives transit_pass:wyar via Kane', () => {
     const { lore, schedule } = loadRoute4Lore();
-    const bus      = new EventBus();
-    const state    = new StateManager(makeState(), bus);
-    const time     = new TimeManager();
-    const events   = new EventEngine(lore, state, time, schedule);
-    const quests   = new QuestEngine(lore, state);
+    const bus        = new EventBus();
+    const state      = new StateManager(makeState(), bus);
+    const time       = new TimeManager();
+    const events     = new EventEngine(lore, state, time, schedule);
+    const quests     = new QuestEngine(lore, state);
     const encounters = new EncounterEngine(lore, state);
+    const dialogueMgr = new DialogueManager(lore, state);
 
     // Guarantee luck check always passes
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
 
     try {
-      // ── Step 1: Kach briefing event fires at patrol zone, player accepts ────────
-      const briefEvents = events.checkAndApply('delth_patrol_zone');
-      const briefTrigger = briefEvents.find(t => t.event.id === 'crambell_kach_test1_start');
-      expect(briefTrigger).toBeDefined();
-      expect(briefTrigger!.startEncounterId).toBe('crambell_enc_kach_briefing');
+      // ── Step 1a: Kach first meeting dialogue (day 12, work) ───────────────────
+      const kachFirst = dialogueMgr.checkScriptedTrigger(
+        'crambell_kach', 'crambell_kach_default', state.flags, 0,
+      );
+      expect(kachFirst).not.toBeNull();
+      expect(kachFirst!.nodeId).toBe('first_meeting');
 
-      const briefStart = encounters.start('crambell_enc_kach_briefing');
-      expect(briefStart?.kind).toBe('node');
-      if (briefStart?.kind !== 'node') return;
-      expect(briefStart.resolved.node.id).toBe('kach_approach');
+      // friendly_agree → kach_intro_follow_up (affinity +1)
+      const agreeChoice = dialogueMgr.filterChoices(kachFirst!.node.choices, state.flags)
+        .find(c => c.id === 'friendly_agree')!;
+      dialogueMgr.applyChoiceEffects('crambell_kach', agreeChoice.effects);
 
-      // accept → kach_grateful (grants crambell_kach_test1, sets invited+started flags)
-      resolveChoice(encounters, quests, 'accept');
+      // kach_intro_follow_up → accept (sets kach_hangout_accepted + crambell_kach_met)
+      const followUpNode = dialogueMgr.getNode('crambell_kach', 'crambell_kach_default', 'kach_intro_follow_up')!;
+      const acceptChoice = dialogueMgr.filterChoices(followUpNode.choices, state.flags)
+        .find(c => c.id === 'accept')!;
+      dialogueMgr.applyChoiceEffects('crambell_kach', acceptChoice.effects);
+
+      expect(state.flags.has('crambell_kach_met')).toBe(true);
+      expect(state.flags.has('kach_hangout_accepted')).toBe(true);
+
+      // ── Step 1b: Advance to next day 06:00 → second_meeting_unlock fires ──────
+      state.advanceTime(
+        { year: 1498, month: 6, day: 13, hour: 6, minute: 0, totalMinutes: 1200 },
+        'work',
+      );
+
+      // triggerHours: [6] — cross hour 6 when calling checkAndApply
+      const unlockResults = events.checkAndApply('delth_patrol_zone', [6]);
+      expect(unlockResults.some(t => t.event.id === 'crambell_kach_second_meeting_unlock')).toBe(true);
+      expect(state.flags.has('crambell_kach_second_meeting_ready')).toBe(true);
+
+      // ── Step 1c: Kach second meeting dialogue (interactionCount = 1) ──────────
+      const kachSecond = dialogueMgr.checkScriptedTrigger(
+        'crambell_kach', 'crambell_kach_default', state.flags, 1,
+      );
+      expect(kachSecond).not.toBeNull();
+      expect(kachSecond!.nodeId).toBe('second_meeting');
+
+      // Has kach_hangout_accepted → listen_forest is available, listen_mine is filtered out
+      const filteredSecond = dialogueMgr.filterChoices(kachSecond!.node.choices, state.flags);
+      expect(filteredSecond.find(c => c.id === 'listen_forest')).toBeDefined();
+      expect(filteredSecond.find(c => c.id === 'listen_mine')).toBeUndefined();
+
+      // Navigate to kach_invite_forest → agree (sets crambell_kach_test1_briefed)
+      const forestInviteNode = dialogueMgr.getNode(
+        'crambell_kach', 'crambell_kach_default', 'kach_invite_forest',
+      )!;
+      const inviteAgree = forestInviteNode.choices.find(c => c.id === 'agree')!;
+      dialogueMgr.applyChoiceEffects('crambell_kach', inviteAgree.effects);
+      expect(state.flags.has('crambell_kach_test1_briefed')).toBe(true);
+
+      // ── Step 1d: Forest walk encounter (rest, delth_forest_clearing) ──────────
+      state.advanceTime(
+        { year: 1498, month: 6, day: 13, hour: 22, minute: 0, totalMinutes: 1440 },
+        'rest',
+      );
+      state.getState().player.currentLocationId = 'delth_forest_clearing';
+
+      const forestWalkResults = events.checkAndApply('delth_forest_clearing');
+      const forestWalkTrigger = forestWalkResults.find(t => t.event.id === 'crambell_kach_forest_walk');
+      expect(forestWalkTrigger).toBeDefined();
+      expect(forestWalkTrigger!.startEncounterId).toBe('crambell_enc_kach_forest_walk');
+
+      const forestWalkStart = encounters.start('crambell_enc_kach_forest_walk');
+      expect(forestWalkStart?.kind).toBe('node');
+      if (forestWalkStart?.kind !== 'node') return;
+      expect(forestWalkStart.resolved.node.id).toBe('walk_start');
+
+      resolveChoice(encounters, quests, 'accept_no_question');
       expect(state.getState().activeQuests['crambell_kach_test1']).toBeDefined();
       expect(state.getState().activeQuests['crambell_kach_test1']?.currentStageId).toBe('cover_for_kach');
 
-      // ── Step 1.5: Survey fires (kach_test1 active, cover not yet given) ────────
-      const surveyEvents = events.checkAndApply('delth_patrol_zone');
-      const surveyTrigger = surveyEvents.find(t => t.event.id === 'crambell_survey');
+      // ── Step 1.5: Kane first meeting dialogue (day 14, work, patrol zone) ─────
+      state.advanceTime(
+        { year: 1498, month: 6, day: 14, hour: 10, minute: 0, totalMinutes: 1680 },
+        'work',
+      );
+      state.getState().player.currentLocationId = 'delth_patrol_zone';
+
+      const kaneFirst = dialogueMgr.checkScriptedTrigger(
+        'crambell_kane', 'crambell_kane_default', state.flags, 0,
+      );
+      expect(kaneFirst).not.toBeNull();
+      expect(kaneFirst!.nodeId).toBe('first_meeting');
+
+      // cooperative → kane_pass_check → end (affinity +1, crambell_kane_met)
+      const kanePassNode = dialogueMgr.getNode(
+        'crambell_kane', 'crambell_kane_default', 'kane_pass_check',
+      )!;
+      const kanePassEnd = kanePassNode.choices.find(c => c.id === 'end')!;
+      dialogueMgr.applyChoiceEffects('crambell_kane', kanePassEnd.effects);
+
+      expect(state.flags.has('crambell_kane_met')).toBe(true);
+      expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(1);
+
+      // ── Step 2: Survey fires (kach_test1 active, cover not yet given) ─────────
+      const surveyResults = events.checkAndApply('delth_patrol_zone');
+      const surveyTrigger = surveyResults.find(t => t.event.id === 'crambell_survey');
       expect(surveyTrigger).toBeDefined();
       expect(surveyTrigger!.startEncounterId).toBe('crambell_enc_survey');
 
@@ -196,14 +292,16 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       expect(state.flags.has('crambell_kach_test1_completed')).toBe(true);
       expect(state.flags.has('crambell_treffen_lead_known')).toBe(true);
 
-      // ── Step 2: kane_offer event fires at delth_patrol_zone (work period) ─────
+      // ── Step 3: kane_offer event fires at delth_patrol_zone (work period) ─────
+      // Pre-condition check: offer should NOT fire without kane_met (already set above)
+      // Confirm all three conditions met: met + affinity>=1 + treffen_lead_known
       state.getState().player.currentLocationId = 'delth_patrol_zone';
-      const offerEvents = events.checkAndApply('delth_patrol_zone');
-      const offerTrigger = offerEvents.find(t => t.event.id === 'crambell_kane_offer');
+      const offerResults = events.checkAndApply('delth_patrol_zone');
+      const offerTrigger = offerResults.find(t => t.event.id === 'crambell_kane_offer');
       expect(offerTrigger).toBeDefined();
       expect(offerTrigger!.startEncounterId).toBe('crambell_enc_kane_offer');
 
-      // ── Step 3: Start offer encounter and navigate to betrayal ────────────────
+      // ── Step 4: Start offer encounter and navigate to betrayal ────────────────
       const offerStart = encounters.start('crambell_enc_kane_offer');
       expect(offerStart?.kind).toBe('node');
       if (offerStart?.kind !== 'node') return;
@@ -219,7 +317,7 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       const { pending: offerPending } = resolveChoice(encounters, quests, 'confirm_betrayal');
       expect(offerPending.outcomeType).toBe('success');
 
-      // ── Step 4: Assert betrayal consequences ──────────────────────────────────
+      // ── Step 5: Assert betrayal consequences ──────────────────────────────────
       // kach_test1 should be ditched (removed from activeQuests)
       expect(state.getState().activeQuests['crambell_kach_test1']).toBeUndefined();
       // beneficiaryFactionId is set, so enters completedQuestIds
@@ -237,19 +335,19 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       expect(state.getState().activeQuests['crambell_kane_double_agent']).toBeDefined();
       expect(state.getState().activeQuests['crambell_kane_double_agent']?.currentStageId).toBe('meet_for_handoff');
 
-      // ── Step 5: Move to forest clearing at rest time ──────────────────────────
+      // ── Step 6: Move to forest clearing at rest time ──────────────────────────
       state.advanceTime(
-        { year: 1498, month: 6, day: 12, hour: 22, minute: 0, totalMinutes: 720 },
+        { year: 1498, month: 6, day: 14, hour: 22, minute: 0, totalMinutes: 1920 },
         'rest',
       );
       state.getState().player.currentLocationId = 'delth_forest_clearing';
 
-      const handoffEvents = events.checkAndApply('delth_forest_clearing');
-      const handoffTrigger = handoffEvents.find(t => t.event.id === 'crambell_kane_forest_handoff');
+      const handoffResults = events.checkAndApply('delth_forest_clearing');
+      const handoffTrigger = handoffResults.find(t => t.event.id === 'crambell_kane_forest_handoff');
       expect(handoffTrigger).toBeDefined();
       expect(handoffTrigger!.startEncounterId).toBe('crambell_enc_kane_forest_handoff');
 
-      // ── Step 6: Start handoff encounter ──────────────────────────────────────
+      // ── Step 7: Start handoff encounter ──────────────────────────────────────
       const handoffStart = encounters.start('crambell_enc_kane_forest_handoff');
       expect(handoffStart?.kind).toBe('node');
       if (handoffStart?.kind !== 'node') return;
@@ -258,7 +356,7 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       // proceed → statCheck auto-resolves (luck=8, mock roll=0.99 passes DC10)
       const { pending: handoffPending } = resolveChoice(encounters, quests, 'proceed');
 
-      // ── Step 7: Assert transit pass received ─────────────────────────────────
+      // ── Step 8: Assert transit pass received ─────────────────────────────────
       expect(handoffPending.outcomeType).toBe('success');
       const inv = state.getState().player.inventory;
       const pass = inv.find(i => i.itemId === 'transit_pass' && i.variantId === 'wyar');
@@ -266,14 +364,14 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       expect(state.flags.has('crambell_kane_pass_received')).toBe(true);
       expect(state.flags.has('crambell_player_allied_government')).toBe(true);
 
-      // ── Step 8: Quest objective complete (pass received) ─────────────────────
+      // ── Step 9: Quest objective complete (pass received) ─────────────────────
       quests.checkObjectives();
       expect(state.getState().activeQuests['crambell_kane_double_agent']?.isCompleted).toBe(true);
 
-      // ── Step 9: Transit hub access at correct time ────────────────────────────
+      // ── Step 10: Transit hub access at correct time ───────────────────────────
       // delth_transit_hub gate requires timeRange 04:00-05:59 + transit_pass item
       state.advanceTime(
-        { year: 1498, month: 6, day: 13, hour: 4, minute: 30, totalMinutes: 870 },
+        { year: 1498, month: 6, day: 15, hour: 4, minute: 30, totalMinutes: 2190 },
         'rest',
       );
       state.getState().player.currentLocationId = 'delth_patrol_zone';

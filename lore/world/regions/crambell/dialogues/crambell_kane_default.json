@@ -18,7 +18,7 @@
         },
         {
           "id": "bribe_hint",
-          "text": "TODO: 試探性地暗示可以談條件",
+          "text": "「……如果方便的話，有些事可以私下談。」",
           "nextNodeId": "kane_interested",
           "condition": "!crambell_kane_bribed"
         },
@@ -31,34 +31,85 @@
     },
     "kane_pass_check": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 凱恩確認玩家配額或身份後的反應，放行但留有餘地。" }
+        { "speaker": "narrator", "text": "他低頭掃了一眼手中的記錄板，翻過一頁，再翻回來。" },
+        { "speaker": "npc", "text": "……確認了。" },
+        { "speaker": "narrator", "text": "他把板子夾回腋下，目光掃過你一眼，語氣平靜得像在念報告。" },
+        { "speaker": "npc", "text": "比大多數人懂規矩。去吧。" }
       ],
       "choices": [
-        { "id": "end", "text": "（離開）", "nextNodeId": null }
+        {
+          "id": "end",
+          "text": "（離開）",
+          "nextNodeId": null,
+          "effects": {
+            "affinity": 1,
+            "flagsSet": ["crambell_kane_met"]
+          }
+        }
       ]
     },
     "kane_interested": {
       "lines": [
-        { "speaker": "narrator", "text": "他的眼神稍微變化，但臉上沒有任何表情。" },
-        { "speaker": "npc", "text": "TODO: 凱恩對交易暗示的回應。他不排斥，但不會先說出條件。" }
+        { "speaker": "narrator", "text": "他的眼神稍微停頓了一下——不明顯，但確實有。臉上沒有任何表情。" },
+        { "speaker": "npc", "text": "私下談。" },
+        { "speaker": "narrator", "text": "他重複了一遍，語氣像是在確認這幾個字的重量。" },
+        { "speaker": "npc", "text": "如果你有什麼值得讓我知道的事，可以再來找我。只要——確實值得。" }
       ],
       "choices": [
         {
           "id": "negotiate",
-          "text": "TODO: 提出具體條件",
+          "text": "「我手上有一些消息，不知道你是否感興趣。」",
           "nextNodeId": null,
-          "effects": { "flagsSet": ["crambell_kane_bribe_initiated"] }
+          "effects": {
+            "affinity": 2,
+            "flagsSet": ["crambell_kane_interested", "crambell_kane_met", "crambell_kane_bribe_initiated"]
+          }
         },
-        { "id": "retreat", "text": "「算了，沒什麼事。」", "nextNodeId": null }
+        {
+          "id": "retreat",
+          "text": "「算了，沒什麼事。」",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_met"]
+          }
+        }
       ]
     },
     "kane_impatient": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 凱恩對沉默的反應，施壓。" }
+        { "speaker": "narrator", "text": "凱恩把菸夾在指間，眼神從頭到腳掃過你一遍，不急，但也不好惹。" },
+        { "speaker": "npc", "text": "我最後再問一次。名號。" }
       ],
       "choices": [
-        { "id": "cooperate_now", "text": "TODO: 趕快配合", "nextNodeId": "kane_pass_check" },
-        { "id": "end", "text": "（保持沉默）", "nextNodeId": null }
+        {
+          "id": "cooperate_now",
+          "text": "（趕緊報上名號）",
+          "nextNodeId": "kane_pass_check"
+        },
+        {
+          "id": "end",
+          "text": "（保持沉默）",
+          "nextNodeId": "kane_dismissed",
+          "effects": {
+            "affinity": -1
+          }
+        }
+      ]
+    },
+    "kane_dismissed": {
+      "lines": [
+        { "speaker": "npc", "text": "滾。" },
+        { "speaker": "narrator", "text": "他已經轉身走開，根本沒有看你一眼。" }
+      ],
+      "choices": [
+        {
+          "id": "leave",
+          "text": "（離開）",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_met"]
+          }
+        }
       ]
     }
   },
@@ -74,7 +125,7 @@
     {
       "label": "玩家曾賄賂凱恩",
       "condition": "crambell_kane_bribed",
-      "context": "TODO: 被賄賂後凱恩與玩家的默契關係，以及他預期的持續利益。他把玩家當成資源，而非威脅。"
+      "context": "凱恩與玩家之間存在一種不明說的默契——玩家曾給過他有用的東西，他知道玩家能帶來價值。他把玩家當成可利用的資源，而非威脅，說話時會帶著一種微妙的投資者語氣，不熱情，但比對其他工人稍微多了幾分注意。"
     }
   ]
 }
