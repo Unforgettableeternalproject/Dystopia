@@ -487,8 +487,8 @@
     {:else}
       <div class="empty-state">
         <div class="empty-icon">◈</div>
-        <div class="empty-text">選擇一個實體以開始編��</div>
-        <div class="empty-hint">左側選擇類型，然後從列表中點選實體</div>
+        <div class="empty-text">選擇一個項目以開始編輯</div>
+        <div class="empty-hint">左側選擇類型，然後從列表中點選項目</div>
       </div>
     {/if}
   </main>

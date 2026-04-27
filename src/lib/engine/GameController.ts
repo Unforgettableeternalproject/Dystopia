@@ -65,7 +65,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, triggerSelfCheckGlow, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -225,6 +225,10 @@ export class GameController {
         }
       } else if (rec.type === 'characterExp') {
         showAcquisitionNotif(`角色經驗 +${rec.delta}`, true);
+      } else if (rec.type === 'intel') {
+        const intel = this.lore.getIntel(rec.intelId);
+        showAcquisitionNotif(`情報：${intel?.label ?? rec.intelId}`, true);
+        triggerSelfCheckGlow();
       }
     }
   }
@@ -674,6 +678,22 @@ export class GameController {
 
     const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId, thinkingLineId);
     this.flushAcquisitions();
+
+    // 4.4a. Attempt encounter interception: runDM may have detected an attempt encounter
+    //       when the move path was blocked. If so, start the encounter now.
+    const attemptSignal = (resolution as any)._attemptEncounter as
+      { encounterId: string; connectionKey: string; cooldownMinutes?: number; totalMinutes: number } | undefined;
+    if (attemptSignal) {
+      log.info('Attempt encounter intercepted', { encounterId: attemptSignal.encounterId });
+      if (attemptSignal.cooldownMinutes) {
+        this.state.setAttemptCooldown(attemptSignal.connectionKey, attemptSignal.totalMinutes);
+      }
+      await this.startAndRenderEncounter(attemptSignal.encounterId);
+      this.flushAcquisitions();
+      if (this.checkEndingConditions()) return;
+      this.releaseInput();
+      return;
+    }
 
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
     // Downward correction (resolution < default) is deferred — TimeManager.advance() only
@@ -2009,9 +2029,17 @@ export class GameController {
           }
         }
       }
-      if (t.startEncounterId && !eventEncounter) {
-        eventEncounter = { id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) };
-        log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
+      if (t.startEncounterId) {
+        if (!eventEncounter) {
+          eventEncounter = { id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) };
+          log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
+        } else if (!t.event.isRepeatable) {
+          // Non-repeatable event's encounter was dropped because another encounter already claimed
+          // the slot. Unset :fired so this event can trigger again on a subsequent turn instead
+          // of being permanently consumed without its encounter ever launching.
+          this.state.flags.unset(t.event.id + ':fired');
+          log.warn('Non-repeatable encounter dropped, unmarked as fired', { eventId: t.event.id });
+        }
       }
       if (t.notification) {
         showEventToast(t.event.name ?? t.event.id, t.notificationVariant ?? 'normal');
@@ -2212,6 +2240,26 @@ export class GameController {
         log.warn('Resolution MOVE references unknown location', { locationId: resolution.move });
         resolution.move = undefined;
       } else {
+        // Check for attempt encounter before clearing the move
+        const attemptLoc = this.lore.resolveLocation(gsCurrent.player.currentLocationId, this.state.flags, gsCurrent.timePeriod);
+        const attemptConn = attemptLoc?.connections.find(c => c.targetLocationId === resolution.move);
+        if (attemptConn) {
+          const attemptResult = this.lore.getConnectionAccessResult(
+            attemptConn, this.state.flags, gsCurrent.timePeriod, gsCurrent.player.knownIntelIds,
+            Object.values(gsCurrent.activeQuests), gsCurrent.time, gsCurrent.player.inventory, gsCurrent.player.melphin,
+            { reputation: gsCurrent.player.externalStats.reputation, affinity: gsCurrent.player.externalStats.affinity,
+              attemptCooldowns: gsCurrent.attemptCooldowns, connectionKey: gsCurrent.player.currentLocationId + '→' + attemptConn.targetLocationId },
+          );
+          if (!attemptResult.allowed && attemptResult.attemptEncounterId) {
+            // Signal the attempt encounter back to submitAction via a special field
+            (resolution as any)._attemptEncounter = {
+              encounterId: attemptResult.attemptEncounterId,
+              connectionKey: gsCurrent.player.currentLocationId + '→' + attemptConn.targetLocationId,
+              cooldownMinutes: attemptConn.access?.attemptCooldownMinutes,
+              totalMinutes: gsCurrent.time.totalMinutes,
+            };
+          }
+        }
         log.warn('Resolution MOVE: no accessible path found', { from: gsCurrent.player.currentLocationId, to: resolution.move });
         resolution.move = undefined;
       }
@@ -4306,6 +4354,109 @@ export class GameController {
 
     // Run the same post-event systems as the normal turn pipeline
     this.debugPostSystemUpdate();
+  }
+
+  /**
+   * Diagnose why a specific event is (or isn't) triggering at the current location/state.
+   * Returns a human-readable report of each condition's pass/fail status.
+   */
+  debugDiagnoseEvent(eventId: string): string {
+    const lines: string[] = [`── 診斷事件：${eventId} ──`];
+
+    const event = this.lore.getEvent(eventId);
+    if (!event) {
+      lines.push('✗ 找不到此事件 ID（未載入）');
+      return lines.join('\n');
+    }
+
+    // Check 1: eventsEnabled
+    const eventsEnabled = this.state.flags.has('game_day1_started');
+    lines.push(eventsEnabled ? '✓ game_day1_started: 已設置' : '✗ game_day1_started: 未設置（事件全面停用）');
+
+    // Check 2: Is event registered at current location (or any ancestor)?
+    const gs = this.state.getState();
+    const currentLocId = gs.player.currentLocationId;
+    let found = false;
+    let checkLocId: string | undefined = currentLocId;
+    const checkedLocs: string[] = [];
+    while (checkLocId) {
+      const loc = this.lore.resolveLocation(checkLocId, this.state.flags);
+      if (!loc) break;
+      checkedLocs.push(checkLocId);
+      if (loc.eventIds.includes(eventId)) { found = true; break; }
+      checkLocId = loc.parentId;
+    }
+    lines.push(found
+      ? `✓ 事件已在位置鏈中登錄 (${checkedLocs.join(' → ')})`
+      : `✗ 事件不在當前位置鏈中 (當前: ${currentLocId}, 檢查了: ${checkedLocs.join(', ')})`);
+
+    // Check 3: :fired flag
+    const fired = this.state.flags.has(eventId + ':fired');
+    lines.push(fired ? `✗ ${eventId}:fired 已設置（不可重複事件已消耗）` : `✓ :fired 未設置`);
+
+    // Check 4: required flags
+    const { condition } = event;
+    if (condition.flags?.length) {
+      const missing = condition.flags.filter(f => !this.state.flags.has(f));
+      lines.push(missing.length === 0
+        ? `✓ 必要旗標全部存在: [${condition.flags.join(', ')}]`
+        : `✗ 缺少旗標: [${missing.join(', ')}]`);
+    } else {
+      lines.push('✓ 無必要旗標條件');
+    }
+
+    // Check 5: notFlags
+    if (condition.notFlags?.length) {
+      const blocking = condition.notFlags.filter(f => this.state.flags.has(f));
+      lines.push(blocking.length === 0
+        ? `✓ notFlags 全部不存在`
+        : `✗ 封鎖旗標已設置: [${blocking.join(', ')}]`);
+    } else {
+      lines.push('✓ 無 notFlags 條件');
+    }
+
+    // Check 6: timePeriods
+    const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
+    if (condition.timePeriods?.length) {
+      if (!schedule) {
+        lines.push('✗ 無法取得地區 Schedule（timePeriods 條件無法評估）');
+      } else {
+        const current = this.timeMgr.getCurrentPeriod(gs.time, schedule, gs.player.activeFlags);
+        const ok = condition.timePeriods.includes(current);
+        lines.push(ok
+          ? `✓ timePeriods: 當前=${current}, 條件=[${condition.timePeriods.join(', ')}]`
+          : `✗ timePeriods: 當前=${current}, 條件=[${condition.timePeriods.join(', ')}] → 不符合`);
+      }
+    } else {
+      lines.push('✓ 無 timePeriods 條件');
+    }
+
+    // Check 7: timeRanges
+    if (condition.timeRanges?.length) {
+      const nowMin = gs.time.hour * 60 + gs.time.minute;
+      const matched = condition.timeRanges.some(r => {
+        const s = r.startHour * 60 + (r.startMinute ?? 0);
+        const e = r.endHour * 60 + (r.endMinute ?? 0);
+        return s < e ? (nowMin >= s && nowMin < e) : (nowMin >= s || nowMin < e);
+      });
+      lines.push(matched
+        ? `✓ timeRanges: 當前時間 ${gs.time.hour}:${String(gs.time.minute).padStart(2,'0')} 符合`
+        : `✗ timeRanges: 當前時間 ${gs.time.hour}:${String(gs.time.minute).padStart(2,'0')} 不在任何範圍內`);
+    } else {
+      lines.push('✓ 無 timeRanges 條件');
+    }
+
+    // Check 8: triggerHours (note: actual trigger requires crossing, can't check here)
+    if (condition.triggerHours?.length) {
+      lines.push(`⚠ triggerHours: [${condition.triggerHours.join(', ')}] — 需要跨越這些整點才觸發，靜態診斷無法確認`);
+    }
+
+    // Summary
+    lines.push(`──`);
+    lines.push(`當前位置: ${currentLocId} | 時間: ${gs.time.hour}:${String(gs.time.minute).padStart(2,'0')} | 時段: ${gs.timePeriod}`);
+    lines.push(`game_day1_started: ${eventsEnabled}`);
+
+    return lines.join('\n');
   }
 
   /** Grant a quest directly, regardless of conditions. */

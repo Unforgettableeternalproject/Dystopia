@@ -60,7 +60,7 @@ export class JudgeAgent {
       'Only remove flags not in "Flag Actions Available". Copy timeMinutes exactly.',
     ].join('\n');
 
-    const raw = await this.client.complete(JUDGE_EXPLORATION_PROMPT, userMessage, 512);
+    const raw = await this.client.complete(JUDGE_EXPLORATION_PROMPT, userMessage, 1024);
     this.lastRaw = raw;
     log.debug('Exploration judge raw response', { length: raw.length, preview: raw.slice(0, 200) });
     const result = parseExplorationJudgeResponse(raw);
@@ -99,7 +99,7 @@ export class JudgeAgent {
       'Accept endEncounter as-is. Validate attitude values.',
     ].join('\n');
 
-    const raw = await this.client.complete(JUDGE_DIALOGUE_PROMPT, userMessage, 512);
+    const raw = await this.client.complete(JUDGE_DIALOGUE_PROMPT, userMessage, 1024);
     this.lastRaw = raw;
     log.debug('Dialogue judge raw response', { length: raw.length, preview: raw.slice(0, 200) });
     const result = parseDialogueJudgeResponse(raw);

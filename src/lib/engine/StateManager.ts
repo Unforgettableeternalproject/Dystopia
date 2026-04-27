@@ -26,7 +26,8 @@ export type AcquisitionRecord =
   | { type: 'reputation';   factionId: string; delta: number }
   | { type: 'affinity';     npcId: string; delta: number }
   | { type: 'skillExp';     statKey: PrimaryStatKey; finalAmount: number; levelUps: number }
-  | { type: 'characterExp'; delta: number };
+  | { type: 'characterExp'; delta: number }
+  | { type: 'intel';        intelId: string };
 
 export class StateManager {
   private state: GameState;
@@ -421,8 +422,10 @@ export class StateManager {
    * This allows contextSnippets and other conditions to use `intel:<id>` syntax.
    */
   grantIntel(intelId: string): void {
+    const isNew = !this.state.player.knownIntelIds.includes(intelId);
     this.addKnownIntel(intelId);
     this.flags.set('intel:' + intelId);
+    if (isNew) this._acquisitions.push({ type: 'intel', intelId });
   }
 
   // ── NPC Memory ───────────────────────────────────────────────

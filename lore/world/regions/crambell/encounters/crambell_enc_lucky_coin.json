@@ -1,6 +1,6 @@
 {
   "id": "crambell_enc_lucky_coin",
-  "name": "零錢",
+  "name": "意外之財",
   "type": "event",
   "description": "深夜的盥洗室空無一人，玩家在地磚縫隙發現幾枚遺落的梅分硬幣。撿還是不撿。",
   "entryNodeId": "found_coins",

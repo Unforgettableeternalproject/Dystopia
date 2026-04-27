@@ -409,6 +409,15 @@ export const factionGraphOpen = writable(false);
 
 export const selfCheckOpen = writable(false);
 export const inventoryOpen = writable(false);
+
+// ── Self-check glow ────────────────────────────────────────────
+// 獲得情報時讓「自我視察」按鈕短暫發光
+export const selfCheckGlow = writable(false);
+
+export function triggerSelfCheckGlow(): void {
+  selfCheckGlow.set(true);
+  setTimeout(() => selfCheckGlow.set(false), 2500);
+}
 export const isSaving      = writable(false);
 
 // Quest detail modal — set to a quest summary to open, null to close

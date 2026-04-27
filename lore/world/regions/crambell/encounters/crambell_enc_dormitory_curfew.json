@@ -49,7 +49,7 @@
       "isOutcome": true,
       "outcomeType": "success",
       "effects": {
-        "movePlayer": "crambell_dormitory_lobby",
+        "movePlayer": "crambell_dormitory",
         "statChanges": { "statusStats.stress": 1 }
       }
     },
@@ -77,7 +77,7 @@
       "outcomeType": "success",
       "effects": {
         "melphinChange": -10,
-        "movePlayer": "crambell_dormitory_lobby"
+        "movePlayer": "crambell_dormitory"
       }
     },
     "bribe_fail_pass": {
@@ -87,7 +87,7 @@
       "outcomeType": "neutral",
       "effects": {
         "melphinChange": -20,
-        "movePlayer": "crambell_dormitory_lobby",
+        "movePlayer": "crambell_dormitory",
         "statChanges": { "statusStats.stress": 2 }
       }
     },
@@ -108,7 +108,7 @@
       "isOutcome": true,
       "outcomeType": "success",
       "effects": {
-        "movePlayer": "crambell_dormitory_lobby",
+        "movePlayer": "crambell_dormitory",
         "timeAdvance": 10
       }
     },
@@ -135,7 +135,7 @@
       "isOutcome": true,
       "outcomeType": "neutral",
       "effects": {
-        "movePlayer": "crambell_dormitory_lobby",
+        "movePlayer": "crambell_dormitory",
         "applyConditionId": "sprain",
         "timeAdvance": 15,
         "statChanges": { "statusStats.stress": 3 }

@@ -1,5 +1,11 @@
 <script lang="ts">
   import { selfCheckOpen, detailedPlayer, playerUI } from '$lib/stores/gameStore';
+
+  const INTEL_CATEGORY_LABELS: Record<string, string> = {
+    political: '政', personal: '人', threat: '威', location: '地', rumor: '謠',
+  };
+
+  let expandedIntelId: string | null = null;
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { getRequiredExpForLevel, STAT_MAX_LEVEL } from '$lib/engine/ExperienceEngine';
@@ -135,11 +141,25 @@
 
       <!-- Knowledge -->
       <section class="section">
-        <div class="section-label">知識</div>
-        {#if dp.knownIntelIds && dp.knownIntelIds.length > 0}
-          <div class="tag-list">
-            {#each dp.knownIntelIds as id}
-              <span class="tag intel-tag" title={id}>{id.replace(/_/g, ' ')}</span>
+        <div class="section-label">情報</div>
+        {#if $playerUI.knownIntels && $playerUI.knownIntels.length > 0}
+          <div class="intel-list">
+            {#each $playerUI.knownIntels as intel}
+              <!-- svelte-ignore a11y-click-events-have-key-events -->
+              <!-- svelte-ignore a11y-no-static-element-interactions -->
+              <div
+                class="intel-card"
+                class:expanded={expandedIntelId === intel.id}
+                on:click={() => { expandedIntelId = expandedIntelId === intel.id ? null : intel.id; }}
+              >
+                <div class="intel-header">
+                  <span class="intel-cat intel-cat-{intel.category}">{INTEL_CATEGORY_LABELS[intel.category] ?? '?'}</span>
+                  <span class="intel-lbl">{intel.label}</span>
+                </div>
+                {#if expandedIntelId === intel.id}
+                  <div class="intel-desc">{intel.description}</div>
+                {/if}
+              </div>
             {/each}
           </div>
         {:else}
@@ -322,10 +342,61 @@
   .rep-val.pos { color: #4a7a4a; }
   .rep-val.neg { color: var(--accent-red); }
 
-  .intel-tag {
-    border-color: var(--accent-blue);
-    color: #5a8aaa;
-    text-transform: lowercase;
+  .intel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .intel-card {
+    padding: 3px 5px;
+    border-radius: 2px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .intel-card:hover,
+  .intel-card.expanded {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+  }
+
+  .intel-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .intel-cat {
+    font-size: 8px;
+    padding: 0px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    border: 1px solid;
+  }
+
+  .intel-cat-political { color: var(--accent);      border-color: var(--accent);      opacity: 0.85; }
+  .intel-cat-personal  { color: #c8a84b;            border-color: #c8a84b;            opacity: 0.85; }
+  .intel-cat-threat    { color: var(--accent-red);  border-color: var(--accent-red);  opacity: 0.85; }
+  .intel-cat-location  { color: var(--accent-blue); border-color: var(--accent-blue); opacity: 0.85; }
+  .intel-cat-rumor     { color: var(--text-dim);    border-color: var(--border);      opacity: 0.75; }
+
+  .intel-lbl {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .intel-desc {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    white-space: pre-wrap;
   }
 
   .empty-inline {

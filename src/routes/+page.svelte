@@ -305,6 +305,7 @@
   // ── Save slot management ──────────────────────────────────────
 
   let deleteConfirmSlot: number | null = null;
+  let overwriteConfirmSlot: number | null = null;
 
   const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -556,21 +557,31 @@
 {#if saveMenuOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="load-backdrop" transition:fade={{ duration: 150 }} on:click={() => saveMenuOpen = false}>
+  <div class="load-backdrop" transition:fade={{ duration: 150 }} on:click={() => { saveMenuOpen = false; overwriteConfirmSlot = null; }}>
     <div class="load-panel" transition:fly={{ y: -8, duration: 180, easing: cubicOut }} on:click|stopPropagation>
       <div class="load-header">
         <span class="load-title">選擇存檔槽位</span>
-        <button class="load-close" on:click={() => saveMenuOpen = false}>✕</button>
+        <button class="load-close" on:click={() => { saveMenuOpen = false; overwriteConfirmSlot = null; }}>✕</button>
       </div>
       {#each saveSlots.slice(1) as slot, i}
         {@const slotId = i + 1}
-        <button class="save-slot" on:click={() => handleSaveToSlot(slotId)}>
-          <span class="ls-label">{slot?.label ?? '存檔 ' + slotId}{slot ? '' : ' — 空'}</span>
-          {#if slot}
-            <span class="ls-loc">{slot.locationName}</span>
-            <span class="ls-time">{slot.worldTime}</span>
-          {/if}
-        </button>
+        {#if overwriteConfirmSlot === slotId}
+          <div class="save-slot save-slot-confirm">
+            <span class="ls-confirm-text">覆蓋「{slot?.label ?? '存檔 ' + slotId}」？</span>
+            <div class="ls-actions">
+              <button class="ls-action-btn danger" on:click={() => { overwriteConfirmSlot = null; handleSaveToSlot(slotId); }}>確定</button>
+              <button class="ls-action-btn" on:click={() => overwriteConfirmSlot = null}>取消</button>
+            </div>
+          </div>
+        {:else}
+          <button class="save-slot" on:click={() => slot ? (overwriteConfirmSlot = slotId) : handleSaveToSlot(slotId)}>
+            <span class="ls-label">{slot?.label ?? '存檔 ' + slotId}{slot ? '' : ' — 空'}</span>
+            {#if slot}
+              <span class="ls-loc">{slot.locationName}</span>
+              <span class="ls-time">{slot.worldTime}</span>
+            {/if}
+          </button>
+        {/if}
       {/each}
     </div>
   </div>
@@ -875,6 +886,15 @@
   }
 
   .save-slot:hover { background: var(--bg-tertiary); }
+
+  .save-slot-confirm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--accent-red, #c0392b) 6%, transparent);
+  }
 
   /* Close confirmation — above TitleScreen (z-index 200) */
   .close-backdrop {
