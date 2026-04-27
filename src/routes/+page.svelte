@@ -47,6 +47,26 @@
   let debugPanelOpen = false;
   $: if (!$isDebugMode) debugPanelOpen = false;
 
+  async function openLoreEditorWindow() {
+    const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+    if (isTauri) {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const existing = await WebviewWindow.getByLabel('lore-editor');
+      if (existing) { await existing.setFocus(); return; }
+      new WebviewWindow('lore-editor', {
+        url: '/lore',
+        title: 'Lore Editor',
+        width: 1280,
+        height: 800,
+        resizable: true,
+        decorations: true,
+      });
+    } else {
+      const win = window.open('/lore', 'lore_editor', 'width=1280,height=800,resizable=yes');
+      win?.focus();
+    }
+  }
+
   // Quest banner lifecycle is managed by enqueueQuestBanner() in gameStore — no timer needed here.
 
   // 偵測 activeEncounterUI 變化，若有 statCheckResult 則觸發判定 overlay
@@ -466,6 +486,23 @@
 
 {#if debugPanelOpen}
   <DebugPanel {controller} onClose={() => { debugPanelOpen = false; }} />
+{/if}
+
+<!-- Dev-mode corner buttons -->
+{#if $gamePhase === 'playing' && $isDebugMode}
+  <div class="dev-corner">
+    <button
+      class="dev-corner-btn"
+      class:active={debugPanelOpen}
+      on:click={() => { debugPanelOpen = !debugPanelOpen; }}
+      title="除錯面板 (Ctrl+Shift+D)"
+    >除錯</button>
+    <button
+      class="dev-corner-btn lore-btn"
+      on:click={openLoreEditorWindow}
+      title="開啟 Lore Editor"
+    >編輯器</button>
+  </div>
 {/if}
 
 <!-- In-game load menu overlay -->
@@ -946,5 +983,47 @@
   @keyframes bannerIn {
     from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
     to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  /* ── Dev corner buttons ──────────────────────────── */
+  .dev-corner {
+    position: fixed;
+    bottom: calc(var(--bottom-bar-h) + 8px);
+    right: 8px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dev-corner-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-accent);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    white-space: nowrap;
+  }
+
+  .dev-corner-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
+  .dev-corner-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
+  .dev-corner-btn.lore-btn:hover {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
   }
 </style>
