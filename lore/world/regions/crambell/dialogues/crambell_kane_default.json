@@ -111,6 +111,69 @@
           }
         }
       ]
+    },
+
+    "kane_intel_offer": {
+      "lines": [
+        { "speaker": "narrator", "text": "凱恩沒有停下腳步，只是微微側頭——等到確認附近沒有人注意，他才放慢步伐，眼神掃了你一眼。" },
+        { "speaker": "npc", "text": "準備好了？" }
+      ],
+      "choices": [
+        {
+          "id": "give_kach",
+          "text": "「關於凱奇·巴頓——他去哪裡、見了誰。」",
+          "condition": "crambell_treffen_lead_known",
+          "nextNodeId": "kane_deliver_kach"
+        },
+        {
+          "id": "give_alliance",
+          "text": "「關於人民互助聯盟——他們的行程和聯絡方式。」",
+          "condition": "crambell_patrol_schedule_known",
+          "nextNodeId": "kane_deliver_alliance"
+        },
+        {
+          "id": "not_yet",
+          "text": "「還沒想清楚。」",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "kane_deliver_kach": {
+      "lines": [
+        { "speaker": "narrator", "text": "你把知道的說出來——凱奇消失的時間、他去的方向、他讓你幫忙掩護的理由。" },
+        { "speaker": "narrator", "text": "凱恩聽完，把菸踩滅，點了點頭。表情沒有任何變化，好像只是在確認一份例行報告。" },
+        { "speaker": "npc", "text": "聰明。*他從口袋取出一張便條紙，遞過來* 休息時段。林間空地。我在那裡等你。" }
+      ],
+      "choices": [
+        {
+          "id": "confirm",
+          "text": "（接過紙條，點頭離開）",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
+            "affinity": 2
+          }
+        }
+      ]
+    },
+    "kane_deliver_alliance": {
+      "lines": [
+        { "speaker": "narrator", "text": "你把知道的說出來——巡邏空窗的時間點、礦場廣場那邊的眼線、他們傳遞消息的方式。" },
+        { "speaker": "narrator", "text": "凱恩聽完，把菸踩滅，點了點頭。表情沒有任何變化，好像只是在確認一份例行報告。" },
+        { "speaker": "npc", "text": "聰明。*他從口袋取出一張便條紙，遞過來* 休息時段。林間空地。我在那裡等你。" }
+      ],
+      "choices": [
+        {
+          "id": "confirm",
+          "text": "（接過紙條，點頭離開）",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
+            "reputation": { "crambell_peoples_alliance": -20 },
+            "affinity": 2
+          }
+        }
+      ]
     }
   },
 
@@ -118,6 +181,10 @@
     {
       "nodeId": "first_meeting",
       "firstMeetingOnly": true
+    },
+    {
+      "nodeId": "kane_intel_offer",
+      "condition": "crambell_kane_approached & crambell_kane_intel_ready & !crambell_kane_intel_delivered"
     }
   ],
 

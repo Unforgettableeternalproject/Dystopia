@@ -22,6 +22,7 @@ import {
 export type AcquisitionRecord =
   | { type: 'item';         itemId: string; variantId?: string }
   | { type: 'stat';         key: string; delta: number }
+  | { type: 'melphin';      delta: number }
   | { type: 'reputation';   factionId: string; delta: number }
   | { type: 'affinity';     npcId: string; delta: number }
   | { type: 'skillExp';     statKey: PrimaryStatKey; finalAmount: number; levelUps: number }
@@ -77,6 +78,7 @@ export class StateManager {
   modifyMelphin(delta: number): void {
     this.state.player.melphin = Math.max(0, this.state.player.melphin + delta);
     this.notifyUpdate();
+    if (delta !== 0) this._acquisitions.push({ type: 'melphin', delta });
   }
 
   /** Update a stat by dot-path, e.g. "primaryStats.strength" */

@@ -65,7 +65,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -206,6 +206,10 @@ export class GameController {
           const label = STAT_LABELS[group]?.[stat] ?? stat;
           showAcquisitionNotif(`${label} ${rec.delta > 0 ? '+' : ''}${rec.delta}`, rec.delta > 0);
         }
+      } else if (rec.type === 'melphin') {
+        const valence = rec.delta > 0 ? 'good' : 'bad' as const;
+        triggerMelphinFlash(valence);
+        showStatDelta('melphin', rec.delta, valence);
       } else if (rec.type === 'reputation') {
         showStatDelta(`rep:${rec.factionId}`, rec.delta, rec.delta > 0 ? 'good' : 'bad');
       } else if (rec.type === 'affinity') {
@@ -4084,6 +4088,10 @@ export class GameController {
     );
 
     activeScriptedDialogue.set(null);
+
+    // Sweep quest objectives now — dialogue choice effects (flags, reputation) may have
+    // advanced a flag-check objective (e.g. delivering intel closes a pending_intel stage).
+    this.quests.checkObjectives();
 
     // Scripted segment done — NPC continues conversation via LLM opener.
     // (Next player input will re-check for scripted triggers naturally via handleDialogueInput.)

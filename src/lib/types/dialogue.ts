@@ -180,6 +180,12 @@ export interface DialogueTrigger {
    * Rolled after flag conditions are confirmed.
    */
   probability?: number;
+  /**
+   * Precise game-clock ranges (OR within array). Current time must fall in at least one.
+   * Supports overnight wrap, e.g. { startHour: 22, startMinute: 0, endHour: 5, endMinute: 59 }.
+   * Omit = no time restriction.
+   */
+  timeRanges?: import('./world').GameTimeRange[];
 }
 
 // ── Context Snippets ──────────────────────────────────────────

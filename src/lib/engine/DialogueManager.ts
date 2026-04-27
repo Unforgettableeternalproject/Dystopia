@@ -20,7 +20,7 @@ import type { StateManager }      from './StateManager';
 import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from '../types/dialogue';
 import type { FlagSystem }        from './FlagSystem';
 import type { InventoryItem }     from '../types/item';
-import { checkDateTimeConditions } from '../utils/dateTimeCondition';
+import { checkDateTimeConditions, checkTimeRanges } from '../utils/dateTimeCondition';
 
 // <<NPC_STATE: attitude:neutral | topic:...>> — updates NPC state within a dialogue encounter.
 // npcId is NOT in the signal; it's supplied by the calling context.
@@ -75,6 +75,12 @@ export class DialogueManager {
 
       // Flag condition check
       if (trigger.condition && !flags.evaluate(trigger.condition)) continue;
+
+      // Time range check
+      if (trigger.timeRanges?.length) {
+        const gs = this.state.getState();
+        if (!checkTimeRanges(trigger.timeRanges, gs.time)) continue;
+      }
 
       // Probability roll (0–100, default 100 = always)
       const prob = trigger.probability ?? 100;

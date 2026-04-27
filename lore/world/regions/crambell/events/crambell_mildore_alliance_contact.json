@@ -1,0 +1,19 @@
+{
+  "id": "crambell_mildore_alliance_contact",
+  "name": "礦場的眼線",
+  "locationId": "delth_mine_plaza",
+  "condition": {
+    "flags": ["crambell_peoples_alliance_known"],
+    "notFlags": ["crambell_task_shackles_started"]
+  },
+  "description": "知道人民互助聯盟存在的玩家，在礦場廣場中被聯盟的一名成員注意到，對方謹慎地主動搭話。",
+  "outcomes": [
+    {
+      "id": "alliance_contact_trigger",
+      "description": "礦工悄悄靠過來，確認玩家是否知道米爾多雷的情況。",
+      "startEncounterId": "crambell_enc_mildore_alliance"
+    }
+  ],
+  "isRepeatable": false,
+  "notification": false
+}

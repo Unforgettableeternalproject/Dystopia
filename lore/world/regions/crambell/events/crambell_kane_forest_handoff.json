@@ -4,7 +4,7 @@
   "locationId": "delth_forest_clearing",
   "condition": {
     "timePeriods": ["rest"],
-    "flags": ["crambell_kane_deal_started"],
+    "flags": ["crambell_kane_intel_delivered"],
     "notFlags": ["crambell_kane_pass_received", "crambell_kane_deal_abandoned"]
   },
   "description": "凱恩依約在休息時段出現在林間空地，等待完成與玩家的交易——以轉移通行證換取情報。",

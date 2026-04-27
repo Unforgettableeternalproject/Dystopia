@@ -11,16 +11,31 @@
 
   "_comment": [
     "路線四：政府合作路線。",
-    "玩家將舊會議情報出賣給凱恩，換取前往瓦爾的轉移通行證。",
-    "由 crambell_enc_kane_offer 遭遇中的出賣選項觸發 ditch + grantQuest。",
-    "此任務不可放棄、不可再出賣，只有完成（領取通行證）一途。"
+    "玩家同意凱恩的提議後持有此任務；在凱恩的對話節點中選擇交付情報（凱奇或聯盟），",
+    "觸發 crambell_kane_intel_delivered，任務自動推進到 meet_for_handoff。",
+    "此任務不可放棄，只有完成（領取通行證）一途。"
   ],
 
-  "entryStageId": "meet_for_handoff",
+  "entryStageId": "pending_intel",
   "stages": {
+    "pending_intel": {
+      "id": "pending_intel",
+      "description": "凱恩在等你的情報。想好要提供哪些之後，在工作時段找他交付。",
+      "objectives": [
+        {
+          "id": "deliver_intel",
+          "type": "flag_check",
+          "description": "將情報交給凱恩",
+          "flag": "crambell_kane_intel_delivered"
+        }
+      ],
+      "onComplete": {
+        "nextStageId": "meet_for_handoff"
+      }
+    },
     "meet_for_handoff": {
       "id": "meet_for_handoff",
-      "description": "凱恩說他會在深夜出現在林間空地，在那裡完成交易並交付報酬。在休息時段前往林間空地。",
+      "description": "凱恩說他會在休息時段出現在林間空地，在那裡完成交易並交付報酬。在休息時段前往林間空地。",
       "objectives": [
         {
           "id": "receive_pass",

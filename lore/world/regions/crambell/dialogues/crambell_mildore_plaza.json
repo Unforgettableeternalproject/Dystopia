@@ -2,52 +2,286 @@
   "id": "crambell_mildore_plaza",
   "npcId": "crambell_mildore",
 
-  "defaultContext": "TODO: 米爾多雷的說話模式。輕鬆、話多，習慣用玩笑話掩蓋不安。不主動談工作或政府，但對人很快熟絡。對有好感的人偶爾透露真心話。",
+  "defaultContext": "米爾多雷的說話模式：輕鬆、話多，習慣用玩笑話掩蓋不安。不主動談工作或政府，但對人很快熟絡。她被固定在禁閉架上，手臂無法自由移動，卻能轉動頭部與說話。對有好感的人偶爾透露真心話。",
 
   "nodes": {
+    "day_guard": {
+      "lines": [
+        { "speaker": "narrator", "text": "禁閉架旁站著一名執勤人員，他的眼神掃了你一眼。「無事不要靠近。」他說，語氣不容置疑。" }
+      ],
+      "choices": [
+        { "id": "leave", "text": "（退開）", "nextNodeId": null }
+      ]
+    },
+
     "first_meeting": {
       "lines": [
-        { "speaker": "narrator", "text": "TODO: 第一次見到米爾多雷時的場景描述。她在廣場的某處，刻意迴避工時中。" },
-        { "speaker": "npc", "text": "TODO: 米爾多雷第一次見到玩家時說的話。她會先開口，輕鬆搭訕，顯示她擅長打破陌生感。" }
+        { "speaker": "narrator", "text": "廣場在深夜顯得格外空曠，禁閉架的輪廓在黑暗中隱約可見。你靠近的腳步聲似乎被她聽到了。" },
+        { "speaker": "npc", "text": "嗯？又是個睡不著的人。*她把頭轉了過來，雙臂被固定著，但表情出奇地輕鬆* 深更半夜來這裡，是來觀光的嗎？" }
       ],
       "choices": [
         {
           "id": "friendly",
-          "text": "TODO: 友善回應",
-          "nextNodeId": "mildore_friendly_response",
+          "text": "「只是隨便走走，沒想到你還醒著。」",
+          "nextNodeId": "mildore_friendly_intro"
+        },
+        {
+          "id": "ask_why",
+          "text": "「你為什麼在這裡？犯了什麼事？」",
+          "maxReputation": { "crambell_government": 10 },
+          "nextNodeId": "mildore_why_imprisoned"
+        },
+        {
+          "id": "leave",
+          "text": "（不說話，轉身離開）",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_mildore_talked_once"] }
+        }
+      ]
+    },
+    "mildore_friendly_intro": {
+      "lines": [
+        { "speaker": "npc", "text": "睡不著嘛...在這裡這種感覺很常見。*她淡淡地笑了一下* 不用這麼緊繃，這個時間點也沒什麼人管。" }
+      ],
+      "choices": [
+        {
+          "id": "curious",
+          "text": "「你這樣被關著，居然還能笑得出來。」",
+          "nextNodeId": "mildore_humor_deflect"
+        },
+        {
+          "id": "end",
+          "text": "「那就先這樣好了。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1, "flagsSet": ["crambell_mildore_talked_once"] }
+        }
+      ]
+    },
+    "mildore_humor_deflect": {
+      "lines": [
+        { "speaker": "npc", "text": "那還能怎樣？哭的話眼睛會腫，太難看了。*停頓了一下，視線偏移* 你叫什麼名字？" }
+      ],
+      "choices": [
+        {
+          "id": "give_name",
+          "text": "（報上名字）",
+          "nextNodeId": null,
+          "effects": { "affinity": 2, "flagsSet": ["crambell_mildore_talked_once"] }
+        },
+        {
+          "id": "deflect",
+          "text": "「不重要。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1, "flagsSet": ["crambell_mildore_talked_once"] }
+        }
+      ]
+    },
+
+    "mildore_why_imprisoned": {
+      "lines": [
+        { "speaker": "npc", "text": "*她看了你一眼，眼神比剛才銳利了一些* 直接問啊。好，那我也直說。我故意逃脫工時被抓，已經不是第一次了。" },
+        { "speaker": "narrator", "text": "她說這話的語氣平靜，像在描述一件再尋常不過的事。" },
+        { "speaker": "npc", "text": "你如果是這裡的老人就知道，政府只要抓到逃脫工時的人，資源就會往調查方向移——他們要查、要記錄、要做報告。這個時候，其他地方就沒那麼多人盯著了。" }
+      ],
+      "choices": [
+        {
+          "id": "ask_more",
+          "text": "「你是故意這樣做的？」",
+          "nextNodeId": "mildore_reveal_intent"
+        },
+        {
+          "id": "skeptical",
+          "text": "「這聽起來太冒險了。」",
+          "nextNodeId": "mildore_calculated_risk"
+        }
+      ]
+    },
+    "mildore_reveal_intent": {
+      "lines": [
+        { "speaker": "npc", "text": "對，故意的。有幾個人如果被盯上會很麻煩。我讓政府有別的事情忙，他們就能多點時間脫身。*她輕聲說* 說到底，也不過就是時間的問題而已。" }
+      ],
+      "choices": [
+        {
+          "id": "ask_organization",
+          "text": "「這幾個人是誰？」",
+          "nextNodeId": "mildore_alliance_hint"
+        },
+        {
+          "id": "respect",
+          "text": "「……是你自己決定的？」",
+          "nextNodeId": "mildore_self_decided"
+        }
+      ]
+    },
+    "mildore_calculated_risk": {
+      "lines": [
+        { "speaker": "npc", "text": "是很冒險。但是合算。*她轉頭正視你* 你來這裡不就是最好的例子——現在廣場上沒別人，對不對？" }
+      ],
+      "choices": [
+        {
+          "id": "concede",
+          "text": "「……你有點道理。」",
+          "nextNodeId": "mildore_alliance_hint"
+        },
+        {
+          "id": "end",
+          "text": "「好吧，那就這樣。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 1, "flagsSet": ["crambell_mildore_talked_once"] }
+        }
+      ]
+    },
+    "mildore_self_decided": {
+      "lines": [
+        { "speaker": "npc", "text": "嗯。*她點了點頭，停頓了一下* 沒有人要求我，這是我自己要做的。" }
+      ],
+      "choices": [
+        {
+          "id": "continue",
+          "text": "「為了什麼人？」",
+          "nextNodeId": "mildore_alliance_hint"
+        },
+        {
+          "id": "end",
+          "text": "「……我明白了。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 2, "flagsSet": ["crambell_mildore_talked_once"] }
+        }
+      ]
+    },
+    "mildore_alliance_hint": {
+      "lines": [
+        { "speaker": "npc", "text": "人民互助聯盟，你可能聽過，也可能沒有。*她降低了聲音* 大多數工人知道這個名字，但不見得知道他們在做什麼，或者他們是誰。" },
+        { "speaker": "npc", "text": "我不打算讓他們因為我而出問題。所以我來這裡。" }
+      ],
+      "choices": [
+        {
+          "id": "ask_what_they_do",
+          "text": "「人民互助聯盟是做什麼的？」",
+          "nextNodeId": "mildore_alliance_explain"
+        },
+        {
+          "id": "understand",
+          "text": "「……我懂了。你很清楚自己在做什麼。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 2, "flagsSet": ["crambell_mildore_talked_once", "crambell_peoples_alliance_known"] }
+        }
+      ]
+    },
+    "mildore_alliance_explain": {
+      "lines": [
+        { "speaker": "npc", "text": "互相照顧，互相傳遞消息，讓大家不至於在這裡被孤立地壓垮。*她停了一下* 不是什麼大組織，也不是什麼反政府的激進派，就是一群不想獨自扛著的人。" },
+        { "speaker": "narrator", "text": "她說這話的時候，眼神有些遠。" },
+        { "speaker": "npc", "text": "你如果在礦場碰到他們，自然就會知道了。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「我記住了。」",
+          "nextNodeId": null,
+          "effects": { "affinity": 2, "flagsSet": ["crambell_mildore_talked_once", "crambell_peoples_alliance_known"] }
+        }
+      ]
+    },
+
+    "night_chat": {
+      "lines": [
+        { "speaker": "npc", "text": "又是你。*她輕輕地笑了* 最近還好？" }
+      ],
+      "choices": [
+        {
+          "id": "fine",
+          "text": "「還行，就是過一天算一天。」",
+          "nextNodeId": null,
           "effects": { "affinity": 1 }
         },
         {
-          "id": "ask_quota",
-          "text": "TODO: 問她為什麼不去配額站",
-          "nextNodeId": "mildore_quota_dodge"
+          "id": "not_great",
+          "text": "「不太好。」",
+          "nextNodeId": "mildore_empathy"
+        }
+      ]
+    },
+    "mildore_empathy": {
+      "lines": [
+        { "speaker": "npc", "text": "嗯。*她沉默了片刻* 這裡的人大多都不太好。但還是撐著。*她輕聲說* 你也是。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「……謝了。」", "nextNodeId": null, "effects": { "affinity": 1 } }
+      ]
+    },
+
+    "bread_intro": {
+      "lines": [
+        { "speaker": "narrator", "text": "米爾多雷見到你靠近，眼神多了一絲意外，隨即放鬆下來。" },
+        { "speaker": "npc", "text": "你又來了。*她低頭看了看你帶著的東西* ……這是拿來給我的嗎？" }
+      ],
+      "choices": [
+        {
+          "id": "yes",
+          "text": "「麵包和水，你拿著。」",
+          "nextNodeId": "bread_hands_bound"
         },
         {
-          "id": "ignore",
-          "text": "（繼續走，沒有回應）",
+          "id": "no",
+          "text": "「不，只是路過。」",
           "nextNodeId": null
         }
       ]
     },
-    "mildore_friendly_response": {
+    "bread_hands_bound": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 米爾多雷對友善態度的輕鬆回應。" }
+        { "speaker": "npc", "text": "我……*她動了動手臂，金屬扣環發出輕微的碰撞聲* 手被扣著，沒辦法自己拿。" },
+        { "speaker": "narrator", "text": "她的眼神掃了你一眼，帶著一種介於不自在和感謝之間的複雜神色。" },
+        { "speaker": "npc", "text": "……你方便的話，可以直接喂我嗎。" }
       ],
       "choices": [
-        { "id": "end", "text": "「先這樣，有機會再聊。」", "nextNodeId": null }
+        {
+          "id": "feed_directly",
+          "text": "「好。」（直接喂她）",
+          "nextNodeId": "bread_fed",
+          "effects": { "affinity": 3 }
+        },
+        {
+          "id": "just_place",
+          "text": "「我把東西放在旁邊，你自己想辦法。」",
+          "nextNodeId": "bread_placed"
+        }
       ]
     },
-    "mildore_quota_dodge": {
+    "bread_fed": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 米爾多雷搪塞配額問題的回答，帶戲謔感。" }
+        { "speaker": "narrator", "text": "你把麵包撕成小塊，水也一口一口地讓她喝完。整個過程沒有多餘的話，只有遠處偶爾傳來的風聲。" },
+        { "speaker": "npc", "text": "謝謝。*她說，聲音比平常都低* 真的。" },
+        { "speaker": "narrator", "text": "她停頓了一下，似乎在整理思緒。" },
+        { "speaker": "npc", "text": "我有件事想告訴你。凱恩——管制區的那個警監——他每隔三天會換一條巡邏路線，那個間隔的第二天早上，南面的走廊是沒有人的。這不是公開的資訊，但是知道的人不少。" },
+        { "speaker": "npc", "text": "你把這個告訴礦場那邊聯盟的人，他們知道怎麼用。" }
       ],
       "choices": [
-        { "id": "end", "text": "「好吧。」", "nextNodeId": null },
         {
-          "id": "push",
-          "text": "「這樣沒事嗎？」",
+          "id": "accept",
+          "text": "「我記住了。」",
           "nextNodeId": null,
-          "effects": { "affinity": 1 }
+          "effects": {
+            "affinity": 1,
+            "flagsSet": ["crambell_patrol_schedule_known", "crambell_kane_intel_ready", "crambell_task_shackles_completed"]
+          }
+        }
+      ]
+    },
+    "bread_placed": {
+      "lines": [
+        { "speaker": "narrator", "text": "你把東西放在她旁邊能勉強夠到的位置。她靜靜地看著，沒有抱怨什麼。" },
+        { "speaker": "npc", "text": "……行，謝了。*停頓了一下* 我有件事想告訴你。凱恩每隔三天換一條巡邏路線，第二天早上南面的走廊是空的。你把這個帶給礦場那邊聯盟的人，他們知道怎麼用。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「好，我記住了。」",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_patrol_schedule_known", "crambell_kane_intel_ready", "crambell_task_shackles_completed"]
+          }
         }
       ]
     }
@@ -55,8 +289,32 @@
 
   "triggers": [
     {
+      "nodeId": "day_guard",
+      "timeRanges": [
+        { "startHour": 6, "startMinute": 0, "endHour": 21, "endMinute": 59 }
+      ]
+    },
+    {
+      "nodeId": "bread_intro",
+      "condition": "crambell_task_shackles_started & !crambell_task_shackles_completed",
+      "timeRanges": [
+        { "startHour": 22, "startMinute": 0, "endHour": 5, "endMinute": 59 }
+      ]
+    },
+    {
       "nodeId": "first_meeting",
-      "firstMeetingOnly": true
+      "firstMeetingOnly": true,
+      "condition": "!crambell_mildore_talked_once",
+      "timeRanges": [
+        { "startHour": 22, "startMinute": 0, "endHour": 5, "endMinute": 59 }
+      ]
+    },
+    {
+      "nodeId": "night_chat",
+      "condition": "crambell_mildore_talked_once & !crambell_task_shackles_started",
+      "timeRanges": [
+        { "startHour": 22, "startMinute": 0, "endHour": 5, "endMinute": 59 }
+      ]
     }
   ],
 
@@ -64,12 +322,12 @@
     {
       "label": "米爾多雷被捕",
       "condition": "crambell_mildore_arrested",
-      "context": "TODO: 米爾多雷被捕後，若玩家再次接觸她，她的心態與處境。"
+      "context": "米爾多雷被捕後心情沉穩，她對自己的行為沒有後悔，但對連累玩家的可能感到不安，說話時語氣比平常更直接，少了玩笑。"
     },
     {
       "label": "玩家協助救出米爾多雷",
       "condition": "crambell_mildore_rescued",
-      "context": "TODO: 被救後米爾多雷對玩家的感激或複雜情緒。"
+      "context": "被救後米爾多雷對玩家有深厚的感激，同時帶著一絲不自在——她不擅長接受直接的幫助，可能用輕鬆的語氣掩蓋情緒。"
     }
   ]
 }

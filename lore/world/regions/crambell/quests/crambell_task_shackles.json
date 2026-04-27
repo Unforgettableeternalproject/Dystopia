@@ -1,0 +1,38 @@
+{
+  "id": "crambell_task_shackles",
+  "name": "枷鎖",
+  "type": "side",
+  "source": "npc",
+  "giverNpcId": "crambell_mildore",
+  "regionId": "crambell",
+  "canDitch": true,
+  "autoAccept": false,
+
+  "description": "人民互助聯盟的成員告知你，被關在禁閉架上的米爾多雷現在什麼都沒辦法自己做。深夜守衛鬆懈的時候，帶點吃的和水去找她。",
+
+  "entryStageId": "deliver_supplies",
+  "stages": {
+    "deliver_supplies": {
+      "id": "deliver_supplies",
+      "description": "在深夜時段，攜帶麵包與水前往管制區廣場找米爾多雷",
+      "objectives": [
+        {
+          "id": "bring_supplies",
+          "type": "flag_check",
+          "description": "將麵包與水帶給米爾多雷",
+          "flag": "crambell_task_shackles_completed"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_mildore_trusted"],
+        "nextStageId": null
+      }
+    }
+  },
+
+  "rewards": {
+    "experience": 30,
+    "affinityChanges": { "crambell_mildore": 10 },
+    "reputationChanges": { "crambell_peoples_alliance": 3 }
+  }
+}

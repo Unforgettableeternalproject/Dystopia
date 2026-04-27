@@ -513,6 +513,16 @@ export function triggerBarFlash(stat: string, kind: BarFlashKind): void {
   }, 900);
 }
 
+// ── Melphin flash ──────────────────────────────────────────────
+// 梅分變動時閃爍數字（good=綠，bad=紅）
+
+export const melphinFlash = writable<BarFlashKind | null>(null);
+
+export function triggerMelphinFlash(kind: BarFlashKind): void {
+  melphinFlash.set(kind);
+  setTimeout(() => melphinFlash.set(null), 900);
+}
+
 // ── Stat delta floating notifications ─────────────────────────────
 // 數值變動時在欄位附近跳出 +/- delta 提示，有益綠色、有害紅色
 

@@ -160,7 +160,7 @@
           "id": "agree",
           "text": "「好，我去找你。」",
           "nextNodeId": null,
-          "effects": { "flagsSet": ["crambell_kach_test1_briefed"], "knowledgeGrant": "crambell_mine_storage_access" }
+          "effects": { "flagsSet": ["crambell_kach_test1_briefed"], "grantIntel": ["crambell_mine_storage_access"] }
         },
         {
           "id": "ask_why_there",

@@ -70,7 +70,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": ["crambell_event_singing_child"],
+        "eventIds": ["crambell_event_singing_child", "crambell_mildore_alliance_contact"],
         "propIds": ["delth_mine_plaza_notice_board", "delth_mine_plaza_water_barrel"],
         "isAccessible": true
       },

@@ -37,7 +37,7 @@
         }
       ],
       "onComplete": {
-        "flagsSet": ["crambell_kach_test1_completed", "crambell_treffen_lead_known"],
+        "flagsSet": ["crambell_kach_test1_completed", "crambell_treffen_lead_known", "crambell_kane_intel_ready"],
         "nextStageId": "report_back"
       },
       "onDitch": {

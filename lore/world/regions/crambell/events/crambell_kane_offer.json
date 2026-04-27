@@ -4,12 +4,10 @@
   "locationId": "delth_patrol_zone",
   "condition": {
     "timePeriods": ["work"],
-    "flags": ["crambell_treffen_lead_known", "crambell_kane_met"],
+    "flags": ["crambell_kane_intel_ready", "crambell_kane_met"],
     "minAffinity": { "crambell_kane": 1 },
-    "questActiveId": "crambell_kach_test1",
     "notFlags": [
-      "crambell_kane_deal_started",
-      "crambell_kach_betrayed"
+      "crambell_kane_approached"
     ]
   },
   "description": "凱恩在管制區工作時段注意到玩家，趁人不注意做了個示意的眼色。玩家手上已有足以讓凱恩感興趣的線索。",

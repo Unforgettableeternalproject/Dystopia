@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash, questOutcomeFlash, statDeltaNotifs } from '$lib/stores/gameStore';
+  import { tweened } from 'svelte/motion';
+  import { cubicOut } from 'svelte/easing';
+  import { playerUI, staminaPercent, stressPercent, endoPercent, questDetailOpen, questListOpen, barFlash, questOutcomeFlash, statDeltaNotifs, melphinFlash } from '$lib/stores/gameStore';
+
+  const displayMelphin = tweened(0, { duration: 400, easing: cubicOut });
+  $: displayMelphin.set($playerUI.melphin ?? 0);
 
   $: avatarChar = ($playerUI.name && $playerUI.name !== '???')
     ? $playerUI.name[0].toUpperCase()
@@ -34,7 +39,20 @@
     activeCondPopup = { ...cond, px: rect.left, py: rect.top };
   }
 
-  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; }
+  const melphinDesc = '由理想國發行，世界的通行貨幣\n可用於購買物品或支付各種費用。\n有絕對的信用存在。';
+
+  let melphinPopupOpen = false;
+  let melphinPopupPos = { px: 0, py: 0 };
+
+  function toggleMelphinPopup(e: MouseEvent) {
+    e.stopPropagation();
+    if (melphinPopupOpen) { melphinPopupOpen = false; return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    melphinPopupPos = { px: rect.left, py: rect.top };
+    melphinPopupOpen = true;
+  }
+
+  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; }
 </script>
 
 <svelte:window on:click={closeStatPopup} />
@@ -108,8 +126,19 @@
   <!-- Melphin (貨幣) -->
   <div class="section melphin-section">
     <div class="melphin-row">
-      <span class="melphin-label">所持金額</span>
-      <span class="melphin-val">{$playerUI.melphin ?? 0}<span class="melphin-unit"> ₘ</span></span>
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <span class="melphin-label clickable" class:active={melphinPopupOpen} on:click={toggleMelphinPopup}>梅分</span>
+      <div class="melphin-val-wrap">
+        <span class="melphin-val" class:flash-good={$melphinFlash === 'good'} class:flash-bad={$melphinFlash === 'bad'}>
+          {Math.round($displayMelphin)}<span class="melphin-unit"> ₘ</span>
+        </span>
+        {#each $statDeltaNotifs.filter(n => n.target === 'melphin') as notif, i (notif.id)}
+          <span class="melphin-delta delta-{notif.valence}" style="--delta-stack:{i}">
+            {notif.delta > 0 ? '+' : ''}{notif.delta}
+          </span>
+        {/each}
+      </div>
     </div>
   </div>
 
@@ -182,6 +211,19 @@
   >
     <div class="stat-popup-name">{activeStatPopup.name}</div>
     <div class="stat-popup-desc">{activeStatPopup.desc}</div>
+  </div>
+{/if}
+
+{#if melphinPopupOpen}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    class="stat-popup"
+    style="top:{Math.max(4, melphinPopupPos.py - 10)}px; right:{Math.max(4, window.innerWidth - melphinPopupPos.px + 8)}px;"
+    on:click|stopPropagation
+  >
+    <div class="stat-popup-name">梅分　Melphin</div>
+    <div class="stat-popup-desc">{melphinDesc}</div>
   </div>
 {/if}
 
@@ -421,10 +463,60 @@
     letter-spacing: 0.08em;
   }
 
+  .melphin-label.clickable {
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+
+  .melphin-label.clickable:hover,
+  .melphin-label.clickable.active {
+    color: var(--text-secondary);
+  }
+
+  .melphin-val-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
   .melphin-val {
     font-size: 11px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
+    transition: color 0.1s;
+  }
+
+  .melphin-val.flash-good {
+    animation: melphinFlashGood 0.9s ease-out forwards;
+  }
+
+  .melphin-val.flash-bad {
+    animation: melphinFlashBad 0.9s ease-out forwards;
+  }
+
+  @keyframes melphinFlashGood {
+    0%   { color: #5fd38a; text-shadow: 0 0 6px #5fd38a88; }
+    40%  { color: #5fd38a; text-shadow: 0 0 8px #5fd38acc; }
+    100% { color: var(--text-secondary); text-shadow: none; }
+  }
+
+  @keyframes melphinFlashBad {
+    0%   { color: #d35f5f; text-shadow: 0 0 6px #d35f5f88; }
+    40%  { color: #d35f5f; text-shadow: 0 0 8px #d35f5fcc; }
+    100% { color: var(--text-secondary); text-shadow: none; }
+  }
+
+  .melphin-delta {
+    position: absolute;
+    right: calc(100% + 4px);
+    top: calc(50% - var(--delta-stack, 0) * 14px);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 5;
+    animation: deltaFloat 1.5s ease-out forwards;
   }
 
   .melphin-unit {

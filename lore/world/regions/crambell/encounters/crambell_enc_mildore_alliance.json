@@ -1,0 +1,86 @@
+{
+  "id": "crambell_enc_mildore_alliance",
+  "name": "聯盟的眼線",
+  "type": "event",
+  "description": "人民互助聯盟的成員在礦場廣場中謹慎地接觸玩家，確認玩家是否知悉米爾多雷的現況，並傳達她目前的需求。",
+  "entryNodeId": "contact_approach",
+  "nodes": {
+    "contact_approach": {
+      "id": "contact_approach",
+      "dmNarrative": "工班間隙，廣場上人來人往。你注意到有個礦工往你的方向靠過來，腳步刻意放輕。他在你旁邊站定，眼神看向別處，用只有你能聽到的聲音說話：「我聽說你晚上去過廣場那裡。」",
+      "choices": [
+        {
+          "id": "confirm_mildore",
+          "text": "「你說的是那個被關著的女人？」",
+          "nextNodeId": "contact_confirm"
+        },
+        {
+          "id": "ask_who",
+          "text": "「你是誰？」",
+          "nextNodeId": "contact_who"
+        },
+        {
+          "id": "deny",
+          "text": "「不知道你在說什麼。」",
+          "nextNodeId": "contact_deny"
+        }
+      ]
+    },
+    "contact_who": {
+      "id": "contact_who",
+      "dmNarrative": "他沒有直接回答，只是看了你一眼。「不重要是誰。你知道廣場上那個被關的女人嗎？」",
+      "choices": [
+        {
+          "id": "yes",
+          "text": "「知道，我有去找她說過話。」",
+          "nextNodeId": "contact_confirm"
+        },
+        {
+          "id": "no",
+          "text": "「不認識。」",
+          "nextNodeId": "contact_deny"
+        }
+      ]
+    },
+    "contact_confirm": {
+      "id": "contact_confirm",
+      "dmNarrative": "他不動聲色地點了一下頭。「她說如果有人主動去找她說話，可能是值得信任的人。」他停頓了一下，視線在你身上停了一秒。「她現在手和腳都被固定著，沒辦法自己吃東西。深夜的時候，廣場不太有人守——如果有辦法的話，帶點吃的和水去，對她現在來說算是很大的幫忙了。」",
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「我去看看。」",
+          "nextNodeId": "contact_accept"
+        },
+        {
+          "id": "hesitate",
+          "text": "「這不關我的事吧。」",
+          "nextNodeId": "contact_hesitate"
+        }
+      ]
+    },
+    "contact_accept": {
+      "id": "contact_accept",
+      "dmNarrative": "他點了頭，沒有多說。「不需要多，她也不會要多。」說完，他轉身走開，步伐平靜，好像只是個普通的工班間隙。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "grantQuestId": "crambell_task_shackles",
+        "flagsSet": ["crambell_task_shackles_started"]
+      }
+    },
+    "contact_hesitate": {
+      "id": "contact_hesitate",
+      "dmNarrative": "他看了你一眼，沒有勉強。「那就算了。不過如果你改變主意，晚上廣場那邊路你是知道的。」他轉身離開。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {}
+    },
+    "contact_deny": {
+      "id": "contact_deny",
+      "dmNarrative": "他靜了一下，點了點頭。「好，沒事。」然後走開了，步伐平靜，好像什麼都沒發生。",
+      "isOutcome": true,
+      "outcomeType": "neutral",
+      "effects": {}
+    }
+  }
+}

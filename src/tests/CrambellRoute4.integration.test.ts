@@ -1,6 +1,6 @@
 // CrambellRoute4.integration.test.ts
 //
-// Integration test for Route 4 (Kane/Ditch path).
+// Integration test for Route 4 (Kane/Government path).
 // Flow:
 //   1a. crambell_kach first_meeting dialogue fires; player agrees to hang out (kach_hangout_accepted + crambell_kach_met).
 //   1b. Day boundary crossed at 06:00 → crambell_kach_second_meeting_unlock fires → crambell_kach_second_meeting_ready.
@@ -11,12 +11,15 @@
 //   1.5. crambell_kane first_meeting dialogue fires; cooperative → kane_pass_check.
 //       → crambell_kane_met set, affinity +1.
 //   2.  crambell_survey event fires (kach_test1 active); player covers for Kach.
-//       → cover_for_kach objective complete, treffen_lead_known set.
-//   3.  crambell_kane_offer event triggers (met + affinity + treffen_lead_known + kach_test1 active).
-//   4.  Player navigates encounter and confirms betrayal.
-//   5.  Assert: kach_test1 ditched, reputations changed, kane_double_agent granted.
+//       → cover_for_kach objective complete, treffen_lead_known + kane_intel_ready set.
+//   3.  crambell_kane_offer event triggers (met + affinity + kane_intel_ready).
+//   4.  Encounter: Kane makes initial approach. Player considers → crambell_kane_approached + double_agent quest (pending_intel stage).
+//   4.5 Dialogue: kane_intel_offer node fires. Player selects give_kach → kane_deliver_kach → confirm.
+//       → crambell_kane_intel_delivered + crambell_kach_betrayed_kane set.
+//       → Quest advances: pending_intel → meet_for_handoff.
+//   5.  Assert: intel flags set, quest at correct stage.
 //   6.  Move to delth_forest_clearing at rest time.
-//   7.  crambell_kane_forest_handoff event triggers → starts handoff encounter.
+//   7.  crambell_kane_forest_handoff event triggers (needs crambell_kane_intel_delivered) → starts handoff encounter.
 //   8.  Player proceeds → receives transit_pass:wyar.
 //   9.  Assert inventory contains the transit pass.
 
@@ -160,8 +163,8 @@ function resolveChoice(
   return { resolved: resolved!, pending };
 }
 
-describe('Crambell route4 integration — Kane/Ditch path', () => {
-  it('player betrays kach_test1 and receives transit_pass:wyar via Kane', () => {
+describe('Crambell route4 integration — Kane/Government path', () => {
+  it('player delivers Kach intel to Kane and receives transit_pass:wyar', () => {
     const { lore, schedule } = loadRoute4Lore();
     const bus        = new EventBus();
     const state      = new StateManager(makeState(), bus);
@@ -271,7 +274,7 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       expect(state.flags.has('crambell_kane_met')).toBe(true);
       expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(1);
 
-      // ── Step 2: Survey fires (kach_test1 active, cover not yet given) ─────────
+      // ── Step 2: Survey fires (kach_test1 active); player covers for Kach ──────
       const surveyResults = events.checkAndApply('delth_patrol_zone');
       const surveyTrigger = surveyResults.find(t => t.event.id === 'crambell_survey');
       expect(surveyTrigger).toBeDefined();
@@ -282,26 +285,24 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       if (surveyStart?.kind !== 'node') return;
       expect(surveyStart.resolved.node.id).toBe('inspector_arrives');
 
-      // Inspector asks about Kach → player covers for him
-      resolveChoice(encounters, quests, 'answer_straight_kach_absent'); // → kach_question
-      resolveChoice(encounters, quests, 'cover_inside');                // → kach_covered (sets crambell_kach_cover_held)
+      resolveChoice(encounters, quests, 'answer_straight_kach_absent');
+      resolveChoice(encounters, quests, 'cover_inside');
 
-      // cover_for_kach objective complete → advance to report_back, set treffen_lead_known
       quests.checkObjectives();
       expect(state.getState().activeQuests['crambell_kach_test1']?.currentStageId).toBe('report_back');
       expect(state.flags.has('crambell_kach_test1_completed')).toBe(true);
       expect(state.flags.has('crambell_treffen_lead_known')).toBe(true);
+      // Unified bridge flag for Kane offer
+      expect(state.flags.has('crambell_kane_intel_ready')).toBe(true);
 
       // ── Step 3: kane_offer event fires at delth_patrol_zone (work period) ─────
-      // Pre-condition check: offer should NOT fire without kane_met (already set above)
-      // Confirm all three conditions met: met + affinity>=1 + treffen_lead_known
       state.getState().player.currentLocationId = 'delth_patrol_zone';
       const offerResults = events.checkAndApply('delth_patrol_zone');
       const offerTrigger = offerResults.find(t => t.event.id === 'crambell_kane_offer');
       expect(offerTrigger).toBeDefined();
       expect(offerTrigger!.startEncounterId).toBe('crambell_enc_kane_offer');
 
-      // ── Step 4: Start offer encounter and navigate to betrayal ────────────────
+      // ── Step 4: Encounter — Kane makes initial approach; player considers ──────
       const offerStart = encounters.start('crambell_enc_kane_offer');
       expect(offerStart?.kind).toBe('node');
       if (offerStart?.kind !== 'node') return;
@@ -309,30 +310,40 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
 
       // follow_kane → kane_proposition
       resolveChoice(encounters, quests, 'follow_kane');
-      // ask_more → kane_clarify
-      resolveChoice(encounters, quests, 'ask_more');
-      // consider_betrayal → betrayal_warning
-      resolveChoice(encounters, quests, 'consider_betrayal');
-      // confirm_betrayal → betrayal_committed (effects applied here)
-      const { pending: offerPending } = resolveChoice(encounters, quests, 'confirm_betrayal');
+      // consider → kane_agreed_end (sets crambell_kane_approached, grants double_agent quest)
+      const { pending: offerPending } = resolveChoice(encounters, quests, 'consider');
       expect(offerPending.outcomeType).toBe('success');
 
-      // ── Step 5: Assert betrayal consequences ──────────────────────────────────
-      // kach_test1 should be ditched (removed from activeQuests)
-      expect(state.getState().activeQuests['crambell_kach_test1']).toBeUndefined();
-      // beneficiaryFactionId is set, so enters completedQuestIds
-      expect(state.getState().completedQuestIds).toContain('crambell_kach_test1');
-      // betrayal flags set
-      expect(state.flags.has('crambell_kach_betrayed')).toBe(true);
-      expect(state.flags.has('crambell_treffen_betrayed_early')).toBe(true);
-      // treffen rep: -30 from ditchConsequences
-      expect(state.getState().player.externalStats.reputation['crambell_treffen']).toBe(-30);
-      // government rep: +15 from report_back.onDitch + +20 from ditchConsequences = 35
-      expect(state.getState().player.externalStats.reputation['crambell_government']).toBe(35);
-      // deal flag set
-      expect(state.flags.has('crambell_kane_deal_started')).toBe(true);
-      // kane_double_agent quest granted
+      expect(state.flags.has('crambell_kane_approached')).toBe(true);
       expect(state.getState().activeQuests['crambell_kane_double_agent']).toBeDefined();
+      expect(state.getState().activeQuests['crambell_kane_double_agent']?.currentStageId).toBe('pending_intel');
+      // Kach quest still active — not ditched at this stage
+      expect(state.getState().activeQuests['crambell_kach_test1']).toBeDefined();
+
+      // ── Step 4.5: Deliver Kach intel via Kane's dialogue node ─────────────────
+      const kaneIntelTrigger = dialogueMgr.checkScriptedTrigger(
+        'crambell_kane', 'crambell_kane_default', state.flags, 1,
+      );
+      expect(kaneIntelTrigger).not.toBeNull();
+      expect(kaneIntelTrigger!.nodeId).toBe('kane_intel_offer');
+
+      // give_kach choice should be visible (crambell_treffen_lead_known is set)
+      const filteredIntel = dialogueMgr.filterChoices(kaneIntelTrigger!.node.choices, state.flags);
+      expect(filteredIntel.find(c => c.id === 'give_kach')).toBeDefined();
+
+      // Navigate to kane_deliver_kach → confirm
+      const deliverNode = dialogueMgr.getNode(
+        'crambell_kane', 'crambell_kane_default', 'kane_deliver_kach',
+      )!;
+      const confirmChoice = deliverNode.choices.find(c => c.id === 'confirm')!;
+      dialogueMgr.applyChoiceEffects('crambell_kane', confirmChoice.effects);
+
+      expect(state.flags.has('crambell_kane_intel_delivered')).toBe(true);
+      expect(state.flags.has('crambell_kach_betrayed_kane')).toBe(true);
+      expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(3);
+
+      // Quest flag sweep advances pending_intel → meet_for_handoff
+      quests.checkObjectives();
       expect(state.getState().activeQuests['crambell_kane_double_agent']?.currentStageId).toBe('meet_for_handoff');
 
       // ── Step 6: Move to forest clearing at rest time ──────────────────────────
@@ -369,13 +380,11 @@ describe('Crambell route4 integration — Kane/Ditch path', () => {
       expect(state.getState().activeQuests['crambell_kane_double_agent']?.isCompleted).toBe(true);
 
       // ── Step 10: Transit hub access at correct time ───────────────────────────
-      // delth_transit_hub gate requires timeRange 04:00-05:59 + transit_pass item
       state.advanceTime(
         { year: 1498, month: 6, day: 15, hour: 4, minute: 30, totalMinutes: 2190 },
         'rest',
       );
       state.getState().player.currentLocationId = 'delth_patrol_zone';
-      // Verify the pass is in inventory (gate check is via location connection access)
       expect(state.getState().player.inventory.some(
         i => i.itemId === 'transit_pass' && i.variantId === 'wyar' && !i.isExpired
       )).toBe(true);
