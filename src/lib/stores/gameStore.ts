@@ -419,7 +419,14 @@ export const selfCheckGlow = writable(false);
 
 export function triggerSelfCheckGlow(): void {
   selfCheckGlow.set(true);
-  setTimeout(() => selfCheckGlow.set(false), 2500);
+}
+
+// ── Inventory glow ─────────────────────────────────────────────
+// 獲得物品時讓「背包」按鈕持續發光，直到玩家開啟物品欄
+export const inventoryGlow = writable(false);
+
+export function triggerInventoryGlow(): void {
+  inventoryGlow.set(true);
 }
 export const isSaving      = writable(false);
 

@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, storyTypingActive, isSaving, selfCheckGlow } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, storyTypingActive, isSaving, selfCheckGlow, inventoryGlow } from '$lib/stores/gameStore';
 
   $: inScriptedDialogue = $activeScriptedDialogue !== null;
   $: inEncounter        = $activeNpcUI !== null;
   $: inEventEncounter   = $activeEncounterUI !== null;
   $: inStoryEncounter   = $activeEncounterUI?.type === 'story';
+
+  // 開啟面板時清除對應的 glow
+  $: if ($selfCheckOpen)  selfCheckGlow.set(false);
+  $: if ($inventoryOpen)  inventoryGlow.set(false);
 
   export let onSubmit:  (input: string) => void;
   export let onAdvance: () => void;
@@ -91,6 +95,7 @@
     title="物品欄"
     aria-label="物品欄"
     class:active={$inventoryOpen}
+    class:glow={$inventoryGlow}
   >
     背包
   </button>
@@ -156,12 +161,21 @@
   }
 
   .self-btn.glow {
-    animation: selfGlow 0.6s ease-in-out 4;
+    animation: selfGlow 1.2s ease-in-out infinite;
   }
 
   @keyframes selfGlow {
     0%, 100% { color: var(--text-dim); background: none; }
     50%       { color: var(--accent-blue, #4a7aaa); background: color-mix(in srgb, var(--accent-blue, #4a7aaa) 12%, transparent); }
+  }
+
+  .inv-btn.glow {
+    animation: invGlow 1.2s ease-in-out infinite;
+  }
+
+  @keyframes invGlow {
+    0%, 100% { color: var(--text-dim); background: none; }
+    50%       { color: var(--accent-green, #5fd38a); background: color-mix(in srgb, var(--accent-green, #5fd38a) 12%, transparent); }
   }
 
   /* Input area */

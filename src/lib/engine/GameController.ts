@@ -65,7 +65,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, triggerSelfCheckGlow, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, triggerSelfCheckGlow, triggerInventoryGlow, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -206,6 +206,7 @@ export class GameController {
         const baseName = item?.name ?? rec.itemId;
         const variantLabel = rec.variantId ? item?.variants?.find(v => v.id === rec.variantId)?.label : undefined;
         showAcquisitionNotif(`獲得：${variantLabel ? `${baseName} - ${variantLabel}` : baseName}`, true);
+        triggerInventoryGlow();
       } else if (rec.type === 'stat') {
         const [group, stat] = rec.key.split('.');
         if (group === 'statusStats') {
@@ -458,15 +459,24 @@ export class GameController {
   }
 
   /** 除錯用：直接將道具加入物品欄，遵守 stackable/maxStack 規則。 */
-  debugAddItem(itemId: string): void {
+  debugAddItem(itemId: string, variantId?: string): void {
     const def = this.lore.getItem(itemId);
     if (!def) return;
     const gs = this.state.getState();
-    this.state.addItem(itemId, gs.time.totalMinutes, undefined, {
+    this.state.addItem(itemId, gs.time.totalMinutes, variantId, {
       stackable:           def.stackable ?? false,
       maxStack:            def.maxStack,
       maxUsesPerInstance:  def.maxUsesPerInstance,
     });
+    this.syncUIState(this.state.getState());
+  }
+
+  /** 除錯用：建立樣板道具實例（如字條），可自訂名稱/描述/內容。 */
+  debugAddTemplateItem(baseItemId: string, overrides: { name?: string; description?: string; content?: string }): void {
+    const def = this.lore.getItem(baseItemId);
+    if (!def || !def.isTemplate) return;
+    const gs = this.state.getState();
+    this.state.addTemplateItem(baseItemId, overrides, gs.time.totalMinutes);
     this.syncUIState(this.state.getState());
   }
 

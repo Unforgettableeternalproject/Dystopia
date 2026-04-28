@@ -136,6 +136,48 @@
       .filter(i => !i.isExpired && !catalog.items.find(c => c.id === i.itemId)?.stackable)
       .map(i => i.itemId),
   );
+  // Track held variant combos (itemId_variantId) for variant-aware disable logic
+  $: heldVariantKeys = new Set(
+    ($detailedPlayer?.inventory ?? [])
+      .filter(i => !i.isExpired && i.variantId)
+      .map(i => `${i.itemId}_${i.variantId}`),
+  );
+
+  // Expanded item row state (for variant picker / template input)
+  let expandedItemId: string | null = null;
+
+  // Template item override inputs
+  let templateName = '';
+  let templateDesc = '';
+  let templateContent = '';
+
+  function toggleItemExpand(itemId: string) {
+    if (expandedItemId === itemId) {
+      expandedItemId = null;
+    } else {
+      expandedItemId = itemId;
+      templateName = '';
+      templateDesc = '';
+      templateContent = '';
+    }
+  }
+
+  function addVariantItem(itemId: string, variantId: string) {
+    controller.debugAddItem(itemId, variantId);
+    expandedItemId = null;
+  }
+
+  function addTemplateItem(baseItemId: string) {
+    const overrides: { name?: string; description?: string; content?: string } = {};
+    if (templateName.trim())    overrides.name = templateName.trim();
+    if (templateDesc.trim())    overrides.description = templateDesc.trim();
+    if (templateContent.trim()) overrides.content = templateContent.trim();
+    controller.debugAddTemplateItem(baseItemId, overrides);
+    expandedItemId = null;
+    templateName = '';
+    templateDesc = '';
+    templateContent = '';
+  }
 
   const itemTypeColors: Record<string, string> = {
     key:        'var(--accent)',
@@ -356,26 +398,98 @@
       {:else if activeTab === 'item'}
         <div class="item-list">
           {#each filteredItems as itm (itm.id)}
+            {@const hasVariants = !!itm.variants?.length}
+            {@const isTemplate = !!itm.isTemplate}
+            {@const needsExpand = hasVariants || isTemplate}
             {@const addable = itm.stackable || !heldNonStackableIds.has(itm.id)}
-            <div class="item-row">
-              <span class="item-type-badge" style="color:{itemTypeColors[itm.type] ?? '#888'}">
-                {itm.type}
-              </span>
-              <div class="item-info">
-                <span class="item-name">{itm.name}</span>
-                <span class="item-id">
-                  {itm.id}
-                  {#if itm.stackable}<span class="item-stack-label"> ×{itm.maxStack ?? '∞'}</span>{/if}
+            {@const isExpanded = expandedItemId === itm.id}
+            <div class="item-row-wrap">
+              <div class="item-row">
+                <span class="item-type-badge" style="color:{itemTypeColors[itm.type] ?? '#888'}">
+                  {itm.type}
                 </span>
+                <div class="item-info">
+                  <span class="item-name">
+                    {itm.name}
+                    {#if hasVariants}<span class="item-badge variant">變體</span>{/if}
+                    {#if isTemplate}<span class="item-badge template">樣板</span>{/if}
+                  </span>
+                  <span class="item-id">
+                    {itm.id}
+                    {#if itm.stackable}<span class="item-stack-label"> ×{itm.maxStack ?? '∞'}</span>{/if}
+                  </span>
+                </div>
+                {#if needsExpand}
+                  <button
+                    class="trigger-btn"
+                    class:active={isExpanded}
+                    on:click={() => toggleItemExpand(itm.id)}
+                  >
+                    {isExpanded ? '收起' : '加入 ▾'}
+                  </button>
+                {:else}
+                  <button
+                    class="trigger-btn"
+                    class:trigger-btn-disabled={!addable}
+                    disabled={!addable}
+                    on:click={() => controller.debugAddItem(itm.id)}
+                  >
+                    加入
+                  </button>
+                {/if}
               </div>
-              <button
-                class="trigger-btn"
-                class:trigger-btn-disabled={!addable}
-                disabled={!addable}
-                on:click={() => controller.debugAddItem(itm.id)}
-              >
-                加入
-              </button>
+
+              {#if isExpanded && hasVariants}
+                <div class="item-expand-panel">
+                  <div class="variant-list">
+                    {#each itm.variants ?? [] as v (v.id)}
+                      {@const vKey = `${itm.id}_${v.id}`}
+                      {@const vHeld = heldVariantKeys.has(vKey)}
+                      <button
+                        class="variant-btn"
+                        class:variant-held={vHeld}
+                        disabled={vHeld}
+                        on:click={() => addVariantItem(itm.id, v.id)}
+                      >
+                        <span class="variant-label">{v.label}</span>
+                        <span class="variant-id">{v.id}</span>
+                        {#if vHeld}<span class="variant-held-tag">已持有</span>{/if}
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              {#if isExpanded && isTemplate}
+                <div class="item-expand-panel">
+                  <div class="template-form">
+                    <input
+                      class="template-input"
+                      type="text"
+                      placeholder="自訂名稱（留空用預設）"
+                      bind:value={templateName}
+                    />
+                    <input
+                      class="template-input"
+                      type="text"
+                      placeholder="自訂描述（留空用預設）"
+                      bind:value={templateDesc}
+                    />
+                    <textarea
+                      class="template-textarea"
+                      placeholder="內容文字..."
+                      bind:value={templateContent}
+                      rows="3"
+                    ></textarea>
+                    <button
+                      class="trigger-btn"
+                      on:click={() => addTemplateItem(itm.id)}
+                    >
+                      建立
+                    </button>
+                  </div>
+                </div>
+              {/if}
             </div>
           {:else}
             <div class="empty">無符合項目</div>
@@ -1104,6 +1218,117 @@
   .item-stack-label {
     color: var(--text-dim);
     font-size: 9px;
+  }
+
+  .item-row-wrap {
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  }
+  .item-row-wrap .item-row {
+    border-bottom: none;
+  }
+
+  .item-badge {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .item-badge.variant {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    color: var(--accent);
+  }
+  .item-badge.template {
+    background: color-mix(in srgb, #c9a96e 20%, transparent);
+    color: #c9a96e;
+  }
+
+  .trigger-btn.active {
+    border-color: #5fa8d3;
+    color: #5fa8d3;
+  }
+
+  .item-expand-panel {
+    padding: 4px 12px 8px 72px;
+  }
+
+  .variant-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .variant-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.1s, color 0.1s;
+  }
+  .variant-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .variant-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .variant-label {
+    font-size: 11px;
+  }
+  .variant-id {
+    font-size: 8px;
+    color: var(--text-dim);
+  }
+  .variant-held-tag {
+    font-size: 7px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .template-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .template-input {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 2px;
+  }
+  .template-input:focus {
+    border-color: #5fa8d3;
+    outline: none;
+  }
+  .template-textarea {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    resize: vertical;
+    min-height: 40px;
+  }
+  .template-textarea:focus {
+    border-color: #5fa8d3;
+    outline: none;
+  }
+  .template-form .trigger-btn {
+    align-self: flex-end;
+    margin-top: 2px;
   }
 
   .trigger-btn.secondary {

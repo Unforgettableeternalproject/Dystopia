@@ -834,7 +834,7 @@ export class LoreVault {
     events:     { id: string; name: string }[];
     quests:     { id: string; name: string }[];
     locations:  { id: string; name: string }[];
-    items:      { id: string; name: string; type: string; stackable: boolean; maxStack?: number }[];
+    items:      { id: string; name: string; type: string; stackable: boolean; maxStack?: number; variants?: { id: string; label: string }[]; isTemplate?: boolean }[];
     props:      { id: string; name: string; restPoint: boolean }[];
     factions:   { id: string; name: string; defaultReputation: number }[];
   } {
@@ -844,7 +844,11 @@ export class LoreVault {
       events:     Object.values(this.data.events).map(e => ({ id: e.id, name: e.name ?? e.id })),
       quests:     Object.values(this.data.quests).map(q => ({ id: q.id, name: q.name })),
       locations:  Object.values(this.data.locations).map(l => ({ id: l.id, name: l.name })),
-      items:      Object.values(this.data.items).map(i => ({ id: i.id, name: i.name, type: i.type, stackable: i.stackable ?? false, maxStack: i.maxStack })),
+      items:      Object.values(this.data.items).map(i => ({
+        id: i.id, name: i.name, type: i.type, stackable: i.stackable ?? false, maxStack: i.maxStack,
+        ...(i.variants?.length ? { variants: i.variants.map(v => ({ id: v.id, label: v.label })) } : {}),
+        ...(i.isTemplate ? { isTemplate: true } : {}),
+      })),
       props:      Object.values(this.data.props).map(p => ({ id: p.id, name: p.name, restPoint: !!p.restPoint })),
       factions:   Object.values(this.data.factions).map(f => ({ id: f.id, name: f.name, defaultReputation: f.defaultReputation ?? 0 })),
     };
