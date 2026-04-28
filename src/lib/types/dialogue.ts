@@ -186,6 +186,13 @@ export interface DialogueTrigger {
    * Omit = no time restriction.
    */
   timeRanges?: import('./world').GameTimeRange[];
+  /**
+   * When true, close the NPC panel after the scripted dialogue ends instead of
+   * falling through to LLM opener. Use for "blocked / not available now" nodes
+   * where continuing to free dialogue would be jarring.
+   * Default: false (LLM opener fires after scripted segment, current behaviour).
+   */
+  endAfterScript?: boolean;
 }
 
 // ── Context Snippets ──────────────────────────────────────────

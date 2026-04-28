@@ -300,7 +300,6 @@ export class GameController {
     }
     const gs = this.state.getState();
     this.state.discoverLocation(gs.player.currentLocationId);
-    this.discoverSceneNpcs();
     log.info('Game started', { turn: gs.turn, location: gs.player.currentLocationId });
 
     // Grant origin quests based on player's starting background
@@ -567,7 +566,7 @@ export class GameController {
           this.updateActiveNpcUI(finalAction.targetId);
           await this.activateScriptedNode(
             finalAction.targetId, npc.activeDialogueId, npc.name,
-            scripted.nodeId, scripted.node,
+            scripted.nodeId, scripted.node, scripted.endAfterScript,
           );
           inputDisabled.set(false);
           return; // Skip normal turn pipeline — scripted dialogue takes over
@@ -746,10 +745,7 @@ export class GameController {
       }
     }
 
-    // 4.6. Auto-discover NPCs visible in the current scene
-    this.discoverSceneNpcs();
-
-    // 4.7. Process automatic flag unsets (FlagManifest unsetCondition)
+    // 4.6. Process automatic flag unsets (FlagManifest unsetCondition)
     const autoUnset = this.lore.flagRegistry.processFlagUnsets(this.state.flags);
     if (autoUnset.length > 0) log.debug('Auto-unset flags', { flags: autoUnset });
 
@@ -779,7 +775,7 @@ export class GameController {
             this._sessionFiredTriggers.add(encScripted.nodeId);
             await this.activateScriptedNode(
               enc.npcId, encNpc.activeDialogueId, encNpc.name,
-              encScripted.nodeId, encScripted.node,
+              encScripted.nodeId, encScripted.node, encScripted.endAfterScript,
             );
             inputDisabled.set(false);
             return;
@@ -2427,7 +2423,7 @@ export class GameController {
       );
       if (scripted) {
         this._sessionFiredTriggers.add(scripted.nodeId);
-        await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node);
+        await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node, scripted.endAfterScript);
         return;
       }
     }
@@ -2759,6 +2755,7 @@ export class GameController {
       if (pending.outcomeType !== undefined) {
         // Outcome node rendered — now conclude the encounter
         this.encounterMgr.conclude(pending.outcomeType);
+        this.quests.checkObjectives();
         activeEncounterUI.set(null);
         this.syncUIState(this.state.getState());
         await this.refreshThoughts(nodeSuggestions);
@@ -2819,6 +2816,7 @@ export class GameController {
       }
       this.encounterMgr.concludeStory();
       this.applyStoryPendingEffects(this.encounterMgr.flushPendingEffects());
+      this.quests.checkObjectives();
       this.flushAcquisitions();
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
@@ -3594,16 +3592,31 @@ export class GameController {
         const canAbandon = def.canAbandon !== false && (def.type !== 'main' || def.canAbandon === true);
         const canDitch   = !!def.canDitch;
         const ditchBeneficiaryFactionId = def.ditchConsequences?.beneficiaryFactionId;
+        // Build objective description map across all stages (for past-completed lookup)
+        const allObjDescriptions = new Map<string, string>();
+        for (const s of Object.values(def.stages)) {
+          for (const o of s.objectives) {
+            if (!allObjDescriptions.has(o.id)) allObjDescriptions.set(o.id, o.description);
+          }
+        }
+        const currentStageObjIds = new Set(stage.objectives.map(o => o.id));
+        // Past completed objectives (completion order, excluding current-stage objectives)
+        const pastCompleted = q.completedObjectiveIds
+          .filter(id => !currentStageObjIds.has(id) && allObjDescriptions.has(id))
+          .map(id => ({ id, description: allObjDescriptions.get(id)!, completed: true }));
+        // Current stage objectives
+        const currentObjs = stage.objectives.map(o => ({
+          id:          o.id,
+          description: o.description,
+          completed:   q.completedObjectiveIds.includes(o.id),
+        }));
+
         return [{
           questId:      q.questId,
           name:         def.name,
           type:         def.type,
           stageSummary: stage.description,
-          objectives:   stage.objectives.map(o => ({
-            id:          o.id,
-            description: o.description,
-            completed:   q.completedObjectiveIds.includes(o.id),
-          })),
+          objectives:   [...pastCompleted, ...currentObjs],
           canAbandon,
           canDitch,
           ...(ditchBeneficiaryFactionId ? { ditchBeneficiaryFactionId } : {}),
@@ -4088,11 +4101,12 @@ export class GameController {
   }
 
   private async activateScriptedNode(
-    npcId:      string,
-    dialogueId: string,
-    npcName:    string,
-    nodeId:     string,
-    node:       import('../types/dialogue').ScriptedNode,
+    npcId:           string,
+    dialogueId:      string,
+    npcName:         string,
+    nodeId:          string,
+    node:            import('../types/dialogue').ScriptedNode,
+    endAfterScript = false,
   ): Promise<void> {
     const ctx      = this.buildInterpolationCtx();
     const rendered = this.renderNodeLines(node.lines, npcName, ctx);
@@ -4111,6 +4125,7 @@ export class GameController {
       currentNodeId:      nodeId,
       currentChoices:     filteredChoices,
       collectedNarrative: rendered.join('\n'),
+      endAfterScript,
     });
 
     if (filteredChoices.length === 0) {
@@ -4175,12 +4190,16 @@ export class GameController {
     // advanced a flag-check objective (e.g. delivering intel closes a pending_intel stage).
     this.quests.checkObjectives();
 
-    // Scripted segment done — NPC continues conversation via LLM opener.
-    // (Next player input will re-check for scripted triggers naturally via handleDialogueInput.)
+    // Scripted segment done.
+    // If endAfterScript is set, close the NPC panel instead of launching LLM opener.
     const npc = this.lore.getNPC(npcId);
-    if (npc && get(activeNpcUI)) {
+    if (npc && get(activeNpcUI) && !current.endAfterScript) {
       await this.handleDialogueInput('(opener)', npcId, true);
       return;
+    }
+
+    if (current.endAfterScript) {
+      activeNpcUI.set(null);
     }
 
     this.syncUIState(this.state.getState());
@@ -4209,19 +4228,6 @@ export class GameController {
     });
   }
 
-  /** Auto-set met_<npcId> discovery flags for NPCs visible in the current scene and time period. */
-  private discoverSceneNpcs(): void {
-    const gs       = this.state.getState();
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
-    if (!resolved) return;
-    const visibleNpcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod);
-    for (const npc of visibleNpcs) {
-      if (!this.state.flags.has('met_' + npc.id)) {
-        this.state.flags.set('met_' + npc.id);
-        log.debug('NPC discovered', { npcId: npc.id });
-      }
-    }
-  }
 
   // -- Mock mode --------------------------------------------------------
 
@@ -4319,7 +4325,7 @@ export class GameController {
     );
     if (scripted) {
       this._sessionFiredTriggers.add(scripted.nodeId);
-      await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node);
+      await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node, scripted.endAfterScript);
     } else {
       // No scripted trigger — NPC opens the conversation via LLM
       await this.handleDialogueInput('(opener)', npcId, true);
@@ -4495,7 +4501,6 @@ export class GameController {
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
     this._sessionFiredTriggers.clear();
-    this.discoverSceneNpcs();
     this.syncUIState(this.state.getState());
     pushLine(`[Debug] 傳送至：${loc.name}`, 'system');
 

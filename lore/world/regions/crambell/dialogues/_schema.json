@@ -100,6 +100,12 @@
       "nodeId": "another_node",
       "condition": "some_flag & !other_flag",
       "probability": 40
+    },
+    {
+      "_note": "endAfterScript: true — close NPC panel after scripted dialogue ends instead of launching LLM opener. Use for 'blocked / not available now' gates where continuing to free conversation would be jarring.",
+      "nodeId": "day_blocked_node",
+      "endAfterScript": true,
+      "timeRanges": [{ "startHour": 6, "startMinute": 0, "endHour": 21, "endMinute": 59 }]
     }
   ],
 

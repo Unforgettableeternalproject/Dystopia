@@ -196,7 +196,8 @@
     },
     {
       "nodeId": "second_meeting",
-      "condition": "crambell_kach_second_meeting_ready & !crambell_kach_test1_invited & !crambell_kach_betrayed"
+      "condition": "crambell_kach_second_meeting_ready & !crambell_kach_test1_invited & !crambell_kach_betrayed",
+      "endAfterScript": true
     }
   ],
 

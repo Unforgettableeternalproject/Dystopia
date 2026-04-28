@@ -39,8 +39,9 @@ export interface ParsedDialogueSignals {
 
 /** Result of a scripted trigger check. */
 export interface ScriptedTriggerResult {
-  nodeId: string;
-  node:   ScriptedNode;
+  nodeId:         string;
+  node:           ScriptedNode;
+  endAfterScript: boolean;
 }
 
 export class DialogueManager {
@@ -90,7 +91,7 @@ export class DialogueManager {
       const node = profile.nodes?.[trigger.nodeId];
       if (!node) continue;
 
-      return { nodeId: trigger.nodeId, node };
+      return { nodeId: trigger.nodeId, node, endAfterScript: trigger.endAfterScript ?? false };
     }
     return null;
   }

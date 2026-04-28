@@ -217,7 +217,12 @@
 
   .obj-item.done {
     color: var(--text-dim);
-    opacity: 0.55;
+    opacity: 0.6;
+  }
+
+  .obj-item.done .obj-text {
+    text-decoration: line-through;
+    text-decoration-color: var(--text-dim);
   }
 
   .obj-check {

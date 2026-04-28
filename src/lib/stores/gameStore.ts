@@ -344,6 +344,8 @@ export interface ActiveScriptedDialogue {
   currentNodeId:      string;
   currentChoices:     ScriptedChoice[];  // filtered by flag conditions
   collectedNarrative: string;            // accumulated for history
+  /** When true, close the NPC panel after scripted dialogue ends instead of launching LLM opener. */
+  endAfterScript:     boolean;
 }
 
 export const activeScriptedDialogue = writable<ActiveScriptedDialogue | null>(null);

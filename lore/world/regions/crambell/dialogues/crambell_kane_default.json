@@ -180,7 +180,8 @@
   "triggers": [
     {
       "nodeId": "first_meeting",
-      "firstMeetingOnly": true
+      "firstMeetingOnly": true,
+      "endAfterScript": true
     },
     {
       "nodeId": "kane_intel_offer",

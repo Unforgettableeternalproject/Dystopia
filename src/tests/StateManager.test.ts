@@ -224,14 +224,14 @@ describe('StateManager — Quest 操作', () => {
     expect(mgr.getState().activeQuests['q1'].completedObjectiveIds.filter(o => o === 'obj_a').length).toBe(1);
   });
 
-  it('advanceQuestStage — 更新 currentStageId 並清除 objectives', () => {
+  it('advanceQuestStage — 更新 currentStageId，保留前階段 completedObjectiveIds（跨 stage 累積）', () => {
     const { mgr } = makeManager();
     mgr.startQuest('q1', 's1');
     mgr.completeObjective('q1', 'obj_a');
     mgr.advanceQuestStage('q1', 's2');
     const inst = mgr.getState().activeQuests['q1'];
     expect(inst.currentStageId).toBe('s2');
-    expect(inst.completedObjectiveIds).toHaveLength(0);
+    expect(inst.completedObjectiveIds).toContain('obj_a');
   });
 
   it('completeQuest — 標記 isCompleted 並加入 completedQuestIds', () => {

@@ -602,7 +602,9 @@ export class StateManager {
     const instance = this.state.activeQuests[questId];
     if (instance) {
       instance.currentStageId = nextStageId;
-      instance.completedObjectiveIds = [];   // reset objectives for new stage
+      // completedObjectiveIds is intentionally NOT reset here so past-stage
+      // objectives remain visible (with strikethrough) in the quest detail UI.
+      // Repeatable quests use resetQuest() which does reset them.
       this.bus.emit(GameEvents.QUEST_STAGE_ADVANCED, { questId, nextStageId });
       this.notifyUpdate();
     }

@@ -122,23 +122,6 @@
         </section>
       {/if}
 
-      <!-- Reputation -->
-      {#if Object.keys(dp.reputation).some(k => dp.reputation[k] !== 0)}
-        <section class="section">
-          <div class="section-label">派系聲望</div>
-          <div class="rep-list">
-            {#each Object.entries(dp.reputation).filter(([, v]) => v !== 0) as [fid, v]}
-              <div class="rep-row">
-                <span class="rep-name">{fid}</span>
-                <span class="rep-val" class:pos={v > 0} class:neg={v < 0}>
-                  {v > 0 ? '+' : ''}{v}
-                </span>
-              </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
       <!-- Knowledge -->
       <section class="section">
         <div class="section-label">情報</div>
@@ -329,18 +312,6 @@
     border-color: var(--accent-red);
     color: var(--accent-red);
   }
-
-  .rep-list { display: flex; flex-direction: column; gap: 4px; }
-
-  .rep-row {
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .rep-name { font-size: 11px; color: var(--text-secondary); }
-  .rep-val  { font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); }
-  .rep-val.pos { color: #4a7a4a; }
-  .rep-val.neg { color: var(--accent-red); }
 
   .intel-list {
     display: flex;

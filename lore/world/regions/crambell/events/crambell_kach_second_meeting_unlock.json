@@ -3,7 +3,9 @@
   "name": "隔日的機會",
   "locationId": "delth_patrol_zone",
   "condition": {
-    "triggerHours": [6],
+    "timeRanges": [
+      { "startHour": 6, "startMinute": 0, "endHour": 6, "endMinute": 59 }
+    ],
     "flags": ["crambell_kach_met"],
     "notFlags": [
       "crambell_kach_second_meeting_ready",
