@@ -1,6 +1,19 @@
 // ── Prop (Scene Object) Types ────────────────────────────────────
 
 import type { ConnectionAccess } from './world';
+import type { EncounterNode } from './encounter';
+
+/**
+ * Prop 嵌入式互動遭遇定義。
+ * 結構同 EncounterDefinition 的 nodes DAG，不建立獨立 encounter 檔案。
+ * 引擎會為其生成合成 ID（prop_interact_{propId}）並暫時注入 LoreVault。
+ */
+export interface PropInteraction {
+  /** 遭遇型別。'transit' 為轉移門專用型別，MVP 使用標準選項面板渲染。 */
+  type?: 'event' | 'story' | 'transit';
+  entryNodeId: string;
+  nodes: Record<string, EncounterNode>;
+}
 
 /**
  * 場景物件節點（lore/world/regions/<region>/props/ 中的靜態資料）。
@@ -24,12 +37,25 @@ export interface PropNode {
   restPoint?: boolean;
   /** DM 提示：玩家檢查此物件時 DM 額外獲得的 context（不直接顯示給玩家）。 */
   checkPrompt?: string;
-  // ── Future (定義但不接完整互動) ──
-  /** 可從此物件取得的物品 */
+  // ── 互動系統 ──
+  /** 是否允許玩家主動 interact（省略或 false = 只能 examine）。 */
+  interactable?: boolean;
+  /** 互動按鈕顯示文字（省略 = '互動'）。 */
+  interactLabel?: string;
+  /** 嵌入式互動遭遇定義（不建立獨立 encounter 檔案）。 */
+  interaction?: PropInteraction;
+  /**
+   * 每個遊戲日（午夜）自動重置的旗標 ID 列表。
+   * 用於每日補充資源（如餐桌麵包）：interaction 用 flagsSet 標記已取，
+   * 引擎在日期切換時清除這些旗標，使資源重新可取。
+   */
+  dailyResetFlags?: string[];
+  // ── Legacy（向下相容，優先使用 interaction） ──
+  /** 可從此物件取得的物品（舊機制） */
   itemGrants?: PropItemGrant[];
-  /** 互動觸發的事件 ID */
+  /** 互動觸發的事件 ID（舊機制） */
   eventIds?: string[];
-  /** 互動觸發的遭遇 ID */
+  /** 互動觸發的遭遇 ID（舊機制，interaction 優先） */
   encounterId?: string;
 }
 
@@ -78,6 +104,10 @@ export interface ObserveProp {
   name: string;
   description: string;
   isRestPoint: boolean;
+  /** 是否可與玩家互動（顯示 interact 按鈕） */
+  isInteractable: boolean;
+  /** 互動按鈕顯示文字（預設 '互動'） */
+  interactLabel: string;
 }
 
 /**

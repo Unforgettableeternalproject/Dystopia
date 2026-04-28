@@ -3,5 +3,40 @@
   "name": "公用水槽",
   "description": "公共區牆角的舊式鑄鐵水槽，水壓時大時小，出水口生鏽留下橙黃色的水漬。有時會滴個不停，有時又完全沒水。",
   "tags": ["fixture", "water", "utility"],
-  "checkPrompt": "水槽下方的管道包著一層舊布，看起來像是有人試圖修補漏水。水龍頭旁邊貼著一張手寫的「出水時間 06:00-22:00」。"
+  "checkPrompt": "水槽下方的管道包著一層舊布，看起來像是有人試圖修補漏水。水龍頭旁邊貼著一張手寫的「出水時間 06:00-22:00」。",
+  "interactable": true,
+  "interactLabel": "裝水",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_at_sink",
+    "nodes": {
+      "node_at_sink": {
+        "id": "node_at_sink",
+        "dmNarrative": "玩家站在水槽旁。水龍頭出水的聲音時大時小。有空瓶的話可以在這裡裝水，出水時間是 06:00 到 22:00，現在是否在時段內交由 DM 根據當前時間判斷。",
+        "choices": [
+          {
+            "id": "fill_bottle",
+            "text": "用空瓶裝水",
+            "itemRequirements": [{ "itemId": "empty_bottle" }],
+            "nextNodeId": "node_filled",
+            "effects": {
+              "revokeItems": [{ "itemId": "empty_bottle" }],
+              "grantItems": [{ "itemId": "water_bottle" }]
+            }
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_filled": {
+        "id": "node_filled",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "玩家把空瓶裝滿了水。瓶子沉甸甸的，水有些渾濁，但勉強能用。"
+      }
+    }
+  }
 }

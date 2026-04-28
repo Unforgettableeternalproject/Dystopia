@@ -3,5 +3,58 @@
   "name": "貨箱",
   "description": "倉庫中散落在地板上等待整理的幾個大型貨箱，外側印著礦產分類代碼。沒有上鎖，但開箱會留下痕跡。",
   "tags": ["container", "cargo"],
-  "checkPrompt": "其中一個貨箱蓋子沒有完全蓋緊，邊緣有被撬開的痕跡。裡面不全是帳面上登記的東西。"
+  "checkPrompt": "其中一個貨箱蓋子沒有完全蓋緊，邊緣有被撬開的痕跡。裡面不全是帳面上登記的東西。",
+  "interactable": true,
+  "interactLabel": "翻找",
+  "dailyResetFlags": ["cargo_box_bread_found"],
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_search",
+    "nodes": {
+      "node_search": {
+        "id": "node_search",
+        "dmNarrative": "玩家打開那個沒蓋緊的貨箱，翻看裡面的東西。帳面上登記的是礦石分類，但也許還有別的東西被人夾帶進來。",
+        "choices": [
+          {
+            "id": "try_rummage",
+            "text": "翻找貨箱",
+            "condition": "!cargo_box_bread_found",
+            "nextNodeId": "node_chance_check"
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_chance_check": {
+        "id": "node_chance_check",
+        "statCheck": {
+          "chance": 0.25,
+          "successNodeId": "node_found_bread",
+          "failNodeId": "node_nothing"
+        }
+      },
+      "node_found_bread": {
+        "id": "node_found_bread",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "在礦石分類袋的夾層裡翻出一個麵包。不知道是什麼人塞進來的，但它確實在這裡。",
+        "effects": {
+          "grantItems": [{ "itemId": "bread" }],
+          "flagsSet": ["cargo_box_bread_found"]
+        }
+      },
+      "node_nothing": {
+        "id": "node_nothing",
+        "isOutcome": true,
+        "outcomeType": "neutral",
+        "dmNarrative": "翻了一圈，除了帳面上的礦石，什麼都沒有。",
+        "effects": {
+          "flagsSet": ["cargo_box_bread_found"]
+        }
+      }
+    }
+  }
 }

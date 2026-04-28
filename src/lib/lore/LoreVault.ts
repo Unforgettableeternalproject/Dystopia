@@ -811,6 +811,20 @@ export class LoreVault {
     return this.data.encounters[id];
   }
 
+  /**
+   * 暫時注入一個合成遭遇定義（用於 Prop interaction）。
+   * 生成的 ID 為 prop_interact_{propId}，不會與正式 encounter 衝突。
+   * 不需清除：合成遭遇體積極小，覆寫不造成問題。
+   */
+  registerEphemeralEncounter(def: EncounterDefinition): void {
+    this.data.encounters[def.id] = def;
+  }
+
+  /** 返回所有已載入的 PropNode（用於每日重置旗標處理）。 */
+  getAllProps(): PropNode[] {
+    return Object.values(this.data.props);
+  }
+
   // -- Debug catalog ---------------------------------------------------
 
   /** Returns all loadable IDs + display names for the debug launcher. */
@@ -972,9 +986,23 @@ export class LoreVault {
           )
         : resolved.propIds.map(id => this.data.props[id]).filter((p): p is PropNode => !!p && p.isVisible !== false);
       if (visibleProps.length > 0) {
-        const propLines = visibleProps.map(p =>
-          '- ' + p.name + ': ' + p.description + (p.restPoint ? ' [rest point]' : '')
-        ).join('\n');
+        const propLines = visibleProps.map(p => {
+          let line = '- ' + p.name + ': ' + p.description;
+          if (p.restPoint) line += ' [rest point]';
+          if (p.interactable && p.interaction) line += ` [interactable: ${p.interactLabel ?? '互動'}]`;
+          if (p.checkPrompt) line += ' | ' + p.checkPrompt;
+          // Brief item hint — interactable props only, names only (no descriptions)
+          const grantIds = new Set<string>();
+          for (const g of p.itemGrants ?? []) grantIds.add(g.itemId);
+          for (const node of Object.values(p.interaction?.nodes ?? {})) {
+            for (const item of node.effects?.grantItems ?? []) grantIds.add(item.itemId);
+          }
+          if (grantIds.size > 0 && (p.interactable || p.itemGrants?.length)) {
+            const names = [...grantIds].map(id => this.getItem(id)?.name ?? id);
+            line += ' [items: ' + names.join(', ') + ']';
+          }
+          return line;
+        }).join('\n');
         lines.push('', '### Scene Objects', propLines);
       }
     }

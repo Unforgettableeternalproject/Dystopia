@@ -3,5 +3,40 @@
   "name": "洗手台",
   "description": "盥洗空間的幾個並排洗手台，搪瓷表面有裂紋，鏡子上有霧水。工人在換班前後擠在這裡，幾個人共用一個水龍頭的情況並不少見。",
   "tags": ["fixture", "water", "sanitation"],
-  "checkPrompt": "鏡面上有人用手指劃了些什麼，但已經被水蒸氣模糊了。洗手台下方的排水口附近有些細碎的紙屑。"
+  "checkPrompt": "鏡面上有人用手指劃了些什麼，但已經被水蒸氣模糊了。洗手台下方的排水口附近有些細碎的紙屑。",
+  "interactable": true,
+  "interactLabel": "裝水",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_at_sink",
+    "nodes": {
+      "node_at_sink": {
+        "id": "node_at_sink",
+        "dmNarrative": "玩家站在洗手台旁。水龍頭還在滴水。有空瓶的話可以在這裡裝水。",
+        "choices": [
+          {
+            "id": "fill_bottle",
+            "text": "用空瓶裝水",
+            "itemRequirements": [{ "itemId": "empty_bottle" }],
+            "nextNodeId": "node_filled",
+            "effects": {
+              "revokeItems": [{ "itemId": "empty_bottle" }],
+              "grantItems": [{ "itemId": "water_bottle" }]
+            }
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_filled": {
+        "id": "node_filled",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "玩家把空瓶裝滿了水。洗手台的水比補水站稍微清澈一些。"
+      }
+    }
+  }
 }

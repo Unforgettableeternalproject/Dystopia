@@ -10,5 +10,7 @@
     "maxStack": 1,
     "maxUsesPerInstance": 1,
     "_comment_effect": "目前沒有任何效果，之後可能會有一些劇情相關的效果，在劇情以外的地方使用會是不可破壞的",
-    "effect": {}
+    "effect": {
+        "fallbackDescription": "這本書並沒有帶來甚麼改變，但具童趣的聲音可能會吸引一些孩子的注意。"
+    }
 }

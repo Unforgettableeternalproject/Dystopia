@@ -142,6 +142,13 @@ export interface ItemNode {
    * 包含狀態數值變化、條件套用/移除、旗標操作。
    */
   effect?: ConsumableEffect;
+  /**
+   * 無法使用時的 DM 敘述提示（給 DM 參考，不直接顯示給玩家）。
+   * 當物品沒有定義 effect，或使用條件不符時，引擎不消耗物品，
+   * 而是將此欄位注入 DM context，讓 DM 描述為何無法使用。
+   * 省略時使用預設文字。
+   */
+  fallbackDescription?: string;
 }
 
 /**

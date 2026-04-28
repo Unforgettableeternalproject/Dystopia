@@ -192,6 +192,12 @@ export class DialogueManager {
     if (effects.npcFlagsSet) {
       this.state.applyNPCFlagsSet(effects.npcFlagsSet);
     }
+
+    if (effects.revokeItems?.length) {
+      for (const { itemId, variantId } of effects.revokeItems) {
+        this.state.revokeItem(itemId, variantId);
+      }
+    }
   }
 
   // ── LLM Context Builder ───────────────────────────────────────

@@ -3,5 +3,40 @@
   "name": "雜物堆",
   "description": "角落堆著一些工人的雜物——破損的工具、舊衣物、幾個空罐頭。看起來沒人整理，也沒人在意。",
   "tags": ["clutter", "container"],
-  "checkPrompt": "翻看雜物堆，大多是無用的破爛。不過偶爾可能會有人遺落一些有用的東西在裡面。"
+  "checkPrompt": "翻看雜物堆，大多是無用的破爛。不過偶爾可能會有人遺落一些有用的東西在裡面。",
+  "interactable": true,
+  "interactLabel": "翻找",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_search",
+    "nodes": {
+      "node_search": {
+        "id": "node_search",
+        "dmNarrative": "玩家翻找宿舍角落的雜物堆。大多是無用的破爛，但有時人們會把東西遺落在裡面。空瓶如果還沒被拿走，就在最底層。",
+        "choices": [
+          {
+            "id": "take_bottle",
+            "text": "拿走空瓶",
+            "condition": "!clutter_bottle_taken",
+            "nextNodeId": "node_got_bottle"
+          },
+          {
+            "id": "leave",
+            "text": "放回原處",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_got_bottle": {
+        "id": "node_got_bottle",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "在雜物底層翻到一個舊空瓶，有點髒，但完好無損。",
+        "effects": {
+          "grantItems": [{ "itemId": "empty_bottle" }],
+          "flagsSet": ["clutter_bottle_taken"]
+        }
+      }
+    }
+  }
 }

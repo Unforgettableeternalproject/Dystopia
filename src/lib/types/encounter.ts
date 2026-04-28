@@ -21,7 +21,7 @@ import type { ItemRequirement } from './item';
  * 遭遇型別。決定渲染的 UI 元件與主視覺。
  * 型別設定於 EncounterDefinition 層級（整個遭遇的主要型別）。
  */
-export type EncounterType = 'story' | 'event' | 'dialogue' | 'combat' | 'shop';
+export type EncounterType = 'story' | 'event' | 'dialogue' | 'combat' | 'shop' | 'transit' | 'interact';
 
 // ── Dice Types ────────────────────────────────────────────────
 
@@ -41,23 +41,31 @@ export interface RollModifier {
 // ── Stat Check ────────────────────────────────────────────────
 
 /**
- * 數值判定。節點到達時自動執行，結果決定跳轉節點。
- * 使用 DnD 風格骰點系統：roll(dice) + floor((stat - 8) / 3) + modifiers >= dc。
- * dice 省略時預設 1d20。
+ * 數值判定或純機率判定。節點到達時自動執行，結果決定跳轉節點。
+ *
+ * 【數值判定模式】stat + dc
+ *   使用 DnD 風格骰點系統：roll(dice) + floor((stat - 8) / 3) + modifiers >= dc。
+ *   dice 省略時預設 1d20。
+ *
+ * 【純機率模式】chance（省略 stat 與 dc）
+ *   直接以 Math.random() < chance 決定結果，不使用骰子或數值。
+ *   chance 為 0.0 ~ 1.0 浮點數（如 0.05 = 5%，0.25 = 25%）。
  */
 export interface EncounterStatCheck {
-  /** Dot-path 數值鍵，如 "primaryStats.strength" */
-  stat: string;
-  /** Difficulty Class — 骰點結果需大於等於此值才通過 */
-  dc: number;
-  /** 骰型規格；省略時預設 1d20 */
+  /** Dot-path 數值鍵，如 "primaryStats.strength"。純機率模式時省略。 */
+  stat?: string;
+  /** Difficulty Class — 骰點結果需大於等於此值才通過。純機率模式時省略。 */
+  dc?: number;
+  /** 骰型規格；省略時預設 1d20（數值判定模式專用） */
   dice?: DiceSpec;
-  /** 優勢：擲兩次取較高值 */
+  /** 優勢：擲兩次取較高值（數值判定模式專用） */
   advantage?: boolean;
-  /** 劣勢：擲兩次取較低值 */
+  /** 劣勢：擲兩次取較低值（數值判定模式專用） */
   disadvantage?: boolean;
-  /** 額外補正（疊加在 stat modifier 之上） */
+  /** 額外補正（疊加在 stat modifier 之上，數值判定模式專用） */
   modifiers?: RollModifier[];
+  /** 純機率模式：成功機率 0.0 ~ 1.0。設定此欄位時忽略 stat/dc。 */
+  chance?: number;
   successNodeId: string;
   failNodeId: string;
 }
@@ -75,6 +83,11 @@ export interface EncounterChoiceEffects {
   /** NPC 好感 delta，key = npcId */
   affinityChanges?: Record<string, number>;
   grantItems?: EventGrantItem[];
+  /**
+   * 從玩家背包移除指定物品（消耗品互動，如空瓶裝水）。
+   * 每個條目移除一個符合 itemId + variantId 的未失效實例。
+   */
+  revokeItems?: ItemRequirement[];
   grantQuestId?: string;
   grantIntelId?: string;
   /**

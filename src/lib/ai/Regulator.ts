@@ -23,6 +23,8 @@ Rules:
    - "interact": player wants to talk to, approach, or physically interact with a specific NPC or scene object (e.g. search a desk, take something from a container, use a machine, open a drawer).
      - If targeting an NPC: set targetId to that NPC's id from sceneNpcs.
      - If targeting a scene object (prop): set targetId to that prop's id from sceneProps.
+     - Props with an "action" field in sceneProps have a defined interaction (e.g. "翻找", "裝水") — classify as "interact" when the player attempts that action.
+     - Props with an "items" field list obtainable items. If the player tries to take or obtain one of those items, classify as "interact" and set targetId to that prop's id.
      - Passive observation of a prop ("look at the desk", "examine the bed") → classify as "examine", NOT "interact".
    - "use": player uses or applies an item from their inventory. Check inventoryItems to confirm the item exists.
    - "examine": player observes the scene — looking around, checking who is here, inspecting surroundings, or surveying the area. Covers both environment and people awareness. Do NOT set targetId for this type.
@@ -73,7 +75,7 @@ export class Regulator {
     player: PlayerState,
     sceneNpcs: { id: string; name: string }[] = [],
     inventoryNames: string[] = [],
-    sceneProps: { id: string; name: string }[] = [],
+    sceneProps: { id: string; name: string; action?: string; items?: string[] }[] = [],
   ): Promise<RegulatorResult> {
     this.lastRaw = '';
 

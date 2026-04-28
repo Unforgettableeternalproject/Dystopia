@@ -3,5 +3,58 @@
   "name": "補給箱",
   "description": "貯存倉角落疊放的木製補給箱，外側印著各種編號與代碼。部分箱子封條完整，部分明顯被開過又重新蓋上。",
   "tags": ["container", "storage", "supply"],
-  "checkPrompt": "大多數箱子都上了鎖或封條。其中一個角落的箱子封條有些鬆動，像是被反覆開關過。箱子之間的縫隙裡有細小的東西——可能是零碎的配件，也可能是什麼人故意塞進去的。"
+  "checkPrompt": "大多數箱子都上了鎖或封條。其中一個角落的箱子封條有些鬆動，像是被反覆開關過。箱子之間的縫隙裡有細小的東西——可能是零碎的配件，也可能是什麼人故意塞進去的。",
+  "interactable": true,
+  "interactLabel": "翻找",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_search",
+    "nodes": {
+      "node_search": {
+        "id": "node_search",
+        "dmNarrative": "玩家試著翻找補給箱，目標是那個封條鬆動的角落箱子。需要夠快、夠精準才能翻出有用的東西又不留明顯痕跡。（才能判定 DC 12）",
+        "choices": [
+          {
+            "id": "try_search",
+            "text": "仔細翻找",
+            "condition": "!storage_crates_bread_taken",
+            "nextNodeId": "node_talent_check"
+          },
+          {
+            "id": "leave",
+            "text": "放棄",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_talent_check": {
+        "id": "node_talent_check",
+        "statCheck": {
+          "stat": "primaryStats.talent",
+          "dc": 12,
+          "successNodeId": "node_found_bread",
+          "failNodeId": "node_nothing"
+        }
+      },
+      "node_found_bread": {
+        "id": "node_found_bread",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "在箱縫裡翻到一個用布包著的麵包，看起來是某個人藏著的存糧，現在輪到玩家了。",
+        "effects": {
+          "grantItems": [{ "itemId": "bread" }],
+          "flagsSet": ["storage_crates_bread_taken"]
+        }
+      },
+      "node_nothing": {
+        "id": "node_nothing",
+        "isOutcome": true,
+        "outcomeType": "failure",
+        "dmNarrative": "翻了半天，箱子裡除了礦石碎屑和封箱材料什麼都沒有。也許真的只有礦石。",
+        "effects": {
+          "flagsSet": ["storage_crates_bread_taken"]
+        }
+      }
+    }
+  }
 }

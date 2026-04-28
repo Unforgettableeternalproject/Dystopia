@@ -343,17 +343,44 @@ export class GameController {
 
     if (itemDef.type !== 'consumable') return;
 
-    // Apply effect immediately
-    this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
-    showAcquisitionNotif(`使用：${itemDef.name}`, false);
-    this.flushAcquisitions();
-    this.syncUIState(this.state.getState());
+    // Safeguard: only consume if the item has at least one defined effect.
+    // Items like empty_bottle exist as consumables but have no effect — they
+    // should not be silently consumed. Instead, narrate via fallbackDescription.
+    const fx = itemDef.effect;
+    const hasEffect = !!(fx && (
+      fx.statusChanges?.stamina !== undefined ||
+      fx.statusChanges?.endo    !== undefined ||
+      fx.statusChanges?.stress  !== undefined ||
+      fx.applyConditionId ||
+      fx.removeConditionIds?.length ||
+      fx.flagsSet?.length ||
+      fx.flagsUnset?.length
+    ));
 
-    // Send silent action for DM narration (player input not displayed)
-    const silentInput = `玩家使用了物品：${itemDef.name}`;
+    const silentInput = hasEffect
+      ? `玩家使用了物品：${itemDef.name}`
+      : `玩家嘗試使用物品：${itemDef.name}`;
+
     inputDisabled.set(true);
     try {
-      const baseCtx  = this.buildSceneCtx([]);
+      const baseCtx = this.buildSceneCtx([]);
+
+      if (!hasEffect) {
+        // Don't consume — tell DM why it can't be used
+        const fallback = itemDef.fallbackDescription
+          ?? `${itemDef.name}目前無法直接使用。`;
+        const sceneCtx = baseCtx + `\n\n## Item Use Attempt (no effect)\nItem: ${itemDef.name}\n${fallback}`;
+        const { suggestions } = await this.runDM({ type: 'use', input: silentInput }, sceneCtx);
+        await this.refreshThoughts(suggestions);
+        return;
+      }
+
+      // Apply effect immediately
+      this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
+      showAcquisitionNotif(`使用：${itemDef.name}`, false);
+      this.flushAcquisitions();
+      this.syncUIState(this.state.getState());
+
       const sceneCtx = itemDef.useNarrative
         ? baseCtx + `\n\n## Item Use Narrative\n${itemDef.useNarrative}`
         : baseCtx;
@@ -499,7 +526,20 @@ export class GameController {
       gs0reg.player.currentLocationId, this.state.flags, gs0reg.timePeriod,
       gs0reg.player.knownIntelIds, Object.values(gs0reg.activeQuests), gs0reg.time,
       gs0reg.player.inventory, gs0reg.player.melphin,
-    ).map(p => ({ id: p.id, name: p.name }));
+    ).map(p => {
+      const grantIds = new Set<string>();
+      for (const g of p.itemGrants ?? []) grantIds.add(g.itemId);
+      for (const node of Object.values(p.interaction?.nodes ?? {})) {
+        for (const item of node.effects?.grantItems ?? []) grantIds.add(item.itemId);
+      }
+      const itemNames = [...grantIds].map(id => this.lore.getItem(id)?.name ?? id);
+      return {
+        id: p.id,
+        name: p.name,
+        ...(p.interactable && p.interaction ? { action: p.interactLabel ?? '互動' } : {}),
+        ...(itemNames.length > 0 ? { items: itemNames } : {}),
+      };
+    });
     const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg, invNamesForReg, scenePropsForReg);
 
     // ── Trace: regulator result ──────────────────────────────────────────
@@ -612,6 +652,15 @@ export class GameController {
     }
     const eventsEnabled = this.state.flags.has('game_day1_started');
 
+    // Daily prop reset: clear dailyResetFlags on all props at each midnight crossing.
+    if (crossedHours.includes(0)) {
+      for (const prop of this.lore.getAllProps()) {
+        for (const flag of prop.dailyResetFlags ?? []) {
+          this.state.flags.unset(flag);
+        }
+      }
+    }
+
     // 2.5. Check quest fail conditions (time-based auto-fail before event sweep)
     const questFailTriggered = eventsEnabled
       ? this.checkQuestFailConditions(crossedHours)
@@ -720,6 +769,13 @@ export class GameController {
         // Also check for first midnight crossing during extended sleep
         if (!this.state.flags.has('game_day1_started') && extraCrossed.includes(0)) {
           this.state.flags.set('game_day1_started');
+        }
+        if (extraCrossed.includes(0)) {
+          for (const prop of this.lore.getAllProps()) {
+            for (const flag of prop.dailyResetFlags ?? []) {
+              this.state.flags.unset(flag);
+            }
+          }
         }
         const lateEventsEnabled = this.state.flags.has('game_day1_started');
         const lateQuestFail = lateEventsEnabled ? this.checkQuestFailConditions(extraCrossed) : [];
@@ -964,6 +1020,13 @@ export class GameController {
     if (crossedHours.length > 0) {
       if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
         this.state.flags.set('game_day1_started');
+      }
+      if (crossedHours.includes(0)) {
+        for (const prop of this.lore.getAllProps()) {
+          for (const flag of prop.dailyResetFlags ?? []) {
+            this.state.flags.unset(flag);
+          }
+        }
       }
       if (this.state.flags.has('game_day1_started')) {
         const qfTriggered   = this.checkQuestFailConditions(crossedHours);
@@ -1736,7 +1799,8 @@ export class GameController {
         if (matched.variant) {
           itemParts.push(`Variant: ${matched.variant.label}${matched.variant.description ? ' — ' + matched.variant.description : ''}`);
         }
-        if (matched.def.useNarrative)  itemParts.push(`Use narrative hint: ${matched.def.useNarrative}`);
+        if (matched.def.useNarrative)       itemParts.push(`Use narrative hint: ${matched.def.useNarrative}`);
+        if (matched.def.fallbackDescription) itemParts.push(`Cannot-use hint: ${matched.def.fallbackDescription}`);
         if (matched.def.statBonus) {
           const bonuses = Object.entries(matched.def.statBonus).filter(([, v]) => v !== 0).map(([k, v]) => `${k} ${v! > 0 ? '+' : ''}${v}`);
           if (bonuses.length) itemParts.push(`Stat bonus: ${bonuses.join(', ')}`);
@@ -1773,11 +1837,18 @@ export class GameController {
         );
         const prop = visibleProps.find(p => p.id === action.targetId);
         if (prop) {
+          const grantIds = new Set<string>();
+          for (const g of prop.itemGrants ?? []) grantIds.add(g.itemId);
+          for (const node of Object.values(prop.interaction?.nodes ?? {})) {
+            for (const item of node.effects?.grantItems ?? []) grantIds.add(item.itemId);
+          }
+          const grantNames = [...grantIds].map(id => this.lore.getItem(id)?.name ?? id);
           const focusedLines = [
             '\n### Focused Object',
             'Name: ' + prop.name,
             'Description: ' + prop.description,
             prop.restPoint ? 'Rest point: yes' : '',
+            grantNames.length > 0 ? 'Obtainable items: ' + grantNames.join(', ') : '',
             prop.checkPrompt ? prop.checkPrompt : '',
           ].filter(Boolean);
           parts.push(focusedLines.join('\n'));
@@ -2621,6 +2692,13 @@ export class GameController {
         if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
           this.state.flags.set('game_day1_started');
         }
+        if (crossedHours.includes(0)) {
+          for (const prop of this.lore.getAllProps()) {
+            for (const flag of prop.dailyResetFlags ?? []) {
+              this.state.flags.unset(flag);
+            }
+          }
+        }
         const eventsEnabled = this.state.flags.has('game_day1_started');
         const qfTriggered  = eventsEnabled ? this.checkQuestFailConditions(crossedHours) : [];
         const glTriggered  = eventsEnabled ? this.events.checkGlobalEvents(this.currentRegionId, crossedHours) : [];
@@ -2906,9 +2984,10 @@ export class GameController {
     // Map encounter type to narrative line style.
     const encType = effectiveDef?.type ?? 'event';
     const lineType =
-      encType === 'event'  ? 'event'  :  // blue — event encounter
-      encType === 'story'  ? 'scene'  :  // gray italic — story/cutscene encounter
-                             'narrative'; // default white — dialogue etc.
+      encType === 'event'    ? 'event'    :  // blue — event encounter
+      encType === 'story'    ? 'scene'    :  // gray italic — story/cutscene encounter
+      encType === 'interact' ? 'interact' :  // prop interaction encounter
+                               'narrative';  // default white — dialogue etc.
 
     // Stat check result prefix — always shown as a system line
     if (resolved.statCheckResult) {
@@ -3153,9 +3232,10 @@ export class GameController {
     parts.push(`地點：${gs.player.currentLocationId} ／ 時段：${gs.timePeriod}`);
     const closeCtx = parts.join('\n');
     const closeLineType =
-      def.type === 'event' ? 'event' :
-      def.type === 'story' ? 'scene' :
-                             'narrative';
+      def.type === 'event'    ? 'event'    :
+      def.type === 'story'    ? 'scene'    :
+      def.type === 'interact' ? 'interact' :
+                                'narrative';
 
     let fullText = '';
     let closeSignalCutoff = -1;
@@ -3390,6 +3470,8 @@ export class GameController {
       name: p.name,
       description: p.description,
       isRestPoint: !!p.restPoint,
+      isInteractable: !!(p.interactable && (p.interaction || p.itemGrants?.length || p.encounterId)),
+      interactLabel: p.interactLabel ?? '互動',
     }));
 
     return {
@@ -3417,7 +3499,7 @@ export class GameController {
       gs.player.inventory, gs.player.melphin,
     );
     const prop = visibleProps.find(p => p.id === action.targetId);
-    if (!prop || (!prop.itemGrants?.length && !prop.eventIds?.length && !prop.encounterId)) {
+    if (!prop || (!prop.interaction && !prop.itemGrants?.length && !prop.eventIds?.length && !prop.encounterId)) {
       return '';
     }
 
@@ -3492,7 +3574,24 @@ export class GameController {
       ctxLines.push(`Events triggered: ${propTriggered.map(t => t.event.name).join(', ')}`);
     }
 
-    // ── encounterId ──────────────────────────────────────────────────────
+    // ── interaction (inline encounter) ───────────────────────────────────
+    if (prop.interaction) {
+      const synthId = `prop_interact_${prop.id}`;
+      const synthDef: import('../types/encounter').EncounterDefinition = {
+        id: synthId,
+        name: prop.name,
+        description: prop.description,
+        type: prop.interaction.type === 'story' ? 'story' : prop.interaction.type === 'transit' ? 'transit' : 'interact',
+        entryNodeId: prop.interaction.entryNodeId,
+        nodes: prop.interaction.nodes,
+      };
+      this.lore.registerEphemeralEncounter(synthDef);
+      await this.startAndRenderEncounter(synthId, synthDef);
+      this.flushAcquisitions();
+      return null;
+    }
+
+    // ── encounterId (legacy) ─────────────────────────────────────────────
     if (prop.encounterId) {
       await this.startAndRenderEncounter(prop.encounterId);
       this.flushAcquisitions();

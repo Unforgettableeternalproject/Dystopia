@@ -255,6 +255,26 @@ export class StateManager {
   }
 
   /**
+   * 從玩家背包移除一個符合 itemId + variantId 的未失效物品（用於 revokeItems effect）。
+   * 可堆疊物品先扣數量，歸零後才移除。
+   * 找不到符合條件的物品時靜默忽略。
+   */
+  revokeItem(itemId: string, variantId?: string): void {
+    const idx = this.state.player.inventory.findIndex(
+      i => i.itemId === itemId && !i.isExpired
+        && (variantId === undefined || i.variantId === variantId),
+    );
+    if (idx === -1) return;
+    const item = this.state.player.inventory[idx];
+    if (item.quantity > 1) {
+      item.quantity -= 1;
+    } else {
+      this.state.player.inventory.splice(idx, 1);
+    }
+    this.notifyUpdate();
+  }
+
+  /**
    * 消耗一個消耗品物品實例，套用其效果並從物品欄移除/扣除。
    * 效果由呼叫方（GameController，持有 LoreVault）解析並傳入。
    * 回傳 true = 成功消耗；false = instanceId 不存在或物品非消耗品。

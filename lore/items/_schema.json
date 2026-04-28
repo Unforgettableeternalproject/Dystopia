@@ -17,7 +17,7 @@
   ],
 
   "_comment_effect": [
-    "effect 欄位為消耗品核心，由四個子區塊組成（全部選填，至少填一個有意義）：",
+    "effect 欄位為消耗品核心，由四個子區塊組成（全部選填，至少填一個有意義，未填寫即不可使用）：",
     "",
     "1. statusChanges — 立即套用的狀態數值 delta（正 = 回復/提升，負 = 損傷/加壓）：",
     "     stamina  : 體力變化，引擎 clamp 至 [0, staminaMax]",
@@ -37,7 +37,9 @@
     "3. removeConditionIds — 清除條件 ID 陣列（可同時解除多個）：",
     "     用於解毒藥、恢復藥等，填入要移除的 PlayerCondition.id。",
     "",
-    "4. flagsSet / flagsUnset — 使用後設置或清除的旗標（選填）。"
+    "4. flagsSet / flagsUnset — 使用後設置或清除的旗標（選填）。",
+    "",
+    "5. fallbackDescription — 沒有效果時的敘述提示，給 DM 參考。描述角色使用此物品時發生的事、感受或場景變化。 (未實作)"
   ],
 
   "_comment_variants": [

@@ -3,5 +3,58 @@
   "name": "公用長桌",
   "description": "宿舍公共區中央的幾張拼湊起來的長桌，桌面坑洞不平，有燒灼痕跡和各種刻字。工人們在這裡吃飯、賭注、有時是什麼也不做。",
   "tags": ["furniture", "table"],
-  "checkPrompt": "桌面上有些人遺留的東西——空罐頭、一截菸蒂、還有幾張皺紙。桌腳下有人刻了幾個字，像是名字。"
+  "checkPrompt": "桌面上有些人遺留的東西——空罐頭、一截菸蒂、還有幾張皺紙。桌腳下有人刻了幾個字，像是名字。",
+  "interactable": true,
+  "interactLabel": "查看",
+  "dailyResetFlags": ["long_table_bread_taken"],
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_search",
+    "nodes": {
+      "node_search": {
+        "id": "node_search",
+        "dmNarrative": "玩家翻看長桌上其他工人遺留的東西。偶爾有人把沒吃完的食物忘在桌上，但機率很低。",
+        "choices": [
+          {
+            "id": "search_table",
+            "text": "翻找桌上的東西",
+            "condition": "!long_table_bread_taken",
+            "nextNodeId": "node_chance_check"
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_chance_check": {
+        "id": "node_chance_check",
+        "statCheck": {
+          "chance": 0.05,
+          "successNodeId": "node_found_bread",
+          "failNodeId": "node_nothing"
+        }
+      },
+      "node_found_bread": {
+        "id": "node_found_bread",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "在桌面角落發現一個有人遺留的麵包，沒有包裝，但看起來應該是新鮮的。",
+        "effects": {
+          "grantItems": [{ "itemId": "bread" }],
+          "flagsSet": ["long_table_bread_taken"]
+        }
+      },
+      "node_nothing": {
+        "id": "node_nothing",
+        "isOutcome": true,
+        "outcomeType": "neutral",
+        "dmNarrative": "桌上沒什麼有用的東西，只有空罐頭和菸蒂。今天沒有人遺落食物。",
+        "effects": {
+          "flagsSet": ["long_table_bread_taken"]
+        }
+      }
+    }
+  }
 }

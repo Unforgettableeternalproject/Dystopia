@@ -220,6 +220,10 @@
         {
           "id": "yes",
           "text": "「麵包和水，你拿著。」",
+          "itemRequirements": [
+            { "itemId": "bread" },
+            { "itemId": "water_bottle" }
+          ],
           "nextNodeId": "bread_hands_bound"
         },
         {
@@ -264,7 +268,11 @@
           "nextNodeId": null,
           "effects": {
             "affinity": 1,
-            "flagsSet": ["crambell_patrol_schedule_known", "crambell_kane_intel_ready", "crambell_task_shackles_completed"]
+            "flagsSet": ["crambell_patrol_schedule_known", "crambell_kane_intel_ready", "crambell_task_shackles_completed"],
+            "revokeItems": [
+              { "itemId": "bread" },
+              { "itemId": "water_bottle" }
+            ]
           }
         }
       ]
@@ -280,7 +288,11 @@
           "text": "「好，我記住了。」",
           "nextNodeId": null,
           "effects": {
-            "flagsSet": ["crambell_patrol_schedule_known", "crambell_kane_intel_ready", "crambell_task_shackles_completed"]
+            "flagsSet": ["crambell_patrol_schedule_known", "crambell_kane_intel_ready", "crambell_task_shackles_completed"],
+            "revokeItems": [
+              { "itemId": "bread" },
+              { "itemId": "water_bottle" }
+            ]
           }
         }
       ]

@@ -262,6 +262,12 @@
     line-height: 1.85;
   }
 
+  /* Prop interaction encounter: warm amber — player-initiated tactile interaction */
+  .line--interact {
+    color: #c4a85a;
+    line-height: 1.85;
+  }
+
   .line--system {
     color: var(--text-system);
     font-size: 12px;

@@ -3,5 +3,52 @@
   "name": "轉移門",
   "description": "傳點大廳的核心——幾道巨型金屬框架構成的轉移門，框體內是隱約可見光線折射的轉移介面。每個門上方標著目的地象限的標識和狀態燈。",
   "tags": ["fixture", "transit", "technology"],
-  "checkPrompt": "轉移門的框體外側有些細小的操作面板，部分按鈕和指示燈的功能從外觀看不出來。狀態燈的顏色不完全和通知板上說的一致。"
+  "checkPrompt": "轉移門的框體外側有些細小的操作面板，部分按鈕和指示燈的功能從外觀看不出來。狀態燈的顏色不完全和通知板上說的一致。",
+  "interactable": true,
+  "interactLabel": "使用",
+  "interaction": {
+    "type": "transit",
+    "entryNodeId": "node_gate",
+    "nodes": {
+      "node_gate": {
+        "id": "node_gate",
+        "dmNarrative": "玩家站在轉移門操作介面前。介面顯示各象限的入境狀態，只有持有對應通行證的目的地才能啟動傳送。沒有通行證的門保持鎖定。",
+        "choices": [
+          {
+            "id": "transit_famein",
+            "text": "前往費敏",
+            "itemRequirements": [{ "itemId": "transit_pass", "variantId": "famein" }],
+            "nextNodeId": null,
+            "effects": { "movePlayer": "famein_transit_hub" }
+          },
+          {
+            "id": "transit_pestilens",
+            "text": "前往帕絲蒂蘭斯",
+            "itemRequirements": [{ "itemId": "transit_pass", "variantId": "pestilens" }],
+            "nextNodeId": null,
+            "effects": { "movePlayer": "pestilens_transit_hub" }
+          },
+          {
+            "id": "transit_wyar",
+            "text": "前往瓦爾",
+            "itemRequirements": [{ "itemId": "transit_pass", "variantId": "wyar" }],
+            "nextNodeId": null,
+            "effects": { "movePlayer": "wyar_transit_hub" }
+          },
+          {
+            "id": "transit_konquer",
+            "text": "前往康庫爾（特殊授權）",
+            "itemRequirements": [{ "itemId": "transit_pass", "variantId": "konquer" }],
+            "nextNodeId": null,
+            "effects": { "movePlayer": "konquer_transit_hub" }
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      }
+    }
+  }
 }

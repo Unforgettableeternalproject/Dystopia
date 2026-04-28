@@ -44,19 +44,30 @@
     "不直接顯示給玩家。"
   ],
 
-  "_comment_future": [
-    "以下欄位已定義但尚未接完整互動（MVP 不實作）：",
-    "  itemGrants   — 可從此物件取得的物品列表",
-    "  eventIds     — 互動觸發的事件 ID 列表",
-    "  encounterId  — 互動觸發的遭遇 ID",
+  "_comment_interact": [
+    "互動系統欄位：",
     "",
-    "itemGrants 結構：",
-    "  itemId       — 物品 ID",
-    "  variantId    — 物品變體 ID（選填）",
-    "  count        — 數量（選填，預設 1）",
-    "  onceFlag     — 取得後設置的旗標，防止重複取得",
-    "  lockedWhen   — 鎖定條件（旗標表達式）",
-    "  lockedMessage — 鎖定時的提示文字"
+    "interactable — 是否允許玩家主動 interact。省略或 false = 只能 examine。",
+    "interactLabel — 互動按鈕顯示文字（選填，預設 '互動'）。範例：'翻找'、'裝水'、'使用'。",
+    "",
+    "interaction — 嵌入式互動遭遇定義，不建立獨立 encounter 檔案：",
+    "  type         — 遭遇類型：",
+    "                   'event'   — 一般互動，有選項的決策場景（預設）",
+    "                   'story'   — 線性劇情推進",
+    "                   'transit' — 象限轉移門，MVP 使用標準選項面板",
+    "  entryNodeId  — 入口節點 ID",
+    "  nodes        — 節點圖（DAG），結構完全同 EncounterDefinition.nodes",
+    "                 支援：dmNarrative, displayText, choices, statCheck, isOutcome, outcomeType, effects",
+    "                 支援所有 encounter effects，包含 grantItems, revokeItems, flagsSet 等",
+    "",
+    "  選項前置條件（choices）與 encounter 完全相同：",
+    "    condition, itemRequirements, minMelphin, minReputation, maxReputation,",
+    "    minAffinity, maxAffinity, dateTimeConditions",
+    "",
+    "dailyResetFlags — 每個遊戲日（day 切換時）自動重置的旗標 ID 列表。",
+    "  用於可每日補充的資源（如餐桌麵包）：interaction node 用 flagsSet 標記已取，",
+    "  dailyResetFlags 讓引擎在日期切換時清除旗標，使資源重新可取。",
+    "  格式：字串陣列。省略 = 無每日重置。"
   ],
 
   "id": "region_location_propname",
@@ -65,7 +76,7 @@
   "tags": ["furniture", "rest"],
   "isVisible": true,
   "visibleWhen": {
-    "_comment": "省略整個 visibleWhen 如果無條��限制。使用 ConnectionAccess 結構，所有子欄位為 AND 關係。",
+    "_comment": "省略整個 visibleWhen 如果無條件限制。使用 ConnectionAccess 結構，所有子欄位為 AND 關係。",
     "flag": "some_flag_expression",
     "timePeriods": ["rest"],
     "timeRanges": [
@@ -88,5 +99,60 @@
     "minMelphin": 10
   },
   "restPoint": false,
-  "checkPrompt": "DM 面向的檢查提示（選填）。描述玩家仔細觀察此物件時能發現的額外資訊。"
+  "checkPrompt": "DM 面向的檢查提示（選填）。描述玩家仔細觀察此物件時能發現的額外資訊。",
+  "interactable": true,
+  "interactLabel": "互動",
+  "interaction": {
+    "_comment": "省略整個 interaction 如果此 Prop 不需要互動遭遇。",
+    "type": "event",
+    "entryNodeId": "node_start",
+    "nodes": {
+      "node_start": {
+        "id": "node_start",
+        "dmNarrative": "DM 面向：描述玩家接觸此物件時的情境。",
+        "choices": [
+          {
+            "id": "choice_take",
+            "text": "拿走物品",
+            "condition": "!prop_item_taken",
+            "itemRequirements": [{ "itemId": "required_item_id" }],
+            "nextNodeId": "node_taken",
+            "effects": {
+              "revokeItems": [{ "itemId": "consumed_item_id" }],
+              "grantItems": [{ "itemId": "granted_item_id" }],
+              "flagsSet": ["prop_item_taken"]
+            }
+          },
+          {
+            "id": "choice_leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_taken": {
+        "id": "node_taken",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "玩家成功取得物品。"
+      },
+      "node_check": {
+        "_comment": "判定節點範例：自動執行判定，不顯示選項",
+        "id": "node_check",
+        "statCheck": {
+          "stat": "primaryStats.talent",
+          "dc": 12,
+          "successNodeId": "node_taken",
+          "failNodeId": "node_fail"
+        }
+      },
+      "node_fail": {
+        "id": "node_fail",
+        "isOutcome": true,
+        "outcomeType": "failure",
+        "dmNarrative": "玩家嘗試失敗。"
+      }
+    }
+  },
+  "dailyResetFlags": ["prop_item_taken"]
 }

@@ -17,8 +17,9 @@ export interface NarrativeLine {
   /** narrative = DM free text | dialogue = scripted NPC line | player = player action input
    *  player-dialogue = player speech inside NPC encounter (rendered with 「」)
    *  system = info message | rejected = regulator rejection | event = game event trigger
-   *  scene = story encounter description (gray, stage-direction style) */
-  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'player-dialogue' | 'rejected' | 'event' | 'scene';
+   *  scene = story encounter description (gray, stage-direction style)
+   *  interact = prop interaction encounter */
+  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'player-dialogue' | 'rejected' | 'event' | 'scene' | 'interact';
   isStreaming: boolean;
 }
 

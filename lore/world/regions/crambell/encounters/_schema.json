@@ -124,6 +124,7 @@
     "  reputationChanges    — key = factionId",
     "  affinityChanges      — key = npcId",
     "  grantItems           — [{ itemId, variantId? }]",
+    "  revokeItems          — [{ itemId, variantId? }]，從玩家背包移除物品（用於消耗性材料，如空瓶裝水）",
     "  grantQuestId         — 授予任務 ID",
     "  grantIntelId         — 授予情報 ID（加入 knownIntelIds，可用 intelIds 條件查詢）",
     "  melphinChange        — 梅分變化（正 = 獲得，負 = 扣除）",
@@ -145,18 +146,26 @@
   ],
 
   "_comment_stat_check": [
-    "statCheck.stat 格式：dot-path，如 'primaryStats.strength'、'statusStats.stamina'",
+    "statCheck 有兩種互斥用法：",
+    "",
+    "【數值判定】stat + dc",
+    "  stat            — dot-path，如 'primaryStats.strength'、'statusStats.stamina'",
     "  dc              — Difficulty Class，判定門檻",
     "  dice            — 骰型（選填，如 { count: 1, sides: 20 }，省略預設 1d20）",
     "  advantage       — 優勢，擲兩次取較高值（選填）",
     "  disadvantage    — 劣勢，擲兩次取較低值（選填）",
     "  modifiers       — 外部補正列表（選填，[{ label, value }]）",
-    "successNodeId / failNodeId 指向判定結果後的目標節點 ID",
     "",
     "可用的 stat 路徑：",
     "  primaryStats.strength / knowledge / talent / spirit / luck",
     "  secondaryStats.consciousness / mysticism / technology",
-    "  statusStats.stamina / stress / endo"
+    "  statusStats.stamina / stress / endo",
+    "",
+    "【純機率判定】chance（不帶 stat）",
+    "  chance          — 成功機率，0.0 ~ 1.0 浮點數（如 0.05 = 5%、0.25 = 25%）",
+    "  不使用骰子或數值，引擎直接 random() < chance 決定結果",
+    "",
+    "successNodeId / failNodeId 指向判定結果後的目標節點 ID（兩種用法共用）"
   ],
 
   "entryNodeId": "node_intro",

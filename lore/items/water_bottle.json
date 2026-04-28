@@ -1,0 +1,28 @@
+{
+  "id": "water_bottle",
+  "name": "水瓶",
+  "description": "裝滿水的瓶子。",
+  "type": "consumable",
+  "obtainedFrom": ["prop", "shop"],
+  "useNarrative": "裝了水的瓶子，可以喝，或者做其他的事。",
+  "stackable": true,
+  "maxStack": 2,
+  "maxUsesPerInstance": 1,
+  "effect": {
+    "applyCondition": {
+      "id": "hydrated",
+      "label": "水分充足",
+      "description": "角色感到精神煥發，體力回復速度提升。",
+      "durationTurns": 10,
+      "statModifiers": {
+        "strength": 0,
+        "knowledge": 0,
+        "talent": 0,
+        "spirit": 0,
+        "luck": 0
+      },
+      "isHidden": false
+    },
+    "removeConditionIds": ["dehydrated"]
+  }
+}

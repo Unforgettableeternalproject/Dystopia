@@ -7,10 +7,12 @@
   // Type-specific visual config
   const typeConfig: Record<EncounterType, { label: string; icon: string; accent: string }> = {
     story:    { label: '劇情',   icon: '◇', accent: '#c9a96e' },  // amber
-    event:    { label: '事件',   icon: '◈', accent: '#5fa8d3' },  // blue (matches existing accent)
+    event:    { label: '事件',   icon: '◈', accent: '#5fa8d3' },  // blue
     dialogue: { label: '對話',   icon: '◎', accent: '#7ec8a0' },  // teal
     combat:   { label: '戰鬥',   icon: '◆', accent: '#d35f5f' },  // red
     shop:     { label: '商店',   icon: '◉', accent: '#7ec87e' },  // green
+    transit:  { label: '轉移',   icon: '⬡', accent: '#9b8abf' },  // purple
+    interact: { label: '互動',   icon: '◌', accent: '#c4a85a' },  // warm gold
   };
 
   $: enc = $activeEncounterUI;
@@ -41,8 +43,8 @@
     {/if}
 
     <!-- Content by type -->
-    {#if enc.type === 'event'}
-      <!-- Event: prominent choice buttons, optional stat display -->
+    {#if enc.type === 'event' || enc.type === 'interact'}
+      <!-- Event / Prop interaction: prominent choice buttons -->
       <div class="choices event-choices">
         {#each enc.choices as choice (choice.id)}
           <button class="choice-btn event-btn" on:click={() => onSelect(choice.id)}>

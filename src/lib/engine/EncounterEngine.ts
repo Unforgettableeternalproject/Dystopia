@@ -352,9 +352,24 @@ export class EncounterEngine {
 
     // Stat check: resolve automatically using DiceEngine
     if (node.statCheck) {
+      const { successNodeId, failNodeId } = node.statCheck;
+
+      // ── 純機率模式 ──────────────────────────────────────────────
+      if (node.statCheck.chance !== undefined) {
+        const passed = Math.random() < node.statCheck.chance;
+        log.debug('Chance check', { chance: node.statCheck.chance, passed });
+        const nextNode = def.nodes?.[passed ? successNodeId : failNodeId];
+        if (!nextNode) {
+          log.warn('Missing chance check target node', { successNodeId, failNodeId, passed });
+          return { node, visibleChoices: [], isOutcome: true };
+        }
+        return this.resolveNode(def, nextNode);
+      }
+
+      // ── 數值判定模式 ────────────────────────────────────────────
       const gs       = this.state.getState();
-      const { stat, dc, successNodeId, failNodeId } = node.statCheck;
-      const baseStat = this.resolveStatValue(gs, stat) ?? 0;
+      const { stat, dc } = node.statCheck;
+      const baseStat = stat ? (this.resolveStatValue(gs, stat) ?? 0) : 0;
 
       const rollResult = DiceEngine.roll({
         dice:         node.statCheck.dice ?? { count: 1, sides: 20 },
@@ -363,7 +378,7 @@ export class EncounterEngine {
         advantage:    node.statCheck.advantage,
         disadvantage: node.statCheck.disadvantage,
       });
-      const passed = DiceEngine.passes(rollResult, dc);
+      const passed = DiceEngine.passes(rollResult, dc ?? 0);
       const nextId = passed ? successNodeId : failNodeId;
 
       log.debug('Stat check (dice)', { stat, dc, rollResult, passed });
@@ -371,12 +386,12 @@ export class EncounterEngine {
       const nextNode = def.nodes?.[nextId];
       if (!nextNode) {
         log.warn('Missing stat check target node', { nextId });
-        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult, sides: node.statCheck.dice?.sides ?? 20 } };
+        return { node, visibleChoices: [], isOutcome: true, statCheckResult: { stat: stat ?? '', dc: dc ?? 0, value: rollResult.total, passed, rollResult, sides: node.statCheck.dice?.sides ?? 20 } };
       }
 
       // Recurse — the resolved node is the final destination
       const resolved = this.resolveNode(def, nextNode);
-      return { ...resolved, statCheckResult: { stat, dc, value: rollResult.total, passed, rollResult, sides: node.statCheck.dice?.sides ?? 20 } };
+      return { ...resolved, statCheckResult: { stat: stat ?? '', dc: dc ?? 0, value: rollResult.total, passed, rollResult, sides: node.statCheck.dice?.sides ?? 20 } };
     }
 
     // Filter choices by conditions (flag, items, melphin, reputation, affinity)
@@ -444,6 +459,11 @@ export class EncounterEngine {
           maxStack:           def?.maxStack,
           maxUsesPerInstance: def?.maxUsesPerInstance,
         });
+      }
+    }
+    if (effects.revokeItems?.length) {
+      for (const { itemId, variantId } of effects.revokeItems) {
+        this.state.revokeItem(itemId, variantId);
       }
     }
     if (effects.contactFactionIds?.length) {

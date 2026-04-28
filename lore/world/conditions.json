@@ -19,5 +19,24 @@
     "actionTimeCostMultiplier": 1.05,
     "removeCondition": "充分休息後自然痊癒，約需靜養一天",
     "curedByRestQuality": ["full"]
+  },
+  "dehydrated": {
+    "id": "dehydrated",
+    "label": "脱水",
+    "description": "缺乏水分導致的脱水狀態。每 10 回合失去 1 點體力，直到喝水或使用相關物品解除。",
+    "tickEffect": {
+      "everyNTurns": 10,
+      "statChanges": { "statusStats.stamina": -1 },
+      "maxTicks": null
+    },
+    "removeCondition": "喝水或使用相關物品（如水瓶）",
+    "curedByItemIds": ["water_bottle"]
+  },
+  "hydrated": {
+    "id": "hydrated",
+    "label": "水分充足",
+    "description": "角色感到精神煥發。",
+    "durationTurns": 5,
+    "removeCondition": "持續時間結束 (這是正面效果，但我們好像還沒有處理正面效果的顯示)"
   }
 }

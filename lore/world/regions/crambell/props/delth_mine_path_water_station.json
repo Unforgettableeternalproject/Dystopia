@@ -3,5 +3,40 @@
   "name": "補水站",
   "description": "路邊的一個鐵皮小亭，裡面放著幾個大型水桶和舀水用的鐵勺。水質不算清澈，帶著礦粉的灰白色，但工人不太有選擇。",
   "tags": ["fixture", "water", "utility"],
-  "checkPrompt": "水桶的邊緣積著一層灰白色礦粉沉積物。旁邊有個倒扣的空桶，翻開來裡面有些人遺落的東西。"
+  "checkPrompt": "水桶的邊緣積著一層灰白色礦粉沉積物。旁邊有個倒扣的空桶，翻開來裡面有些人遺落的東西。",
+  "interactable": true,
+  "interactLabel": "裝水",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_at_station",
+    "nodes": {
+      "node_at_station": {
+        "id": "node_at_station",
+        "dmNarrative": "玩家站在補水站旁。鐵勺搭在水桶邊緣，水面漂著礦粉薄膜。有空瓶的話可以在這裡裝水。",
+        "choices": [
+          {
+            "id": "fill_bottle",
+            "text": "用空瓶裝水",
+            "itemRequirements": [{ "itemId": "empty_bottle" }],
+            "nextNodeId": "node_filled",
+            "effects": {
+              "revokeItems": [{ "itemId": "empty_bottle" }],
+              "grantItems": [{ "itemId": "water_bottle" }]
+            }
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_filled": {
+        "id": "node_filled",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "玩家用空瓶舀了一瓶補水站的水，灰白色的礦粉水，但裝滿了。"
+      }
+    }
+  }
 }

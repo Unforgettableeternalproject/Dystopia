@@ -3,5 +3,40 @@
   "name": "飲水桶",
   "description": "廣場角落的大型木製飲水桶，工人在休息時間在此補充水分。舀水的勺子被鍊條固定著，防止人帶走。水面漂著礦粉薄膜。",
   "tags": ["fixture", "water", "utility"],
-  "checkPrompt": "桶底快見底了，還沒補充。桶緣邊有人用炭筆劃了個小記號，看不出是什麼意思。"
+  "checkPrompt": "桶底快見底了，還沒補充。桶緣邊有人用炭筆劃了個小記號，看不出是什麼意思。",
+  "interactable": true,
+  "interactLabel": "裝水",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "node_at_barrel",
+    "nodes": {
+      "node_at_barrel": {
+        "id": "node_at_barrel",
+        "dmNarrative": "玩家站在飲水桶旁。鍊條固定的鐵勺搭在桶邊。有空瓶的話可以在這裡裝水。",
+        "choices": [
+          {
+            "id": "fill_bottle",
+            "text": "用空瓶裝水",
+            "itemRequirements": [{ "itemId": "empty_bottle" }],
+            "nextNodeId": "node_filled",
+            "effects": {
+              "revokeItems": [{ "itemId": "empty_bottle" }],
+              "grantItems": [{ "itemId": "water_bottle" }]
+            }
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "node_filled": {
+        "id": "node_filled",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "玩家用空瓶從飲水桶舀了一瓶水。水面的礦粉薄膜有點噁心，但瓶子裝滿了。"
+      }
+    }
+  }
 }

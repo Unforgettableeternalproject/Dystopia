@@ -52,6 +52,13 @@ export interface ChoiceEffects {
    * 例：{ "crambell_kach": ["treffen_trust_gained"] }
    */
   npcFlagsSet?: Record<string, string[]>;
+
+  /**
+   * Remove items from player inventory when this choice is taken.
+   * Mirrors EncounterChoiceEffects.revokeItems — use for quest deliveries,
+   * item hand-offs, or any dialogue that consumes held items.
+   */
+  revokeItems?: ItemRequirement[];
 }
 
 /**
