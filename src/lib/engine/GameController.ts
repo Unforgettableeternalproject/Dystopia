@@ -119,8 +119,8 @@ export class GameController {
     wasInterrupted:        boolean;
     wasRestStartInterrupt: boolean;
     interruptTriggered:    TriggeredEvent[];
-    /** rest_start 事件觸發的遭遇 ID，narration 完成後啟動。 */
-    restEncounterId?:      string;
+    /** rest_start 事件觸發的遭遇 ID 佇列，narration 完成後依序啟動。 */
+    restEncounterIds?:     string[];
   } | null = null;
 
 
@@ -628,7 +628,7 @@ export class GameController {
       : [];
     const triggered = [...questFailTriggered, ...globalTriggered, ...locationTriggered];
 
-    const { eventEncounter, extraTriggered } = this.processTriggeredEvents(triggered);
+    const { eventEncounters, extraTriggered } = this.processTriggeredEvents(triggered);
     // Merge sub-events (e.g. from failQuest -> startEventId chains) so DM narration covers them.
     const allTriggered = [...triggered, ...extraTriggered];
 
@@ -645,14 +645,17 @@ export class GameController {
       this.flushAcquisitions();
     }
 
-    // 4.15. Launch event-triggered encounter AFTER narration so event text plays first.
-    if (eventEncounter) {
+    // 4.15. Launch event-triggered encounters AFTER narration so event text plays first.
+    // Multiple encounters are queued and run sequentially so none are silently dropped.
+    if (eventEncounters.length > 0) {
       narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
-      await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
-      log.info('Encounter started by event', { encounterId: eventEncounter.id });
-      this.flushAcquisitions();
-      // Event stat changes may have pushed past an ending threshold
-      if (this.checkEndingConditions()) return;
+      for (const enc of eventEncounters) {
+        await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
+        log.info('Encounter started by event', { encounterId: enc.id });
+        this.flushAcquisitions();
+        // Event stat changes may have pushed past an ending threshold
+        if (this.checkEndingConditions()) return;
+      }
       this.releaseInput();
       return;
     }
@@ -723,7 +726,7 @@ export class GameController {
         const lateGlobal    = lateEventsEnabled ? this.events.checkGlobalEvents(this.currentRegionId, extraCrossed) : [];
         const lateLocation  = lateEventsEnabled ? this.events.checkAndApply(this.state.getState().player.currentLocationId, extraCrossed) : [];
         const lateTriggered = [...lateQuestFail, ...lateGlobal, ...lateLocation];
-        const { eventEncounter: lateEventEncounter, extraTriggered: lateExtra } =
+        const { eventEncounters: lateEventEncounters, extraTriggered: lateExtra } =
           this.processTriggeredEvents(lateTriggered);
         const allLateTriggered = [...lateTriggered, ...lateExtra];
 
@@ -734,11 +737,13 @@ export class GameController {
           this.flushAcquisitions();
         }
 
-        if (lateEventEncounter) {
-          await this.startAndRenderEncounter(lateEventEncounter.id, lateEventEncounter.def ?? undefined);
-          log.info('Encounter started by delayed event', { encounterId: lateEventEncounter.id });
-          this.flushAcquisitions();
-          if (this.checkEndingConditions()) return;
+        if (lateEventEncounters.length > 0) {
+          for (const enc of lateEventEncounters) {
+            await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
+            log.info('Encounter started by delayed event', { encounterId: enc.id });
+            this.flushAcquisitions();
+            if (this.checkEndingConditions()) return;
+          }
           this.releaseInput();
           return;
         }
@@ -872,11 +877,11 @@ export class GameController {
       gs.player.currentLocationId,
     );
     const hasRestStartInterrupt = restStartTriggered.length > 0;
-    let restEncounterId: string | undefined;
+    let restEncounterIds: string[] = [];
     let restStartExtra: TriggeredEvent[] = [];
     if (hasRestStartInterrupt) {
-      const { eventEncounter, extraTriggered } = this.processTriggeredEvents(restStartTriggered);
-      if (eventEncounter) restEncounterId = eventEncounter.id;
+      const { eventEncounters, extraTriggered } = this.processTriggeredEvents(restStartTriggered);
+      restEncounterIds = eventEncounters.map(e => e.id);
       restStartExtra = extraTriggered;
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -989,7 +994,7 @@ export class GameController {
       wasInterrupted:        interruptMinutes !== null || hasRestStartInterrupt,
       wasRestStartInterrupt: hasRestStartInterrupt,
       interruptTriggered,
-      restEncounterId,
+      restEncounterIds: restEncounterIds.length > 0 ? restEncounterIds : undefined,
     };
 
     // Show result overlay
@@ -1161,10 +1166,12 @@ export class GameController {
     const action: PlayerAction = { type: 'rest', input: '（休息）' };
     this.state.appendHistory(action, fullText.slice(0, 200));
 
-    // Launch encounter triggered by rest_start event (e.g. restless night).
-    if (ctx.restEncounterId) {
-      await this.startAndRenderEncounter(ctx.restEncounterId);
-      this.flushAcquisitions();
+    // Launch encounters triggered by rest_start event (e.g. restless night), sequentially.
+    if (ctx.restEncounterIds?.length) {
+      for (const encId of ctx.restEncounterIds) {
+        await this.startAndRenderEncounter(encId);
+        this.flushAcquisitions();
+      }
       this.releaseInput();
       // Thoughts will be refreshed when the encounter ends via selectEncounterChoice.
     } else {
@@ -1999,8 +2006,8 @@ export class GameController {
 
   private processTriggeredEvents(
     triggered: TriggeredEvent[],
-  ): { eventEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null; extraTriggered: TriggeredEvent[] } {
-    let eventEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
+  ): { eventEncounters: { id: string; def: ReturnType<LoreVault['getEncounter']> }[]; extraTriggered: TriggeredEvent[] } {
+    const eventEncounters: { id: string; def: ReturnType<LoreVault['getEncounter']> }[] = [];
     const extraTriggered: TriggeredEvent[] = [];
 
     for (const t of triggered) {
@@ -2018,31 +2025,23 @@ export class GameController {
             extraTriggered.push(sub);
             // Recursively process sub-event so its grantQuestId / failQuestId / notification /
             // startEncounterId are all handled rather than silently dropped.
-            const { eventEncounter: subEncounter, extraTriggered: subExtra } =
+            const { eventEncounters: subEncounters, extraTriggered: subExtra } =
               this.processTriggeredEvents([sub]);
             extraTriggered.push(...subExtra);
-            if (subEncounter && !eventEncounter) eventEncounter = subEncounter;
+            eventEncounters.push(...subEncounters);
           }
         }
       }
       if (t.startEncounterId) {
-        if (!eventEncounter) {
-          eventEncounter = { id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) };
-          log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
-        } else if (!t.event.isRepeatable) {
-          // Non-repeatable event's encounter was dropped because another encounter already claimed
-          // the slot. Unset :fired so this event can trigger again on a subsequent turn instead
-          // of being permanently consumed without its encounter ever launching.
-          this.state.flags.unset(t.event.id + ':fired');
-          log.warn('Non-repeatable encounter dropped, unmarked as fired', { eventId: t.event.id });
-        }
+        eventEncounters.push({ id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) });
+        log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
       }
       if (t.notification) {
         showEventToast(t.event.name ?? t.event.id, t.notificationVariant ?? 'normal');
       }
     }
 
-    return { eventEncounter, extraTriggered };
+    return { eventEncounters, extraTriggered };
   }
 
   private async runDM(
@@ -2603,7 +2602,7 @@ export class GameController {
     const dlgTimeMinutes = rawTimeMinutes
       ? Math.round(rawTimeMinutes * this.getActionTimeCostMultiplier())
       : undefined;
-    let timeTriggeredEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
+    let timeTriggeredEncounters: { id: string; def: ReturnType<LoreVault['getEncounter']> }[] = [];
     if (dlgTimeMinutes) {
       const gs         = this.state.getState();
       const beforeTime = gs.time;  // snapshot before advanceTime replaces this.state.time
@@ -2628,12 +2627,12 @@ export class GameController {
         const locTriggered = eventsEnabled ? this.events.checkAndApply(gs.player.currentLocationId, crossedHours) : [];
         const timeTriggered = [...qfTriggered, ...glTriggered, ...locTriggered];
         if (timeTriggered.length > 0) {
-          const { eventEncounter, extraTriggered } = this.processTriggeredEvents(timeTriggered);
+          const { eventEncounters, extraTriggered } = this.processTriggeredEvents(timeTriggered);
           const allTimeTriggered = [...timeTriggered, ...extraTriggered];
           const timeEventCtx = this.buildSceneCtx(allTimeTriggered, periodChanged);
           await this.runEventDM(timeEventCtx, allTimeTriggered.some(t => t.notification) ? 'event' : 'narrative');
           this.flushAcquisitions();
-          timeTriggeredEncounter = eventEncounter;
+          timeTriggeredEncounters = eventEncounters;
         }
       }
     }
@@ -2661,12 +2660,12 @@ export class GameController {
 
     this.syncUIState(this.state.getState());
 
-    // Launch any encounter triggered by a time event during this dialogue turn.
-    // If dialogue hasn't ended naturally, force-close it first — the encounter takes priority
+    // Launch any encounters triggered by time events during this dialogue turn, sequentially.
+    // If dialogue hasn't ended naturally, force-close it first — encounters take priority
     // and cannot run concurrently with an active NPC conversation.
-    if (timeTriggeredEncounter) {
+    if (timeTriggeredEncounters.length > 0) {
       if (!shouldEnd) {
-        log.info('Dialogue interrupted by time-triggered encounter', { npcId, encounterId: timeTriggeredEncounter.id });
+        log.info('Dialogue interrupted by time-triggered encounter', { npcId, encounterId: timeTriggeredEncounters[0].id });
         activeNpcUI.set(null);
         encounterSessionLog.set([]);
         this._sessionFiredTriggers.clear();
@@ -2676,9 +2675,11 @@ export class GameController {
         );
         this.syncUIState(this.state.getState());
       }
-      await this.startAndRenderEncounter(timeTriggeredEncounter.id, timeTriggeredEncounter.def ?? undefined);
-      this.flushAcquisitions();
-      if (this.checkEndingConditions()) return;
+      for (const enc of timeTriggeredEncounters) {
+        await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
+        this.flushAcquisitions();
+        if (this.checkEndingConditions()) return;
+      }
       this.releaseInput();
       return;
     }
@@ -2735,15 +2736,15 @@ export class GameController {
       this.applyTimeAdvance(pending.timeAdvance);
       log.info('Time advanced by encounter choice', { minutes: pending.timeAdvance });
     }
-    let pendingFailEncounter: { id: string; def: ReturnType<LoreVault['getEncounter']> } | null = null;
+    let pendingFailEncounters: { id: string; def: ReturnType<LoreVault['getEncounter']> }[] = [];
     if (pending.questFail) {
       const failResult = this.quests.applyQuestFail(pending.questFail);
       log.info('Quest fail applied by encounter choice', { questId: pending.questFail });
       if (failResult.startEventId) {
         const sub = this.events.fireEventById(failResult.startEventId);
         if (sub) {
-          const { eventEncounter: failEnc } = this.processTriggeredEvents([sub]);
-          pendingFailEncounter = failEnc;
+          const { eventEncounters: failEncs } = this.processTriggeredEvents([sub]);
+          pendingFailEncounters = failEncs;
         }
       }
     }
@@ -2773,11 +2774,13 @@ export class GameController {
       await this.refreshThoughts(closeSuggestions);
     }
 
-    // Launch fail-event encounter after the current encounter fully concludes
-    if (pendingFailEncounter) {
-      await this.startAndRenderEncounter(pendingFailEncounter.id, pendingFailEncounter.def ?? undefined);
-      this.flushAcquisitions();
-      if (this.checkEndingConditions()) return;
+    // Launch fail-event encounters after the current encounter fully concludes
+    if (pendingFailEncounters.length > 0) {
+      for (const enc of pendingFailEncounters) {
+        await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
+        this.flushAcquisitions();
+        if (this.checkEndingConditions()) return;
+      }
       this.releaseInput();
       return;
     }
@@ -3469,7 +3472,7 @@ export class GameController {
     }
 
     if (propTriggered.length > 0) {
-      const { eventEncounter, extraTriggered } = this.processTriggeredEvents(propTriggered);
+      const { eventEncounters, extraTriggered } = this.processTriggeredEvents(propTriggered);
       const allPropEvents = [...propTriggered, ...extraTriggered];
 
       if (allPropEvents.length > 0) {
@@ -3478,9 +3481,11 @@ export class GameController {
         this.flushAcquisitions();
       }
 
-      if (eventEncounter) {
-        await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
-        this.flushAcquisitions();
+      if (eventEncounters.length > 0) {
+        for (const enc of eventEncounters) {
+          await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
+          this.flushAcquisitions();
+        }
         return null;
       }
 
@@ -4342,7 +4347,7 @@ export class GameController {
     pushLine(`[Debug] 強制觸發事件：${triggered.event.description ?? eventId}`, 'system');
 
     // Apply side effects recursively (handles failQuest -> startEventId chains, notifications, etc.)
-    const { eventEncounter: debugEncounter, extraTriggered: debugExtra } =
+    const { eventEncounters: debugEncounters, extraTriggered: debugExtra } =
       this.processTriggeredEvents([triggered]);
     const allDebugTriggered = [triggered, ...debugExtra];
 
@@ -4352,9 +4357,9 @@ export class GameController {
     await this.runEventDM(eventCtx, allDebugTriggered.some(t => t.notification) ? 'event' : 'narrative');
     this.flushAcquisitions();
 
-    // Launch encounter after narration completes (includes encounters from sub-event chains).
-    if (debugEncounter) {
-      await this.startAndRenderEncounter(debugEncounter.id, this.lore.getEncounter(debugEncounter.id) ?? undefined, true);
+    // Launch encounters after narration completes (includes encounters from sub-event chains).
+    for (const enc of debugEncounters) {
+      await this.startAndRenderEncounter(enc.id, this.lore.getEncounter(enc.id) ?? undefined, true);
       this.flushAcquisitions();
     }
 
@@ -4625,13 +4630,13 @@ export class GameController {
       const locTriggered = eventsEnabled ? this.events.checkAndApply(this.state.getState().player.currentLocationId, crossedHours) : [];
       const timeTriggered = [...qfTriggered, ...glTriggered, ...locTriggered];
       if (timeTriggered.length > 0) {
-        const { eventEncounter, extraTriggered } = this.processTriggeredEvents(timeTriggered);
+        const { eventEncounters, extraTriggered } = this.processTriggeredEvents(timeTriggered);
         const allTriggered = [...timeTriggered, ...extraTriggered];
         const eventCtx = this.buildSceneCtx(allTriggered);
         await this.runEventDM(eventCtx, allTriggered.some(t => t.notification) ? 'event' : 'narrative');
         this.flushAcquisitions();
-        if (eventEncounter) {
-          await this.startAndRenderEncounter(eventEncounter.id, eventEncounter.def ?? undefined);
+        for (const enc of eventEncounters) {
+          await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
           this.flushAcquisitions();
         }
       }
