@@ -61,6 +61,12 @@ export interface GameState {
    */
   eventCooldowns: Record<string, number>;
   eventCounters: Record<string, number>;
+  /**
+   * 嘗試遭遇的冷卻記錄。
+   * key = "fromLocationId→targetLocationId"（通道唯一鍵），value = 上次嘗試時的 totalMinutes。
+   * evaluateAccessCondition 用此判斷嘗試遭遇冷卻是否結束。
+   */
+  attemptCooldowns: Record<string, number>;
 }
 
 export type GamePhase =

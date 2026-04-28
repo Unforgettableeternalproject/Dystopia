@@ -48,6 +48,7 @@ function makeGameState(): GameState {
     timePeriod: 'rest',
     eventCooldowns: {},
     eventCounters: {},
+    attemptCooldowns: {},
   };
 }
 
@@ -311,12 +312,12 @@ describe('QuestEngine.checkObjectives() — 多階段', () => {
     expect(state.flags.has('s1_done')).toBe(true);
   });
 
-  it('第一階段完成後目標清單重置', () => {
+  it('第一階段完成後目標保留在 completedObjectiveIds（跨 stage 累積，供 UI 顯示刪除線）', () => {
     const { engine, state } = makeSetup([QUEST_TWOSTAGE]);
     engine.grantQuest('q_twostage');
     state.flags.set('flag_stage1');
     engine.checkObjectives();
-    expect(state.getState().activeQuests['q_twostage'].completedObjectiveIds).toHaveLength(0);
+    expect(state.getState().activeQuests['q_twostage'].completedObjectiveIds).toContain('obj1');
   });
 
   it('第二階段完成 — 任務完成，套用 rewards', () => {

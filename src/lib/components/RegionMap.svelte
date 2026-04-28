@@ -93,6 +93,8 @@
     fromId: string; toId: string;
     isLocked: boolean;
     hasBypass: boolean;
+    hasAttempt?: boolean;
+    attemptLabel?: string;
     lockedMessage?: string;
     bypassMessage?: string;
   }
@@ -107,6 +109,7 @@
         x1: from.x, y1: from.y, x2: to.x, y2: to.y,
         fromId: e.fromId, toId: e.toId,
         isLocked: e.isLocked, hasBypass: e.hasBypass,
+        hasAttempt: e.hasAttempt, attemptLabel: e.attemptLabel,
         lockedMessage: e.lockedMessage, bypassMessage: e.bypassMessage,
       });
     }
@@ -332,6 +335,7 @@
                     x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
                     class="a-edge"
                     class:a-edge-locked={e.isLocked}
+                    class:a-edge-attempt={e.hasAttempt}
                   />
 
                   <!-- Lock icon at edge midpoint -->
@@ -358,6 +362,19 @@
                         on:click|stopPropagation={() => {}}
                       >→{#if e.bypassMessage}<title>{e.bypassMessage}</title>{/if}</text>
                     {/if}
+
+                  <!-- Attempt indicator (✕!) -->
+                  {:else if e.hasAttempt}
+                    {@const mx = (e.x1 + e.x2) / 2}
+                    {@const my = (e.y1 + e.y2) / 2}
+                    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+                    <text x={mx} y={my} class="a-edge-lock-icon" text-anchor="middle" dominant-baseline="central"
+                      on:click|stopPropagation={() => {}}>✕</text>
+                    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+                    <text x={mx + 7} y={my} class="a-edge-attempt-icon" text-anchor="middle" dominant-baseline="central"
+                      on:click|stopPropagation={() => {}}>
+                      !{#if e.attemptLabel}<title>{e.attemptLabel}</title>{/if}
+                    </text>
                   {/if}
                 {/each}
                 {#each expandedGraph.nodes as area}
@@ -455,6 +472,7 @@
                 <div class="legend-divider"></div>
                 <div class="legend-row"><span class="legend-icon lg-lock">✕</span> 路徑限制</div>
                 <div class="legend-row"><span class="legend-icon lg-bypass">→</span> 可繞行</div>
+                <div class="legend-row"><span class="legend-icon lg-attempt">✕!</span> 可嘗試通行</div>
                 <div class="legend-row"><span class="legend-line lg-cross-area"></span> 跨地點路徑</div>
                 <div class="legend-hint">點擊地點查看詳情</div>
               {/if}
@@ -647,8 +665,10 @@
   /* ── Area elements ───────────────────── */
   .a-edge { stroke: #1e3545; stroke-width: 1.5; opacity: 0.5; }
   .a-edge-locked { opacity: 0.35; }
+  .a-edge-attempt { stroke: #c9a84c; stroke-dasharray: 3 3; opacity: 0.55; }
   .a-edge-lock-icon { font-size: 9px; fill: #d35f5f; opacity: 0.75; cursor: default; }
   .a-edge-bypass-arrow { font-size: 9px; fill: #8a7a40; opacity: 0.85; cursor: default; }
+  .a-edge-attempt-icon { font-size: 10px; font-weight: bold; fill: #c9a84c; opacity: 0.9; cursor: default; }
   .a-node { fill: #0e2233; stroke: #3a6878; stroke-width: 1.2; transition: stroke 0.12s, fill 0.12s; }
   .a-node:hover { stroke: #5a8a98; }
   .a-current { fill: var(--accent, #00c8e0); stroke: var(--accent, #00c8e0); filter: drop-shadow(0 0 4px var(--accent, #00c8e0)); }
@@ -676,6 +696,7 @@
   .legend-icon { width: 10px; flex-shrink: 0; text-align: center; font-size: 8px; line-height: 1; }
   .lg-lock { color: #d35f5f; }
   .lg-bypass { color: #8a7a40; }
+  .lg-attempt { color: #c9a84c; font-size: 7px; }
   .legend-line { width: 14px; height: 2px; flex-shrink: 0; border-radius: 1px; }
   .lg-cross-area { background: #8a7a40; opacity: 0.7; }
   .legend-hint { font-size: 7.5px; font-family: var(--font-mono, monospace); color: var(--text-dim, #445a68); opacity: 0.6; margin-top: 2px; font-style: italic; }

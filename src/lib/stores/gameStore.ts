@@ -181,6 +181,7 @@ export interface PlayerUIState {
   }>;
   totalActiveQuestCount?: number;
   conditions?:      Array<{ label: string; effectSummary?: string; removeCondition?: string }>;
+  knownIntels?:     Array<{ id: string; label: string; description: string; category: string }>;
   melphin?:         number;
   /** Structured data for the SVG mini-map (current area). */
   miniMap?:         MiniMapData;
@@ -215,6 +216,10 @@ export interface MiniMapEdge {
   isHidden:            boolean;
   lockedMessage?:      string;
   bypassMessage?:      string;
+  /** 封鎖但可嘗試通行（會觸發嘗試遭遇） */
+  hasAttempt?:         boolean;
+  /** 嘗試通道的標籤提示 */
+  attemptLabel?:       string;
 }
 
 export interface MiniMapData {
@@ -261,6 +266,9 @@ export interface RegionMapAreaEdge {
   hasBypass:       boolean;
   lockedMessage?:  string;
   bypassMessage?:  string;
+  /** 至少一條連線有嘗試遭遇時為 true */
+  hasAttempt?:     boolean;
+  attemptLabel?:   string;
 }
 
 export interface RegionMapData {
@@ -336,6 +344,8 @@ export interface ActiveScriptedDialogue {
   currentNodeId:      string;
   currentChoices:     ScriptedChoice[];  // filtered by flag conditions
   collectedNarrative: string;            // accumulated for history
+  /** When true, close the NPC panel after scripted dialogue ends instead of launching LLM opener. */
+  endAfterScript:     boolean;
 }
 
 export const activeScriptedDialogue = writable<ActiveScriptedDialogue | null>(null);
@@ -401,6 +411,15 @@ export const factionGraphOpen = writable(false);
 
 export const selfCheckOpen = writable(false);
 export const inventoryOpen = writable(false);
+
+// ── Self-check glow ────────────────────────────────────────────
+// 獲得情報時讓「自我視察」按鈕短暫發光
+export const selfCheckGlow = writable(false);
+
+export function triggerSelfCheckGlow(): void {
+  selfCheckGlow.set(true);
+  setTimeout(() => selfCheckGlow.set(false), 2500);
+}
 export const isSaving      = writable(false);
 
 // Quest detail modal — set to a quest summary to open, null to close

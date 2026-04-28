@@ -156,6 +156,7 @@
             class:edge-cross={e.kind === 'cross-area'}
             class:edge-remote={e.kind === 'remote-link'}
             class:edge-locked={e.isLocked}
+            class:edge-attempt={e.hasAttempt}
             class:edge-hidden={e.isHidden}
           />
 
@@ -181,6 +182,22 @@
                 transform="rotate({angle}, {mid.x + 7 * Math.cos(angle * Math.PI / 180)}, {mid.y + 7 * Math.sin(angle * Math.PI / 180)})"
               >→{#if e.bypassMessage}<title>{e.bypassMessage}</title>{/if}</text>
             {/if}
+
+          <!-- Attempt indicator (✕!) for attemptable edges -->
+          {:else if e.hasAttempt}
+            {@const mid = edgeMid(e)}
+            <text
+              x={mid.x} y={mid.y}
+              class="edge-lock-icon"
+              text-anchor="middle"
+              dominant-baseline="central"
+            >✕</text>
+            <text
+              x={mid.x + 6} y={mid.y}
+              class="edge-attempt-icon"
+              text-anchor="middle"
+              dominant-baseline="central"
+            >!{#if e.attemptLabel}<title>{e.attemptLabel}</title>{/if}</text>
           {/if}
         {/each}
 
@@ -302,6 +319,11 @@
   .edge-locked {
     opacity: 0.35;
   }
+  .edge-attempt {
+    stroke: #c9a84c;
+    stroke-dasharray: 3 3;
+    opacity: 0.55;
+  }
   /* Edge to a hidden node — invisible */
   .edge-hidden {
     opacity: 0 !important;
@@ -318,6 +340,13 @@
     font-size: 8px;
     fill: #8a7a40;
     opacity: 0.8;
+    cursor: default;
+  }
+  .edge-attempt-icon {
+    font-size: 9px;
+    font-weight: bold;
+    fill: #c9a84c;
+    opacity: 0.9;
     cursor: default;
   }
 

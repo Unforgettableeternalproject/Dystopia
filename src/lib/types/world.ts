@@ -189,7 +189,7 @@ export interface ConnectionBypass {
   /** 旗標表達式；evaluate 為 true 時繞過 access */
   flag?: string;
   /** 玩家持有其中任一情報 ID 即可繞過 */
-  knowledgeIds?: string[];
+  intelIds?: string[];
   /** 玩家持有其中任一物品即可繞過（與 ConnectionAccess.itemRequirements 的 AND 邏輯相反，此處為 OR） */
   itemRequirements?: ItemRequirement[];
   /**
@@ -228,7 +228,7 @@ export interface ConnectionAccess {
    */
   dateTimeConditions?: GameDateTimeCondition[];
   /** 玩家需擁有的情報 ID（knownIntelIds）；省略 = 無知識門檻 */
-  knowledgeIds?: string[];
+  intelIds?: string[];
   /**
    * 任務階段限制。陣列內為 OR — 玩家只要正在進行其中一個 questId+stageId 組合即開放。
    * 省略 = 無任務限制。
@@ -271,6 +271,25 @@ export interface ConnectionAccess {
    * 省略 = 不啟用繞過機制。
    */
   bypass?: ConnectionBypass;
+  /**
+   * 嘗試遭遇 ID。條件不滿足（且 bypass 也不通過）時，若設定此欄位，
+   * 通道不顯示為「封鎖」而是「可嘗試」——玩家選擇通行時進入該遭遇事件，
+   * 根據遭遇結果決定是否放行。
+   * 省略 = 條件不滿足時直接封鎖。
+   */
+  attemptEncounterId?: string;
+  /**
+   * 嘗試通道的地圖標籤提示。
+   * 例：「門禁中（可嘗試）」、「有守衛把守」
+   * 省略 = 使用預設提示「可嘗試通行」
+   */
+  attemptLabel?: string;
+  /**
+   * 嘗試遭遇的冷卻時間（遊戲內分鐘）。
+   * 遭遇結束後，此通道在冷卻期間內視為完全封鎖（不可再次嘗試）。
+   * 省略 = 無冷卻，隨時可再次嘗試。
+   */
+  attemptCooldownMinutes?: number;
 }
 
 export interface LocationConnection {
@@ -292,7 +311,7 @@ export interface LocationConnection {
    */
   mapVisible?: {
     /** 玩家需已知的情報 ID（AND 關係，全部知道才算通過） */
-    knowledgeIds?: string[];
+    intelIds?: string[];
     /** 旗標運算式；由 FlagSystem.evaluate 評估，true = 可見 */
     flags?: string;
   };

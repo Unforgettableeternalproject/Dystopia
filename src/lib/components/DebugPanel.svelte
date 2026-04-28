@@ -33,6 +33,9 @@
   let filter = '';
   let flagInput = '';
   let flagAction: 'set' | 'unset' = 'set';
+  let activeFlags: string[] = controller.getFlags();
+  let diagEventId = '';
+  let diagResult = '';
 
   // -- Player state tab --------------------------------------------------
   let targetYear   = 1498;
@@ -151,6 +154,7 @@
   function setTab(key: string) {
     activeTab = key as Tab;
     filter = '';
+    if (key === 'flag') activeFlags = controller.getFlags();
   }
 
   function applyFlag() {
@@ -158,6 +162,12 @@
     if (!f) return;
     if (flagAction === 'set') controller.debugSetFlag(f);
     else controller.debugUnsetFlag(f);
+    activeFlags = controller.getFlags();
+  }
+
+  function unsetFlag(f: string) {
+    controller.debugUnsetFlag(f);
+    activeFlags = controller.getFlags();
   }
 
   let resetting = false;
@@ -390,12 +400,43 @@
             </label>
             <button class="trigger-btn" on:click={applyFlag}>執行</button>
           </div>
-          <p class="flag-hint">也可以直接在遊戲的 debug route (/debug) 查看目前所有 active flags。</p>
           <div class="flag-row" style="margin-top:8px">
             <button class="trigger-btn secondary" style="width:100%" on:click={() => controller.debugInspectContext()}>
               印出當前場景 Context（探索模式）
             </button>
           </div>
+          <!-- 事件觸發診斷 -->
+          <div class="flag-list-header" style="margin-top:4px">事件觸發診斷</div>
+          <div class="flag-row">
+            <input
+              class="flag-input"
+              type="text"
+              placeholder="輸入事件 ID..."
+              bind:value={diagEventId}
+              on:keydown={e => { if (e.key === 'Enter') diagResult = controller.debugDiagnoseEvent(diagEventId.trim()); }}
+            />
+            <button class="trigger-btn" on:click={() => diagResult = controller.debugDiagnoseEvent(diagEventId.trim())}>診斷</button>
+          </div>
+          {#if diagResult}
+            <pre class="diag-result">{diagResult}</pre>
+          {/if}
+
+          <!-- 目前活躍旗標列表 -->
+          <div class="flag-list-header">
+            活躍旗標 ({activeFlags.length})
+          </div>
+          {#if activeFlags.length === 0}
+            <p class="flag-hint" style="margin:0">(目前無任何旗標)</p>
+          {:else}
+            <div class="flag-list">
+              {#each activeFlags as f (f)}
+                <div class="flag-list-row">
+                  <span class="flag-list-id">{f}</span>
+                  <button class="trigger-btn small" on:click={() => unsetFlag(f)}>清除</button>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
 
       {:else if activeTab === 'player'}
@@ -1125,6 +1166,50 @@
     color: var(--text-dim);
     margin: 0;
     line-height: 1.5;
+  }
+
+  .diag-result {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .flag-list-header {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  .flag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .flag-list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+  }
+
+  .flag-list-id {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-secondary);
+    word-break: break-all;
   }
 
   /* Player state tab */

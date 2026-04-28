@@ -125,7 +125,7 @@
     "  affinityChanges      — key = npcId",
     "  grantItems           — [{ itemId, variantId? }]",
     "  grantQuestId         — 授予任務 ID",
-    "  grantIntelId         — 授予情報 ID（加入 knownIntelIds，可用 knowledgeIds 條件查詢）",
+    "  grantIntelId         — 授予情報 ID（加入 knownIntelIds，可用 intelIds 條件查詢）",
     "  melphinChange        — 梅分變化（正 = 獲得，負 = 扣除）",
     "  failQuestId          — 觸發指定任務的 onFail 效果",
     "  advanceQuestStage    — 推進任務到指定階段 { questId, stageId }",

@@ -26,7 +26,8 @@ export type AcquisitionRecord =
   | { type: 'reputation';   factionId: string; delta: number }
   | { type: 'affinity';     npcId: string; delta: number }
   | { type: 'skillExp';     statKey: PrimaryStatKey; finalAmount: number; levelUps: number }
-  | { type: 'characterExp'; delta: number };
+  | { type: 'characterExp'; delta: number }
+  | { type: 'intel';        intelId: string };
 
 export class StateManager {
   private state: GameState;
@@ -421,8 +422,10 @@ export class StateManager {
    * This allows contextSnippets and other conditions to use `intel:<id>` syntax.
    */
   grantIntel(intelId: string): void {
+    const isNew = !this.state.player.knownIntelIds.includes(intelId);
     this.addKnownIntel(intelId);
     this.flags.set('intel:' + intelId);
+    if (isNew) this._acquisitions.push({ type: 'intel', intelId });
   }
 
   // ── NPC Memory ───────────────────────────────────────────────
@@ -599,7 +602,9 @@ export class StateManager {
     const instance = this.state.activeQuests[questId];
     if (instance) {
       instance.currentStageId = nextStageId;
-      instance.completedObjectiveIds = [];   // reset objectives for new stage
+      // completedObjectiveIds is intentionally NOT reset here so past-stage
+      // objectives remain visible (with strikethrough) in the quest detail UI.
+      // Repeatable quests use resetQuest() which does reset them.
       this.bus.emit(GameEvents.QUEST_STAGE_ADVANCED, { questId, nextStageId });
       this.notifyUpdate();
     }
@@ -779,6 +784,14 @@ export class StateManager {
 
   setEventCooldown(eventId: string, totalMinutes: number): void {
     this.state.eventCooldowns[eventId] = totalMinutes;
+  }
+
+  setAttemptCooldown(connectionKey: string, totalMinutes: number): void {
+    this.state.attemptCooldowns[connectionKey] = totalMinutes;
+  }
+
+  getAttemptCooldown(connectionKey: string): number | undefined {
+    return this.state.attemptCooldowns[connectionKey];
   }
 
   getEventCounter(counterId: string): number {

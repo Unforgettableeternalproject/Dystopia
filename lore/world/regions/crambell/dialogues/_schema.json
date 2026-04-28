@@ -37,7 +37,7 @@
 
           "_pre_conditions": "All pre-conditions are evaluated BEFORE the choice is shown. Hidden if any fail.",
           "condition": "flag_expression — choice hidden if false. Supports &, |, ! operators.",
-          "knowledgeIds": ["intel_id_1", "intel_id_2"],
+          "intelIds": ["intel_id_1", "intel_id_2"],
           "itemRequirements": [{ "itemId": "transit_permit", "variantId": "delth" }],
           "minMelphin": 10,
           "minReputation": { "crambell_government": 10 },
@@ -67,7 +67,7 @@
             "flagsUnset": ["flag_to_remove"],
             "attitude": "friendly | neutral | cautious | hostile",
 
-            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds and can be checked via knowledgeIds conditions.",
+            "_knowledge": "Grant intel to player. Each id is added to knownIntelIds and can be checked via intelIds conditions.",
             "grantIntel": ["intel_id_1", "intel_id_2"],
 
             "_quest_init": "Quest lifecycle effects.",
@@ -100,6 +100,12 @@
       "nodeId": "another_node",
       "condition": "some_flag & !other_flag",
       "probability": 40
+    },
+    {
+      "_note": "endAfterScript: true — close NPC panel after scripted dialogue ends instead of launching LLM opener. Use for 'blocked / not available now' gates where continuing to free conversation would be jarring.",
+      "nodeId": "day_blocked_node",
+      "endAfterScript": true,
+      "timeRanges": [{ "startHour": 6, "startMinute": 0, "endHour": 21, "endMinute": 59 }]
     }
   ],
 

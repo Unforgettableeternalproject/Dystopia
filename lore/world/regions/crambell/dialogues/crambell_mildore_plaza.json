@@ -290,6 +290,7 @@
   "triggers": [
     {
       "nodeId": "day_guard",
+      "endAfterScript": true,
       "timeRanges": [
         { "startHour": 6, "startMinute": 0, "endHour": 21, "endMinute": 59 }
       ]
@@ -303,8 +304,8 @@
     },
     {
       "nodeId": "first_meeting",
-      "firstMeetingOnly": true,
       "condition": "!crambell_mildore_talked_once",
+      "endAfterScript": true,
       "timeRanges": [
         { "startHour": 22, "startMinute": 0, "endHour": 5, "endMinute": 59 }
       ]

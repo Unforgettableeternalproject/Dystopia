@@ -332,6 +332,24 @@ export class EncounterEngine {
    * stat check 節點會遞迴解析到下一個非 check 節點為止。
    */
   private resolveNode(def: EncounterDefinition, node: EncounterNode): ResolvedNode {
+    // Weighted branch: pick a random destination by weight
+    if (node.weightedBranch?.length) {
+      const totalWeight = node.weightedBranch.reduce((s, b) => s + b.weight, 0);
+      let roll = Math.random() * totalWeight;
+      let picked = node.weightedBranch[0];
+      for (const branch of node.weightedBranch) {
+        roll -= branch.weight;
+        if (roll <= 0) { picked = branch; break; }
+      }
+      log.debug('Weighted branch', { nodeId: node.id, picked: picked.nodeId, totalWeight });
+      const nextNode = def.nodes?.[picked.nodeId];
+      if (!nextNode) {
+        log.warn('Missing weighted branch target node', { nodeId: picked.nodeId });
+        return { node, visibleChoices: [], isOutcome: true };
+      }
+      return this.resolveNode(def, nextNode);
+    }
+
     // Stat check: resolve automatically using DiceEngine
     if (node.statCheck) {
       const gs       = this.state.getState();

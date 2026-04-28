@@ -81,6 +81,7 @@ function makeState(): GameState {
     timePeriod: 'work',
     eventCooldowns: {},
     eventCounters: {},
+    attemptCooldowns: {},
   };
 }
 
@@ -140,6 +141,7 @@ function resolveChoice(
   if (questGrantAllowed && pending.questGrant) quests.grantQuest(pending.questGrant);
   if (pending.questFail)  quests.applyQuestFail(pending.questFail);
   if (pending.outcomeType !== undefined) encounters.conclude(pending.outcomeType);
+  quests.checkObjectives();
 
   return { resolved: resolved!, pending };
 }

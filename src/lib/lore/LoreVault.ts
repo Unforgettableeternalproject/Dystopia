@@ -13,6 +13,7 @@ import type {
 } from '../types';
 import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
+import type { IntelEntry } from '../types/intel';
 import type { EncounterDefinition } from '../types/encounter';
 import type { GameTime } from '../types/game';
 import { FlagRegistry } from '../engine/FlagRegistry';
@@ -41,13 +42,14 @@ interface LoreData {
   items:         Record<string, ItemNode>;
   conditions:    Record<string, ConditionDefinition>;
   props:         Record<string, PropNode>;
+  intels:        Record<string, IntelEntry>;
 }
 
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {}, factionGraphs: {},
     dialogues: {}, quests: {}, encounters: {}, phases: [], regions: {}, districts: {}, schedules: {},
-    flagManifest: [], items: {}, conditions: {}, props: {},
+    flagManifest: [], items: {}, conditions: {}, props: {}, intels: {},
   };
 
   /** Singleton FlagRegistry built lazily from loaded flagManifest entries. */
@@ -78,6 +80,7 @@ export class LoreVault {
     if (data.encounters)   Object.assign(this.data.encounters,  data.encounters);
     if (data.conditions)   Object.assign(this.data.conditions,  data.conditions);
     if (data.props)        Object.assign(this.data.props,       data.props);
+    if (data.intels)       Object.assign(this.data.intels,      data.intels);
   }
 
   /**
@@ -235,8 +238,8 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
-  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number>; attemptCooldowns?: Record<string, number>; connectionKey?: string },
+  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number; attemptEncounterId?: string; attemptLabel?: string } {
     if (!a) return { allowed: true };
 
     // ── Normal access check (AND) ──────────────────────────────────
@@ -245,7 +248,7 @@ export class LoreVault {
       (!a.timePeriods?.length || a.timePeriods.includes(timePeriod)) &&
       checkTimeRanges(a.timeRanges, gameTime) &&
       checkDateTimeConditions(a.dateTimeConditions, gameTime) &&
-      (!a.knowledgeIds?.length || a.knowledgeIds.every(id => knownIntelIds.includes(id))) &&
+      (!a.intelIds?.length || a.intelIds.every(id => knownIntelIds.includes(id))) &&
       (!a.questStages?.length || a.questStages.some(qs =>
         activeQuests?.some(qi => qi.questId === qs.questId && qi.currentStageId === qs.stageId)
       )) &&
@@ -294,7 +297,7 @@ export class LoreVault {
       const b = a.bypass;
       const bypassGranted =
         (b.flag !== undefined && flags.evaluate(b.flag)) ||
-        (b.knowledgeIds?.some(id => knownIntelIds.includes(id)) ?? false) ||
+        (b.intelIds?.some(id => knownIntelIds.includes(id)) ?? false) ||
         (b.itemRequirements?.some(req =>
           (inventory ?? []).some(i =>
             i.itemId === req.itemId &&
@@ -305,6 +308,18 @@ export class LoreVault {
       if (bypassGranted) {
         return { allowed: true, wasBypass: true, bypassMessage: b.bypassMessage, timePenalty: b.timePenaltyMinutes };
       }
+    }
+
+    // ── Attempt encounter — blocked but player can try ─────────────
+    if (a.attemptEncounterId) {
+      // Check cooldown: if still on cooldown, treat as fully locked
+      if (a.attemptCooldownMinutes && extraCtx?.connectionKey && extraCtx.attemptCooldowns && gameTime) {
+        const lastAttempt = extraCtx.attemptCooldowns[extraCtx.connectionKey];
+        if (lastAttempt !== undefined && (gameTime.totalMinutes - lastAttempt) < a.attemptCooldownMinutes) {
+          return { allowed: false };
+        }
+      }
+      return { allowed: false, attemptEncounterId: a.attemptEncounterId, attemptLabel: a.attemptLabel };
     }
 
     return { allowed: false };
@@ -322,7 +337,7 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number>; attemptCooldowns?: Record<string, number>; connectionKey?: string },
   ): boolean {
     return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx).allowed;
   }
@@ -341,8 +356,8 @@ export class LoreVault {
     gameTime?: GameTime,
     inventory?: InventoryItem[],
     melphin?: number,
-    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number> },
-  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number } {
+    extraCtx?: { reputation?: Record<string, number>; affinity?: Record<string, number>; attemptCooldowns?: Record<string, number>; connectionKey?: string },
+  ): { allowed: boolean; wasBypass?: boolean; bypassMessage?: string; timePenalty?: number; attemptEncounterId?: string; attemptLabel?: string } {
     return this.evaluateAccessCondition(conn.access, flags, timePeriod, knownIntelIds, activeQuests, gameTime, inventory, melphin, extraCtx);
   }
 
@@ -780,6 +795,16 @@ export class LoreVault {
     return Object.values(this.data.conditions);
   }
 
+  // -- Intel -----------------------------------------------------------
+
+  getIntel(id: string): IntelEntry | undefined {
+    return this.data.intels[id];
+  }
+
+  getIntelList(ids: string[]): IntelEntry[] {
+    return ids.map(id => this.data.intels[id]).filter(Boolean) as IntelEntry[];
+  }
+
   // -- Encounters ------------------------------------------------------
 
   getEncounter(id: string): EncounterDefinition | undefined {
@@ -839,7 +864,7 @@ export class LoreVault {
           const reqs: string[] = [];
           if (c.access.timePeriods?.length) reqs.push('time: ' + c.access.timePeriods.join('/'));
           if (c.access.flag)                reqs.push('flag: ' + c.access.flag);
-          if (c.access.knowledgeIds?.length) reqs.push('knowledge: ' + c.access.knowledgeIds.join(', '));
+          if (c.access.intelIds?.length) reqs.push('knowledge: ' + c.access.intelIds.join(', '));
           if (c.access.itemRequirements?.length) {
             const itemDescs = c.access.itemRequirements.map(r => r.itemId + (r.variantId ? ':' + r.variantId : ''));
             reqs.push('item: ' + itemDescs.join(', '));
@@ -850,7 +875,10 @@ export class LoreVault {
           // Show lock/bypass status when access context is provided
           if (accessCtx) {
             const result = this.getConnectionAccessResult(c, flags, accessCtx.timePeriod, accessCtx.knownIntelIds, accessCtx.activeQuests, accessCtx.gameTime, accessCtx.inventory, accessCtx.melphin, { reputation: accessCtx.reputation, affinity: accessCtx.affinity });
-            if (!result.allowed) {
+            if (!result.allowed && result.attemptEncounterId) {
+              const label = result.attemptLabel ?? '可嘗試通行';
+              parts.push('[ATTEMPT: ' + label + ' | encounter: ' + result.attemptEncounterId + ']');
+            } else if (!result.allowed) {
               const msg = c.access.lockedMessage ?? '此通道目前無法通行';
               parts.push('[LOCKED: ' + msg + ']');
             } else if (result.wasBypass || result.bypassMessage || result.timePenalty !== undefined) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, storyTypingActive, isSaving } from '$lib/stores/gameStore';
+  import { isStreaming, inputDisabled, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeNpcUI, activeEncounterUI, storyTypingActive, isSaving, selfCheckGlow } from '$lib/stores/gameStore';
 
   $: inScriptedDialogue = $activeScriptedDialogue !== null;
   $: inEncounter        = $activeNpcUI !== null;
@@ -35,6 +35,7 @@
     title="自我視察"
     aria-label="自我視察"
     class:active={$selfCheckOpen}
+    class:glow={$selfCheckGlow}
   >
     自我<br/>視察
   </button>
@@ -152,6 +153,15 @@
   .side-btn.active {
     background: var(--bg-tertiary);
     color: var(--accent);
+  }
+
+  .self-btn.glow {
+    animation: selfGlow 0.6s ease-in-out 4;
+  }
+
+  @keyframes selfGlow {
+    0%, 100% { color: var(--text-dim); background: none; }
+    50%       { color: var(--accent-blue, #4a7aaa); background: color-mix(in srgb, var(--accent-blue, #4a7aaa) 12%, transparent); }
   }
 
   /* Input area */

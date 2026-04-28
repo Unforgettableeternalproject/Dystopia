@@ -16,7 +16,10 @@
           "timeRanges": [
             { "startHour": 4, "startMinute": 0, "endHour": 22, "endMinute": 59 }
           ],
-          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。"
+          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。",
+          "attemptEncounterId": "crambell_enc_dormitory_curfew",
+          "attemptLabel": "門禁中（可嘗試闖入）",
+          "attemptCooldownMinutes": 1440
         }
       },
       {
@@ -27,7 +30,7 @@
         "targetLocationId": "delth_south_ground",
         "description": "前往南方空地",
         "access": {
-          "knowledgeIds": ["crambell_south_ground_access"],
+          "intelIds": ["crambell_south_ground_access"],
           "lockedMessage": "南方空地被鐵柵欄圍起來，沒有明顯的入口。"
         }
       },
@@ -35,10 +38,10 @@
         "targetLocationId": "delth_warehouse",
         "description": "前往經濟資源倉庫",
         "access": {
-          "knowledgeIds": ["crambell_warehouse_access"],
+          "intelIds": ["crambell_warehouse_access"],
           "lockedMessage": "西邊的建築很多，但你從來不知道那些是為什麼而建的。",
           "bypass": {
-            "knowledgeIds": ["crambell_warehouse_secret"],
+            "intelIds": ["crambell_warehouse_secret"],
             "bypassMessage": "你無法用正當手段進入，所幸你知道在邊緣森林裡有個秘密入口可以通往倉庫。"
           }
         }
@@ -57,7 +60,7 @@
         }
       }
     ],
-    "npcIds": ["crambell_mildore"],
+    "npcIds": ["crambell_mildore", "crambell_kane"],
     "eventIds": ["crambell_patrol_delth", "crambell_public_punishment", "crambell_permit_check", "crambell_survey", "crambell_kach_second_meeting_unlock", "crambell_kane_offer"],
     "propIds": ["delth_patrol_zone_broadcast_pole", "delth_patrol_zone_detention_rack"],
     "isAccessible": true

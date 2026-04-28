@@ -58,6 +58,7 @@ function makeState(): GameState {
     timePeriod: 'work',
     eventCooldowns: {},
     eventCounters: {},
+    attemptCooldowns: {},
   };
 }
 

@@ -16,7 +16,10 @@
           "timeRanges": [
             { "startHour": 4, "startMinute": 0, "endHour": 22, "endMinute": 59 }
           ],
-          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。"
+          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。",
+          "attemptEncounterId": "crambell_enc_dormitory_curfew",
+          "attemptLabel": "門禁中（可嘗試闖入）",
+          "attemptCooldownMinutes": 1440
         }
       },
       {
@@ -31,7 +34,7 @@
           "timePeriods": ["work"],
           "lockedMessage": "礦坑入口在休息時段鎖閉",
           "bypass": {
-            "knowledgeIds": ["crambell_mine_storage_access"],
+            "intelIds": ["crambell_mine_storage_access"],
             "bypassMessage": "你知道怎麼透過儲藏室的小路偷溜進礦區。"
           }
         }
@@ -40,7 +43,7 @@
         "targetLocationId": "delth_mine_storage",
         "description": "進入礦坑儲藏室的路",
         "access": {
-          "knowledgeIds": ["crambell_mine_storage_access"],
+          "intelIds": ["crambell_mine_storage_access"],
           "lockedMessage": "遠處的建築有很多人在走動著，沒有理由最好不要隨便過去。"
         }
       }

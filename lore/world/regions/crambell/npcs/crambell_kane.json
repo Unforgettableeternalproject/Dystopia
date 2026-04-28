@@ -1,7 +1,7 @@
 {
   "id": "crambell_kane",
   "name": "凱恩·梅西斯",
-  "defaultLocationId": "delth_mining_shafts",
+  "defaultLocationId": "delth_patrol_zone",
   "factionId": "crambell_government",
   "publicDescription": "負責第三到第四象限治安的地區警監（內勤2★），高挑，面容嚴肅，制服永遠整潔。對違規者沒有同情心，對反抗政府的人認為那不過是找死。一般會叼著一根菸。",
   "secretLayers": [
@@ -25,6 +25,24 @@
     }
   ],
   "dialogueId": "crambell_kane_default",
+  "schedule": [
+    {
+      "id": "work_schedule",
+      "label": "工作時間的固定位置",
+      "condition": null,
+      "locationId": "delth_patrol_zone",
+      "priority": 10,
+      "timePeriods": ["work"]
+    },
+    {
+      "id": "rest_schedule",
+      "label": "休息時間的固定位置",
+      "condition": null,
+      "locationId": "delth_south_ground",
+      "priority": 10,
+      "timePeriods": ["rest"]
+    }
+  ],
   "dialogueRules": [
     {
       "id": "rule_allied",

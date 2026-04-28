@@ -36,7 +36,7 @@
             "targetLocationId": "delth_mine_storage",
             "description": "前往礦場倉庫",
             "access": {
-              "knowledgeIds": ["crambell_mine_storage_access"],
+              "intelIds": ["crambell_mine_storage_access"],
               "lockedMessage": "你看到遠方有幾棟不太一樣的建築，但是沒有理由過去的話可能會引起不必要的麻煩。"
             }
           }
@@ -64,7 +64,7 @@
             "targetLocationId": "delth_mine_storage",
             "description": "前往礦場倉庫",
             "access": {
-              "knowledgeIds": ["crambell_mine_storage_access"],
+              "intelIds": ["crambell_mine_storage_access"],
               "lockedMessage": "你看到遠方有幾棟不太一樣的建築，但是沒有理由過去的話可能會引起不必要的麻煩。"
             }
           }

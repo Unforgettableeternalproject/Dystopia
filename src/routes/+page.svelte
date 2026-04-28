@@ -47,6 +47,26 @@
   let debugPanelOpen = false;
   $: if (!$isDebugMode) debugPanelOpen = false;
 
+  async function openLoreEditorWindow() {
+    const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+    if (isTauri) {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const existing = await WebviewWindow.getByLabel('lore-editor');
+      if (existing) { await existing.setFocus(); return; }
+      new WebviewWindow('lore-editor', {
+        url: '/lore',
+        title: 'Lore Editor',
+        width: 1280,
+        height: 800,
+        resizable: true,
+        decorations: true,
+      });
+    } else {
+      const win = window.open('/lore', 'lore_editor', 'width=1280,height=800,resizable=yes');
+      win?.focus();
+    }
+  }
+
   // Quest banner lifecycle is managed by enqueueQuestBanner() in gameStore — no timer needed here.
 
   // 偵測 activeEncounterUI 變化，若有 statCheckResult 則觸發判定 overlay
@@ -285,6 +305,7 @@
   // ── Save slot management ──────────────────────────────────────
 
   let deleteConfirmSlot: number | null = null;
+  let overwriteConfirmSlot: number | null = null;
 
   const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -468,6 +489,23 @@
   <DebugPanel {controller} onClose={() => { debugPanelOpen = false; }} />
 {/if}
 
+<!-- Dev-mode corner buttons -->
+{#if $gamePhase === 'playing' && $isDebugMode}
+  <div class="dev-corner">
+    <button
+      class="dev-corner-btn"
+      class:active={debugPanelOpen}
+      on:click={() => { debugPanelOpen = !debugPanelOpen; }}
+      title="除錯面板 (Ctrl+Shift+D)"
+    >除錯</button>
+    <button
+      class="dev-corner-btn lore-btn"
+      on:click={openLoreEditorWindow}
+      title="開啟 Lore Editor"
+    >編輯器</button>
+  </div>
+{/if}
+
 <!-- In-game load menu overlay -->
 {#if loadMenuOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -519,21 +557,31 @@
 {#if saveMenuOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="load-backdrop" transition:fade={{ duration: 150 }} on:click={() => saveMenuOpen = false}>
+  <div class="load-backdrop" transition:fade={{ duration: 150 }} on:click={() => { saveMenuOpen = false; overwriteConfirmSlot = null; }}>
     <div class="load-panel" transition:fly={{ y: -8, duration: 180, easing: cubicOut }} on:click|stopPropagation>
       <div class="load-header">
         <span class="load-title">選擇存檔槽位</span>
-        <button class="load-close" on:click={() => saveMenuOpen = false}>✕</button>
+        <button class="load-close" on:click={() => { saveMenuOpen = false; overwriteConfirmSlot = null; }}>✕</button>
       </div>
       {#each saveSlots.slice(1) as slot, i}
         {@const slotId = i + 1}
-        <button class="save-slot" on:click={() => handleSaveToSlot(slotId)}>
-          <span class="ls-label">{slot?.label ?? '存檔 ' + slotId}{slot ? '' : ' — 空'}</span>
-          {#if slot}
-            <span class="ls-loc">{slot.locationName}</span>
-            <span class="ls-time">{slot.worldTime}</span>
-          {/if}
-        </button>
+        {#if overwriteConfirmSlot === slotId}
+          <div class="save-slot save-slot-confirm">
+            <span class="ls-confirm-text">覆蓋「{slot?.label ?? '存檔 ' + slotId}」？</span>
+            <div class="ls-actions">
+              <button class="ls-action-btn danger" on:click={() => { overwriteConfirmSlot = null; handleSaveToSlot(slotId); }}>確定</button>
+              <button class="ls-action-btn" on:click={() => overwriteConfirmSlot = null}>取消</button>
+            </div>
+          </div>
+        {:else}
+          <button class="save-slot" on:click={() => slot ? (overwriteConfirmSlot = slotId) : handleSaveToSlot(slotId)}>
+            <span class="ls-label">{slot?.label ?? '存檔 ' + slotId}{slot ? '' : ' — 空'}</span>
+            {#if slot}
+              <span class="ls-loc">{slot.locationName}</span>
+              <span class="ls-time">{slot.worldTime}</span>
+            {/if}
+          </button>
+        {/if}
       {/each}
     </div>
   </div>
@@ -839,6 +887,15 @@
 
   .save-slot:hover { background: var(--bg-tertiary); }
 
+  .save-slot-confirm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--accent-red, #c0392b) 6%, transparent);
+  }
+
   /* Close confirmation — above TitleScreen (z-index 200) */
   .close-backdrop {
     position: fixed;
@@ -946,5 +1003,47 @@
   @keyframes bannerIn {
     from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
     to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  /* ── Dev corner buttons ──────────────────────────── */
+  .dev-corner {
+    position: fixed;
+    bottom: calc(var(--bottom-bar-h) + 8px);
+    right: 8px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dev-corner-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-accent);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    white-space: nowrap;
+  }
+
+  .dev-corner-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
+  .dev-corner-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
+  .dev-corner-btn.lore-btn:hover {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
   }
 </style>

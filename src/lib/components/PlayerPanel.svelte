@@ -52,7 +52,7 @@
     melphinPopupOpen = true;
   }
 
-  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; }
+  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; activeIntelPopup = null; }
 </script>
 
 <svelte:window on:click={closeStatPopup} />
@@ -169,15 +169,27 @@
       <div class="section-label">任務</div>
       {#if $playerUI.activeQuestSummaries}
         {#each $playerUI.activeQuestSummaries as q}
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div class="quest-row" on:click={() => questDetailOpen.set(q)}>
-            <div class="quest-name">
-              <span class="quest-type-badge quest-type-{q.type}">{q.type === 'main' ? '主' : q.type === 'side' ? '支' : '隱'}</span>
-              {q.name}
+          {@const flash = $questOutcomeFlash.find(f => f.questId === q.questId)}
+          {#if flash}
+            <!-- In-place flash: renders where the quest originally was, then fades out -->
+            <div class="quest-row quest-outcome-flash quest-outcome-{flash.outcome}">
+              <div class="quest-name">
+                <span class="quest-type-badge quest-type-{flash.type}">{flash.type === 'main' ? '主' : flash.type === 'side' ? '支' : '隱'}</span>
+                {flash.name}
+              </div>
+              <div class="quest-stage">{flash.outcome === 'completed' ? '已完成' : '已失敗'}</div>
             </div>
-            <div class="quest-stage">{q.stageSummary}</div>
-          </div>
+          {:else}
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <div class="quest-row" on:click={() => questDetailOpen.set(q)}>
+              <div class="quest-name">
+                <span class="quest-type-badge quest-type-{q.type}">{q.type === 'main' ? '主' : q.type === 'side' ? '支' : '隱'}</span>
+                {q.name}
+              </div>
+              <div class="quest-stage">{q.stageSummary}</div>
+            </div>
+          {/if}
         {/each}
       {/if}
       {#if ($playerUI.totalActiveQuestCount ?? 0) > 3}
@@ -187,7 +199,8 @@
           查看全部 {$playerUI.totalActiveQuestCount} 個任務 ▸
         </div>
       {/if}
-      {#each $questOutcomeFlash as flash (flash.questId + flash.outcome)}
+      {#each $questOutcomeFlash.filter(f => !$playerUI.activeQuestSummaries?.some(q => q.questId === f.questId)) as flash (flash.questId + flash.outcome)}
+        <!-- Orphan flashes: quest was not in the visible top-3 list -->
         <div class="quest-row quest-outcome-flash quest-outcome-{flash.outcome}">
           <div class="quest-name">
             <span class="quest-type-badge quest-type-{flash.type}">{flash.type === 'main' ? '主' : flash.type === 'side' ? '支' : '隱'}</span>
