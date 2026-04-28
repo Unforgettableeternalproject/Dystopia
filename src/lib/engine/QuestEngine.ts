@@ -303,6 +303,10 @@ export class QuestEngine {
     for (const obj of toEvaluate) {
       if (this.evaluateObjective(obj, gs, instance)) {
         this.state.completeObjective(questId, obj.id);
+        // Consume the required item unless explicitly marked notConsumed
+        if (obj.type === 'item_collect' && obj.itemId && !obj.notConsumed) {
+          this.state.revokeItem(obj.itemId);
+        }
       }
     }
 

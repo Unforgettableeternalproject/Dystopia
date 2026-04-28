@@ -59,6 +59,12 @@ export interface ChoiceEffects {
    * item hand-offs, or any dialogue that consumes held items.
    */
   revokeItems?: ItemRequirement[];
+
+  /**
+   * 出賣（Ditch）指定任務。觸發 QuestEngine.ditchQuest()，
+   * 套用任務定義中的 ditchConsequences（聲望、好感、旗標等）。
+   */
+  ditchQuestId?: string;
 }
 
 /**

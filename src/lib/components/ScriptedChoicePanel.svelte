@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeScriptedDialogue } from '$lib/stores/gameStore';
+  import { activeScriptedDialogue, isStreaming } from '$lib/stores/gameStore';
 
   export let onSelect: (choiceId: string) => void;
 </script>
@@ -17,6 +17,7 @@
       {#each dialogue.currentChoices as choice (choice.id)}
         <button
           class="choice-btn"
+          disabled={$isStreaming}
           on:click={() => onSelect(choice.id)}
         >
           {choice.text}

@@ -43,6 +43,11 @@ export interface QuestObjective {
   npcId?: string;
   // item_collect
   itemId?: string;
+  /**
+   * item_collect 目標完成時是否不消耗物品。
+   * 預設消耗（undefined / false）；設為 true 時僅檢查持有、不從物品欄移除。
+   */
+  notConsumed?: boolean;
   // reputation
   factionId?: string;
   minReputation?: number;

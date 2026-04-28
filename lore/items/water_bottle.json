@@ -9,20 +9,9 @@
   "maxStack": 2,
   "maxUsesPerInstance": 1,
   "effect": {
-    "applyCondition": {
-      "id": "hydrated",
-      "label": "水分充足",
-      "description": "角色感到精神煥發，體力回復速度提升。",
-      "durationTurns": 10,
-      "statModifiers": {
-        "strength": 0,
-        "knowledge": 0,
-        "talent": 0,
-        "spirit": 0,
-        "luck": 0
-      },
-      "isHidden": false
-    },
-    "removeConditionIds": ["dehydrated"]
+    "applyConditionId": "hydrated",
+    "applyConditionDurationTurns": 10,
+    "removeConditionIds": ["dehydrated"],
+    "yieldsItemId": "empty_bottle"
   }
 }

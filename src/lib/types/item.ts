@@ -68,6 +68,11 @@ export interface ConsumableEffect {
    * 陣列內所有條件同時移除。
    */
   removeConditionIds?: string[];
+  /**
+   * 使用後產生的物品 ID（如水瓶→空瓶）。
+   * 引擎在消耗此物品後會自動將 yieldsItemId 加入玩家物品欄。
+   */
+  yieldsItemId?: string;
   /** 使用後設置的旗標 */
   flagsSet?: string[];
   /** 使用後清除的旗標 */

@@ -40,6 +40,7 @@ export interface SaveSnapshot {
   eventCooldowns:       Record<string, number>;
   eventCounters:        Record<string, number>;
   attemptCooldowns?:    Record<string, number>;
+  propFlags?:           Record<string, string[]>;
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -78,6 +79,7 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     eventCooldowns:   gs.eventCooldowns,
     eventCounters:    gs.eventCounters,
     attemptCooldowns: gs.attemptCooldowns,
+    propFlags:        gs.propFlags,
   };
 
   const json       = JSON.stringify(snapshot);
@@ -159,6 +161,7 @@ export async function decode(code: string): Promise<DecodeResult> {
     eventCooldowns:   snapshot.eventCooldowns   ?? {},
     eventCounters:    snapshot.eventCounters    ?? {},
     attemptCooldowns: snapshot.attemptCooldowns ?? {},
+    propFlags:        snapshot.propFlags        ?? {},
   };
 
   return { snapshot, state, flags: snapshot.flags };

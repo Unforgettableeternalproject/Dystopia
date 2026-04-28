@@ -39,6 +39,7 @@ function makeState(): GameState {
     npcMemory: {},
     time: { year: 1498, month: 6, day: 12, hour: 21, minute: 23, totalMinutes: 100 },
     timePeriod: 'rest', eventCooldowns: {}, eventCounters: {}, attemptCooldowns: {},
+    propFlags: {},
   };
 }
 

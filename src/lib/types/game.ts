@@ -43,6 +43,12 @@ export interface GameState {
   completedQuestIds: string[];
   /** 每個 NPC 的互動記憶 Record<npcId, NPCMemoryEntry> */
   npcMemory: Record<string, NPCMemoryEntry>;
+  /**
+   * 每個 Prop 的本地旗標 Record<propId, flagId[]>。
+   * 只對該 Prop 有意義（類似 NPC 本地旗標），不汙染全域旗標命名空間。
+   * 主要用於 PropItemGrant.onceFlag 與 dailyResetFlags，由引擎自動管理。
+   */
+  propFlags: Record<string, string[]>;
   /** 當前進行中的對話；undefined 表示非對話狀態 */
   activeDialogue?: ActiveDialogueState;
   /**

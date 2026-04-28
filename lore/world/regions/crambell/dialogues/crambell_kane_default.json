@@ -151,7 +151,8 @@
           "nextNodeId": null,
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
-            "affinity": 2
+            "affinity": 2,
+            "ditchQuestId": "crambell_kach_test1"
           }
         }
       ]

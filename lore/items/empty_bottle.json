@@ -8,7 +8,5 @@
   "stackable": true,
   "maxStack": 2,
   "maxUsesPerInstance": 1,
-  "effect": {
-    "fallbackDescription": "空瓶沒有什麼用處，除非你找到水來裝它。"
-  }
+  "fallbackDescription": "空瓶沒有什麼用處，除非你找到水來裝它。"
 }

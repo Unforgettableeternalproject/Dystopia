@@ -127,6 +127,24 @@ export class GameController {
   /** Scripted trigger nodeIds that have already fired in the current NPC encounter session. */
   private _sessionFiredTriggers = new Set<string>();
 
+  /** Guard against double-firing endScriptedDialogue via setTimeout race. */
+  private _pendingAutoEnd: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Once a scripted node has fired in the current encounter session,
+   * suppress all further scripted trigger checks for the remainder of the session.
+   * Reset when the encounter session ends (NPC panel closes or NPC changes).
+   */
+  private _scriptedFiredThisSession = false;
+
+  /**
+   * Sequential encounter queue.
+   * All encounter-spawning paths push here; selectEncounterChoice / selectEncounterStoryAdvance
+   * drain it automatically when the current encounter concludes.
+   * Maintains FIFO order with one exception: fail encounters are unshifted to the front.
+   */
+  private _encounterQueue: Array<{ id: string; def?: EncounterDefinition }> = [];
+
   private starterConfig: StarterConfig | null = null;
 
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
@@ -353,6 +371,7 @@ export class GameController {
       fx.statusChanges?.stress  !== undefined ||
       fx.applyConditionId ||
       fx.removeConditionIds?.length ||
+      fx.yieldsItemId ||
       fx.flagsSet?.length ||
       fx.flagsUnset?.length
     ));
@@ -527,12 +546,7 @@ export class GameController {
       gs0reg.player.knownIntelIds, Object.values(gs0reg.activeQuests), gs0reg.time,
       gs0reg.player.inventory, gs0reg.player.melphin,
     ).map(p => {
-      const grantIds = new Set<string>();
-      for (const g of p.itemGrants ?? []) grantIds.add(g.itemId);
-      for (const node of Object.values(p.interaction?.nodes ?? {})) {
-        for (const item of node.effects?.grantItems ?? []) grantIds.add(item.itemId);
-      }
-      const itemNames = [...grantIds].map(id => this.lore.getItem(id)?.name ?? id);
+      const itemNames = this.lore.getAvailableItemNamesForProp(p, this.state.flags, this.state.getPropFlags(p.id));
       return {
         id: p.id,
         name: p.name,
@@ -572,7 +586,7 @@ export class GameController {
     if (finalAction.type === 'move') {
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
-      this._sessionFiredTriggers.clear();
+      this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
     }
 
     // Intercept rest — open modal instead of going through DM pipeline.
@@ -656,7 +670,7 @@ export class GameController {
     if (crossedHours.includes(0)) {
       for (const prop of this.lore.getAllProps()) {
         for (const flag of prop.dailyResetFlags ?? []) {
-          this.state.flags.unset(flag);
+          this.state.unsetPropFlag(prop.id, flag);
         }
       }
     }
@@ -695,16 +709,13 @@ export class GameController {
     }
 
     // 4.15. Launch event-triggered encounters AFTER narration so event text plays first.
-    // Multiple encounters are queued and run sequentially so none are silently dropped.
+    // All encounters are queued; the first starts immediately, the rest fire as each concludes.
     if (eventEncounters.length > 0) {
       narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
-      for (const enc of eventEncounters) {
-        await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
-        log.info('Encounter started by event', { encounterId: enc.id });
-        this.flushAcquisitions();
-        // Event stat changes may have pushed past an ending threshold
-        if (this.checkEndingConditions()) return;
-      }
+      for (const enc of eventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
+      await this.startNextQueuedEncounter();
+      this.flushAcquisitions();
+      if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
     }
@@ -739,7 +750,8 @@ export class GameController {
       if (attemptSignal.cooldownMinutes) {
         this.state.setAttemptCooldown(attemptSignal.connectionKey, attemptSignal.totalMinutes);
       }
-      await this.startAndRenderEncounter(attemptSignal.encounterId);
+      this.enqueueEncounter(attemptSignal.encounterId);
+      await this.startNextQueuedEncounter();
       this.flushAcquisitions();
       if (this.checkEndingConditions()) return;
       this.releaseInput();
@@ -773,7 +785,7 @@ export class GameController {
         if (extraCrossed.includes(0)) {
           for (const prop of this.lore.getAllProps()) {
             for (const flag of prop.dailyResetFlags ?? []) {
-              this.state.flags.unset(flag);
+              this.state.unsetPropFlag(prop.id, flag);
             }
           }
         }
@@ -794,12 +806,10 @@ export class GameController {
         }
 
         if (lateEventEncounters.length > 0) {
-          for (const enc of lateEventEncounters) {
-            await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
-            log.info('Encounter started by delayed event', { encounterId: enc.id });
-            this.flushAcquisitions();
-            if (this.checkEndingConditions()) return;
-          }
+          for (const enc of lateEventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
+          await this.startNextQueuedEncounter();
+          this.flushAcquisitions();
+          if (this.checkEndingConditions()) return;
           this.releaseInput();
           return;
         }
@@ -845,7 +855,8 @@ export class GameController {
         await this.handleDialogueInput('(opener)', enc.npcId, true);
         inputDisabled.set(false);
       } else if (enc.type === 'event' && enc.encounterId) {
-        await this.startAndRenderEncounter(enc.encounterId);
+        this.enqueueEncounter(enc.encounterId);
+        await this.startNextQueuedEncounter();
         this.flushAcquisitions();
         this.releaseInput();
       }
@@ -1024,7 +1035,7 @@ export class GameController {
       if (crossedHours.includes(0)) {
         for (const prop of this.lore.getAllProps()) {
           for (const flag of prop.dailyResetFlags ?? []) {
-            this.state.flags.unset(flag);
+            this.state.unsetPropFlag(prop.id, flag);
           }
         }
       }
@@ -1061,16 +1072,18 @@ export class GameController {
     };
 
     // Show result overlay
+    const wasInterrupted = interruptMinutes !== null || hasRestStartInterrupt;
     restResultOverlay.set({
       plannedMinutes,
       actualMinutes:    result.actualMinutes,
-      deviationMinutes: result.deviationMinutes,
+      // When interrupted, show deviation relative to the original planned duration, not the truncated one
+      deviationMinutes: wasInterrupted ? result.actualMinutes - plannedMinutes : result.deviationMinutes,
       quality:          result.quality,
       staminaDelta:     result.staminaDelta,
       stressDelta:      result.stressDelta,
       fatigueDelta:     result.fatigueDelta,
       resultTags:       result.resultTags,
-      wasInterrupted:   interruptMinutes !== null,
+      wasInterrupted,
     });
 
     // Sync UI
@@ -1231,10 +1244,9 @@ export class GameController {
 
     // Launch encounters triggered by rest_start event (e.g. restless night), sequentially.
     if (ctx.restEncounterIds?.length) {
-      for (const encId of ctx.restEncounterIds) {
-        await this.startAndRenderEncounter(encId);
-        this.flushAcquisitions();
-      }
+      for (const encId of ctx.restEncounterIds) this.enqueueEncounter(encId);
+      await this.startNextQueuedEncounter();
+      this.flushAcquisitions();
       this.releaseInput();
       // Thoughts will be refreshed when the encounter ends via selectEncounterChoice.
     } else {
@@ -1425,6 +1437,9 @@ export class GameController {
       const { questId, objectiveId } = choice.effects.completeObjective;
       this.state.completeObjective(questId, objectiveId);
     }
+    if (choice.effects?.ditchQuestId) {
+      this.quests.ditchQuest(choice.effects.ditchQuestId);
+    }
 
     const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
 
@@ -1476,9 +1491,11 @@ export class GameController {
       collectedNarrative: updatedNarrative + '\n' + addedNarrative,
     });
 
-    // Auto-end if the node has no choices
+    // Auto-end if the node has no choices (guarded to prevent double-fire)
     if (filteredChoices.length === 0) {
-      setTimeout(() => {
+      if (this._pendingAutoEnd) clearTimeout(this._pendingAutoEnd);
+      this._pendingAutoEnd = setTimeout(() => {
+        this._pendingAutoEnd = null;
         this.endScriptedDialogue().catch(err => log.warn('endScriptedDialogue error', err));
       }, 600);
     }
@@ -1529,6 +1546,8 @@ export class GameController {
 
   /** Restore from a decoded SaveSnapshot. */
   loadState(gs: GameState, flags: string[]): void {
+    // Migration: old saves may not have propFlags
+    if (!gs.propFlags) gs.propFlags = {};
     // Rebuild StateManager with the restored state
     (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
     flags.forEach(f => this.state.flags.set(f));
@@ -1697,7 +1716,7 @@ export class GameController {
         this.state.flags,
         includeNpcs ? gs.npcMemory : undefined,
         { timePeriod: gs.timePeriod, gameTime: gs.time, knownIntelIds: gs.player.knownIntelIds, activeQuests: Object.values(gs.activeQuests), inventory: gs.player.inventory, melphin: gs.player.melphin },
-        { includeNpcs, includeProps },
+        { includeNpcs, includeProps, propFlags: gs.propFlags },
       )
     );
 
@@ -1837,12 +1856,7 @@ export class GameController {
         );
         const prop = visibleProps.find(p => p.id === action.targetId);
         if (prop) {
-          const grantIds = new Set<string>();
-          for (const g of prop.itemGrants ?? []) grantIds.add(g.itemId);
-          for (const node of Object.values(prop.interaction?.nodes ?? {})) {
-            for (const item of node.effects?.grantItems ?? []) grantIds.add(item.itemId);
-          }
-          const grantNames = [...grantIds].map(id => this.lore.getItem(id)?.name ?? id);
+          const grantNames = this.lore.getAvailableItemNamesForProp(prop, this.state.flags, this.state.getPropFlags(prop.id));
           const focusedLines = [
             '\n### Focused Object',
             'Name: ' + prop.name,
@@ -2462,7 +2476,7 @@ export class GameController {
     );
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
-    this._sessionFiredTriggers.clear();
+    this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
     this.syncUIState(this.state.getState());
     await this.refreshThoughts([]);
   }
@@ -2480,12 +2494,14 @@ export class GameController {
       // NPC gone — exit encounter silently
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
-      this._sessionFiredTriggers.clear();
+      this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
       return;
     }
 
-    // Check for scripted trigger before LLM dialogue (skip in opener mode — already checked)
-    if (!opener) {
+    // Check for scripted trigger before LLM dialogue (skip in opener mode — already checked).
+    // Also skip if a scripted node already fired in this encounter session — once scripted
+    // dialogue transitions to LLM, no further scripted triggers should fire until the session resets.
+    if (!opener && !this._scriptedFiredThisSession) {
       const interactionCount = this.state.getState().npcMemory[npcId]?.interactionCount ?? 0;
       const scripted = this.dialogueMgr.checkScriptedTrigger(
         npcId, npc.activeDialogueId, this.state.flags, interactionCount,
@@ -2595,6 +2611,9 @@ export class GameController {
       pushShadowComparison(dialogueEntry);
     }
 
+    // Guard: if dialogue was closed during Phase 1 / Judge (user clicked exit), abort.
+    if (get(activeNpcUI) === null) return;
+
     // ── Phase 2: stream narration ──────────────────────────────────────
     isStreaming.set(true);
     pushLine(npc.name + '：', 'dialogue', true);
@@ -2695,7 +2714,7 @@ export class GameController {
         if (crossedHours.includes(0)) {
           for (const prop of this.lore.getAllProps()) {
             for (const flag of prop.dailyResetFlags ?? []) {
-              this.state.flags.unset(flag);
+              this.state.unsetPropFlag(prop.id, flag);
             }
           }
         }
@@ -2726,7 +2745,7 @@ export class GameController {
       }
       activeNpcUI.set(null);
       encounterSessionLog.set([]);
-      this._sessionFiredTriggers.clear();
+      this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
       this.state.appendHistory(
         { type: 'interact', input: `（與 ${npc.name} 交談）`, targetId: npcId },
         cleanNarrative.slice(0, 200),
@@ -2746,18 +2765,17 @@ export class GameController {
         log.info('Dialogue interrupted by time-triggered encounter', { npcId, encounterId: timeTriggeredEncounters[0].id });
         activeNpcUI.set(null);
         encounterSessionLog.set([]);
-        this._sessionFiredTriggers.clear();
+        this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
         this.state.appendHistory(
           { type: 'interact', input: `（與 ${npc.name} 交談）`, targetId: npcId },
           cleanNarrative.slice(0, 200),
         );
         this.syncUIState(this.state.getState());
       }
-      for (const enc of timeTriggeredEncounters) {
-        await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
-        this.flushAcquisitions();
-        if (this.checkEndingConditions()) return;
-      }
+      for (const enc of timeTriggeredEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
+      await this.startNextQueuedEncounter();
+      this.flushAcquisitions();
+      if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
     }
@@ -2783,6 +2801,7 @@ export class GameController {
     const preDef     = preActive ? this.lore.getEncounter(preActive.encounterId) : null;
 
     const resolved = this.encounterMgr.selectChoice(choiceId);
+    let encounterEnded = false;
 
     // Handle high-level effects that EncounterEngine stored for us
     const pending = this.encounterMgr.flushPendingEffects();
@@ -2814,7 +2833,6 @@ export class GameController {
       this.applyTimeAdvance(pending.timeAdvance);
       log.info('Time advanced by encounter choice', { minutes: pending.timeAdvance });
     }
-    let pendingFailEncounters: { id: string; def: ReturnType<LoreVault['getEncounter']> }[] = [];
     if (pending.questFail) {
       const failResult = this.quests.applyQuestFail(pending.questFail);
       log.info('Quest fail applied by encounter choice', { questId: pending.questFail });
@@ -2822,7 +2840,8 @@ export class GameController {
         const sub = this.events.fireEventById(failResult.startEventId);
         if (sub) {
           const { eventEncounters: failEncs } = this.processTriggeredEvents([sub]);
-          pendingFailEncounters = failEncs;
+          // Unshift so fail encounters run before any pre-queued interactions (e.g. prop)
+          this._encounterQueue.unshift(...failEncs.map(e => ({ id: e.id, def: e.def ?? undefined })));
         }
       }
     }
@@ -2838,6 +2857,7 @@ export class GameController {
         activeEncounterUI.set(null);
         this.syncUIState(this.state.getState());
         await this.refreshThoughts(nodeSuggestions);
+        encounterEnded = true;
       }
     } else {
       // Encounter ended without an outcome node (nextNodeId === null or __continue__).
@@ -2850,15 +2870,13 @@ export class GameController {
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
       await this.refreshThoughts(closeSuggestions);
+      encounterEnded = true;
     }
 
-    // Launch fail-event encounters after the current encounter fully concludes
-    if (pendingFailEncounters.length > 0) {
-      for (const enc of pendingFailEncounters) {
-        await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
-        this.flushAcquisitions();
-        if (this.checkEndingConditions()) return;
-      }
+    // Drain encounter queue (fail encounters, prop interactions, etc.)
+    if (encounterEnded && await this.startNextQueuedEncounter()) {
+      this.flushAcquisitions();
+      if (this.checkEndingConditions()) return;
       this.releaseInput();
       return;
     }
@@ -2902,6 +2920,14 @@ export class GameController {
       activeEncounterUI.set(null);
       this.syncUIState(this.state.getState());
       await this.refreshThoughts();
+
+      // Drain encounter queue (e.g. follow-up encounters queued before this story ran)
+      if (await this.startNextQueuedEncounter()) {
+        this.flushAcquisitions();
+        if (this.checkEndingConditions()) return;
+        this.releaseInput();
+        return;
+      }
     }
 
     if (this.checkEndingConditions()) return;
@@ -3194,6 +3220,23 @@ export class GameController {
    * 啟動遭遇並渲染第一個節點／幕。
    * 統一路由 story（cutscene）與 event/dialogue 型別，減少重複 call site 代碼。
    */
+  /** Push an encounter to the back of the sequential queue. */
+  private enqueueEncounter(id: string, def?: EncounterDefinition): void {
+    this._encounterQueue.push({ id, def });
+  }
+
+  /**
+   * Dequeue the next encounter and start it.
+   * Returns true if an encounter was started (caller should return without releasing input),
+   * false if the queue was empty.
+   */
+  private async startNextQueuedEncounter(): Promise<boolean> {
+    const next = this._encounterQueue.shift();
+    if (!next) return false;
+    await this.startAndRenderEncounter(next.id, next.def);
+    return true;
+  }
+
   private async startAndRenderEncounter(
     encounterId: string,
     def?: EncounterDefinition,
@@ -3514,7 +3557,7 @@ export class GameController {
         if (grant.lockedMessage) lockedMessages.push(grant.lockedMessage);
         continue;
       }
-      if (grant.onceFlag && this.state.flags.has(grant.onceFlag)) continue;
+      if (grant.onceFlag && this.state.getPropFlags(prop.id).has(grant.onceFlag)) continue;
 
       const def = this.lore.getItem(grant.itemId);
       if (!def) continue;
@@ -3532,7 +3575,7 @@ export class GameController {
         }
       }
 
-      if (grant.onceFlag) this.state.flags.set(grant.onceFlag);
+      if (grant.onceFlag) this.state.setPropFlag(prop.id, grant.onceFlag);
 
       const variantLabel = grant.variantId
         ? def.variants?.find(v => v.id === grant.variantId)?.label
@@ -3564,10 +3607,23 @@ export class GameController {
       }
 
       if (eventEncounters.length > 0) {
-        for (const enc of eventEncounters) {
-          await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
-          this.flushAcquisitions();
+        // Enqueue event encounters first, then prop interaction so it runs after all events.
+        for (const enc of eventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
+        if (prop.interaction) {
+          const synthId = `prop_interact_${prop.id}`;
+          const synthDef: EncounterDefinition = {
+            id: synthId,
+            name: prop.name,
+            description: prop.description,
+            type: prop.interaction.type === 'story' ? 'story' : prop.interaction.type === 'transit' ? 'transit' : 'interact',
+            entryNodeId: prop.interaction.entryNodeId,
+            nodes: prop.interaction.nodes,
+          };
+          this.lore.registerEphemeralEncounter(synthDef);
+          this.enqueueEncounter(synthId, synthDef);
         }
+        await this.startNextQueuedEncounter();
+        this.flushAcquisitions();
         return null;
       }
 
@@ -3726,6 +3782,8 @@ export class GameController {
           ...(ditchBeneficiaryFactionId ? { ditchBeneficiaryFactionId } : {}),
         }];
       });
+    const QUEST_TYPE_ORDER: Record<string, number> = { main: 0, side: 1, hidden: 2 };
+    allActiveQuestSummaries.sort((a, b) => (QUEST_TYPE_ORDER[a.type] ?? 3) - (QUEST_TYPE_ORDER[b.type] ?? 3));
     const activeQuestSummaries = allActiveQuestSummaries.slice(0, 3);
     log.debug('syncUIState quests', { count: activeQuestSummaries.length, summaries: activeQuestSummaries });
 
@@ -4212,6 +4270,7 @@ export class GameController {
     node:            import('../types/dialogue').ScriptedNode,
     endAfterScript = false,
   ): Promise<void> {
+    this._scriptedFiredThisSession = true;
     const ctx      = this.buildInterpolationCtx();
     const rendered = this.renderNodeLines(node.lines, npcName, ctx);
 
@@ -4233,7 +4292,9 @@ export class GameController {
     });
 
     if (filteredChoices.length === 0) {
-      setTimeout(() => {
+      if (this._pendingAutoEnd) clearTimeout(this._pendingAutoEnd);
+      this._pendingAutoEnd = setTimeout(() => {
+        this._pendingAutoEnd = null;
         this.endScriptedDialogue().catch(err => log.warn('endScriptedDialogue error', err));
       }, 600);
     }
@@ -4318,7 +4379,7 @@ export class GameController {
     const current = get(activeNpcUI);
     if (!current || current.npcId !== npcId) {
       encounterSessionLog.set([]);
-      this._sessionFiredTriggers.clear();
+      this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
     }
     const gs  = this.state.getState();
     const mem = gs.npcMemory[npcId];
@@ -4418,7 +4479,7 @@ export class GameController {
     }
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
-    this._sessionFiredTriggers.clear();
+    this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
     this.updateActiveNpcUI(npcId);
 
     // Fire scripted trigger immediately (same logic as interact action flow)
@@ -4604,7 +4665,7 @@ export class GameController {
     this.state.movePlayer(locationId);
     activeNpcUI.set(null);
     encounterSessionLog.set([]);
-    this._sessionFiredTriggers.clear();
+    this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
     this.syncUIState(this.state.getState());
     pushLine(`[Debug] 傳送至：${loc.name}`, 'system');
 
@@ -4631,7 +4692,8 @@ export class GameController {
     activeScriptedDialogue.set(null);
     activeEncounterUI.set(null);
     encounterSessionLog.set([]);
-    this._sessionFiredTriggers.clear();
+    this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
+    this._encounterQueue = [];
     await this.start('DEBUG');
   }
 
@@ -4820,6 +4882,7 @@ export class GameController {
       activeQuests:          {},
       completedQuestIds:     [],
       npcMemory:             {},
+      propFlags:             {},
       worldPhase: {
         currentPhase:    'grace_period',
         appliedPhaseIds: ['grace_period'],

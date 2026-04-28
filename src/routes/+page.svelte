@@ -35,6 +35,7 @@
   import RestModal            from '$lib/components/RestModal.svelte';
   import RestResultOverlay    from '$lib/components/RestResultOverlay.svelte';
   import DangerOverlay        from '$lib/components/DangerOverlay.svelte';
+  import TransitMapOverlay    from '$lib/components/TransitMapOverlay.svelte';
 
   import type { Thought, ActionTargetKind } from '$lib/types';
 
@@ -417,7 +418,7 @@
         </div>
       {/if}
       <NarrativePanel />
-      {#if $activeEncounterUI && $activeEncounterUI.type !== 'story'}
+      {#if $activeEncounterUI && $activeEncounterUI.type !== 'story' && $activeEncounterUI.type !== 'transit'}
         <EncounterPanel onSelect={handleEncounterChoice} />
       {:else if $activeScriptedDialogue}
         <ScriptedChoicePanel onSelect={handleDialogueChoice} />
@@ -437,6 +438,7 @@
 </div>
 
 <DangerOverlay />
+<TransitMapOverlay onSelect={handleEncounterChoice} />
 
 {#if $selfCheckOpen}
   <SelfCheckModal />

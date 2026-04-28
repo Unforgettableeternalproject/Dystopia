@@ -323,6 +323,11 @@ export class StateManager {
       this.state.player.inventory.splice(idx, 1);
     }
 
+    // Yield a replacement item if defined (e.g. water_bottle → empty_bottle)
+    if (effect.yieldsItemId) {
+      this.addItem(effect.yieldsItemId, this.state.time.totalMinutes);
+    }
+
     this.notifyUpdate();
     return true;
   }
@@ -501,6 +506,33 @@ export class StateManager {
     if (!mem.flags) mem.flags = [];
     if (!mem.flags.includes(flagId)) {
       mem.flags.push(flagId);
+      this.notifyUpdate();
+    }
+  }
+
+  // ── Prop local flags ─────────────────────────────────────────
+
+  /** 取得指定 Prop 的本地旗標集合。 */
+  getPropFlags(propId: string): Set<string> {
+    return new Set(this.state.propFlags[propId] ?? []);
+  }
+
+  /** 設置指定 Prop 的本地旗標。若旗標已存在則不重複設置。 */
+  setPropFlag(propId: string, flagId: string): void {
+    if (!this.state.propFlags[propId]) this.state.propFlags[propId] = [];
+    if (!this.state.propFlags[propId].includes(flagId)) {
+      this.state.propFlags[propId].push(flagId);
+      this.notifyUpdate();
+    }
+  }
+
+  /** 清除指定 Prop 的本地旗標。 */
+  unsetPropFlag(propId: string, flagId: string): void {
+    const arr = this.state.propFlags[propId];
+    if (!arr) return;
+    const idx = arr.indexOf(flagId);
+    if (idx !== -1) {
+      arr.splice(idx, 1);
       this.notifyUpdate();
     }
   }

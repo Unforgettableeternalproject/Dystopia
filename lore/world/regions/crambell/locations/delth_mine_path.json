@@ -5,7 +5,7 @@
   "districtId": "crambell_delth",
   "tags": ["outdoor", "industrial", "work_zone", "transit"],
   "base": {
-    "name": "往礦場通路",
+    "name": "管制區-礦場連接通道",
     "description": "從管制區通往礦區的主要幹道，兩側是積滿礦粉的矮牆與廢棄設備堆。路面被礦車輾壓出深溝，濕時更加泥濘。沿途有幾個工具存放點與補水站，供班次交替的工人使用。通路末端能看到礦坑入口的燈光。",
     "ambience": ["礦粉", "機械聲遠傳", "泥濘", "工人移動", "疲憊"],
     "connections": [
@@ -25,6 +25,10 @@
       {
         "targetLocationId": "delth_patrol_zone",
         "description": "返回管制區的路"
+      },
+      {
+        "targetLocationId": "delth_quota_post",
+        "description": "往配額站的小路"
       },
       {
         "targetLocationId": "delth_mining_shafts",

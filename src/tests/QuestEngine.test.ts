@@ -49,6 +49,7 @@ function makeGameState(): GameState {
     eventCooldowns: {},
     eventCounters: {},
     attemptCooldowns: {},
+    propFlags: {},
   };
 }
 

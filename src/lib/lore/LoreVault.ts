@@ -862,7 +862,7 @@ export class LoreVault {
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
     accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number; reputation?: Record<string, number>; affinity?: Record<string, number> },
-    options?: { includeNpcs?: boolean; includeProps?: boolean },
+    options?: { includeNpcs?: boolean; includeProps?: boolean; propFlags?: Record<string, string[]> },
   ): string {
     const resolved = this.resolveLocation(locationId, flags, accessCtx?.timePeriod);
     if (!resolved) return '[Unknown location]';
@@ -991,15 +991,11 @@ export class LoreVault {
           if (p.restPoint) line += ' [rest point]';
           if (p.interactable && p.interaction) line += ` [interactable: ${p.interactLabel ?? '互動'}]`;
           if (p.checkPrompt) line += ' | ' + p.checkPrompt;
-          // Brief item hint — interactable props only, names only (no descriptions)
-          const grantIds = new Set<string>();
-          for (const g of p.itemGrants ?? []) grantIds.add(g.itemId);
-          for (const node of Object.values(p.interaction?.nodes ?? {})) {
-            for (const item of node.effects?.grantItems ?? []) grantIds.add(item.itemId);
-          }
-          if (grantIds.size > 0 && (p.interactable || p.itemGrants?.length)) {
-            const names = [...grantIds].map(id => this.getItem(id)?.name ?? id);
-            line += ' [items: ' + names.join(', ') + ']';
+          // Brief item hint — available items only (filters taken/locked ones via flags)
+          const propLocalFlags = new Set(options?.propFlags?.[p.id] ?? []);
+          const availableNames = this.getAvailableItemNamesForProp(p, flags, propLocalFlags);
+          if (availableNames.length > 0 && (p.interactable || p.itemGrants?.length)) {
+            line += ' [items: ' + availableNames.join(', ') + ']';
           }
           return line;
         }).join('\n');
@@ -1008,5 +1004,30 @@ export class LoreVault {
     }
 
     return lines.filter(line => line !== '').join('\n');
+  }
+
+  /**
+   * Returns the names of items still obtainable from a prop, filtered by current flag state.
+   * - itemGrants: skips entries whose onceFlag is set (already taken) or lockedWhen is true (locked)
+   * - interaction choices: skips entries whose condition currently evaluates to false
+   */
+  getAvailableItemNamesForProp(prop: PropNode, flags: FlagSystem, propLocalFlags: Set<string> = new Set()): string[] {
+    const ids = new Set<string>();
+
+    for (const g of prop.itemGrants ?? []) {
+      if (g.onceFlag && propLocalFlags.has(g.onceFlag)) continue;  // taken (prop-local)
+      if (g.lockedWhen && flags.evaluate(g.lockedWhen)) continue;   // locked (global condition)
+      ids.add(g.itemId);
+    }
+
+    for (const node of Object.values(prop.interaction?.nodes ?? {})) {
+      for (const choice of node.choices ?? []) {
+        if (!choice.effects?.grantItems?.length) continue;
+        if (choice.condition && !flags.evaluate(choice.condition)) continue;
+        for (const item of choice.effects.grantItems) ids.add(item.itemId);
+      }
+    }
+
+    return [...ids].map(id => this.getItem(id)?.name ?? id);
   }
 }
