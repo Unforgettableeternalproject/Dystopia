@@ -1,0 +1,84 @@
+{
+  "id": "crambell_enc_kach_test2_warehouse",
+  "name": "倉庫裡的奧蘭",
+  "type": "event",
+  "description": "玩家在經濟資源倉庫裡找到奧蘭，並嘗試從他那裡取得凱奇要的資源調度文件。",
+  "entryNodeId": "warehouse_search",
+  "nodes": {
+    "warehouse_search": {
+      "id": "warehouse_search",
+      "dmNarrative": "倉庫裡光線昏暗，金屬貨架排列成窄巷。你沿著通道往深處走，聽見有人一邊搬東西一邊哼著歌。轉過一個角落，一個穿著物流制服的男人正在整理貨箱。他抬起頭，臉上浮現出好奇的笑容。",
+      "choices": [
+        {
+          "id": "mention_kach",
+          "text": "「凱奇叫我來的。」",
+          "nextNodeId": "orland_recognizes"
+        },
+        {
+          "id": "act_casual",
+          "text": "「我是來搬貨的。」",
+          "nextNodeId": "orland_friendly_doubt"
+        }
+      ]
+    },
+    "orland_recognizes": {
+      "id": "orland_recognizes",
+      "dmNarrative": "男人眼睛一亮，放下手中的箱子。「噢！你就是凱奇說的那個人啊。」他擦擦手，從貨架後面抽出一個信封，笑著遞過來。「這是你要的——資源調度記錄。收好啊，別讓其他人看到。」",
+      "choices": [
+        {
+          "id": "take_document",
+          "text": "接過文件。「謝了。」",
+          "nextNodeId": "document_received"
+        },
+        {
+          "id": "ask_orland",
+          "text": "「你跟凱奇是什麼關係？」",
+          "nextNodeId": "orland_brief_answer"
+        }
+      ]
+    },
+    "orland_friendly_doubt": {
+      "id": "orland_friendly_doubt",
+      "dmNarrative": "男人歪了歪頭，笑了一下。「搬貨的？真的假的？你看起來不太像耶。」語氣完全沒有敵意，反而像是在跟朋友開玩笑。「不過沒關係啦，你要找什麼嗎？」",
+      "choices": [
+        {
+          "id": "reveal_kach",
+          "text": "「……其實是凱奇叫我來找你的。」",
+          "nextNodeId": "orland_recognizes"
+        },
+        {
+          "id": "leave",
+          "text": "「算了，我再看看。」",
+          "nextNodeId": "orland_wave"
+        }
+      ]
+    },
+    "orland_brief_answer": {
+      "id": "orland_brief_answer",
+      "dmNarrative": "奧蘭搔了搔頭，「嗯~我們認識很久了。」他沒有多說，把信封遞過來。「有些事嘛，知道太多反而麻煩。你把這個帶回去就行了！」",
+      "choices": [
+        {
+          "id": "take_document",
+          "text": "接過文件。",
+          "nextNodeId": "document_received"
+        }
+      ]
+    },
+    "document_received": {
+      "id": "document_received",
+      "dmNarrative": "你把信封塞進衣服裡。奧蘭拍了拍你的肩，又轉身繼續搬貨，嘴裡又開始哼起歌來。「回去走後門比較安全噢！」他頭也不回地喊著，語氣像在提醒朋友出門帶傘。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["crambell_kach_test2_orland_met", "crambell_kach_test2_document_obtained"],
+        "affinityChanges": { "crambell_orland": 1 }
+      }
+    },
+    "orland_wave": {
+      "id": "orland_wave",
+      "dmNarrative": "男人笑著擺了擺手。「好吧~有需要再來找我。」他繼續搬貨，哼著歌消失在貨架後面。也許下次該直接說明來意。",
+      "isOutcome": true,
+      "outcomeType": "neutral"
+    }
+  }
+}

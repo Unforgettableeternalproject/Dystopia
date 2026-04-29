@@ -1,0 +1,19 @@
+{
+  "id": "crambell_kach_test2_warehouse_entry",
+  "name": "倉庫裡的接應",
+  "locationId": "delth_warehouse",
+  "condition": {
+    "questActiveId": "crambell_kach_test2",
+    "notFlags": ["crambell_kach_test2_document_obtained"]
+  },
+  "description": "玩家帶著凱奇的委託進入經濟資源倉庫，在貨架之間尋找奧蘭。",
+  "outcomes": [
+    {
+      "id": "warehouse_entry_trigger",
+      "description": "在倉庫深處找到一個正在搬貨的男人——奧蘭。",
+      "startEncounterId": "crambell_enc_kach_test2_warehouse"
+    }
+  ],
+  "isRepeatable": false,
+  "notification": true
+}

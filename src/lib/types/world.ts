@@ -600,6 +600,15 @@ export interface EventOutcome {
   /** 觸發遭遇 ID（由 GameController 轉交 EncounterEngine 處理） */
   startEncounterId?: string;
   /**
+   * 觸發 NPC 對話節點（由 GameController 啟動 DialogueManager 的 scripted node）。
+   * 用於事件觸發的 NPC 主動對話場景，endAfterScript 預設為 true。
+   */
+  startNpcDialogue?: {
+    npcId: string;
+    dialogueId: string;
+    nodeId: string;
+  };
+  /**
    * 梅分變化（正 = 獲得，負 = 扣除）。
    * 由 StateManager.modifyMelphin 處理，不走 statChanges 的 dot-path。
    */

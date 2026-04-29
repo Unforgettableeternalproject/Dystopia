@@ -169,6 +169,139 @@
         }
       ]
     },
+    "test1_morning_report": {
+      "lines": [
+        { "speaker": "narrator", "text": "天剛亮，寢室裡大部分人都還在睡。凱奇悄悄坐到你的床邊，壓低聲音。" },
+        { "speaker": "npc", "text": "昨天的事……辛苦了。 *確認沒有其他人醒著*" }
+      ],
+      "choices": [
+        {
+          "id": "ask_result",
+          "text": "「你那邊的事辦妥了？」",
+          "nextNodeId": "kach_morning_success"
+        },
+        {
+          "id": "complain",
+          "text": "「兩倍配額真不是人幹的。」",
+          "nextNodeId": "kach_morning_apology"
+        },
+        {
+          "id": "nod_silent",
+          "text": "（點頭，等他繼續說）",
+          "nextNodeId": "kach_morning_success"
+        }
+      ]
+    },
+    "kach_morning_apology": {
+      "lines": [
+        { "speaker": "npc", "text": "……抱歉，我知道那很累。但你撐住了，這比什麼都重要。 *頓了一下，直起身* 我那邊有進展了。而且……我想再請你幫一件事。" }
+      ],
+      "choices": [
+        {
+          "id": "listen",
+          "text": "「說吧。」",
+          "nextNodeId": "kach_morning_test2_brief"
+        },
+        {
+          "id": "refuse",
+          "text": "「我不確定還想繼續。」",
+          "nextNodeId": "kach_morning_refuse"
+        }
+      ]
+    },
+    "kach_morning_success": {
+      "lines": [
+        { "speaker": "npc", "text": "有進展了。你的掩護讓我有足夠的時間確認了一些事。 *沉默了一秒* 有件事我想拜託你——比上次複雜一點，但你已經證明了你值得信任。" }
+      ],
+      "choices": [
+        {
+          "id": "listen",
+          "text": "「什麼事？」",
+          "nextNodeId": "kach_morning_test2_brief"
+        },
+        {
+          "id": "refuse",
+          "text": "「我不確定還想繼續。」",
+          "nextNodeId": "kach_morning_refuse"
+        }
+      ]
+    },
+    "kach_morning_test2_brief": {
+      "lines": [
+        { "speaker": "npc", "text": "*壓得更低* 經濟資源倉庫裡面有一份文件，是跟資源調度相關的記錄。我需要你幫我拿到那份東西。" },
+        { "speaker": "npc", "text": "倉庫裡有個人——奧蘭，他是物流司機，知道東西放在哪。你找到他，他會幫你的。 *站起身，拍了拍你的肩* 別被抓到就好。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「好，我去辦。」",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kach_test1_reported", "crambell_kach_test2_briefed"],
+            "affinity": 3
+          }
+        }
+      ]
+    },
+    "kach_morning_refuse": {
+      "lines": [
+        { "speaker": "npc", "text": "……好。我不會逼你。 *站起身，整理衣服* 如果你改變主意，你知道去哪裡找我。" }
+      ],
+      "choices": [
+        {
+          "id": "end",
+          "text": "（看著他離開）",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_test1_reported"] }
+        }
+      ]
+    },
+
+    "test2_report": {
+      "lines": [
+        { "speaker": "npc", "text": "……你拿到了？ *接過信封，快速翻閱* ……就是這個。" },
+        { "speaker": "npc", "text": "做得好。比我想的還快。 *把信封收進衣服裡* 我需要一點時間看這些東西。不過……還有一件更重要的事要請你幫忙。" }
+      ],
+      "choices": [
+        {
+          "id": "ask_next",
+          "text": "「什麼事？」",
+          "nextNodeId": "test3_preview"
+        },
+        {
+          "id": "wait",
+          "text": "「先看完再說吧。」",
+          "nextNodeId": "test2_report_end"
+        }
+      ]
+    },
+    "test3_preview": {
+      "lines": [
+        { "speaker": "npc", "text": "我手上有一份名單，需要做些修改之後送到一個人手裡——凱恩。他在巡邏管制區。 *從口袋掏出一疊折好的紙遞給你* 拿著，這就是那份名單。你不需要知道太多細節，把它交到凱恩手上就好。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「好，我去辦。」",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_test2_reported", "crambell_kach_test3_list_received"] }
+        }
+      ]
+    },
+    "test2_report_end": {
+      "lines": [
+        { "speaker": "npc", "text": "嗯。 *點頭，從口袋掏出一疊紙遞給你* 先拿著這個，這份名單之後要送到巡邏管制區的凱恩手上。我看完文件會再跟你說細節。" }
+      ],
+      "choices": [
+        {
+          "id": "end",
+          "text": "（離開）",
+          "nextNodeId": null,
+          "effects": { "flagsSet": ["crambell_kach_test2_reported", "crambell_kach_test3_list_received"] }
+        }
+      ]
+    },
+
     "kach_too_risky": {
       "lines": [
         { "speaker": "npc", "text": "……這裡眼睛太多了。到時候你就知道了。" }
@@ -197,6 +330,11 @@
     {
       "nodeId": "second_meeting",
       "condition": "crambell_kach_second_meeting_ready & !crambell_kach_test1_invited & !crambell_kach_betrayed",
+      "endAfterScript": true
+    },
+    {
+      "nodeId": "test2_report",
+      "condition": "crambell_kach_test2_document_obtained & !crambell_kach_test2_reported & !crambell_kach_betrayed",
       "endAfterScript": true
     }
   ],

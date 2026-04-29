@@ -1,0 +1,23 @@
+{
+  "id": "crambell_kach_test3_message",
+  "name": "神秘的口信",
+  "locationId": "delth_dormitory_room",
+  "condition": {
+    "timeRanges": [
+      { "startHour": 6, "startMinute": 0, "endHour": 6, "endMinute": 59 }
+    ],
+    "flags": ["crambell_old_meeting_name_known"],
+    "notFlags": ["crambell_mysterious_message_known"]
+  },
+  "description": "隔天早上醒來時，玩家在枕頭下發現一張折好的紙條，上面寫著一段暗語。",
+  "outcomes": [
+    {
+      "id": "message_found",
+      "description": "玩家在枕頭下發現了神秘的口信。",
+      "flagsSet": ["crambell_mysterious_message_known"]
+    }
+  ],
+  "isRepeatable": false,
+  "notification": true,
+  "notificationVariant": "rare"
+}

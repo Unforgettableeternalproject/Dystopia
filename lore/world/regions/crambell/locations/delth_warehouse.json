@@ -31,7 +31,7 @@
       }
     ],
     "npcIds": [],
-    "eventIds": ["crambell_event_illegal_intrusion"],
+    "eventIds": ["crambell_event_illegal_intrusion", "crambell_kach_test2_warehouse_entry"],
     "propIds": ["delth_warehouse_metal_shelf", "delth_warehouse_cargo_box"],
     "isAccessible": true
   },
@@ -43,6 +43,14 @@
       "priority": 10,
       "addNpcIds": ["crambell_mildore"],
       "transitionNote": "倉庫外圍的空地多了一個不起眼的身影，在人群中低調地存在著。"
+    },
+    {
+      "id": "delth_warehouse_orland_available",
+      "label": "奧蘭在倉庫內活動",
+      "condition": "crambell_kach_test2_briefed | crambell_mysterious_message_known",
+      "priority": 5,
+      "addNpcIds": ["crambell_orland"],
+      "transitionNote": "貨架之間傳來有人搬東西的聲音，還有隱約的哼歌聲。"
     }
   ]
 }

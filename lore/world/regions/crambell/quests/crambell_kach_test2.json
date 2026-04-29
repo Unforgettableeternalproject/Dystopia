@@ -1,0 +1,78 @@
+{
+  "id": "crambell_kach_test2",
+  "name": "凱奇的測試二",
+  "type": "side",
+  "source": "npc",
+  "giverNpcId": "crambell_kach",
+  "regionId": "crambell",
+  "canDitch": false,
+  "autoAccept": true,
+
+  "_comment": [
+    "路線五第二步：凱奇要求玩家前往經濟資源倉庫，找到奧蘭並取得一份資源調度文件。",
+    "完成後回報凱奇，取得凱奇更深的信任並進入測試三。"
+  ],
+
+  "entryStageId": "infiltrate_warehouse",
+  "stages": {
+    "infiltrate_warehouse": {
+      "id": "infiltrate_warehouse",
+      "description": "前往經濟資源倉庫，找到奧蘭",
+      "objectives": [
+        {
+          "id": "orland_met",
+          "type": "flag_check",
+          "description": "在倉庫中找到奧蘭",
+          "flag": "crambell_kach_test2_orland_met"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_kach_test2_warehouse_reached"],
+        "nextStageId": "obtain_document"
+      },
+      "onDitch": null
+    },
+    "obtain_document": {
+      "id": "obtain_document",
+      "description": "從奧蘭處取得資源調度文件",
+      "objectives": [
+        {
+          "id": "document_obtained",
+          "type": "flag_check",
+          "description": "取得資源調度記錄文件",
+          "flag": "crambell_kach_test2_document_obtained"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": [],
+        "nextStageId": "report_to_kach"
+      },
+      "onDitch": null
+    },
+    "report_to_kach": {
+      "id": "report_to_kach",
+      "description": "將文件帶回給凱奇",
+      "objectives": [
+        {
+          "id": "kach_reported",
+          "type": "flag_check",
+          "description": "向凱奇回報並交出文件",
+          "flag": "crambell_kach_test2_reported"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_kach_test2_completed", "crambell_kach_deep_trust"],
+        "reputationChanges": { "crambell_treffen": 5 },
+        "grantQuestId": "crambell_kach_test3",
+        "nextStageId": null
+      },
+      "onDitch": null
+    }
+  },
+
+  "rewards": {
+    "experience": 100,
+    "affinityChanges": { "crambell_kach": 5 },
+    "reputationChanges": { "crambell_treffen": 5 }
+  }
+}

@@ -58,6 +58,7 @@
       "onComplete": {
         "flagsSet": ["crambell_kach_trust_gained"],
         "reputationChanges": { "crambell_treffen": 5 },
+        "grantQuestId": "crambell_kach_test2",
         "nextStageId": null
       },
       "onDitch": {

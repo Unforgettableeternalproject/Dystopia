@@ -280,8 +280,8 @@ describe('Crambell route4 integration — Kane/Government path', () => {
       expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(1);
 
       // ── Step 2: Survey fires (kach_test1 active); player covers for Kach ──────
-      state.getState().player.currentLocationId = 'delth_mine_worksite';
-      const surveyResults = events.checkAndApply('delth_mine_worksite');
+      state.getState().player.currentLocationId = 'delth_mining_shafts';
+      const surveyResults = events.checkAndApply('delth_mining_shafts');
       const surveyTrigger = surveyResults.find(t => t.event.id === 'crambell_survey');
       expect(surveyTrigger).toBeDefined();
       expect(surveyTrigger!.startEncounterId).toBe('crambell_enc_survey');

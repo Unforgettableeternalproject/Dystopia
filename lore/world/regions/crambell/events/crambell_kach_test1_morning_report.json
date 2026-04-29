@@ -1,0 +1,26 @@
+{
+  "id": "crambell_kach_test1_morning_report",
+  "name": "凱奇的早晨回報",
+  "locationId": "delth_dormitory_room",
+  "condition": {
+    "timeRanges": [
+      { "startHour": 6, "startMinute": 0, "endHour": 6, "endMinute": 59 }
+    ],
+    "flags": ["crambell_kach_test1_completed"],
+    "notFlags": ["crambell_kach_test1_reported", "crambell_kach_betrayed"]
+  },
+  "description": "凱奇在隔天早上趁公共區人少時，找到玩家討論昨天代班的結果，並提出下一個委託。",
+  "outcomes": [
+    {
+      "id": "kach_morning_report_trigger",
+      "description": "凱奇在早上找到玩家，準備討論昨天的結果並交代新任務。",
+      "startNpcDialogue": {
+        "npcId": "crambell_kach",
+        "dialogueId": "crambell_kach_default",
+        "nodeId": "test1_morning_report"
+      }
+    }
+  ],
+  "isRepeatable": false,
+  "notification": true
+}

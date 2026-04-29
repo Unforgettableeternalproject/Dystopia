@@ -75,7 +75,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": ["crambell_event_restless_night"],
+        "eventIds": ["crambell_event_restless_night", "crambell_kach_test1_morning_report", "crambell_kach_test3_message"],
         "propIds": ["delth_dormitory_room_bed", "delth_dormitory_room_clutter", "delth_dormitory_room_desk"],
         "isAccessible": true
       },

@@ -1,0 +1,82 @@
+{
+  "id": "crambell_kach_test3",
+  "name": "凱奇的測試三",
+  "type": "side",
+  "source": "npc",
+  "giverNpcId": "crambell_kach",
+  "regionId": "crambell",
+  "canDitch": false,
+  "autoAccept": true,
+
+  "_comment": [
+    "路線五最後階段：凱奇給玩家一份變更過的名單，要求玩家帶去巡邏管制區接觸凱恩。",
+    "成功交接後取得「舊會議」相關情報。隔天早上收到神秘口信後，前往倉庫找奧蘭離開。"
+  ],
+
+  "entryStageId": "receive_modified_list",
+  "stages": {
+    "receive_modified_list": {
+      "id": "receive_modified_list",
+      "description": "從凱奇處取得變更過的名單",
+      "objectives": [
+        {
+          "id": "list_received",
+          "type": "flag_check",
+          "description": "取得凱奇交付的變更名單",
+          "flag": "crambell_kach_test3_list_received"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": [],
+        "nextStageId": "contact_kane"
+      },
+      "onDitch": null
+    },
+    "contact_kane": {
+      "id": "contact_kane",
+      "description": "帶著變更過的名單前往巡邏管制區接觸凱恩",
+      "objectives": [
+        {
+          "id": "kane_handoff",
+          "type": "flag_check",
+          "description": "成功將名單交給凱恩",
+          "flag": "crambell_kach_test3_kane_handoff_done"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_old_meeting_name_known"],
+        "reputationChanges": { "crambell_treffen": 5 },
+        "nextStageId": "wait_for_message"
+      },
+      "onFail": {
+        "flagsSet": ["crambell_kach_test3_failed"],
+        "reputationChanges": { "crambell_government": -5 },
+        "affinityChanges": { "crambell_kach": -5 }
+      },
+      "onDitch": null
+    },
+    "wait_for_message": {
+      "id": "wait_for_message",
+      "description": "等待神秘的口信",
+      "objectives": [
+        {
+          "id": "message_received",
+          "type": "flag_check",
+          "description": "收到來自不明來源的口信",
+          "flag": "crambell_mysterious_message_known"
+        }
+      ],
+      "onComplete": {
+        "flagsSet": ["crambell_kach_test3_completed"],
+        "nextStageId": null
+      },
+      "onDitch": null
+    }
+  },
+
+  "rewards": {
+    "experience": 120,
+    "affinityChanges": { "crambell_kach": 5 },
+    "reputationChanges": { "crambell_treffen": 10 }
+  }
+}

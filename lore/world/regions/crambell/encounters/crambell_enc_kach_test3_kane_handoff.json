@@ -1,0 +1,74 @@
+{
+  "id": "crambell_enc_kach_test3_kane_handoff",
+  "name": "凱恩的名單交接",
+  "type": "event",
+  "description": "玩家帶著凱奇修改過的名單在巡邏管制區找到凱恩，嘗試進行低調的交接。",
+  "entryNodeId": "approach_kane",
+  "nodes": {
+    "approach_kane": {
+      "id": "approach_kane",
+      "dmNarrative": "你在管制區的邊緣找到了凱恩。他靠在牆邊，叼著菸，目光在人群中掃視。你走近時，他只是微微抬了一下下巴，示意你跟上。他帶你走到一處監視盲角。「東西帶了？」",
+      "choices": [
+        {
+          "id": "hand_over",
+          "text": "把名單遞過去。",
+          "nextNodeId": "kane_inspect"
+        },
+        {
+          "id": "confirm_identity",
+          "text": "「你就是凱恩？」",
+          "nextNodeId": "kane_impatient"
+        }
+      ]
+    },
+    "kane_impatient": {
+      "id": "kane_impatient",
+      "dmNarrative": "凱恩皺了皺眉，吐出一口菸。「廢話少說。東西呢？」他伸出手。",
+      "choices": [
+        {
+          "id": "hand_over",
+          "text": "把名單遞過去。",
+          "nextNodeId": "kane_inspect"
+        }
+      ]
+    },
+    "kane_inspect": {
+      "id": "kane_inspect",
+      "dmNarrative": "凱恩接過名單，快速翻了幾頁，眼神銳利。他把菸踩滅，把名單折好塞進制服口袋。「很好。」他壓低聲音，「你替凱奇跑腿？那我告訴你一件事——關於『舊會議』。那不是什麼傳說，是真的有過那麼一群人。」他直視你，「有些名字，你很快會聽到。」",
+      "choices": [
+        {
+          "id": "ask_more",
+          "text": "「舊會議是什麼？」",
+          "nextNodeId": "kane_brief_intel"
+        },
+        {
+          "id": "nod_leave",
+          "text": "「……知道了。」",
+          "nextNodeId": "handoff_success"
+        }
+      ]
+    },
+    "kane_brief_intel": {
+      "id": "kane_brief_intel",
+      "dmNarrative": "凱恩看了看四周，確認沒人注意。「一個地下組織，在政府成立之前就有了。他們在各個象限都有人。」他站直身體，整理制服。「你的事我會處理。回去等消息。」他轉身走進人群，不再回頭。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
+        "grantIntelId": "crambell_old_meeting_intel",
+        "characterExpGrant": 15
+      }
+    },
+    "handoff_success": {
+      "id": "handoff_success",
+      "dmNarrative": "凱恩點了點頭，轉身走進人群。在消失之前，他低聲說了一句：「回去等著。會有消息。」",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
+        "grantIntelId": "crambell_old_meeting_intel",
+        "characterExpGrant": 10
+      }
+    }
+  }
+}

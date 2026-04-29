@@ -21,6 +21,8 @@ export interface TriggeredEvent {
   grantQuestId?: string;
   /** 此結果需要開啟的遭遇 ID（由 GameController 轉交 EncounterEngine） */
   startEncounterId?: string;
+  /** 此結果需要觸發 NPC 對話節點（由 GameController 啟動 scripted node，endAfterScript = true） */
+  startNpcDialogue?: { npcId: string; dialogueId: string; nodeId: string };
   /** 此結果需要觸發失敗的任務 ID（由 GameController 轉交 QuestEngine.applyQuestFail） */
   failQuestId?: string;
   /** 有效通知設定（可能被匹配的 triggerVariant 覆蓋）。消費方應優先使用此欄位而非 event.notification。 */
@@ -188,6 +190,7 @@ export class EventEngine {
         outcome,
         grantQuestId:     outcome.grantQuestId,
         startEncounterId: outcome.startEncounterId,
+        startNpcDialogue: outcome.startNpcDialogue,
         failQuestId:      outcome.failQuestId,
         notification,
         notificationVariant,
@@ -472,6 +475,7 @@ export class EventEngine {
       outcome,
       grantQuestId:        outcome.grantQuestId,
       startEncounterId:    outcome.startEncounterId,
+      startNpcDialogue:    outcome.startNpcDialogue,
       failQuestId:         outcome.failQuestId,
       notification:        event.notification,
       notificationVariant: event.notificationVariant,
@@ -511,6 +515,7 @@ export class EventEngine {
       outcome,
       grantQuestId:        outcome.grantQuestId,
       startEncounterId:    outcome.startEncounterId,
+      startNpcDialogue:    outcome.startNpcDialogue,
       failQuestId:         outcome.failQuestId,
       notification:        event.notification,
       notificationVariant: event.notificationVariant,
@@ -628,8 +633,8 @@ export class EventEngine {
     if (outcome.npcFlagsSet) {
       this.state.applyNPCFlagsSet(outcome.npcFlagsSet);
     }
-    // grantQuestId, startEncounterId, failQuestId are intentionally NOT applied here.
-    // They require higher-level coordination (QuestEngine / EncounterEngine)
+    // grantQuestId, startEncounterId, startNpcDialogue, failQuestId are intentionally NOT applied here.
+    // They require higher-level coordination (QuestEngine / EncounterEngine / DialogueManager)
     // and are handled by GameController after processEventIds returns.
   }
 

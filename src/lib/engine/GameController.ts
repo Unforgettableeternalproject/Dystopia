@@ -145,6 +145,13 @@ export class GameController {
    */
   private _encounterQueue: Array<{ id: string; def?: EncounterDefinition }> = [];
 
+  /**
+   * Sequential NPC dialogue queue (event-triggered scripted nodes).
+   * Drained by startNextQueuedEncounter BEFORE encounter queue.
+   * endAfterScript is always true for event-triggered dialogues.
+   */
+  private _npcDialogueQueue: Array<{ npcId: string; dialogueId: string; nodeId: string }> = [];
+
   private starterConfig: StarterConfig | null = null;
 
   constructor(config?: { dm?: ILLMClient; regulator?: ILLMClient }) {
@@ -718,9 +725,10 @@ export class GameController {
       this.flushAcquisitions();
     }
 
-    // 4.15. Launch event-triggered encounters AFTER narration so event text plays first.
+    // 4.15. Launch event-triggered encounters/NPC dialogues AFTER narration so event text plays first.
     // All encounters are queued; the first starts immediately, the rest fire as each concludes.
-    if (eventEncounters.length > 0) {
+    // NPC dialogues (startNpcDialogue) are enqueued in _npcDialogueQueue by processTriggeredEvents.
+    if (eventEncounters.length > 0 || this._npcDialogueQueue.length > 0) {
       narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
       for (const enc of eventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
       await this.startNextQueuedEncounter();
@@ -815,7 +823,7 @@ export class GameController {
           this.flushAcquisitions();
         }
 
-        if (lateEventEncounters.length > 0) {
+        if (lateEventEncounters.length > 0 || this._npcDialogueQueue.length > 0) {
           for (const enc of lateEventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
           await this.startNextQueuedEncounter();
           this.flushAcquisitions();
@@ -1253,8 +1261,8 @@ export class GameController {
     this.state.appendHistory(action, fullText.slice(0, 200));
 
     // Launch encounters triggered by rest_start event (e.g. restless night), sequentially.
-    if (ctx.restEncounterIds?.length) {
-      for (const encId of ctx.restEncounterIds) this.enqueueEncounter(encId);
+    if (ctx.restEncounterIds?.length || this._npcDialogueQueue.length > 0) {
+      if (ctx.restEncounterIds) for (const encId of ctx.restEncounterIds) this.enqueueEncounter(encId);
       await this.startNextQueuedEncounter();
       this.flushAcquisitions();
       this.releaseInput();
@@ -2131,6 +2139,10 @@ export class GameController {
         eventEncounters.push({ id: t.startEncounterId, def: this.lore.getEncounter(t.startEncounterId) });
         log.info('Encounter queued by event', { encounterId: t.startEncounterId, eventId: t.event.id });
       }
+      if (t.startNpcDialogue) {
+        this._npcDialogueQueue.push(t.startNpcDialogue);
+        log.info('NPC dialogue queued by event', { ...t.startNpcDialogue, eventId: t.event.id });
+      }
       if (t.notification) {
         showEventToast(t.event.name ?? t.event.id, t.notificationVariant ?? 'normal');
       }
@@ -2770,9 +2782,9 @@ export class GameController {
     // Launch any encounters triggered by time events during this dialogue turn, sequentially.
     // If dialogue hasn't ended naturally, force-close it first — encounters take priority
     // and cannot run concurrently with an active NPC conversation.
-    if (timeTriggeredEncounters.length > 0) {
+    if (timeTriggeredEncounters.length > 0 || this._npcDialogueQueue.length > 0) {
       if (!shouldEnd) {
-        log.info('Dialogue interrupted by time-triggered encounter', { npcId, encounterId: timeTriggeredEncounters[0].id });
+        log.info('Dialogue interrupted by time-triggered encounter', { npcId, encounterId: timeTriggeredEncounters[0]?.id });
         activeNpcUI.set(null);
         encounterSessionLog.set([]);
         this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
@@ -3241,6 +3253,12 @@ export class GameController {
    * false if the queue was empty.
    */
   private async startNextQueuedEncounter(): Promise<boolean> {
+    // NPC dialogue queue drains first (event-triggered scripted nodes).
+    const dlg = this._npcDialogueQueue.shift();
+    if (dlg) {
+      await this.activateEventNpcDialogue(dlg);
+      return true;
+    }
     const next = this._encounterQueue.shift();
     if (!next) return false;
     await this.startAndRenderEncounter(next.id, next.def);
@@ -3260,6 +3278,32 @@ export class GameController {
     } else {
       await this.renderStoryScript(result.script, 0, result.currentLineIndex, effectiveDef);
     }
+  }
+
+  /**
+   * Activate an NPC scripted dialogue node triggered by an event (startNpcDialogue).
+   * Resolves the NPC, fetches the dialogue node, and launches it as a scripted encounter.
+   * endAfterScript is always true for event-triggered dialogues.
+   */
+  private async activateEventNpcDialogue(
+    dlg: { npcId: string; dialogueId: string; nodeId: string },
+  ): Promise<void> {
+    const npc = this.lore.resolveNPC(dlg.npcId, this.state.flags, this.state.getState().timePeriod);
+    if (!npc) {
+      log.warn('Event NPC dialogue skipped: NPC not found', dlg);
+      return;
+    }
+    const node = this.dialogueMgr.getNode(dlg.npcId, dlg.dialogueId, dlg.nodeId);
+    if (!node) {
+      log.warn('Event NPC dialogue skipped: node not found', dlg);
+      return;
+    }
+    this.updateActiveNpcUI(dlg.npcId);
+    this._sessionFiredTriggers.add(dlg.nodeId);
+    await this.activateScriptedNode(
+      dlg.npcId, dlg.dialogueId, npc.name,
+      dlg.nodeId, node, true, // endAfterScript = true
+    );
   }
 
   /**
@@ -3616,7 +3660,7 @@ export class GameController {
         this.flushAcquisitions();
       }
 
-      if (eventEncounters.length > 0) {
+      if (eventEncounters.length > 0 || this._npcDialogueQueue.length > 0) {
         // Enqueue event encounters first, then prop interaction so it runs after all events.
         for (const enc of eventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
         if (prop.interaction) {
@@ -4378,6 +4422,15 @@ export class GameController {
     }
 
     this.syncUIState(this.state.getState());
+
+    // Drain queued interactions (NPC dialogues / encounters from events) after scripted dialogue ends.
+    if (current.endAfterScript && await this.startNextQueuedEncounter()) {
+      this.flushAcquisitions();
+      if (this.checkEndingConditions()) return;
+      this.releaseInput();
+      return;
+    }
+
     await this.refreshThoughts();
     this.autoSave().catch(err => log.warn('Auto-save after scripted dialogue failed', err));
   }
@@ -4809,6 +4862,11 @@ export class GameController {
         for (const enc of eventEncounters) {
           await this.startAndRenderEncounter(enc.id, enc.def ?? undefined);
           this.flushAcquisitions();
+        }
+        // Drain NPC dialogues queued by processTriggeredEvents
+        while (this._npcDialogueQueue.length > 0) {
+          const dlg = this._npcDialogueQueue.shift()!;
+          await this.activateEventNpcDialogue(dlg);
         }
       }
     }

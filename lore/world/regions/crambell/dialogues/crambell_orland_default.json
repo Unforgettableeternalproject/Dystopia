@@ -2,13 +2,13 @@
   "id": "crambell_orland_default",
   "npcId": "crambell_orland",
 
-  "defaultContext": "TODO: 奧蘭的說話模式。務實、路線熟悉、略顯風霜，說話直接不繞彎。對陌生人保持友善的距離，聊天大多在路況、貨物、各象限的表面消息。身份敏感的話題他會自然地帶過去，不動聲色。",
+  "defaultContext": "奧蘭是一名物流司機，個性隨和開朗、很容易親近，講話自然不做作，給人一種讓人放鬆的感覺。他很擅長交朋友，跟誰都能聊上幾句，也因此在政府那邊的聲望很不錯。舊會議的身分基本上沒什麼人知道。碰到敏感話題時他會自然地帶過去，不動聲色，但不會給人壓迫感。",
 
   "nodes": {
     "first_meeting": {
       "lines": [
-        { "speaker": "narrator", "text": "TODO: 第一次見到奧蘭的場景。他是物流司機，出現在某個合理的位置——轉運站或廣場附近。" },
-        { "speaker": "npc", "text": "TODO: 奧蘭對玩家的開場白。友善、隨意，像是在路上碰到鄰居的打招呼方式。" }
+        { "speaker": "narrator", "text": "一個穿著物流制服的男人在貨架之間搬著箱子，哼著不知名的小曲。他注意到你，臉上立刻浮現出友善的笑容，放下手中的東西走了過來。" },
+        { "speaker": "npc", "text": "啊你好！不好意思，請問有什麼我可以幫你的嗎？ *擦了擦手上的灰* 我是奧蘭，在這裡跑物流的。你是新來的吧？我記得好像之前沒見過你。" }
       ],
       "choices": [
         {
@@ -30,7 +30,7 @@
     },
     "orland_route_talk": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 奧蘭聊路線的方式——輕鬆、熟悉，但不提某些路段（有原因）。" }
+        { "speaker": "npc", "text": "對啊！主要跑幾條固定路線，把礦產跟加工品送到其他象限，回程帶日用品回來。 *咧嘴笑* 聽起來很無聊對吧？不過路上其實蠻有趣的，每次都能碰到一些有意思的人。" }
       ],
       "choices": [
         { "id": "end", "text": "「瞭解，有機會再聊。」", "nextNodeId": null },
@@ -43,7 +43,7 @@
     },
     "orland_surface_news": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 奧蘭分享一些各象限的表面消息，無害但足夠有趣。沒有實質情報，但顯示他消息靈通。" }
+        { "speaker": "npc", "text": "動靜？嗯~讓我想想。帕絲蒂蘭斯那邊好像在調整什麼政策，具體的我也不太清楚啦。威爾象限倒是老樣子，安安靜靜的。 *搔搔頭* 不過我也就是跑車的嘛，大事還真的輪不到我知道，哈哈。" }
       ],
       "choices": [
         { "id": "end", "text": "「謝謝消息。」", "nextNodeId": null }
@@ -51,7 +51,7 @@
     },
     "orland_careful_deflect": {
       "lines": [
-        { "speaker": "npc", "text": "TODO: 奧蘭對敏感路線問題的自然帶過。不顯露緊張，但話題就這樣結束了。" }
+        { "speaker": "npc", "text": "過不去的地方？啊~到處都有管制路段嘛，這不是什麼新鮮事啦。 *笑著擺擺手* 你要是真想出去，不如去轉運站問問，那裡的人比我清楚！" }
       ],
       "choices": [
         { "id": "end", "text": "（點頭，不追問）", "nextNodeId": null },
@@ -62,6 +62,70 @@
           "effects": { "affinity": -1 }
         }
       ]
+    },
+
+    "orland_final_confirm": {
+      "lines": [
+        { "speaker": "npc", "text": "啊……你是凱奇的朋友吧？ *笑了笑，然後表情變得認真了一點，壓低聲音* 來，跟我走。" }
+      ],
+      "choices": [
+        {
+          "id": "follow",
+          "text": "（跟上去）",
+          "nextNodeId": "orland_departure_prep"
+        },
+        {
+          "id": "ask_where",
+          "text": "「去哪？」",
+          "nextNodeId": "orland_departure_prep"
+        }
+      ]
+    },
+    "orland_departure_prep": {
+      "lines": [
+        { "speaker": "npc", "text": "有人託我帶你走，路線都安排好了。 *拉開倉庫角落的帆布，露出一輛運輸車，回頭對你眨眨眼* 來，躲進去，到了地方我會叫你。放心啦，這條路我跑很多次了。" }
+      ],
+      "choices": [
+        {
+          "id": "get_in",
+          "text": "（鑽進運輸車）",
+          "nextNodeId": "orland_departure_end"
+        },
+        {
+          "id": "hesitate",
+          "text": "「……我能信你嗎？」",
+          "nextNodeId": "orland_reassure"
+        }
+      ]
+    },
+    "orland_reassure": {
+      "lines": [
+        { "speaker": "npc", "text": "嘿，能理解你的顧慮啦。 *拍拍你的肩* 不過凱奇信你，我信凱奇，就這麼簡單。 *指了指車* 走吧，時間不多了。" }
+      ],
+      "choices": [
+        {
+          "id": "get_in",
+          "text": "（鑽進運輸車）",
+          "nextNodeId": "orland_departure_end"
+        }
+      ]
+    },
+    "orland_departure_end": {
+      "lines": [
+        { "speaker": "narrator", "text": "奧蘭蓋上帆布，發動引擎。運輸車在顛簸的路面上行駛了很長一段時間。你在黑暗中聽著引擎聲和風聲，直到車終於停了下來。" },
+        { "speaker": "npc", "text": "到啦！ *掀開帆布，伸手拉你出來* 這裡是野區空地，算是象限邊界外的灰色地帶。從這裡開始你得靠自己了。 *遞過一個包裹，認真地看著你* 這是路上需要的東西。保重啊！" }
+      ],
+      "choices": [
+        {
+          "id": "thank_and_leave",
+          "text": "「……謝了，奧蘭。」",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_route5_departed"],
+            "affinity": 2
+          }
+        }
+      ]
     }
   },
 
@@ -69,6 +133,11 @@
     {
       "nodeId": "first_meeting",
       "firstMeetingOnly": true
+    },
+    {
+      "nodeId": "orland_final_confirm",
+      "condition": "crambell_mysterious_message_known & crambell_kach_test3_completed & !crambell_route5_departed",
+      "endAfterScript": true
     }
   ],
 
@@ -76,7 +145,7 @@
     {
       "label": "玩家得知奧蘭的真實身份（舊會議成員）",
       "condition": "intel:orland_treffen_member",
-      "context": "TODO: 身份揭露後奧蘭對玩家的態度轉變。他背後有深厚的政府關係，如果玩家對他不友善會相當危險。"
+      "context": "奧蘭是舊會議的成員之一，負責物流與人員轉移。雖然個性依然隨和，但在知道玩家了解他身份後，他會更直接地分享內部安排和轉移路線的細節，少了那層自然的帶過。"
     }
   ]
 }

@@ -1,0 +1,20 @@
+{
+  "id": "crambell_kach_test3_kane_contact",
+  "name": "名單交接",
+  "locationId": "delth_patrol_zone",
+  "condition": {
+    "questActiveId": "crambell_kach_test3",
+    "flags": ["crambell_kach_test3_list_received"],
+    "notFlags": ["crambell_kach_test3_kane_handoff_done", "crambell_kach_test3_failed"]
+  },
+  "description": "玩家帶著變更過的名單在巡邏管制區尋找凱恩進行交接。",
+  "outcomes": [
+    {
+      "id": "kane_contact_trigger",
+      "description": "在巡邏管制區的角落找到凱恩，準備進行名單交接。",
+      "startEncounterId": "crambell_enc_kach_test3_kane_handoff"
+    }
+  ],
+  "isRepeatable": false,
+  "notification": false
+}
