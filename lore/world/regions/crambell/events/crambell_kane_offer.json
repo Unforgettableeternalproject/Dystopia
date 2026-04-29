@@ -3,7 +3,7 @@
   "name": "凱恩的眼色",
   "locationId": "delth_patrol_zone",
   "condition": {
-    "timePeriods": ["work"],
+    "timePeriods": ["work", "rest"],
     "flags": ["crambell_kane_intel_ready", "crambell_kane_met"],
     "minAffinity": { "crambell_kane": 1 },
     "notFlags": [

@@ -1,7 +1,7 @@
 {
   "id": "crambell_survey",
   "name": "勘查",
-  "locationId": "delth_mine_shafts",
+  "locationId": "delth_mining_shafts",
   "condition": {
     "timePeriods": ["work"]
   },

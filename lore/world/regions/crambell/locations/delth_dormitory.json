@@ -75,7 +75,7 @@
           }
         ],
         "npcIds": [],
-        "eventIds": [],
+        "eventIds": ["crambell_event_restless_night"],
         "propIds": ["delth_dormitory_room_bed", "delth_dormitory_room_clutter", "delth_dormitory_room_desk"],
         "isAccessible": true
       },

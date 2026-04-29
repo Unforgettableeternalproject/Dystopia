@@ -12,7 +12,8 @@
     "delth_warehouse",
     "delth_patrol_zone",
     "delth_transit_hub",
-    "delth_south_ground"
+    "delth_south_ground",
+    "wyar_transit_hub"
   ],
   "npcIds": [
     "crambell_kach",

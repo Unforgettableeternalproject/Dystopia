@@ -61,7 +61,7 @@
       }
     ],
     "npcIds": ["crambell_mildore", "crambell_kane"],
-    "eventIds": ["crambell_patrol_delth", "crambell_public_punishment", "crambell_permit_check", "crambell_survey", "crambell_kach_second_meeting_unlock", "crambell_kane_offer"],
+    "eventIds": ["crambell_patrol_delth", "crambell_public_punishment", "crambell_permit_check", "crambell_kach_second_meeting_unlock", "crambell_kane_offer"],
     "propIds": ["delth_patrol_zone_broadcast_pole", "delth_patrol_zone_detention_rack"],
     "isAccessible": true
   },

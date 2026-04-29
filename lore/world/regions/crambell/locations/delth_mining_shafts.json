@@ -15,7 +15,7 @@
       }
     ],
     "npcIds": [],
-    "eventIds": ["crambell_transfer_trigger", "crambell_survey"],
+    "eventIds": ["crambell_transfer_trigger", "crambell_survey", "crambell_kach_second_meeting_unlock"],
     "propIds": ["delth_mining_shafts_gate_log"],
     "isAccessible": true
   },

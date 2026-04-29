@@ -52,7 +52,7 @@
     melphinPopupOpen = true;
   }
 
-  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; activeIntelPopup = null; }
+  function closeStatPopup() { activeStatPopup = null; activeCondPopup = null; melphinPopupOpen = false; }
 </script>
 
 <svelte:window on:click={closeStatPopup} />

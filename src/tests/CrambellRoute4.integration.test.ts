@@ -101,6 +101,7 @@ function loadRoute4Lore() {
       'delth_patrol_zone',
       'delth_forest',
       'delth_transit_hub',
+      'delth_mining_shafts',
     ],
     npcIds: [],
     questIds: ['crambell_kach_test1', 'crambell_kane_double_agent'],
@@ -113,6 +114,7 @@ function loadRoute4Lore() {
       delth_patrol_zone:    readJson<LocationNode>('lore/world/regions/crambell/locations/delth_patrol_zone.json'),
       delth_forest:         readJson<LocationNode>('lore/world/regions/crambell/locations/delth_forest.json'),
       delth_transit_hub:    readJson<LocationNode>('lore/world/regions/crambell/locations/delth_transit_hub.json'),
+      delth_mining_shafts:  readJson<LocationNode>('lore/world/regions/crambell/locations/delth_mining_shafts.json'),
     },
     regions:   { crambell: region },
     schedules: { crambell: schedule },
@@ -278,7 +280,8 @@ describe('Crambell route4 integration — Kane/Government path', () => {
       expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(1);
 
       // ── Step 2: Survey fires (kach_test1 active); player covers for Kach ──────
-      const surveyResults = events.checkAndApply('delth_patrol_zone');
+      state.getState().player.currentLocationId = 'delth_mine_worksite';
+      const surveyResults = events.checkAndApply('delth_mine_worksite');
       const surveyTrigger = surveyResults.find(t => t.event.id === 'crambell_survey');
       expect(surveyTrigger).toBeDefined();
       expect(surveyTrigger!.startEncounterId).toBe('crambell_enc_survey');
