@@ -31,5 +31,56 @@
     "propIds": ["delth_south_ground_broken_fence", "delth_south_ground_puddle"],
     "isAccessible": true
   },
-  "localVariants": []
+  "localVariants": [],
+  "sublocations": [
+    {
+      "id": "delth_south_ground_fence_gap",
+      "name": "柵欄缺口",
+      "tags": ["outdoor", "peripheral"],
+      "base": {
+        "description": "廢棄圍欄靠近倉庫外牆的一段已被人刻意折開，缺口勉強能讓一個人側身通過。旁邊的雜草被踩出了隱約的路徑，顯然有人長期從這裡進出。從缺口可以看到倉庫後側出口的鐵門，也能觀察到倉庫外牆上是否有人巡邏。",
+        "ambience": ["生鏽鐵絲", "踩爛的雜草", "倉庫牆影", "風聲"],
+        "connections": [
+          { "targetLocationId": "delth_south_ground", "description": "退回南方空地" },
+          { "targetLocationId": "delth_warehouse", "description": "從缺口鑽向倉庫外牆",
+            "access": {
+              "intelIds": ["crambell_warehouse_secret"],
+              "lockedMessage": "你看得到倉庫外牆，但那邊沒有明顯的入口。"
+            }
+          }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "propIds": ["delth_south_ground_fence_gap_rusty_wire", "delth_south_ground_fence_gap_trampled_weeds"],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_south_ground_drainage_ditch",
+      "name": "排水溝側地",
+      "tags": ["outdoor", "peripheral"],
+      "base": {
+        "description": "空地南端沿著外牆延伸的混凝土排水溝，溝壁高約及腰，裡面常年積著棕褐色的死水。溝邊的地面比周圍低了半個台階，站在這裡幾乎看不到管制區方向。廢棄的金屬管橫跨排水溝，算是唯一的過橋點。沒有監控，也沒有巡邏——但有人知道這裡是個說話的好地方。",
+        "ambience": ["死水氣味", "排水溝回音", "金屬生鏽", "完全的視線死角"],
+        "connections": [
+          { "targetLocationId": "delth_south_ground", "description": "返回南方空地入口" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "propIds": ["delth_south_ground_drainage_ditch_concrete_channel", "delth_south_ground_drainage_ditch_metal_pipe"],
+        "isAccessible": true
+      },
+      "localVariants": [
+        {
+          "id": "delth_south_ground_drainage_ditch_kane_rest",
+          "label": "凱恩在排水溝側地休息",
+          "condition": "crambell_south_ground_access & crambell_kane_intel_ready",
+          "priority": 5,
+          "addNpcIds": ["crambell_kane"],
+          "transitionNote": "排水溝邊有個熟悉的身影，靠著金屬管站著，手插在口袋裡。"
+        }
+      ]
+    }
+  ]
 }

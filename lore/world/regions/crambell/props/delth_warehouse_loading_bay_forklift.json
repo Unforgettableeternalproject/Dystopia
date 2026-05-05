@@ -1,0 +1,7 @@
+{
+  "id": "delth_warehouse_loading_bay_forklift",
+  "name": "叉車",
+  "description": "停在裝卸區角落的電動叉車，油漆斑駁，叉臂微微下傾。座椅上夾著一本司機記錄本，封面寫著每日班次。",
+  "tags": ["machine", "industrial"],
+  "checkPrompt": "司機記錄本裡記著每日的裝卸時間表，哪些時段有人在裝卸區、哪些時段叉車停駛。仔細算，倉庫深處在晚班最後一個小時幾乎是空的。"
+}

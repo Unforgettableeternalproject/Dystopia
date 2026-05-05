@@ -1,0 +1,7 @@
+{
+  "id": "delth_warehouse_service_corridor_broken_camera",
+  "name": "故障的監控攝影機",
+  "description": "固定在通道拐角高處的監控攝影機，紅燈不亮，鏡頭角度朝下。電源線從牆壁延伸出來，在距離攝影機約三十公分處被截斷。",
+  "tags": ["surveillance", "broken"],
+  "checkPrompt": "電源線的切口非常整齊，是用工具剪斷的，不是自然磨損或斷裂。切口位置隱蔽，從地面看幾乎注意不到。這條通道的監視死角是刻意製造的。"
+}

@@ -52,5 +52,93 @@
       "addNpcIds": ["crambell_orland"],
       "transitionNote": "貨架之間傳來有人搬東西的聲音，還有隱約的哼歌聲。"
     }
+  ],
+  "sublocations": [
+    {
+      "id": "delth_warehouse_loading_bay",
+      "name": "裝卸飛地",
+      "tags": ["indoor", "industrial", "government_controlled"],
+      "base": {
+        "description": "倉庫入口內側的大型裝卸區，叉車的痕跡交錯在混凝土地板上。工人在這裡核對貨單、搬移箱條，偶爾有官員經過抽查。沿著牆邊有成排的電子配額板，記錄每批貨物的進出。視線穿過貨架間隙可以看到更深處的通道。",
+        "ambience": ["叉車聲", "貨單核對", "金屬碰撞", "昏黃日光燈"],
+        "connections": [
+          { "targetLocationId": "delth_warehouse", "description": "返回倉庫入口" },
+          { "targetLocationId": "delth_warehouse_records_room", "description": "前往文件記錄室",
+            "access": {
+              "flagIds": ["crambell_kach_test2_orland_met"],
+              "lockedMessage": "那個方向有標示「管理人員限定」，你不知道有什麼理由進去。"
+            }
+          },
+          { "targetLocationId": "delth_warehouse_service_corridor", "description": "往裡面的服務通道走" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "propIds": ["delth_warehouse_loading_bay_forklift", "delth_warehouse_loading_bay_ledger"],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_warehouse_records_room",
+      "name": "文件記錄室",
+      "tags": ["indoor", "industrial", "government_controlled", "restricted"],
+      "base": {
+        "description": "一個低調地嵌在貨架牆後方的小房間，架上排列著依日期歸檔的資源調度記錄。燈管一半不亮，另一半發出微微嗡嗡聲。鎖著的金屬文件柜占去了整面側牆，抽屜上貼著封條。只有知道奧蘭的人才會被帶到這裡。",
+        "ambience": ["嗡嗡燈聲", "紙張氣味", "安靜", "封條"],
+        "connections": [
+          { "targetLocationId": "delth_warehouse_loading_bay", "description": "回到裝卸飛地" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "propIds": ["delth_warehouse_records_room_filing_shelf", "delth_warehouse_records_room_locked_cabinet"],
+        "isAccessible": true
+      },
+      "localVariants": []
+    },
+    {
+      "id": "delth_warehouse_service_corridor",
+      "name": "服務通道",
+      "tags": ["indoor", "industrial"],
+      "base": {
+        "description": "倉庫深處一條不在官方動線上的窄走廊，地板上積著薄薄一層灰，腳步聲被低矮的天花板放大。監控攝影機的紅燈是暗的——要麼壞掉，要麼故意沒人修。備用燃料桶靠牆堆放，偶爾有人在這裡停留，不留名字也不留痕跡。",
+        "ambience": ["靜默", "灰塵氣味", "腳步回聲", "昏暗"],
+        "connections": [
+          { "targetLocationId": "delth_warehouse_loading_bay", "description": "返回裝卸飛地" },
+          { "targetLocationId": "delth_warehouse_back_exit", "description": "走向通道盡頭的後門" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "propIds": ["delth_warehouse_service_corridor_broken_camera", "delth_warehouse_service_corridor_fuel_barrel"],
+        "isAccessible": true
+      },
+      "localVariants": [
+        {
+          "id": "delth_warehouse_service_corridor_orland_here",
+          "label": "奧蘭在服務通道活動",
+          "condition": "crambell_kach_test2_briefed | crambell_mysterious_message_known",
+          "priority": 5,
+          "addNpcIds": ["crambell_orland"],
+          "transitionNote": "通道盡頭傳來輕微的箱子摩擦聲，有人在那頭。"
+        }
+      ]
+    },
+    {
+      "id": "delth_warehouse_back_exit",
+      "name": "後側出口",
+      "tags": ["indoor", "industrial"],
+      "base": {
+        "description": "通道盡頭是一扇生鏽的重型鐵門，門縫透著外面的微光。地板上有幾個新鮮的鞋印，朝向門的方向。門沒有上鎖，但非常重——需要用力才能推開。從這裡出去是倉庫外牆與圍欄之間的夾縫，通往南方空地的側道。",
+        "ambience": ["鐵鏽氣味", "微光", "沉重的靜默"],
+        "connections": [
+          { "targetLocationId": "delth_warehouse_service_corridor", "description": "返回服務通道" },
+          { "targetLocationId": "delth_south_ground", "description": "推開鐵門，前往南方空地" }
+        ],
+        "npcIds": [],
+        "eventIds": [],
+        "propIds": ["delth_warehouse_back_exit_rusty_door", "delth_warehouse_back_exit_footprints"],
+        "isAccessible": true
+      },
+      "localVariants": []
+    }
   ]
 }

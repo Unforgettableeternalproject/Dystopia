@@ -254,6 +254,8 @@ describe('Crambell route5 integration — Kach/Treffen trust path', () => {
     expect(state.getState().activeQuests['crambell_kach_test3']?.currentStageId).toBe('contact_kane');
 
     // ── Step 4: Kane handoff at patrol_zone ─────────────────────────────────
+    // Simulate that Kane previously approached the player (ally path prerequisite)
+    state.flags.set('crambell_kane_approached');
     state.getState().player.currentLocationId = 'delth_patrol_zone';
     const kaneResults = events.checkAndApply('delth_patrol_zone');
     const kaneTrigger = kaneResults.find(t => t.event.id === 'crambell_kach_test3_kane_contact');
@@ -310,6 +312,7 @@ describe('Crambell route5 integration — Kach/Treffen trust path', () => {
     dialogueMgr.applyChoiceEffects('crambell_orland', thankChoice.effects);
 
     expect(state.flags.has('crambell_route5_departed')).toBe(true);
+    expect(state.flags.has('crambell_pestilens_transfer_ready')).toBe(true);
 
     // ── Assertions: Route 5 complete ────────────────────────────────────────
     expect(state.getState().completedQuestIds).toContain('crambell_kach_test1');

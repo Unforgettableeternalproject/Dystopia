@@ -1,0 +1,7 @@
+{
+  "id": "delth_south_ground_fence_gap_rusty_wire",
+  "name": "生鏽的圍欄缺口",
+  "description": "廢棄圍欄靠近倉庫外牆的一段被人工折開，鐵絲向外翻出，缺口勉強讓一個人側身通過。圍欄其他部分依然完整。",
+  "tags": ["fence", "peripheral"],
+  "checkPrompt": "缺口的鐵絲斷口沒有氧化——是近期才被人用工具折開的。折彎的角度很精準，顯然是刻意保留可以通過的寬度，又不讓缺口太明顯。"
+}

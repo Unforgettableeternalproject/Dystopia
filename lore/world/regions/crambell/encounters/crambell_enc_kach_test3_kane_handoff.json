@@ -1,13 +1,13 @@
 {
   "id": "crambell_enc_kach_test3_kane_handoff",
-  "name": "凱恩的名單交接",
+  "name": "名單交接——熟識者",
   "type": "event",
-  "description": "玩家帶著凱奇修改過的名單在巡邏管制區找到凱恩，嘗試進行低調的交接。",
+  "description": "玩家帶著凱奇修改過的名單在巡邏管制區找到凱恩，凱恩已認識玩家，交接過程相對平穩。",
   "entryNodeId": "approach_kane",
   "nodes": {
     "approach_kane": {
       "id": "approach_kane",
-      "dmNarrative": "你在管制區的邊緣找到了凱恩。他靠在牆邊，叼著菸，目光在人群中掃視。你走近時，他只是微微抬了一下下巴，示意你跟上。他帶你走到一處監視盲角。「東西帶了？」",
+      "dmNarrative": "你在管制區的邊緣找到了凱恩。他靠在牆邊，叼著菸，目光在人群中掃視。一看到你，他只是微微抬了一下下巴，示意你跟上——他已經認識你了。他帶你走到一處監視盲角，壓低聲音。「東西帶了？」",
       "choices": [
         {
           "id": "hand_over",

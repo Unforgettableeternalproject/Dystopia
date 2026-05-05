@@ -121,7 +121,7 @@
           "text": "「……謝了，奧蘭。」",
           "nextNodeId": null,
           "effects": {
-            "flagsSet": ["crambell_route5_departed"],
+            "flagsSet": ["crambell_route5_departed", "crambell_pestilens_transfer_ready"],
             "affinity": 2
           }
         }

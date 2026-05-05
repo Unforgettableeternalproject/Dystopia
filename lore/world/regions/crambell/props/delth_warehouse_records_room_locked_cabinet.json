@@ -1,0 +1,55 @@
+{
+  "id": "delth_warehouse_records_room_locked_cabinet",
+  "name": "鎖著的金屬文件柜",
+  "description": "靠側牆的一排金屬文件柜，抽屜全部貼有封條，鎖孔是舊式滾輪鎖。標籤上寫著「資源調度（限管理）」，底部有幾道細微的刮痕。",
+  "tags": ["container", "document", "restricted"],
+  "checkPrompt": "封條的邊角有一條細細的分離線——貼過又撕開過，然後再貼回去。鎖孔的金屬邊緣也有工具的壓痕。有人動過這個柜子。",
+  "interactable": true,
+  "interactLabel": "嘗試開鎖",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "try_lock",
+    "nodes": {
+      "try_lock": {
+        "id": "try_lock",
+        "dmNarrative": "玩家靠近文件柜，評估是否有辦法在不留明顯痕跡的情況下開鎖。",
+        "choices": [
+          {
+            "id": "pick_lock",
+            "text": "嘗試開鎖（需要技巧）。",
+            "nextNodeId": "lock_check"
+          },
+          {
+            "id": "leave",
+            "text": "放棄，太危險了。",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "lock_check": {
+        "id": "lock_check",
+        "statCheck": {
+          "stat": "primaryStats.talent",
+          "dc": 14,
+          "successNodeId": "cabinet_open",
+          "failNodeId": "cabinet_fail"
+        }
+      },
+      "cabinet_open": {
+        "id": "cabinet_open",
+        "isOutcome": true,
+        "outcomeType": "success",
+        "dmNarrative": "鎖在幾秒內被撬開，抽屜拉出來。裡面是一疊調度記錄，最上面的幾份有手寫的修改痕跡——數字被改過，改得很仔細，但比對一下前後頁就能看出差異。柜子裡沒有什麼可以直接帶走的東西，但這些記錄被人動過是確定的。",
+        "effects": {
+          "flagsSet": ["crambell_warehouse_records_accessed"]
+        }
+      },
+      "cabinet_fail": {
+        "id": "cabinet_fail",
+        "isOutcome": true,
+        "outcomeType": "failure",
+        "dmNarrative": "鎖沒有開，只是發出一聲沉悶的摩擦聲。你把工具收好，決定別繼續試了——繼續下去只會留下更多痕跡。"
+      }
+    }
+  }
+}

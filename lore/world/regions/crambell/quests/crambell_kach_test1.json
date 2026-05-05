@@ -51,8 +51,8 @@
         {
           "id": "kach_reported",
           "type": "flag_check",
-          "description": "找到凱奇並回報今天的狀況",
-          "flag": "crambell_kach_test1_reported"
+          "description": "找到凱奇並回報今天的狀況，且接受了測試二的委託",
+          "flag": "crambell_kach_test2_briefed"
         }
       ],
       "onComplete": {

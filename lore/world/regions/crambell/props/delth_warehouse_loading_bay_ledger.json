@@ -1,0 +1,37 @@
+{
+  "id": "delth_warehouse_loading_bay_ledger",
+  "name": "配貨記錄板",
+  "description": "掛在裝卸區入口牆上的金屬夾板，上面夾著今日的貨運班表，印著各批貨物的目的地與裝卸窗口編號。",
+  "tags": ["document", "board"],
+  "checkPrompt": "今天的班表上有幾欄被鉛筆打了問號，目的地標注模糊。最後兩筆記錄根本沒有出現在任何配額帳面上。",
+  "interactable": true,
+  "interactLabel": "閱讀",
+  "interaction": {
+    "type": "event",
+    "entryNodeId": "read_ledger",
+    "nodes": {
+      "read_ledger": {
+        "id": "read_ledger",
+        "dmNarrative": "玩家翻看配貨記錄板，試著從班表中找出有用的資訊。",
+        "choices": [
+          {
+            "id": "scan_routes",
+            "text": "快速瀏覽今天的配送路線。",
+            "nextNodeId": "ledger_info"
+          },
+          {
+            "id": "leave",
+            "text": "離開",
+            "nextNodeId": null
+          }
+        ]
+      },
+      "ledger_info": {
+        "id": "ledger_info",
+        "isOutcome": true,
+        "outcomeType": "neutral",
+        "dmNarrative": "班表大部分都是正常的礦產轉運記錄，但最後幾筆沒有對應的官方批次號碼。有東西在走非正式管道出去。"
+      }
+    }
+  }
+}

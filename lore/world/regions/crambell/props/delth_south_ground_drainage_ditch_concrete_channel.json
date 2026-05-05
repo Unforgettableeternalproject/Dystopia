@@ -1,0 +1,7 @@
+{
+  "id": "delth_south_ground_drainage_ditch_concrete_channel",
+  "name": "混凝土排水溝",
+  "description": "沿著外牆延伸的舊式排水溝，溝壁約及腰高，底部積著棕褐色的死水，表面漂著一層油膜。整條溝都在地面以下半個台階。",
+  "tags": ["infrastructure"],
+  "checkPrompt": "站在溝邊，巡邏管制區方向的視線完全被溝壁擋住。從廣場那頭也看不到這裡。這裡是個天然的雙向視線死角——站在這裡的人看不見廣場，廣場那邊的人也看不見這裡。"
+}

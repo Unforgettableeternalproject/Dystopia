@@ -1,0 +1,7 @@
+{
+  "id": "delth_south_ground_fence_gap_trampled_weeds",
+  "name": "踩爛的雜草",
+  "description": "缺口旁邊的雜草已被踩出了一條隱約的小徑，朝向倉庫後牆方向延伸。草莖折斷的方向整齊，不是風吹或動物造成的。",
+  "tags": ["clue", "nature"],
+  "checkPrompt": "草的折斷方向和間距很規律，是反覆有人走過留下的路跡。看方向，這條路從圍欄缺口通向倉庫後牆——有人在這兩點之間定期往返。"
+}

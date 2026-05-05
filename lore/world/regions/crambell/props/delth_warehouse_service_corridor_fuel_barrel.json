@@ -1,0 +1,7 @@
+{
+  "id": "delth_warehouse_service_corridor_fuel_barrel",
+  "name": "備用燃料桶",
+  "description": "靠著通道牆壁疊放的幾個金屬燃料桶，上面貼著褪色的危險標示貼紙。大部分是空的，僅有輕微的殘液氣味。",
+  "tags": ["container", "industrial"],
+  "checkPrompt": "最底層的一個桶底有輕微的刮痕，方向與旁邊的桶不一致——像是被單獨移動過，然後放回去。桶蓋沒有完全鎖死，用手就能轉開。裡面裝的可能不只是燃料。"
+}

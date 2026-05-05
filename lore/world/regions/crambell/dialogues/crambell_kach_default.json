@@ -284,7 +284,7 @@
           "id": "accept",
           "text": "「好，我去辦。」",
           "nextNodeId": null,
-          "effects": { "flagsSet": ["crambell_kach_test2_reported", "crambell_kach_test3_list_received"] }
+          "effects": { "flagsSet": ["crambell_kach_test2_reported", "crambell_kach_test3_list_received"], "grantIntel": ["crambell_south_ground_access"] }
         }
       ]
     },
@@ -297,7 +297,7 @@
           "id": "end",
           "text": "（離開）",
           "nextNodeId": null,
-          "effects": { "flagsSet": ["crambell_kach_test2_reported", "crambell_kach_test3_list_received"] }
+          "effects": { "flagsSet": ["crambell_kach_test2_reported", "crambell_kach_test3_list_received"], "grantIntel": ["crambell_south_ground_access"] }
         }
       ]
     },

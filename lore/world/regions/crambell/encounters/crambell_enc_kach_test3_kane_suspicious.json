@@ -1,0 +1,123 @@
+{
+  "id": "crambell_enc_kach_test3_kane_suspicious",
+  "name": "名單交接——陌生人",
+  "type": "event",
+  "description": "玩家帶著凱奇修改過的名單接觸凱恩，但凱恩並不認識這個突然出現的人。玩家必須讓凱恩相信自己，否則任務將以失敗告終。",
+  "entryNodeId": "approach_kane_cautious",
+  "nodes": {
+    "approach_kane_cautious": {
+      "id": "approach_kane_cautious",
+      "dmNarrative": "凱恩靠在管制區邊緣，菸放在嘴角，目光在人群中來回掃視。你走近時，他的視線停在你身上——冷靜、警覺，沒有任何熟悉的跡象。他不認識你。",
+      "choices": [
+        {
+          "id": "direct_handover",
+          "text": "（什麼都不說，直接把名單遞出去）",
+          "nextNodeId": "kane_talent_check"
+        },
+        {
+          "id": "official_appeal",
+          "text": "「凱恩巡邏員，我有東西要交給你。是上頭的指示。」",
+          "minReputation": { "crambell_government": 15 },
+          "nextNodeId": "kane_receptive"
+        },
+        {
+          "id": "drop_kach_name",
+          "text": "「凱奇托我來的。」",
+          "nextNodeId": "kane_weighs_name"
+        }
+      ]
+    },
+    "kane_talent_check": {
+      "id": "kane_talent_check",
+      "statCheck": {
+        "stat": "primaryStats.talent",
+        "dc": 13,
+        "successNodeId": "kane_let_it_slide",
+        "failNodeId": "kane_gets_suspicious"
+      }
+    },
+    "kane_let_it_slide": {
+      "id": "kane_let_it_slide",
+      "dmNarrative": "凱恩皺了皺眉，沒有說話。你遞出去的動作既不慌亂也不刻意，他盯著名單看了幾秒，伸手接過去，往監視盲角方向走了幾步。「跟上來。」",
+      "choices": [
+        {
+          "id": "follow",
+          "text": "跟上去。",
+          "nextNodeId": "kane_inspect"
+        }
+      ]
+    },
+    "kane_gets_suspicious": {
+      "id": "kane_gets_suspicious",
+      "dmNarrative": "凱恩沒有接。他從嘴邊拿下菸，直視你。「你是誰？」語氣不高，但很重。你沒能在那一刻給出一個讓他安心的答案，他的表情變了。「把東西收好，別鬧事。」他轉身走開，不再回頭。",
+      "isOutcome": true,
+      "outcomeType": "failure",
+      "effects": {
+        "flagsSet": ["crambell_kach_test3_failed"],
+        "statChanges": { "statusStats.stress": 2 },
+        "reputationChanges": { "crambell_government": -3 },
+        "failQuestId": "crambell_kach_test3"
+      }
+    },
+    "kane_receptive": {
+      "id": "kane_receptive",
+      "dmNarrative": "凱恩斜眼看了你一眼。你的姿態和措辭讓他停頓了一下。他把菸吐了一口，壓低聲音：「什麼東西？讓我看看。」他往側面走了幾步，離開視線密集的地方。",
+      "choices": [
+        {
+          "id": "hand_over",
+          "text": "把名單遞過去。",
+          "nextNodeId": "kane_inspect"
+        }
+      ]
+    },
+    "kane_weighs_name": {
+      "id": "kane_weighs_name",
+      "dmNarrative": "凱恩在那個名字上停了整整一秒。他沒有立刻回應，先掃了一眼四周，然後把菸踩滅。「跟我來。」他走向廣場邊緣一處盲角，等你跟上才開口：「名單呢？」",
+      "choices": [
+        {
+          "id": "hand_over",
+          "text": "把名單遞過去。",
+          "nextNodeId": "kane_inspect"
+        }
+      ]
+    },
+    "kane_inspect": {
+      "id": "kane_inspect",
+      "dmNarrative": "凱恩接過名單，翻了幾頁。他的表情沒什麼變化，但看得很仔細。最後，他把名單折好塞進制服口袋，直視你：「你替凱奇跑腿？那我告訴你一件事——關於『舊會議』。那不是什麼傳說，是真的有過那麼一群人。」他停頓了一下，「有些名字，你很快會聽到。」",
+      "choices": [
+        {
+          "id": "ask_more",
+          "text": "「舊會議是什麼？」",
+          "nextNodeId": "kane_brief_intel"
+        },
+        {
+          "id": "nod_leave",
+          "text": "「……知道了。」",
+          "nextNodeId": "handoff_success"
+        }
+      ]
+    },
+    "kane_brief_intel": {
+      "id": "kane_brief_intel",
+      "dmNarrative": "凱恩確認四周無人注意。「一個地下組織，在政府成立之前就有了。他們在各個象限都有人。」他站直身體整理制服。「你的事我會處理。回去等消息。」轉身走進人群，不再回頭。",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
+        "grantIntelId": "crambell_old_meeting_intel",
+        "characterExpGrant": 15
+      }
+    },
+    "handoff_success": {
+      "id": "handoff_success",
+      "dmNarrative": "凱恩點了點頭，在消失進人群之前低聲說了一句：「回去等著。會有消息。」",
+      "isOutcome": true,
+      "outcomeType": "success",
+      "effects": {
+        "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
+        "grantIntelId": "crambell_old_meeting_intel",
+        "characterExpGrant": 10
+      }
+    }
+  }
+}

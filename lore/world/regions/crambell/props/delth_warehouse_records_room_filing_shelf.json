@@ -1,0 +1,7 @@
+{
+  "id": "delth_warehouse_records_room_filing_shelf",
+  "name": "文件架",
+  "description": "沿著整面牆排列的金屬文件架，依月份歸檔的資源調度記錄塞滿了每一格。架上有些灰，但有幾個文件夾明顯被人近期翻過，放回時沒有對齊。",
+  "tags": ["furniture", "document"],
+  "checkPrompt": "最近三個月的那幾個文件夾被人翻閱過——放回的角度和其他文件夾不一致。有人在找特定的記錄，或是把什麼東西藏進去。"
+}

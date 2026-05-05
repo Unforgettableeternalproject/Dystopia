@@ -1,0 +1,7 @@
+{
+  "id": "delth_south_ground_drainage_ditch_metal_pipe",
+  "name": "廢棄金屬管",
+  "description": "一截廢棄的金屬排水管橫跨在排水溝上，直徑約一個手臂寬，兩端卡在溝壁上，算是唯一能跨過去的地方。管面沒有積灰。",
+  "tags": ["debris", "infrastructure"],
+  "checkPrompt": "金屬管的表面沒有積灰，中間位置有幾個磨損的痕跡——有人習慣坐在這裡，或是把它當成跨越的踏腳點。管子很穩，不會晃動。"
+}
