@@ -38,7 +38,7 @@
       "id": "rest_schedule",
       "label": "休息時間的固定位置",
       "condition": null,
-      "locationId": "delth_south_ground",
+      "locationId": "delth_south_ground_drainage_ditch",
       "priority": 10,
       "timePeriods": ["rest"]
     }

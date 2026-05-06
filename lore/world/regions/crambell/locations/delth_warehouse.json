@@ -31,7 +31,7 @@
       }
     ],
     "npcIds": [],
-    "eventIds": ["crambell_event_illegal_intrusion", "crambell_kach_test2_warehouse_entry"],
+    "eventIds": ["crambell_event_illegal_intrusion"],
     "propIds": ["delth_warehouse_metal_shelf", "delth_warehouse_cargo_box"],
     "isAccessible": true
   },
@@ -45,12 +45,11 @@
       "transitionNote": "倉庫外圍的空地多了一個不起眼的身影，在人群中低調地存在著。"
     },
     {
-      "id": "delth_warehouse_orland_available",
-      "label": "奧蘭在倉庫內活動",
+      "id": "delth_warehouse_orland_nearby_hint",
+      "label": "奧蘭在倉庫內（提示性描述）",
       "condition": "crambell_kach_test2_briefed | crambell_mysterious_message_known",
       "priority": 5,
-      "addNpcIds": ["crambell_orland"],
-      "transitionNote": "貨架之間傳來有人搬東西的聲音，還有隱約的哼歌聲。"
+      "transitionNote": "貨架之間傳來有人搬東西的聲音，還有隱約的哼歌聲，聲音來自深處。"
     }
   ],
   "sublocations": [
@@ -65,7 +64,7 @@
           { "targetLocationId": "delth_warehouse", "description": "返回倉庫入口" },
           { "targetLocationId": "delth_warehouse_records_room", "description": "前往文件記錄室",
             "access": {
-              "flagIds": ["crambell_kach_test2_orland_met"],
+              "flag": "crambell_kach_test2_orland_met",
               "lockedMessage": "那個方向有標示「管理人員限定」，你不知道有什麼理由進去。"
             }
           },
@@ -107,7 +106,7 @@
           { "targetLocationId": "delth_warehouse_back_exit", "description": "走向通道盡頭的後門" }
         ],
         "npcIds": [],
-        "eventIds": [],
+        "eventIds": ["crambell_kach_test2_warehouse_entry"],
         "propIds": ["delth_warehouse_service_corridor_broken_camera", "delth_warehouse_service_corridor_fuel_barrel"],
         "isAccessible": true
       },

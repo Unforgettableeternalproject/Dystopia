@@ -206,8 +206,8 @@ describe('Crambell route5 integration — Kach/Treffen trust path', () => {
     expect(state.getState().activeQuests['crambell_kach_test2']?.currentStageId).toBe('infiltrate_warehouse');
 
     // ── Step 2: Warehouse encounter — meet Orland, obtain document ──────────
-    state.getState().player.currentLocationId = 'delth_warehouse';
-    const warehouseResults = events.checkAndApply('delth_warehouse');
+    state.getState().player.currentLocationId = 'delth_warehouse_service_corridor';
+    const warehouseResults = events.checkAndApply('delth_warehouse_service_corridor');
     const warehouseTrigger = warehouseResults.find(t => t.event.id === 'crambell_kach_test2_warehouse_entry');
     expect(warehouseTrigger).toBeDefined();
     expect(warehouseTrigger!.startEncounterId).toBe('crambell_enc_kach_test2_warehouse');
@@ -296,7 +296,7 @@ describe('Crambell route5 integration — Kach/Treffen trust path', () => {
     expect(state.flags.has('crambell_kach_test3_completed')).toBe(true);
 
     // ── Step 6: Final departure — Orland dialogue ───────────────────────────
-    state.getState().player.currentLocationId = 'delth_warehouse';
+    state.getState().player.currentLocationId = 'delth_warehouse_service_corridor';
 
     // Orland final_confirm trigger should fire
     const orlandTrigger = dialogueMgr.checkScriptedTrigger(

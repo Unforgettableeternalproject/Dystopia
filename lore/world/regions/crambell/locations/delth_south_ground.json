@@ -26,8 +26,8 @@
         }
       }
     ],
-    "npcIds": ["crambell_kane"],
-    "eventIds": ["crambell_kane_offer"],
+    "npcIds": [],
+    "eventIds": [],
     "propIds": ["delth_south_ground_broken_fence", "delth_south_ground_puddle"],
     "isAccessible": true
   },
@@ -66,21 +66,12 @@
         "connections": [
           { "targetLocationId": "delth_south_ground", "description": "返回南方空地入口" }
         ],
-        "npcIds": [],
-        "eventIds": [],
+        "npcIds": ["crambell_kane"],
+        "eventIds": ["crambell_kane_offer", "crambell_kach_test3_kane_contact", "crambell_kach_test3_kane_contact_suspicious"],
         "propIds": ["delth_south_ground_drainage_ditch_concrete_channel", "delth_south_ground_drainage_ditch_metal_pipe"],
         "isAccessible": true
       },
-      "localVariants": [
-        {
-          "id": "delth_south_ground_drainage_ditch_kane_rest",
-          "label": "凱恩在排水溝側地休息",
-          "condition": "crambell_south_ground_access & crambell_kane_intel_ready",
-          "priority": 5,
-          "addNpcIds": ["crambell_kane"],
-          "transitionNote": "排水溝邊有個熟悉的身影，靠著金屬管站著，手插在口袋裡。"
-        }
-      ]
+      "localVariants": []
     }
   ]
 }
