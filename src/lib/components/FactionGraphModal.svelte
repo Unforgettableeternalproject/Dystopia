@@ -2,10 +2,55 @@
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { factionGraphOpen, playerUI } from '$lib/stores/gameStore';
+  import type { FactionTreeDetail } from '$lib/stores/gameStore';
 
-  function close() { factionGraphOpen.set(false); }
+  function close() { factionGraphOpen.set(false); selectedFactionId = null; }
   function handleBg(e: MouseEvent) {
     if (e.target === e.currentTarget) close();
+  }
+
+  // ── Faction tree detail selection ─────────────────────────────
+  let selectedFactionId: string | null = null;
+
+  $: treeDetails = $playerUI.factionTreeDetails ?? {};
+  $: selectedDetail = selectedFactionId ? treeDetails[selectedFactionId] ?? null : null;
+
+  function selectFaction(id: string) {
+    selectedFactionId = selectedFactionId === id ? null : id;
+  }
+
+  function questStatusIcon(status: string): string {
+    switch (status) {
+      case 'completed': return '◆';
+      case 'active':    return '◈';
+      case 'available': return '◇';
+      case 'failed':    return '✕';
+      case 'ditched':   return '⊘';
+      default:          return '·';
+    }
+  }
+
+  function questStatusColor(status: string): string {
+    switch (status) {
+      case 'completed': return '#7ec8a0';
+      case 'active':    return '#c9a96e';
+      case 'available': return '#5fa8d3';
+      case 'failed':    return '#d35f5f';
+      case 'ditched':   return '#fa9e34';
+      default:          return '#555';
+    }
+  }
+
+  function creditBarPercent(credit: number, limits?: { positive: number; negative: number }): { left: number; width: number } {
+    if (!limits) return { left: 50, width: 0 };
+    const range = limits.positive - limits.negative;
+    const zeroPos = Math.abs(limits.negative) / range * 100;
+    const creditPos = (credit - limits.negative) / range * 100;
+    if (credit >= 0) {
+      return { left: zeroPos, width: creditPos - zeroPos };
+    } else {
+      return { left: creditPos, width: zeroPos - creditPos };
+    }
   }
 
   // ── SVG virtual canvas dimensions ─────────────────────────────
@@ -318,31 +363,39 @@
                 >你</text>
               {/if}
 
-              <!-- Faction nodes -->
+              <!-- Faction nodes (clickable) -->
               {#each graph.nodes as node}
                 {@const p = layout.get(node.id)}
                 {#if p}
                   {@const col = nodeColor(node.rep, node.revealed)}
-                  <circle cx={p.x} cy={p.y} r="7" fill={col} opacity="0.9" />
-                  <text
-                    x={p.x} y={p.y - 12}
-                    text-anchor="middle"
-                    font-size="9.5"
-                    fill={node.revealed ? 'var(--text-secondary)' : '#666'}
-                    font-family="var(--font-mono)"
-                    pointer-events="none"
-                  >{node.displayName}</text>
-                  {#if node.rep !== 0}
+                  {@const isSelected = selectedFactionId === node.id}
+                  <!-- svelte-ignore a11y-click-events-have-key-events -->
+                  <!-- svelte-ignore a11y-no-static-element-interactions -->
+                  <g class="faction-node-g" style="cursor: pointer;" on:click|stopPropagation={() => selectFaction(node.id)}>
+                    {#if isSelected}
+                      <circle cx={p.x} cy={p.y} r="12" fill="none" stroke={col} stroke-width="1" opacity="0.4" />
+                    {/if}
+                    <circle cx={p.x} cy={p.y} r="7" fill={col} opacity="0.9" />
                     <text
-                      x={p.x} y={p.y + 21}
+                      x={p.x} y={p.y - 12}
                       text-anchor="middle"
-                      font-size="8"
-                      fill={col}
-                      opacity="0.75"
+                      font-size="9.5"
+                      fill={node.revealed ? 'var(--text-secondary)' : '#666'}
                       font-family="var(--font-mono)"
                       pointer-events="none"
-                    >{repSign(node.rep)}</text>
-                  {/if}
+                    >{node.displayName}</text>
+                    {#if node.rep !== 0}
+                      <text
+                        x={p.x} y={p.y + 21}
+                        text-anchor="middle"
+                        font-size="8"
+                        fill={col}
+                        opacity="0.75"
+                        font-family="var(--font-mono)"
+                        pointer-events="none"
+                      >{repSign(node.rep)}</text>
+                    {/if}
+                  </g>
                 {/if}
               {/each}
 
@@ -388,6 +441,105 @@
                 </div>
               {/each}
             </div>
+          </div>
+        {/if}
+
+        <!-- ── Faction Tree Detail ─────────────────── -->
+        {#if selectedDetail}
+          <div class="tree-section" transition:fly={{ y: 6, duration: 150 }}>
+            <div class="tree-header">
+              <span class="tree-faction-name">{selectedDetail.factionName}</span>
+              <span class="tree-join-badge" class:joined={selectedDetail.isJoined}>
+                {selectedDetail.isJoined ? '已加入' : '未加入'}
+              </span>
+              <button class="close-detail-btn" on:click={() => selectedFactionId = null}>✕</button>
+            </div>
+
+            <!-- Credit bar -->
+            {#if selectedDetail.creditLimits}
+              {@const bar = creditBarPercent(selectedDetail.credit, selectedDetail.creditLimits)}
+              <div class="credit-row">
+                <span class="credit-label">信用</span>
+                <div class="credit-bar-wrap">
+                  <div class="credit-bar-bg">
+                    <div
+                      class="credit-bar-fill"
+                      class:neg={selectedDetail.credit < 0}
+                      style="left: {bar.left}%; width: {bar.width}%;"
+                    ></div>
+                    <div class="credit-bar-zero" style="left: {creditBarPercent(0, selectedDetail.creditLimits).left}%;"></div>
+                  </div>
+                </div>
+                <span class="credit-value" style="color: {selectedDetail.credit >= 0 ? '#5fa8d3' : '#d35f5f'}">
+                  {selectedDetail.credit >= 0 ? '+' : ''}{Math.round(selectedDetail.credit)}
+                </span>
+              </div>
+              {#if selectedDetail.breakpointHit}
+                <div class="breakpoint-warning">⚠ 信用已達中斷點 — 主線任務已鎖定</div>
+              {/if}
+            {/if}
+
+            {#if selectedDetail.isJoined}
+              <!-- Checkpoints -->
+              {#if selectedDetail.checkpoints && selectedDetail.checkpoints.length > 0}
+                <div class="tree-sub-section">
+                  <span class="tree-sub-label">進度</span>
+                  <div class="checkpoint-list">
+                    {#each selectedDetail.checkpoints as cp}
+                      <div class="checkpoint-row" class:completed={cp.completed}>
+                        <span class="cp-icon">{cp.completed ? '◆' : '◇'}</span>
+                        <span class="cp-label">{cp.label}</span>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Quest Lines -->
+              {#if selectedDetail.questLines && selectedDetail.questLines.length > 0}
+                {#each selectedDetail.questLines as ql}
+                  <div class="tree-sub-section">
+                    <span class="tree-sub-label">{ql.label}</span>
+                    <div class="quest-line-list">
+                      {#each ql.quests as quest, i}
+                        <div class="quest-node-row">
+                          {#if i > 0}
+                            <div class="quest-connector"></div>
+                          {/if}
+                          <span class="quest-icon" style="color: {questStatusColor(quest.status)}">{questStatusIcon(quest.status)}</span>
+                          <span class="quest-name" style="color: {quest.status === 'locked' ? '#555' : 'var(--text-secondary)'}">
+                            {quest.status === 'locked' ? '???' : quest.name}
+                          </span>
+                          {#if quest.coupling > 0.7}
+                            <span class="coupling-badge high">核心</span>
+                          {:else if quest.coupling > 0.4}
+                            <span class="coupling-badge mid">相關</span>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/each}
+              {/if}
+
+            {:else}
+              <!-- Not joined: show known quests only -->
+              {#if selectedDetail.knownQuests && selectedDetail.knownQuests.length > 0}
+                <div class="tree-sub-section">
+                  <span class="tree-sub-label">已知任務</span>
+                  <div class="quest-line-list">
+                    {#each selectedDetail.knownQuests as quest}
+                      <div class="quest-node-row">
+                        <span class="quest-icon" style="color: {questStatusColor(quest.status)}">{questStatusIcon(quest.status)}</span>
+                        <span class="quest-name">{quest.name}</span>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {:else}
+                <div class="tree-empty">尚無相關任務記錄</div>
+              {/if}
+            {/if}
           </div>
         {/if}
 
@@ -592,5 +744,202 @@
     width: 36px;
     text-align: right;
     flex-shrink: 0;
+  }
+
+  /* ── Faction Tree Detail ──────────── */
+  .tree-section {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .tree-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tree-faction-name {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    flex: 1;
+  }
+
+  .tree-join-badge {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    padding: 1px 6px;
+    border: 1px solid #555;
+    color: #888;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+  .tree-join-badge.joined {
+    border-color: #5fa8d3;
+    color: #5fa8d3;
+  }
+
+  .close-detail-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 4px;
+    opacity: 0.5;
+    transition: opacity 0.1s;
+  }
+  .close-detail-btn:hover { opacity: 1; }
+
+  /* Credit bar */
+  .credit-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 40px;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .credit-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .credit-bar-wrap { width: 100%; }
+
+  .credit-bar-bg {
+    height: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .credit-bar-fill {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: #5fa8d3;
+    border-radius: 2px;
+    transition: left 0.3s, width 0.3s;
+  }
+  .credit-bar-fill.neg { background: #d35f5f; }
+
+  .credit-bar-zero {
+    position: absolute;
+    top: -1px;
+    width: 1px;
+    height: 6px;
+    background: var(--border-accent);
+    opacity: 0.5;
+  }
+
+  .credit-value {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    text-align: right;
+  }
+
+  .breakpoint-warning {
+    font-size: 9px;
+    color: #d35f5f;
+    font-family: var(--font-mono);
+    opacity: 0.85;
+    letter-spacing: 0.03em;
+  }
+
+  /* Sub-sections */
+  .tree-sub-section {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .tree-sub-label {
+    font-size: 8.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+
+  /* Checkpoints */
+  .checkpoint-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .checkpoint-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+  }
+  .checkpoint-row.completed { color: #7ec8a0; }
+
+  .cp-icon { font-size: 9px; width: 12px; text-align: center; }
+  .cp-label { flex: 1; }
+
+  /* Quest line */
+  .quest-line-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-left: 4px;
+  }
+
+  .quest-node-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 3px 0;
+    position: relative;
+  }
+
+  .quest-connector {
+    position: absolute;
+    left: 5px;
+    top: -6px;
+    width: 1px;
+    height: 9px;
+    background: #444;
+  }
+
+  .quest-icon { font-size: 10px; width: 12px; text-align: center; flex-shrink: 0; }
+  .quest-name { flex: 1; }
+
+  .coupling-badge {
+    font-size: 7.5px;
+    padding: 0 4px;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .coupling-badge.high {
+    background: rgba(201, 169, 110, 0.15);
+    color: #c9a96e;
+    border: 1px solid rgba(201, 169, 110, 0.3);
+  }
+  .coupling-badge.mid {
+    background: rgba(95, 168, 211, 0.1);
+    color: #5fa8d3;
+    border: 1px solid rgba(95, 168, 211, 0.2);
+  }
+
+  .tree-empty {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    opacity: 0.5;
+    padding: 8px 0;
   }
 </style>

@@ -57,35 +57,54 @@ export class FactionTreeEngine {
   /**
    * Called when a quest completes successfully.
    * Handles:
-   *   1. Initial quest → join faction + credit bonus
-   *   2. Checkpoint advancement check
+   *   1. Initial quest → join faction (derived from coupling) + credit bonus
+   *   2. Credit reward for non-initial quests (weighted by coupling)
+   *   3. Checkpoint advancement check
+   *
+   * Faction affiliation is inferred from coupling values, not factionId.
+   * The faction with the highest coupling is the "primary faction" for join purposes.
    */
   onQuestComplete(questId: string): void {
     const def = this.lore.getQuest(questId);
     if (!def) return;
 
-    // 1. Initial quest → join faction + credit bonus
-    if (def.questCategory === 'initial' && def.factionId) {
-      this.initFactionRelation(def.factionId);
-      const faction = this.lore.getFactionDefinition(def.factionId);
+    // Collect all coupled factions
+    const coupledFactions = this.getCoupledFactions(def);
+    if (coupledFactions.length === 0) return; // general quest, no faction interaction
+
+    // 1. Initial quest → join the primary faction (highest coupling) + credit bonus
+    if (def.questCategory === 'initial') {
+      const primaryFactionId = coupledFactions[0].factionId; // sorted by coupling desc
+      this.initFactionRelation(primaryFactionId);
+      const faction = this.lore.getFactionDefinition(primaryFactionId);
       if (faction?.credit) {
-        this.state.modifyCredit(def.factionId, faction.credit.initialQuestBonus, {
+        this.state.modifyCredit(primaryFactionId, faction.credit.initialQuestBonus, {
           negativeLimit: faction.credit.negativeLimit,
           positiveLimit: faction.credit.positiveLimit,
         });
       }
-      this.state.updateFactionRelation(def.factionId, { isJoined: true });
+      this.state.updateFactionRelation(primaryFactionId, { isJoined: true });
     }
 
-    // 2. Check checkpoint advancement for all factions this quest is coupled to
-    const factionIds = new Set<string>();
-    if (def.factionId) factionIds.add(def.factionId);
-    if (def.coupling) {
-      for (const fid of Object.keys(def.coupling)) factionIds.add(fid);
+    // 2. Credit reward for completed quest (weighted by coupling)
+    if (def.questCategory !== 'initial') {
+      for (const { factionId, coupling } of coupledFactions) {
+        const faction = this.lore.getFactionDefinition(factionId);
+        if (!faction?.credit) continue;
+        const relation = this.state.getFactionRelation(factionId);
+        if (!relation) continue;
+        // Base credit reward scaled by coupling
+        const baseReward = 5; // TODO: make configurable per quest/faction
+        this.state.modifyCredit(factionId, baseReward * coupling, {
+          negativeLimit: faction.credit.negativeLimit,
+          positiveLimit: faction.credit.positiveLimit,
+        });
+      }
     }
 
-    for (const fid of factionIds) {
-      this.checkCheckpointAdvancement(fid, questId);
+    // 3. Check checkpoint advancement for all coupled factions
+    for (const { factionId } of coupledFactions) {
+      this.checkCheckpointAdvancement(factionId, questId);
     }
   }
 
@@ -128,21 +147,53 @@ export class FactionTreeEngine {
 
   /**
    * Check if a faction quest can be granted.
-   * Returns false if the player has hit the credit breakpoint for that faction.
+   * Returns false if the player has hit the credit breakpoint for any coupled faction.
    * Non-faction quests and 'general' category quests are always available.
+   * Uses coupling to determine faction affiliation (not factionId).
    */
   isEpicQuestAvailable(questId: string): boolean {
     const def = this.lore.getQuest(questId);
-    if (!def || !def.factionId) return true;
+    if (!def) return true;
     if (def.questCategory === 'general') return true;
 
-    const relation = this.state.getFactionRelation(def.factionId);
+    const coupledFactions = this.getCoupledFactions(def);
+    if (coupledFactions.length === 0) return true; // No coupling = always available
+
+    // Check the primary faction (highest coupling) for breakpoint
+    const primaryFactionId = coupledFactions[0].factionId;
+    const relation = this.state.getFactionRelation(primaryFactionId);
     if (!relation) return true; // No relation yet = available
 
     return !relation.creditBreakpointHit;
   }
 
   // ── Internal ────────────────────────────────────────────────────
+
+  /**
+   * Derive faction affiliations from a quest's coupling values.
+   * Returns factions sorted by coupling descending (highest = primary).
+   * Falls back to factionId if no coupling is defined.
+   */
+  private getCoupledFactions(
+    def: { coupling?: Record<string, number>; factionId?: string },
+  ): { factionId: string; coupling: number }[] {
+    const result: { factionId: string; coupling: number }[] = [];
+
+    if (def.coupling) {
+      for (const [fid, val] of Object.entries(def.coupling)) {
+        if (val > 0) result.push({ factionId: fid, coupling: val });
+      }
+    }
+
+    // Fallback: use legacy factionId if no coupling defined
+    if (result.length === 0 && def.factionId) {
+      result.push({ factionId: def.factionId, coupling: 1.0 });
+    }
+
+    // Sort by coupling descending — first element is "primary faction"
+    result.sort((a, b) => b.coupling - a.coupling);
+    return result;
+  }
 
   /**
    * Check if completing a quest advances any checkpoint for a faction.

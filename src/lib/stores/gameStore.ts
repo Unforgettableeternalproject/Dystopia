@@ -9,6 +9,47 @@ import type { InventoryItem } from '../types/item';
 import type { QuestType } from '../types/quest';
 import type { RollResult } from '../engine/DiceEngine';
 
+// ── Faction Tree UI Data ──────────────────────────────────────
+
+export interface FactionTreeQuestNode {
+  questId: string;
+  name: string;
+  status: 'locked' | 'available' | 'active' | 'completed' | 'failed' | 'ditched';
+  coupling: number;
+  questCategory?: string;
+  isNextInLine?: boolean;
+}
+
+export interface FactionTreeCheckpointNode {
+  id: string;
+  label: string;
+  order: number;
+  completed: boolean;
+  questIds: string[];
+}
+
+export interface FactionTreeQuestLineNode {
+  id: string;
+  label: string;
+  quests: FactionTreeQuestNode[];
+}
+
+export interface FactionTreeDetail {
+  factionId: string;
+  factionName: string;
+  isJoined: boolean;
+  credit: number;
+  creditLimits?: { positive: number; negative: number };
+  breakpointHit: boolean;
+  reputation: number;
+  /** Checkpoints 只在加入後顯示 */
+  checkpoints?: FactionTreeCheckpointNode[];
+  /** QuestLines 只在加入後顯示完整結構，否則只顯示已知任務 */
+  questLines?: FactionTreeQuestLineNode[];
+  /** 加入前顯示的已知任務（不屬於任何結構） */
+  knownQuests?: FactionTreeQuestNode[];
+}
+
 // ── Narrative Lines ────────────────────────────────────────────
 
 export interface NarrativeLine {
@@ -158,6 +199,8 @@ export interface PlayerUIState {
     /** 兩端均已發現的關係邊 */
     edges: Array<{ a: string; b: string; weight: number }>;
   };
+  /** 陣營樹詳情（點擊某陣營節點後展開） */
+  factionTreeDetails?: Record<string, FactionTreeDetail>;
   titles?:          string[];
   activeQuestSummaries?: Array<{
     questId:    string;

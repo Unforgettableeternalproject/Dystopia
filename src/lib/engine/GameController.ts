@@ -4203,6 +4203,7 @@ export class GameController {
       topFactions:     topFactions.length > 0 ? topFactions : undefined,
       allFactionRep:   allFactionRep.length > 0 ? allFactionRep : undefined,
       factionGraphUI:  factionGraphUI,
+      factionTreeDetails: this.buildFactionTreeDetails(gs, allFactionRep),
       titles:          gs.player.titles.length > 0 ? gs.player.titles.slice(0, 2) : undefined,
       activeQuestSummaries:    activeQuestSummaries.length > 0 ? activeQuestSummaries : undefined,
       allActiveQuestSummaries: allActiveQuestSummaries.length > 0 ? allActiveQuestSummaries : undefined,
@@ -4254,6 +4255,129 @@ export class GameController {
       affinity:      { ...gs.player.externalStats.affinity },
       knownIntelIds: [...gs.player.knownIntelIds],
     });
+  }
+
+  // -- Faction Tree UI Data (private) ----------------------------------
+
+  /**
+   * Build faction tree detail data for the UI.
+   * Joined = positive reputation + completed any initial quest for that faction.
+   * Before joining: only show known quests (no Epic/Checkpoint structure).
+   * After joining: show full quest lines, checkpoints, credit.
+   */
+  private buildFactionTreeDetails(
+    gs: GameState,
+    allFactionRep: Array<{ id: string; name: string; rep: number }>,
+  ): Record<string, import('../stores/gameStore').FactionTreeDetail> | undefined {
+    if (allFactionRep.length === 0) return undefined;
+
+    const result: Record<string, import('../stores/gameStore').FactionTreeDetail> = {};
+
+    for (const fRep of allFactionRep) {
+      const factionDef = this.lore.getFactionDefinition(fRep.id);
+      if (!factionDef) continue;
+
+      const relation = gs.factionRelations?.[fRep.id];
+      const credit = gs.player.externalStats.credit?.[fRep.id] ?? 0;
+
+      // "Joined" = positive reputation + completed any initial quest for this faction
+      const hasPositiveRep = fRep.rep > 0;
+      const hasCompletedInitial = relation?.isJoined ?? false;
+      const isJoined = hasPositiveRep && hasCompletedInitial;
+
+      const detail: import('../stores/gameStore').FactionTreeDetail = {
+        factionId: fRep.id,
+        factionName: fRep.name,
+        isJoined,
+        credit,
+        creditLimits: factionDef.credit ? {
+          positive: factionDef.credit.positiveLimit,
+          negative: factionDef.credit.negativeLimit,
+        } : undefined,
+        breakpointHit: relation?.creditBreakpointHit ?? false,
+        reputation: fRep.rep,
+      };
+
+      if (isJoined && factionDef.epic) {
+        // Show full structure: checkpoints + quest lines
+        detail.checkpoints = factionDef.epic.checkpoints
+          .sort((a, b) => a.order - b.order)
+          .map(cp => ({
+            id: cp.id,
+            label: cp.label,
+            order: cp.order,
+            completed: relation?.completedCheckpointIds?.includes(cp.id) ?? false,
+            questIds: cp.requiredQuestIds ?? [],
+          }));
+
+        detail.questLines = factionDef.epic.questLines.map(ql => {
+          const quests: import('../stores/gameStore').FactionTreeQuestNode[] = [];
+          let currentQuestId: string | undefined = ql.entryQuestId;
+          const visited = new Set<string>();
+
+          while (currentQuestId && !visited.has(currentQuestId)) {
+            visited.add(currentQuestId);
+            const qDef = this.lore.getQuest(currentQuestId);
+            if (!qDef) break;
+
+            const instance = gs.activeQuests[currentQuestId];
+            const isCompleted = gs.completedQuestIds?.includes(currentQuestId) ?? false;
+            let status: 'locked' | 'available' | 'active' | 'completed' | 'failed' | 'ditched' = 'locked';
+            if (isCompleted) status = 'completed';
+            else if (instance?.isFailed) status = 'failed';
+            else if (instance) status = 'active';
+            else if (quests.length === 0 || quests[quests.length - 1].status === 'completed') status = 'available';
+
+            quests.push({
+              questId: currentQuestId,
+              name: qDef.name,
+              status,
+              coupling: qDef.coupling?.[fRep.id] ?? 0,
+              questCategory: qDef.questCategory,
+            });
+
+            currentQuestId = qDef.nextQuestId;
+          }
+
+          return { id: ql.id, label: ql.label, quests };
+        });
+      } else {
+        // Not joined: show only known quests (active or completed) that are coupled to this faction
+        const knownQuests: import('../stores/gameStore').FactionTreeQuestNode[] = [];
+        const allQuestIds = new Set([
+          ...Object.keys(gs.activeQuests),
+          ...(gs.completedQuestIds ?? []),
+        ]);
+
+        for (const qid of allQuestIds) {
+          const qDef = this.lore.getQuest(qid);
+          if (!qDef?.coupling?.[fRep.id]) continue;
+
+          const instance = gs.activeQuests[qid];
+          const isCompleted = gs.completedQuestIds?.includes(qid) ?? false;
+          let status: 'locked' | 'available' | 'active' | 'completed' | 'failed' | 'ditched' = 'locked';
+          if (isCompleted) status = 'completed';
+          else if (instance?.isFailed) status = 'failed';
+          else if (instance) status = 'active';
+
+          knownQuests.push({
+            questId: qid,
+            name: qDef.name,
+            status,
+            coupling: qDef.coupling[fRep.id],
+            questCategory: qDef.questCategory,
+          });
+        }
+
+        if (knownQuests.length > 0) {
+          detail.knownQuests = knownQuests;
+        }
+      }
+
+      result[fRep.id] = detail;
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined;
   }
 
   // -- Scripted dialogue (private) ------------------------------------

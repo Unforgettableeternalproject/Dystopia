@@ -6,5 +6,36 @@
   "defaultReputation": 0,
   "relations": [
     { "targetFactionId": "crambell_general_corps", "weight": 0 }
-  ]
+  ],
+
+  "credit": {
+    "initialValue": 0,
+    "positiveLimit": 60,
+    "negativeLimit": -30,
+    "breakpointPercent": 15,
+    "ditchPenaltyPercent": 70,
+    "initialQuestBonus": 10
+  },
+
+  "epic": {
+    "id": "peoples_alliance_solidarity",
+    "label": "人民互助聯盟 — 從個人施捨到集體反抗",
+    "checkpoints": [
+      {
+        "id": "cp_alliance_contact",
+        "label": "與聯盟建立初步接觸",
+        "order": 0,
+        "requiredQuestIds": ["crambell_task_shackles"],
+        "flagsSet": ["crambell_alliance_cp1_done"]
+      }
+    ],
+    "questLines": [
+      {
+        "id": "mildore_line",
+        "label": "米爾多雷線 — 透過救援米爾多雷接觸聯盟",
+        "entryQuestId": "crambell_task_shackles",
+        "contributesToCheckpoints": ["cp_alliance_contact"]
+      }
+    ]
+  }
 }
