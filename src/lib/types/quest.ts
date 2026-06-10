@@ -176,6 +176,37 @@ export interface QuestDitchConsequences {
   statChanges?: Record<string, number>;
 }
 
+// ── Faction Tree Integration ─────────────────────────────────────
+
+/**
+ * 任務在陣營樹中的角色分類。
+ * 'initial'  — 初始任務（啟動陣營親和度，完成後信用 +initialQuestBonus）
+ * 'story'    — 劇情任務（特定點完成後解鎖）
+ * 'critical' — 關鍵任務（達到特定點必須完成的）
+ * 'general'  — 一般任務（無陣營關聯，路線一類型）
+ */
+export type QuestCategory = 'initial' | 'story' | 'critical' | 'general';
+
+/**
+ * 多陣營任務類型。
+ * 'cooperative' — 協同任務（友好陣營，需同時接觸兩陣營才能做）
+ * 'contested'   — 爭奪任務（敵對陣營，結果依立場不同）
+ * 'linked'      — 連結任務（中立陣營，可改變陣營間關係）
+ * 'general'     — 一般任務（無陣營，影響數值/NPC好感/物品）
+ */
+export type MultiFactionType = 'cooperative' | 'contested' | 'linked' | 'general';
+
+/**
+ * 任務開始時的過渡設定（從上一個任務銜接的轉場）。
+ * 任務線中每個任務可定義自己的進場方式。
+ */
+export interface QuestTransitionSetup {
+  /** 進入此任務時觸發的事件 ID */
+  entryEventId?: string;
+  /** 進入此任務時的敘述提示（給 DM） */
+  entryNarrative?: string;
+}
+
 // ── Definition ────────────────────────────────────────────────────
 
 export interface QuestDefinition {
@@ -274,6 +305,36 @@ export interface QuestDefinition {
    * 典型用途：循環任務的重置邏輯，避免每個階段都重複定義。
    */
   onFailDefault?: QuestStageFailOutcome;
+
+  // ── Faction Tree Integration (所有欄位可選，向後相容) ────────
+
+  /**
+   * 所屬任務線 ID（對應 FactionQuestLine.id）。
+   * 省略 = 不屬於任何任務線。
+   */
+  questLineId?: string;
+  /**
+   * 任務線中下一個任務的 ID（鏈式推進）。
+   * 省略 = 此任務為任務線的最後一個任務。
+   */
+  nextQuestId?: string;
+  /**
+   * 耦合度：此任務與各陣營的關聯強度。
+   * key = factionId，value = 0–1（高 = 主線相關，影響信用計算權重）。
+   * 低耦合支線任務非陣營成員也能做，不計入進階信用。
+   */
+  coupling?: Record<string, number>;
+  /** 任務在陣營樹中的角色分類 */
+  questCategory?: QuestCategory;
+  /** 任務開始時的過渡設定（從上一個任務銜接的轉場） */
+  transitionSetup?: QuestTransitionSetup;
+  /**
+   * 多陣營任務類型。
+   * 省略 = 視同 'general'（無特殊陣營互動）。
+   */
+  multiFactionType?: MultiFactionType;
+
+  // ── Core ────────────────────────────────────────────────────
 
   entryStageId: string;
   stages: Record<string, QuestStage>;

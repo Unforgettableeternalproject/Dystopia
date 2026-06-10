@@ -9,6 +9,10 @@
   "isRepeatable": true,
   "repeatCondition": "!crambell_transfer_permit_collected",
   "canDitch": false,
+
+  "questCategory": "general",
+  "multiFactionType": "general",
+
   "_comment": [
     "由 crambell_enc_transfer_trigger 在玩家取得轉移線索後授予。",
     "玩家須通過申請遭遇，再連續三天完成配額。",

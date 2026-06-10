@@ -11,6 +11,7 @@ import type {
   FactionGraphDefinition,
   FactionRelationEdge,
 } from '../types';
+import type { FactionDefinition, FactionQuestLine } from '../types/faction';
 import type { ItemNode, InventoryItem } from '../types/item';
 import type { ConditionDefinition } from '../types/condition';
 import type { IntelEntry } from '../types/intel';
@@ -632,7 +633,40 @@ export class LoreVault {
   }
 
   /**
-   * 取得某區域的陣營關係圖。
+   * Get faction as FactionDefinition (includes epic/credit/tolerance if defined).
+   * Safe cast — FactionDefinition extends Faction; extra fields are simply absent for old-format factions.
+   */
+  getFactionDefinition(id: string): FactionDefinition | undefined {
+    return this.data.factions[id] as FactionDefinition | undefined;
+  }
+
+  /**
+   * Find the faction that contains a specific quest line by questLineId.
+   * Scans all loaded factions' epic.questLines.
+   */
+  getFactionByQuestLineId(questLineId: string): FactionDefinition | undefined {
+    for (const faction of Object.values(this.data.factions)) {
+      const fd = faction as FactionDefinition;
+      if (fd.epic?.questLines.some(ql => ql.id === questLineId)) return fd;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get the quest line and owning faction for a quest.
+   * Returns undefined if the quest has no questLineId or the line is not found.
+   */
+  getQuestLineForQuest(questId: string): { faction: FactionDefinition; questLine: FactionQuestLine } | undefined {
+    const def = this.data.quests[questId];
+    if (!def?.questLineId) return undefined;
+    const faction = this.getFactionByQuestLineId(def.questLineId);
+    if (!faction?.epic) return undefined;
+    const questLine = faction.epic.questLines.find(ql => ql.id === def.questLineId);
+    if (!questLine) return undefined;
+    return { faction, questLine };
+  }
+
+  /**
    * 優先從 factionGraphs（獨立 JSON 檔）讀取，若無則從各 faction 的 `relations` 欄位動態組建。
    */
   getFactionGraph(regionId: string): FactionGraphDefinition | undefined {

@@ -10,6 +10,9 @@
   "repeatCondition": "!crambell_quota_met_today",
   "canDitch": false,
 
+  "questCategory": "general",
+  "multiFactionType": "general",
+
   "_comment": [
     "出身任務：礦工出身玩家自動獲得，每日循環。",
     "玩家在作業時段於工作岡位進行工作行動，DM 確認完成後發送 <<FLAG: crambell_quota_done_today>>。",

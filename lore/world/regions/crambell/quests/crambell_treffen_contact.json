@@ -11,6 +11,9 @@
   "canDitch": true,
   "autoAccept": false,
 
+  "coupling": { "crambell_treffen": 1.0 },
+  "questCategory": "critical",
+
   "_comment": [
     "派系長線任務：舊會議（Treffen）入會路線。",
     "起點：玩家與凱奇的接觸。凱奇不會直接透露自己的身份，",

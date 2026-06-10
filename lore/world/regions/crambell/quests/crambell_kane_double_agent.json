@@ -9,6 +9,10 @@
   "canAbandon": false,
   "canDitch": false,
 
+  "questLineId": "kane_cooperation_line",
+  "coupling": { "crambell_government": 0.8, "crambell_treffen": 0.3 },
+  "questCategory": "initial",
+
   "_comment": [
     "路線四：政府合作路線。",
     "玩家同意凱恩的提議後持有此任務；在凱恩的對話節點中選擇交付情報（凱奇或聯盟），",

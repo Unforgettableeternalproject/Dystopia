@@ -9,6 +9,9 @@
   "canDitch": false,
   "autoAccept": false,
 
+  "coupling": { "crambell_peoples_alliance": 0.5 },
+  "questCategory": "story",
+
   "_comment": [
     "支線任務：解救米爾多雷。",
     "起點：玩家在廣場目擊米爾多雷被關在禁閉架，並選擇靠近交談。",

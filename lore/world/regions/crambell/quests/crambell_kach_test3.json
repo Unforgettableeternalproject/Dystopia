@@ -8,6 +8,10 @@
   "canDitch": false,
   "autoAccept": true,
 
+  "questLineId": "kach_test_line",
+  "coupling": { "crambell_treffen": 0.9 },
+  "questCategory": "critical",
+
   "_comment": [
     "路線五最後階段：凱奇給玩家一份變更過的名單，要求玩家帶去巡邏管制區接觸凱恩。",
     "成功交接後取得「舊會議」相關情報。隔天早上收到神秘口信後，前往倉庫找奧蘭離開。"

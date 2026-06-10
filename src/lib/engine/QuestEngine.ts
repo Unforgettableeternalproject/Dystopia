@@ -15,6 +15,7 @@
 
 import type { LoreVault }         from '../lore/LoreVault';
 import type { StateManager }      from './StateManager';
+import type { FactionTreeEngine } from './FactionTreeEngine';
 import type {
   QuestDefinition, QuestInstance,
   QuestObjective, QuestSource,
@@ -30,10 +31,18 @@ export interface GrantQuestOptions {
 }
 
 export class QuestEngine {
+  /** Optional FactionTreeEngine — injected for faction tree integration. */
+  private factionTree?: FactionTreeEngine;
+
   constructor(
     private lore:  LoreVault,
     private state: StateManager,
   ) {}
+
+  /** Set the FactionTreeEngine reference. Called by GameController after construction. */
+  setFactionTree(engine: FactionTreeEngine): void {
+    this.factionTree = engine;
+  }
 
   // ── Grant / Accept ────────────────────────────────────────────
 
@@ -53,6 +62,9 @@ export class QuestEngine {
 
     // For non-repeatable: skip if already completed or failed
     if (!def.isRepeatable && gs.completedQuestIds.includes(questId)) return false;
+
+    // Faction tree: block grant if breakpoint hit for this quest's faction
+    if (this.factionTree && !this.factionTree.isEpicQuestAvailable(questId)) return false;
 
     // cannotCoexist: block grant if any mutually exclusive quest is currently active
     if (def.cannotCoexist?.length) {
@@ -119,6 +131,10 @@ export class QuestEngine {
     }
 
     this.state.ditchQuest(questId, def.ditchConsequences);
+
+    // Faction tree: apply credit penalty
+    this.factionTree?.onQuestDitch(questId);
+
     return true;
   }
 
@@ -337,6 +353,8 @@ export class QuestEngine {
         if (def.isFactionQuest && def.factionId) {
           this.state.flags.set('player_joined_' + def.factionId);
         }
+        // Faction tree: notify completion for checkpoint advancement & credit
+        this.factionTree?.onQuestComplete(questId);
       }
     } else {
       this.state.advanceQuestStage(questId, stage.onComplete.nextStageId);

@@ -76,7 +76,15 @@
       "Bash(cat vitest.config.ts)",
       "Bash(awk:*)",
       "Bash(grep:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Skill(pm)",
+      "mcp__open-notebook__list_notebooks",
+      "mcp__open-notebook__create_notebook",
+      "mcp__open-notebook__create_note",
+      "mcp__open-notebook__list_notes",
+      "mcp__open-notebook__search",
+      "mcp__open-notebook__get_note",
+      "mcp__open-notebook__update_note"
     ]
   }
 }

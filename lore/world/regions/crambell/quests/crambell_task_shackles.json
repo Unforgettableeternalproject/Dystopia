@@ -8,6 +8,9 @@
   "canDitch": true,
   "autoAccept": false,
 
+  "coupling": { "crambell_peoples_alliance": 0.6 },
+  "questCategory": "story",
+
   "description": "人民互助聯盟的成員告知你，被關在禁閉架上的米爾多雷現在什麼都沒辦法自己做。深夜守衛鬆懈的時候，帶點吃的和水去找她。",
 
   "entryStageId": "deliver_supplies",

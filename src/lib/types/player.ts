@@ -65,6 +65,12 @@ export interface ExternalStats {
   affinity: Record<string, number>;
   /** 對地點的熟悉度 Record<locationId, value> */
   familiarity: Record<string, number>;
+  /**
+   * 對各派系的信用值 Record<factionId, value>。
+   * 信用決定任務完成可靠度，Ditch 時大幅扣減，到中斷點後主線鎖定。
+   * 省略 = 尚未啟用信用系統（向後相容）。
+   */
+  credit?: Record<string, number>;
 }
 
 /** 玩家完整狀態 */

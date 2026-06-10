@@ -8,6 +8,11 @@
   "canDitch": false,
   "autoAccept": true,
 
+  "questLineId": "kach_test_line",
+  "nextQuestId": "crambell_kach_test3",
+  "coupling": { "crambell_treffen": 0.7 },
+  "questCategory": "story",
+
   "_comment": [
     "路線五第二步：凱奇要求玩家前往經濟資源倉庫，找到奧蘭並取得一份資源調度文件。",
     "完成後回報凱奇，取得凱奇更深的信任並進入測試三。"

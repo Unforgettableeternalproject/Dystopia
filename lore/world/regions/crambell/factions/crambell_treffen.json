@@ -8,5 +8,46 @@
   "relations": [
     { "targetFactionId": "crambell_peoples_alliance", "weight":  1 },
     { "targetFactionId": "crambell_general_corps",    "weight":  0 }
-  ]
+  ],
+
+  "credit": {
+    "initialValue": 0,
+    "positiveLimit": 100,
+    "negativeLimit": -50,
+    "breakpointPercent": 15,
+    "ditchPenaltyPercent": 70,
+    "initialQuestBonus": 10
+  },
+
+  "epic": {
+    "id": "treffen_initiation",
+    "label": "舊會議入會路線 — 凱奇的測試到正式接觸",
+    "checkpoints": [
+      {
+        "id": "cp_initial_trust",
+        "label": "通過凱奇的初步測試，取得初步信任",
+        "order": 0,
+        "requiredQuestIds": ["crambell_kach_test1"],
+        "flagsSet": ["crambell_treffen_cp1_done"]
+      },
+      {
+        "id": "cp_full_trust",
+        "label": "完成所有測試，獲得凱奇的完全信任",
+        "order": 1,
+        "requiredQuestIds": ["crambell_kach_test3"],
+        "flagsSet": ["crambell_treffen_cp2_done"],
+        "unlocksQuestIds": ["crambell_treffen_contact"]
+      }
+    ],
+    "questLines": [
+      {
+        "id": "kach_test_line",
+        "label": "凱奇測試線 — 三次測試以證明玩家值得信任",
+        "entryQuestId": "crambell_kach_test1",
+        "contributesToCheckpoints": ["cp_initial_trust", "cp_full_trust"],
+        "solePathToCheckpoint": "cp_full_trust"
+      }
+    ],
+    "completionFlags": ["crambell_treffen_epic_done"]
+  }
 }

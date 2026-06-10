@@ -7,6 +7,21 @@ import type { TimePeriod } from "./world";
 import type { PlayerAttitude } from "./dialogue";
 import type { ActiveEncounter } from "./encounter";
 
+// ── Faction Relation ────────────────────────────────────────────
+
+/**
+ * 玩家與單一陣營的關係狀態（運行時快照，存於 GameState）。
+ * 由 FactionTreeEngine 管理，不直接從 lore 載入。
+ */
+export interface FactionRelationState {
+  /** 是否已正式加入此陣營（完成初始任務後為 true） */
+  isJoined: boolean;
+  /** 已完成的 Checkpoint ID 列表 */
+  completedCheckpointIds: string[];
+  /** 是否已觸達信用中斷點（主線鎖定） */
+  creditBreakpointHit: boolean;
+}
+
 /**
  * 遊戲內時間。
  * 遊戲從 AD 1498-06-12 21:23 開始，所有動作推進時間。
@@ -65,6 +80,12 @@ export interface GameState {
    * key = eventId，value = 上次觸發時的 totalMinutes。
    * EventEngine 用此判斷冷卻是否結束。
    */
+  /**
+   * 玩家與各陣營的關係狀態 Record<factionId, FactionRelationState>。
+   * 由 FactionTreeEngine 管理。
+   * 省略 = 尚未啟用陣營樹系統（向後相容）。
+   */
+  factionRelations?: Record<string, FactionRelationState>;
   eventCooldowns: Record<string, number>;
   eventCounters: Record<string, number>;
   /**

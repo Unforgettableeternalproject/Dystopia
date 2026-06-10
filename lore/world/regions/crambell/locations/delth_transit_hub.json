@@ -12,6 +12,25 @@
       {
         "targetLocationId": "delth_patrol_zone",
         "description": "返回巡邏管制區"
+      },
+      {
+        "targetLocationId": "wyar_transit_hub",
+        "description": "前往瓦爾象限的轉移路線，早班轉移列車只在凌晨運行。",
+        "travelNote": "搭乘前往瓦爾中轉站的管制班次。",
+        "access": {
+          "timeRanges": [
+            {
+              "startHour": 0,
+              "startMinute": 0,
+              "endHour": 5,
+              "endMinute": 59
+            }
+          ],
+          "itemRequirements": [
+            { "itemId": "transit_pass", "variantId": "wyar" }
+          ],
+          "lockedMessage": "需持有瓦爾通行證，且僅限凌晨轉移班次運行時段。"
+        }
       }
     ],
     "npcIds": [],

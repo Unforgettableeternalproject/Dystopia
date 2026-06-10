@@ -8,5 +8,36 @@
     { "targetFactionId": "crambell_treffen",          "weight": -3 },
     { "targetFactionId": "crambell_peoples_alliance", "weight": -1 },
     { "targetFactionId": "crambell_general_corps",    "weight":  2 }
-  ]
+  ],
+
+  "credit": {
+    "initialValue": 0,
+    "positiveLimit": 100,
+    "negativeLimit": -50,
+    "breakpointPercent": 15,
+    "ditchPenaltyPercent": 70,
+    "initialQuestBonus": 10
+  },
+
+  "epic": {
+    "id": "government_cooperation",
+    "label": "政府合作路線 — 透過凱恩成為政府的線人",
+    "checkpoints": [
+      {
+        "id": "cp_kane_intel",
+        "label": "完成與凱恩的情報交換",
+        "order": 0,
+        "requiredQuestIds": ["crambell_kane_double_agent"],
+        "flagsSet": ["crambell_government_cp1_done"]
+      }
+    ],
+    "questLines": [
+      {
+        "id": "kane_cooperation_line",
+        "label": "凱恩合作線 — 雙面間諜情報交換",
+        "entryQuestId": "crambell_kane_double_agent",
+        "contributesToCheckpoints": ["cp_kane_intel"]
+      }
+    ]
+  }
 }

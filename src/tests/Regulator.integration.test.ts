@@ -18,7 +18,7 @@ import type { PlayerState, PlayerAction } from '../lib/types';
 const OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL as string | undefined;
 const OLLAMA_BASE  = 'http://localhost:11434';
 
-// Top-level await：在測試收集之前確認 Ollama 是否在線
+// Top-level await：在測試收集之前確認 Ollama 是否在線並預載模型
 // 必須在 skipIf 條件被評估前完成，所以不能放進 beforeAll
 let ollamaReachable = false;
 if (OLLAMA_MODEL) {
@@ -27,6 +27,26 @@ if (OLLAMA_MODEL) {
     ollamaReachable = res.ok;
   } catch {
     ollamaReachable = false;
+  }
+
+  // Warmup：發送一個極短的推理請求，觸發模型載入到記憶體。
+  // 避免第一個真實測試因模型冷啟動而 timeout。
+  if (ollamaReachable) {
+    try {
+      await fetch(OLLAMA_BASE + '/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(120_000),
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          max_tokens: 1,
+          stream: false,
+          messages: [{ role: 'user', content: 'hi' }],
+        }),
+      });
+    } catch {
+      // Warmup 失敗不影響測試——最壞情況只是第一個測試仍然慢
+    }
   }
 }
 

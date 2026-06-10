@@ -1,7 +1,7 @@
 // StateManager — holds and mutates GameState.
 // All state changes go through here for consistency and event emission.
 
-import type { GameState, PlayerAction, Thought, NPCMemoryEntry, GameTime } from '../types';
+import type { GameState, PlayerAction, Thought, NPCMemoryEntry, GameTime, FactionRelationState } from '../types';
 import type { PlayerCondition } from '../types/condition';
 import type { ConditionDefinition } from '../types/condition';
 import type { WorldPhaseId } from '../types/phase';
@@ -25,6 +25,7 @@ export type AcquisitionRecord =
   | { type: 'melphin';      delta: number }
   | { type: 'reputation';   factionId: string; delta: number }
   | { type: 'affinity';     npcId: string; delta: number }
+  | { type: 'credit';       factionId: string; delta: number; newValue: number }
   | { type: 'skillExp';     statKey: PrimaryStatKey; finalAmount: number; levelUps: number }
   | { type: 'characterExp'; delta: number }
   | { type: 'intel';        intelId: string };
@@ -169,6 +170,56 @@ export class StateManager {
       cf.push(factionId);
     }
   }
+
+  /**
+   * Modify a faction's credit value. Clamps between negativeLimit and positiveLimit
+   * if limits are provided; otherwise unclamped.
+   *
+   * Called by FactionTreeEngine during quest completion, ditch, and initial quest bonus.
+   */
+  modifyCredit(
+    factionId: string,
+    delta: number,
+    limits?: { negativeLimit: number; positiveLimit: number },
+  ): void {
+    if (!this.state.player.externalStats.credit) {
+      this.state.player.externalStats.credit = {};
+    }
+    const current = this.state.player.externalStats.credit[factionId] ?? 0;
+    let newValue = current + delta;
+    if (limits) {
+      newValue = Math.max(limits.negativeLimit, Math.min(limits.positiveLimit, newValue));
+    }
+    this.state.player.externalStats.credit[factionId] = newValue;
+    this.notifyUpdate();
+    if (delta !== 0) this._acquisitions.push({ type: 'credit', factionId, delta, newValue });
+  }
+
+  // ── Faction Relations ─────────────────────────────────────────
+
+  /** Initialize a faction relation state. No-op if already exists. */
+  initFactionRelation(factionId: string, initial: FactionRelationState): void {
+    if (!this.state.factionRelations) {
+      this.state.factionRelations = {};
+    }
+    if (this.state.factionRelations[factionId]) return;
+    this.state.factionRelations[factionId] = initial;
+    this.notifyUpdate();
+  }
+
+  /** Update fields on an existing faction relation. No-op if not initialized. */
+  updateFactionRelation(factionId: string, patch: Partial<FactionRelationState>): void {
+    if (!this.state.factionRelations?.[factionId]) return;
+    Object.assign(this.state.factionRelations[factionId], patch);
+    this.notifyUpdate();
+  }
+
+  /** Get a faction relation state (read-only). */
+  getFactionRelation(factionId: string): FactionRelationState | undefined {
+    return this.state.factionRelations?.[factionId];
+  }
+
+  // ── External stats ───────────────────────────────────────────
 
   modifyReputation(factionId: string, delta: number): void {
     this.contactFaction(factionId);   // 聲望變動自動標記接觸

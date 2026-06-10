@@ -8,6 +8,11 @@
   "canDitch": true,
   "autoAccept": false,
 
+  "questLineId": "kach_test_line",
+  "nextQuestId": "crambell_kach_test2",
+  "coupling": { "crambell_treffen": 0.5 },
+  "questCategory": "initial",
+
   "_comment": [
     "路線四/五前置任務：凱奇讓玩家在指定工作日代替他完成兩倍配額，",
     "並應對這天必定出現的勘查事件，掩護凱奇的去向。",

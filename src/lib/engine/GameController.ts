@@ -24,6 +24,7 @@ import { StateManager }     from './StateManager';
 import { EventEngine }      from './EventEngine';
 import { PhaseManager }     from './PhaseManager';
 import { QuestEngine }      from './QuestEngine';
+import { FactionTreeEngine } from './FactionTreeEngine';
 import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
@@ -88,6 +89,7 @@ export class GameController {
   private events:      EventEngine;
   private phases:      PhaseManager;
   private quests:      QuestEngine;
+  private factionTree: FactionTreeEngine;
   private timeMgr:     TimeManager;
   private dialogueMgr:  DialogueManager;
   private encounterMgr: EncounterEngine;
@@ -173,6 +175,8 @@ export class GameController {
     this.events      = new EventEngine(this.lore, this.state, this.timeMgr);
     this.phases      = new PhaseManager(this.lore, this.state);
     this.quests      = new QuestEngine(this.lore, this.state);
+    this.factionTree = new FactionTreeEngine(this.lore, this.state);
+    this.quests.setFactionTree(this.factionTree);
     this.dialogueMgr  = new DialogueManager(this.lore, this.state);
     this.encounterMgr = new EncounterEngine(this.lore, this.state);
 
@@ -1573,6 +1577,8 @@ export class GameController {
     this.events       = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
     this.phases       = new PhaseManager(this.lore, this.state);
     this.quests       = new QuestEngine(this.lore, this.state);
+    this.factionTree  = new FactionTreeEngine(this.lore, this.state);
+    this.quests.setFactionTree(this.factionTree);
     this.dialogueMgr  = new DialogueManager(this.lore, this.state);
     this.encounterMgr = new EncounterEngine(this.lore, this.state);
     this.syncUIState(gs);
