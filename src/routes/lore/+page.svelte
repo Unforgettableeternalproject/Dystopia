@@ -570,19 +570,19 @@
   .editor-layout,
   .status-bar,
   .dialog-backdrop {
-    --le-font-xs: 12px;
-    --le-font-sm: 13px;
-    --le-font-md: 14px;
-    --le-font-lg: 15px;
-    --le-font-xl: 16px;
-    --le-font-display: 32px;
+    --le-font-xs: calc(var(--ui-scale) * 12px);
+    --le-font-sm: calc(var(--ui-scale) * 13px);
+    --le-font-md: calc(var(--ui-scale) * 14px);
+    --le-font-lg: calc(var(--ui-scale) * 15px);
+    --le-font-xl: calc(var(--ui-scale) * 16px);
+    --le-font-display: calc(var(--ui-scale) * 32px);
     --le-status-h: 28px;
   }
 
   /* ── Layout ─────────────────────────────────────── */
   .editor-layout {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: calc(var(--ui-scale) * 300px) 1fr;
     height: calc(100vh - var(--le-status-h));
     overflow: hidden;
   }
@@ -957,8 +957,8 @@
     color: var(--text-dim);
     font-family: var(--font-mono);
     font-size: var(--le-font-xl);
-    width: 30px;
-    height: 30px;
+    width: calc(var(--ui-scale) * 30px);
+    height: calc(var(--ui-scale) * 30px);
     cursor: pointer;
     border-radius: 2px;
     transition: border-color 0.1s, color 0.1s;
@@ -1052,8 +1052,8 @@
     border: 1px solid var(--border-accent);
     border-radius: 4px;
     padding: 16px 20px;
-    min-width: 320px;
-    max-width: 480px;
+    min-width: calc(var(--ui-scale) * 320px);
+    max-width: calc(var(--ui-scale) * 480px);
     display: flex;
     flex-direction: column;
     gap: 10px;

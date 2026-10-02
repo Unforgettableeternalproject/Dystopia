@@ -249,7 +249,7 @@
   .tag-chip { display: flex; align-items: center; gap: 2px; }
   .mini-input {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 2px 5px; border-radius: 2px; outline: none; width: 112px;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 2px 5px; border-radius: 2px; outline: none; width: calc(var(--ui-scale) * 112px);
   }
   .mini-input:focus { border-color: var(--border-accent); }
 

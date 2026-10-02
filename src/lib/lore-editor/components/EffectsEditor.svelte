@@ -268,7 +268,7 @@
   .eff-add-menu {
     position: fixed; z-index: 9999;
     background: var(--bg-secondary); border: 1px solid var(--border-accent);
-    border-radius: 2px; padding: 4px 0; max-height: 200px; overflow-y: auto;
+    border-radius: 2px; padding: 4px 0; max-height: calc(var(--ui-scale) * 200px); overflow-y: auto;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
   .add-group-label { font-size: var(--le-font-xs); color: var(--text-dim); padding: 4px 8px 1px; letter-spacing: 0.08em; text-transform: uppercase; }

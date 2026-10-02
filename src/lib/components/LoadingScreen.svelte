@@ -46,11 +46,11 @@
     flex-direction: column;
     align-items: center;
     gap: 20px;
-    min-width: 300px;
+    min-width: calc(var(--ui-scale) * 300px);
   }
 
   .game-title {
-    font-size: 36px;
+    font-size: calc(var(--ui-scale) * 36px);
     font-weight: 700;
     letter-spacing: 0.18em;
     color: var(--text-primary);
@@ -59,7 +59,7 @@
   }
 
   .loading-bar-wrap {
-    width: 220px;
+    width: calc(var(--ui-scale) * 220px);
     height: 2px;
     background: var(--bg-tertiary);
     border-radius: 2px;
@@ -86,11 +86,11 @@
   }
 
   .status-text {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.06em;
-    min-width: 200px;
+    min-width: calc(var(--ui-scale) * 200px);
     text-align: center;
   }
 </style>

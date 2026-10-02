@@ -173,7 +173,7 @@
   .backdrop-fill { flex: 1; }
 
   .modal-panel {
-    width: 260px;
+    width: calc(var(--ui-scale) * 260px);
     max-width: 80vw;
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-accent);
@@ -194,7 +194,7 @@
   }
 
   .modal-title {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.05em;
   }
@@ -203,7 +203,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 2px;
@@ -250,14 +250,14 @@
   }
 
   .card-type {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     letter-spacing: 0.12em;
     color: var(--type-color);
     font-family: var(--font-mono);
   }
 
   .card-name {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-secondary);
     text-align: center;
     line-height: 1.35;
@@ -269,7 +269,7 @@
     position: absolute;
     bottom: 3px;
     right: 4px;
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     color: var(--text-dim);
     font-family: var(--font-mono);
   }
@@ -278,7 +278,7 @@
     position: absolute;
     top: 2px;
     right: 3px;
-    font-size: 7px;
+    font-size: calc(var(--ui-scale) * 7px);
     color: var(--accent-red);
     letter-spacing: 0.05em;
   }
@@ -296,7 +296,7 @@
   }
 
   .detail-name {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.02em;
     line-height: 1.4;
@@ -304,11 +304,11 @@
 
   .detail-variant {
     color: var(--text-dim);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
   }
 
   .detail-type {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     font-family: var(--font-mono);
     letter-spacing: 0.1em;
   }
@@ -318,7 +318,7 @@
   }
 
   .detail-desc {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     line-height: 1.6;
     margin-top: 2px;
@@ -341,7 +341,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     letter-spacing: 0.06em;
     padding: 2px 8px;
     cursor: pointer;
@@ -374,18 +374,18 @@
   }
 
   .discard-confirm-text {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--accent-red);
     letter-spacing: 0.04em;
   }
 
   .discard-count-input {
-    width: 40px;
+    width: calc(var(--ui-scale) * 40px);
     background: var(--bg-tertiary);
     border: 1px solid var(--accent-red);
     color: var(--accent-red);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     padding: 1px 4px;
     border-radius: 2px;
     text-align: center;
@@ -403,13 +403,13 @@
   }
 
   .empty-icon {
-    font-size: 28px;
+    font-size: calc(var(--ui-scale) * 28px);
     color: var(--text-dim);
     opacity: 0.4;
   }
 
   .empty-text {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
   }

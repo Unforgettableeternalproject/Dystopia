@@ -119,7 +119,7 @@
     border-right: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.06em;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
@@ -136,12 +136,12 @@
     width: var(--right-outer-w);
     border-left: 1px solid var(--border);
     border-right: none;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     letter-spacing: 0.1em;
   }
 
   .saving-badge {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.08em;
@@ -195,7 +195,7 @@
 
   .prefix {
     color: var(--accent);
-    font-size: 15px;
+    font-size: calc(var(--ui-scale) * 15px);
     font-family: var(--font-mono);
     flex-shrink: 0;
     user-select: none;
@@ -203,7 +203,7 @@
   }
 
   .prefix.enc-prefix {
-    font-size: 17px;
+    font-size: calc(var(--ui-scale) * 17px);
     color: var(--accent);
     opacity: 0.85;
   }
@@ -215,7 +215,7 @@
     outline: none;
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: calc(var(--ui-scale) * 14px);
     caret-color: var(--accent);
   }
 
@@ -227,9 +227,9 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 14px;
-    width: 30px;
-    height: 26px;
+    font-size: calc(var(--ui-scale) * 14px);
+    width: calc(var(--ui-scale) * 30px);
+    height: calc(var(--ui-scale) * 26px);
     cursor: pointer;
     border-radius: 2px;
     flex-shrink: 0;
@@ -254,7 +254,7 @@
     border: 1px solid color-mix(in srgb, #c9a96e 40%, transparent);
     color: #c9a96e;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     letter-spacing: 0.1em;
     padding: 5px 32px;
     cursor: pointer;

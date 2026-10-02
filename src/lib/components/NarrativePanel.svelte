@@ -204,7 +204,7 @@
   }
 
   .content {
-    max-width: 660px;
+    max-width: calc(var(--ui-scale) * 660px);
     margin: 0 auto;
   }
 
@@ -270,7 +270,7 @@
 
   .line--system {
     color: var(--text-system);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     font-style: italic;
   }
 
@@ -291,7 +291,7 @@
   /* 遊戲外的系統回應（操作說明／越權婉拒）：等寬、左框線，與敘事明顯區隔 */
   .line--meta {
     font-family: ui-monospace, 'Consolas', monospace;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-dim);
     border-left: 2px solid var(--accent-blue);
     padding: 4px 0 4px 10px;
@@ -299,7 +299,7 @@
 
   .line--rejected {
     color: var(--accent-red);
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
   }
 
   .rej-prefix {
@@ -331,7 +331,7 @@
     right: 12px;
     background: var(--bg-tertiary);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     letter-spacing: 0.06em;
     padding: 6px 16px;
     border-radius: 2px;
@@ -387,7 +387,7 @@
 
   .acq-notif {
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     letter-spacing: 0.04em;
     padding: 4px 12px;
     border-radius: 2px;
@@ -425,7 +425,7 @@
     background: transparent;
     border: 1px solid var(--border-accent);
     color: var(--text-dim);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     line-height: 1.4;
     cursor: pointer;
     border-radius: 2px;
@@ -454,7 +454,7 @@
     font-size: inherit;
     line-height: inherit;
     padding: 0 2px;
-    width: min(320px, 60%);
+    width: min(calc(var(--ui-scale) * 320px), 60%);
     outline: none;
     vertical-align: baseline;
   }
@@ -470,7 +470,7 @@
     padding: 0 5px;
     background: transparent;
     border: 1px solid transparent;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     border-radius: 2px;
     vertical-align: middle;
@@ -537,7 +537,7 @@
     align-items: center;
     gap: 10px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-    min-width: 200px;
+    min-width: calc(var(--ui-scale) * 200px);
   }
 
   @keyframes spinClock {
@@ -554,7 +554,7 @@
   }
 
   .rewind-clock {
-    font-size: 32px;
+    font-size: calc(var(--ui-scale) * 32px);
     color: var(--accent);
     animation: clockSpin 0.8s linear infinite;
     display: inline-block;
@@ -568,7 +568,7 @@
 
   .rewind-label {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     letter-spacing: 0.25em;
     color: var(--accent);
     text-transform: uppercase;
@@ -593,7 +593,7 @@
 
   .rewind-wip {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.04em;
     color: var(--text-dim);
     margin: 4px 0 0;
@@ -605,12 +605,12 @@
     position: absolute;
     bottom: 8px;
     right: 12px;
-    width: 28px;
-    height: 28px;
+    width: calc(var(--ui-scale) * 28px);
+    height: calc(var(--ui-scale) * 28px);
     background: var(--bg-tertiary);
     border: 1px solid var(--border-accent);
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: calc(var(--ui-scale) * 14px);
     cursor: pointer;
     border-radius: 2px;
     display: flex;

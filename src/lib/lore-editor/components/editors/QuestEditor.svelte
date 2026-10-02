@@ -81,7 +81,7 @@
       <label class="field-label">名稱</label>
       <input class="field-input" bind:value={data.name} on:input={onChange} />
     </div>
-    <div class="field" style="width:112px">
+    <div class="field" style="width:calc(var(--ui-scale) * 112px)">
       <label class="field-label">類型</label>
       <select class="field-select" bind:value={data.type} on:change={onChange}>
         {#each QUEST_TYPES as t}<option value={t}>{t}</option>{/each}
@@ -130,9 +130,9 @@
             <div class="sub-label">目標</div>
             {#each getObjectives(stage) as obj, oi}
               <div class="obj-row">
-                <input class="field-input sm" style="width:112px" placeholder="type" value={s(obj, 'type')} on:input={(e) => { obj.type = val(e); onChange(); }} />
+                <input class="field-input sm" style="width:calc(var(--ui-scale) * 112px)" placeholder="type" value={s(obj, 'type')} on:input={(e) => { obj.type = val(e); onChange(); }} />
                 <input class="field-input sm" style="flex:1" placeholder="description" value={s(obj, 'description')} on:input={(e) => { obj.description = val(e); onChange(); }} />
-                <input class="field-input sm" style="width:168px" placeholder="flag" value={s(obj, 'flag')} on:input={(e) => { obj.flag = val(e); onChange(); }} />
+                <input class="field-input sm" style="width:calc(var(--ui-scale) * 168px)" placeholder="flag" value={s(obj, 'flag')} on:input={(e) => { obj.flag = val(e); onChange(); }} />
                 <button class="rm" on:click={() => { stage.objectives = getObjectives(stage).filter((_o, j) => j !== oi); onChange(); }}>✕</button>
               </div>
             {/each}

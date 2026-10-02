@@ -47,7 +47,7 @@
     background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 4px;
-    width: 420px;
+    width: min(calc(var(--ui-scale) * 420px), 92vw);
     max-width: 90vw;
     max-height: 70vh;
     display: flex;
@@ -65,7 +65,7 @@
 
   .title {
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: calc(var(--ui-scale) * 14px);
     color: var(--text-primary);
     font-weight: 600;
   }
@@ -74,7 +74,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 18px;
+    font-size: calc(var(--ui-scale) * 18px);
     cursor: pointer;
     padding: 0 4px;
     line-height: 1;
@@ -87,7 +87,7 @@
   .content {
     padding: 16px;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-secondary);
     line-height: 1.7;
     overflow-y: auto;

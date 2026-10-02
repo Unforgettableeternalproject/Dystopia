@@ -98,8 +98,8 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 360px;
-    max-height: 480px;
+    width: min(calc(var(--ui-scale) * 360px), 92vw);
+    max-height: min(calc(var(--ui-scale) * 480px), 90vh);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -124,7 +124,7 @@
   }
 
   .modal-title {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-primary);
     font-weight: 500;
     letter-spacing: 0.03em;
@@ -134,7 +134,7 @@
   }
 
   .type-badge {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     padding: 1px 6px;
     border-radius: 2px;
     border: 1px solid;
@@ -150,7 +150,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
     flex-shrink: 0;
@@ -168,7 +168,7 @@
 
   .stage-label,
   .obj-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     letter-spacing: 0.1em;
     color: var(--text-dim);
     text-transform: uppercase;
@@ -180,7 +180,7 @@
   }
 
   .stage-desc {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-secondary);
     line-height: 1.65;
     margin: 0;
@@ -206,7 +206,7 @@
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     line-height: 1.5;
   }
@@ -227,8 +227,8 @@
 
   .obj-check {
     flex-shrink: 0;
-    width: 14px;
-    font-size: 10px;
+    width: calc(var(--ui-scale) * 14px);
+    font-size: calc(var(--ui-scale) * 10px);
     margin-top: 1px;
   }
 
@@ -254,7 +254,7 @@
   }
 
   .abandon-confirm-text {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     flex: 1;
     font-family: var(--font-mono);
@@ -262,7 +262,7 @@
 
   .footer-btn {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     padding: 4px 12px;
     background: transparent;
     border: 1px solid var(--border-accent);

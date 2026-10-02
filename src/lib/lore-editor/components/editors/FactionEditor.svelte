@@ -156,7 +156,7 @@
   .relation-picker { flex: 1; }
 
   .weight-input {
-    width: 84px;
+    width: calc(var(--ui-scale) * 84px);
     flex-shrink: 0;
     font-size: var(--le-font-md);
     padding: 3px 6px;

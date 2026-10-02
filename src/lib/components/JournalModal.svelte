@@ -96,8 +96,8 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 440px;
-    max-height: 560px;
+    width: min(calc(var(--ui-scale) * 440px), 92vw);
+    max-height: min(calc(var(--ui-scale) * 560px), 90vh);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -115,7 +115,7 @@
   }
 
   .modal-title {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-primary);
     font-weight: 500;
     letter-spacing: 0.03em;
@@ -123,7 +123,7 @@
   }
 
   .entry-count {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
@@ -133,7 +133,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
     flex-shrink: 0;
@@ -157,7 +157,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.04em;
     padding: 2px 7px;
     border-radius: 2px;
@@ -200,14 +200,14 @@
   }
 
   .entry-time {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
   }
 
   .entry-badge {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     padding: 0px 4px;
     border-radius: 2px;
     letter-spacing: 0.05em;
@@ -221,7 +221,7 @@
   .cat-condition          { color: var(--accent-red, #c0392b); border-color: var(--accent-red, #c0392b); opacity: 0.85; }
 
   .entry-text {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     margin-top: 3px;
     line-height: 1.5;
@@ -229,7 +229,7 @@
   }
 
   .entry-source {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     margin-top: 2px;
     line-height: 1.4;
@@ -237,7 +237,7 @@
   }
 
   .empty {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
     padding: 8px 4px;

@@ -102,13 +102,13 @@
   }
 
   .enc-icon {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--enc-accent);
     flex-shrink: 0;
   }
 
   .enc-type {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--enc-accent);
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -118,13 +118,13 @@
   }
 
   .enc-sep {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     flex-shrink: 0;
   }
 
   .enc-name {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     letter-spacing: 0.04em;
     overflow: hidden;
@@ -139,7 +139,7 @@
     gap: 6px;
     padding: 4px 12px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
@@ -154,7 +154,7 @@
     color: #d35f5f;
   }
 
-  .chk-icon { font-size: 8px; }
+  .chk-icon { font-size: calc(var(--ui-scale) * 8px); }
 
   /* ── Story (script) type ────────────────────────────────── */
   .story-script {
@@ -167,7 +167,7 @@
   }
 
   .script-narrator {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-secondary);
     line-height: 1.7;
     font-style: italic;
@@ -175,7 +175,7 @@
   }
 
   .script-dialogue {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     line-height: 1.6;
     margin: 0;
     display: flex;
@@ -184,7 +184,7 @@
   }
 
   .script-speaker {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     letter-spacing: 0.05em;
     flex-shrink: 0;
@@ -208,13 +208,13 @@
 
   .continue-btn {
     align-self: flex-end;
-    min-width: 80px;
+    min-width: calc(var(--ui-scale) * 80px);
     text-align: center;
   }
 
   .skip-btn {
     align-self: flex-end;
-    min-width: 80px;
+    min-width: calc(var(--ui-scale) * 80px);
     text-align: center;
     opacity: 0.6;
   }
@@ -240,7 +240,7 @@
 
   .choice-arrow {
     color: var(--enc-accent);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     flex-shrink: 0;
     margin-top: 1px;
     opacity: 0.7;
@@ -262,7 +262,7 @@
     border: 1px solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     padding: 7px 12px;
     cursor: pointer;
     border-radius: 2px;
@@ -287,13 +287,13 @@
   }
 
   .stub-icon {
-    font-size: 20px;
+    font-size: calc(var(--ui-scale) * 20px);
     color: var(--enc-accent);
     opacity: 0.4;
   }
 
   .stub-text {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     margin: 0;
@@ -303,7 +303,7 @@
   /* ── Empty state ─────────────────────────────────────────── */
   .no-choices {
     padding: 8px 12px;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
   }

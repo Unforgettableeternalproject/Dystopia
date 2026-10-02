@@ -60,8 +60,8 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 360px;
-    max-height: 480px;
+    width: min(calc(var(--ui-scale) * 360px), 92vw);
+    max-height: min(calc(var(--ui-scale) * 480px), 90vh);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -79,7 +79,7 @@
   }
 
   .modal-title {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-primary);
     font-weight: 500;
     letter-spacing: 0.03em;
@@ -87,7 +87,7 @@
   }
 
   .quest-count {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
@@ -97,7 +97,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
     flex-shrink: 0;
@@ -130,7 +130,7 @@
   }
 
   .quest-name {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -141,7 +141,7 @@
   }
 
   .quest-type-badge {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     padding: 0px 4px;
     border-radius: 2px;
     letter-spacing: 0.05em;
@@ -154,7 +154,7 @@
   .quest-type-hidden { color: #8b6a9a;         border-color: #8b6a9a;         opacity: 0.75; }
 
   .quest-stage {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     margin-top: 2px;
     line-height: 1.4;
@@ -164,7 +164,7 @@
   }
 
   .empty {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
     padding: 8px 4px;

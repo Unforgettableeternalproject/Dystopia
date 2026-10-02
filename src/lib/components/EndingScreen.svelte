@@ -60,7 +60,7 @@
   }
 
   .ending-panel {
-    max-width: 520px;
+    max-width: calc(var(--ui-scale) * 520px);
     width: 90%;
     display: flex;
     flex-direction: column;
@@ -76,7 +76,7 @@
   }
 
   .ending-label {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.2em;
     color: var(--text-dim, #555);
     text-transform: uppercase;
@@ -84,7 +84,7 @@
   }
 
   .ending-title {
-    font-size: 32px;
+    font-size: calc(var(--ui-scale) * 32px);
     font-weight: 400;
     color: var(--text-primary, #d0c8c0);
     letter-spacing: 0.06em;
@@ -93,15 +93,15 @@
   }
 
   .ending-flavor {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-secondary, #888);
     line-height: 1.8;
     margin: 0;
-    max-width: 420px;
+    max-width: calc(var(--ui-scale) * 420px);
   }
 
   .ending-epilogue {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim, #555);
     letter-spacing: 0.1em;
     margin: 0;
@@ -116,7 +116,7 @@
 
   button {
     padding: 8px 24px;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     letter-spacing: 0.1em;
     border-radius: 2px;
     cursor: pointer;

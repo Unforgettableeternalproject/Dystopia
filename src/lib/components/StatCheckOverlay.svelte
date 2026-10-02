@@ -229,7 +229,7 @@
 
   /* ── Card ────────────────────────────────────────────── */
   .card {
-    width: 260px;
+    width: calc(var(--ui-scale) * 260px);
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
@@ -257,13 +257,13 @@
   }
 
   .header-line {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     color: var(--text-dim);
     opacity: 0.5;
   }
 
   .header-text {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     letter-spacing: 0.28em;
     font-family: var(--font-mono);
@@ -357,7 +357,7 @@
   .die-number {
     fill: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 22px;
+    font-size: calc(var(--ui-scale) * 22px);
     font-weight: 600;
     text-anchor: middle;
     dominant-baseline: middle;
@@ -379,7 +379,7 @@
   .die-meta.visible { opacity: 1; }
 
   .die-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.1em;
@@ -387,7 +387,7 @@
   }
 
   .die-result-num {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     font-family: var(--font-mono);
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -419,12 +419,12 @@
   .stat-section.visible {
     opacity: 1;
     transform: translateY(0);
-    max-height: 200px;
+    max-height: calc(var(--ui-scale) * 200px);
     transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.4s ease;
   }
 
   .stat-name {
-    font-size: 17px;
+    font-size: calc(var(--ui-scale) * 17px);
     color: var(--text-primary);
     letter-spacing: 0.22em;
     font-family: var(--font-mono);
@@ -464,12 +464,12 @@
     align-items: center;
     gap: 12px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
   }
 
-  .num-val { font-size: 14px; color: var(--text-primary); }
-  .num-sep { font-size: 12px; color: var(--text-dim); }
+  .num-val { font-size: calc(var(--ui-scale) * 14px); color: var(--text-primary); }
+  .num-sep { font-size: calc(var(--ui-scale) * 12px); color: var(--text-dim); }
 
   /* Dice breakdown table */
   .dice-table {
@@ -484,20 +484,20 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
   }
 
-  .dice-label { color: var(--text-dim); font-size: 9px; letter-spacing: 0.08em; }
-  .dice-val { font-size: 11px; color: var(--text-primary); }
-  .dice-sub { font-size: 9px; color: var(--text-dim); margin-left: 4px; }
+  .dice-label { color: var(--text-dim); font-size: calc(var(--ui-scale) * 9px); letter-spacing: 0.08em; }
+  .dice-val { font-size: calc(var(--ui-scale) * 11px); color: var(--text-primary); }
+  .dice-sub { font-size: calc(var(--ui-scale) * 9px); color: var(--text-dim); margin-left: 4px; }
   .mod-pos { color: #7ec8a0; }
   .mod-neg { color: #d35f5f; }
 
   .dice-divider { height: 1px; background: var(--border); margin: 2px 0; opacity: 0.5; }
-  .dice-total .dice-val { font-size: 12px; }
+  .dice-total .dice-val { font-size: calc(var(--ui-scale) * 12px); }
   .total-val { font-weight: 500; }
-  .dice-vs { font-size: 9px; color: var(--text-dim); margin: 0 2px; }
+  .dice-vs { font-size: calc(var(--ui-scale) * 9px); color: var(--text-dim); margin: 0 2px; }
 
   /* ── Result section ──────────────────────────────────── */
   .result-section {
@@ -518,10 +518,10 @@
     transform: scale(1);
   }
 
-  .result-icon { font-size: 8px; }
+  .result-icon { font-size: calc(var(--ui-scale) * 8px); }
 
   .result-text {
-    font-size: 15px;
+    font-size: calc(var(--ui-scale) * 15px);
     letter-spacing: 0.22em;
     font-family: var(--font-mono);
     font-weight: 500;
@@ -529,7 +529,7 @@
 
   /* ── Dismiss hint ────────────────────────────────────── */
   .dismiss-hint {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.06em;

@@ -167,7 +167,7 @@
   }
 
   .modal-panel {
-    width: 280px;
+    width: calc(var(--ui-scale) * 280px);
     max-width: 80vw;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-accent);
@@ -187,7 +187,7 @@
   }
 
   .modal-title {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.05em;
   }
@@ -196,7 +196,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 2px;
@@ -210,7 +210,7 @@
   }
 
   .section-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -270,11 +270,11 @@
   }
 
   .xp-text {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     white-space: nowrap;
-    min-width: 52px;
+    min-width: calc(var(--ui-scale) * 52px);
     text-align: right;
   }
 
@@ -283,12 +283,12 @@
   }
 
   .sk {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
   }
 
   .sv {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-primary);
     font-family: var(--font-mono);
   }
@@ -300,7 +300,7 @@
   }
 
   .tag {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     padding: 2px 7px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
@@ -340,7 +340,7 @@
   }
 
   .intel-cat {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     padding: 0px 4px;
     border-radius: 2px;
     letter-spacing: 0.05em;
@@ -355,7 +355,7 @@
   .intel-cat-rumor     { color: var(--text-dim);    border-color: var(--border);      opacity: 0.75; }
 
   .intel-lbl {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -364,21 +364,21 @@
 
   .intel-desc {
     margin-top: 4px;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     line-height: 1.5;
     white-space: pre-wrap;
   }
 
   .empty-inline {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
   }
 
   .empty {
     padding: 24px 14px;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-dim);
     font-style: italic;
   }

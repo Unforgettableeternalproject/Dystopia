@@ -23,7 +23,7 @@
     border: 1px solid var(--border);
     color: var(--text-thought);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     padding: 6px 14px;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s, color 0.12s;
@@ -53,6 +53,6 @@
 
   .manipulated-icon {
     margin-right: 5px;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
   }
 </style>

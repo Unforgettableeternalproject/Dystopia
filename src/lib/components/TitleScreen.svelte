@@ -1,6 +1,7 @@
 <script lang="ts">
   import { gamePhase } from '$lib/stores/gameStore';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { settingsOpen } from '$lib/stores/settingsStore';
 
   export let initialMode: 'menu' | 'naming' = 'menu';
 
@@ -43,7 +44,7 @@
       <div class="menu-buttons">
         <button class="menu-btn primary" on:click={() => mode = 'naming'}>新遊戲</button>
         <button class="menu-btn" on:click={() => mode = 'continue'}>繼續遊戲</button>
-        <button class="menu-btn dim" disabled>設定</button>
+        <button class="menu-btn" on:click={() => settingsOpen.set(true)}>設定</button>
         <button class="menu-btn exit" on:click={() => getCurrentWindow().close()}>離開遊戲</button>
       </div>
     </div>
@@ -147,18 +148,18 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    min-width: 260px;
+    min-width: calc(var(--ui-scale) * 260px);
   }
 
   .content.wide {
-    min-width: 400px;
-    max-width: 520px;
+    min-width: calc(var(--ui-scale) * 400px);
+    max-width: calc(var(--ui-scale) * 520px);
     width: 100%;
     align-items: stretch;
   }
 
   .game-title {
-    font-size: 48px;
+    font-size: calc(var(--ui-scale) * 48px);
     font-weight: 700;
     letter-spacing: 0.18em;
     color: var(--text-primary);
@@ -167,7 +168,7 @@
   }
 
   .game-subtitle {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-dim);
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -176,7 +177,7 @@
   }
 
   .section-title {
-    font-size: 14px;
+    font-size: calc(var(--ui-scale) * 14px);
     color: var(--text-primary);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -184,7 +185,7 @@
   }
 
   .section-hint {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
     margin-top: -8px;
@@ -195,7 +196,7 @@
     flex-direction: column;
     gap: 8px;
     margin-top: 16px;
-    min-width: 180px;
+    min-width: calc(var(--ui-scale) * 180px);
   }
 
   .menu-btn {
@@ -203,7 +204,7 @@
     border: 1px solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     letter-spacing: 0.08em;
     padding: 10px 24px;
     cursor: pointer;
@@ -227,16 +228,11 @@
     background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
   }
 
-  .menu-btn.dim {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-
   .menu-btn.exit {
     margin-top: 8px;
     opacity: 0.5;
     border-color: var(--border);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
   }
 
   .menu-btn.exit:hover {
@@ -248,7 +244,7 @@
 
   /* Name input */
   .name-input-wrap {
-    width: 260px;
+    width: calc(var(--ui-scale) * 260px);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -259,7 +255,7 @@
     border: 1px solid var(--border-accent);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 16px;
+    font-size: calc(var(--ui-scale) * 16px);
     padding: 10px 14px;
     border-radius: 2px;
     outline: none;
@@ -272,7 +268,7 @@
   .name-input:focus { border-color: var(--accent); }
 
   .name-error {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--accent-red);
     text-align: center;
   }
@@ -284,7 +280,7 @@
   }
 
   .naming-buttons .menu-btn {
-    min-width: 90px;
+    min-width: calc(var(--ui-scale) * 90px);
   }
 
   /* Save slots */
@@ -292,7 +288,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 340px;
+    max-height: min(calc(var(--ui-scale) * 340px), 90vh);
     overflow-y: auto;
   }
 
@@ -345,7 +341,7 @@
     background: none;
     border: none;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     padding: 4px 8px;
     cursor: pointer;
@@ -360,7 +356,7 @@
   .slot-action-btn.danger:hover { background: rgba(192, 57, 43, 0.12); }
 
   .slot-confirm-text {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     padding: 0 6px;
     font-family: var(--font-mono);
@@ -374,13 +370,13 @@
   }
 
   .slot-label {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     font-family: var(--font-mono);
   }
 
   .slot-location {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
   }
 
@@ -392,18 +388,18 @@
   }
 
   .slot-time {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
   }
 
   .slot-date {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
   }
 
   .slot-empty-label {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     opacity: 0.45;
@@ -424,7 +420,7 @@
     border: 1px solid color-mix(in srgb, #c9a96e 40%, transparent);
     color: #c9a96e;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     letter-spacing: 0.1em;
     padding: 3px 10px;
     cursor: pointer;
@@ -439,7 +435,7 @@
   }
 
   .version-tag {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     opacity: 0.4;

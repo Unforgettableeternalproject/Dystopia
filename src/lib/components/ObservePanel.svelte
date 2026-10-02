@@ -126,7 +126,7 @@
     border: 1px solid var(--border);
     color: var(--text-thought);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     padding: 6px 14px;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s, color 0.12s;
@@ -152,9 +152,9 @@
 
   .observe-flyout {
     position: fixed;
-    min-width: 200px;
-    max-width: 280px;
-    max-height: 320px;
+    min-width: calc(var(--ui-scale) * 200px);
+    max-width: calc(var(--ui-scale) * 280px);
+    max-height: min(calc(var(--ui-scale) * 320px), 90vh);
     overflow-y: auto;
     background: var(--bg-primary);
     border: 1px solid var(--border);
@@ -180,7 +180,7 @@
 
   .section-label {
     display: block;
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -195,7 +195,7 @@
     width: 100%;
     padding: 3px 6px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     background: none;
     border: none;
     border-radius: 2px;
@@ -225,13 +225,13 @@
 
   .lock-icon {
     color: var(--accent-red);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     flex-shrink: 0;
   }
 
   .rest-icon {
     color: var(--accent-green, #6a9955);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     flex-shrink: 0;
   }
 
@@ -243,7 +243,7 @@
 
   .rest-hint {
     padding: 6px 10px 2px;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--accent-green, #6a9955);
     font-style: italic;
   }

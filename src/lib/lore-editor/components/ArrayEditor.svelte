@@ -95,7 +95,7 @@
     font-size: var(--le-font-xs);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    width: 20px;
+    width: calc(var(--ui-scale) * 20px);
     text-align: center;
   }
 

@@ -102,7 +102,7 @@
     display: flex;
     flex-direction: column;
     gap: 0;
-    width: min(520px, 92vw);
+    width: min(calc(var(--ui-scale) * 520px), 92vw);
     max-height: 90vh;
     overflow-y: auto;
   }
@@ -118,7 +118,7 @@
   }
 
   .transit-icon {
-    font-size: 22px;
+    font-size: calc(var(--ui-scale) * 22px);
     color: #9b8abf;
     opacity: 0.9;
     flex-shrink: 0;
@@ -132,14 +132,14 @@
 
   .transit-label {
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: var(--text-primary);
     letter-spacing: 0.12em;
   }
 
   .transit-sub {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     letter-spacing: 0.06em;
   }
@@ -164,7 +164,7 @@
 
   .dep-text {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     letter-spacing: 0.08em;
   }
@@ -203,21 +203,21 @@
   }
 
   .region-icon {
-    font-size: 16px;
+    font-size: calc(var(--ui-scale) * 16px);
     color: var(--region-color);
     opacity: 0.85;
   }
 
   .region-name {
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: calc(var(--ui-scale) * 14px);
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: 0.04em;
   }
 
   .region-desc {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     letter-spacing: 0.04em;
     font-style: italic;
@@ -227,7 +227,7 @@
     position: absolute;
     right: 14px;
     bottom: 12px;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--region-color);
     opacity: 0;
     transition: opacity 0.15s, right 0.15s;
@@ -242,7 +242,7 @@
   .no-destinations {
     padding: 20px;
     text-align: center;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-dim);
     font-style: italic;
   }
@@ -255,7 +255,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     padding: 6px 14px;
     cursor: pointer;
     letter-spacing: 0.06em;

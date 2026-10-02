@@ -152,7 +152,7 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 300px;
+    width: min(calc(var(--ui-scale) * 300px), 92vw);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -170,14 +170,14 @@
   }
 
   .modal-title {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.22em;
     font-family: var(--font-mono);
   }
 
   .rest-mode {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--accent);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
@@ -197,14 +197,14 @@
   }
 
   .rest-desc {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     line-height: 1.65;
     margin: 0;
   }
 
   .options-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -228,9 +228,9 @@
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
     color: var(--text-dim);
-    font-size: 9px;
-    width: 36px;
-    height: 20px;
+    font-size: calc(var(--ui-scale) * 9px);
+    width: calc(var(--ui-scale) * 36px);
+    height: calc(var(--ui-scale) * 20px);
     cursor: pointer;
     border-radius: 2px;
     display: flex;
@@ -248,28 +248,28 @@
 
   .spin-val {
     font-family: var(--font-mono);
-    font-size: 22px;
+    font-size: calc(var(--ui-scale) * 22px);
     color: var(--text-primary);
-    min-width: 36px;
+    min-width: calc(var(--ui-scale) * 36px);
     text-align: center;
     line-height: 1.1;
   }
 
   .spin-unit {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
   }
 
   .spin-sep {
-    font-size: 22px;
+    font-size: calc(var(--ui-scale) * 22px);
     color: var(--text-dim);
     align-self: center;
     margin-bottom: 4px;
   }
 
   .spinner-hint {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
@@ -283,7 +283,7 @@
 
   .opt-btn {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     padding: 5px 10px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
@@ -317,7 +317,7 @@
 
   .footer-btn {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     padding: 5px 14px;
     background: transparent;
     border: 1px solid var(--border-accent);

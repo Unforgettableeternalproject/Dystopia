@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { MiniMapData, MiniMapEdge } from '$lib/stores/gameStore';
   import { bfsLayout, edgesToLayoutNodes } from '$lib/utils/mapLayout';
+  import { uiScale } from '$lib/stores/settingsStore';
 
   export let data: MiniMapData | undefined = undefined;
 
@@ -9,6 +10,9 @@
 
   const W = 156;
   const H = 136;
+  // 地圖框隨介面縮放；座標單位維持 1 user unit = 1px，字級 calc 不會被重複放大
+  $: w = W * $uiScale;
+  $: h = H * $uiScale;
   const R_SUBLOC    = 4.5;
   const R_AREA      = 5.5;
   const R_CURRENT   = 6.5;
@@ -79,7 +83,7 @@
     ? edgesToLayoutNodes(data.nodes.map(n => n.id), data.edges)
     : [];
   $: layout = data
-    ? bfsLayout(layoutNodes, startId, W, H, MIN_RING_STEP)
+    ? bfsLayout(layoutNodes, startId, w, h, MIN_RING_STEP)
     : new Map<string, { x: number; y: number }>();
 
   // Build positioned edges with metadata
@@ -127,8 +131,8 @@
   {#if data && data.nodes.length > 0}
     <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <svg
-      width={W} height={H}
-      viewBox="0 0 {W} {H}"
+      width={w} height={h}
+      viewBox="0 0 {w} {h}"
       class="minimap-svg"
       class:dragging={isDragging}
       role="img"
@@ -143,9 +147,9 @@
       <!--
         Transform: scale around SVG centre.
         translate(cx+panX, cy+panY) scale(zoom) translate(-cx, -cy)
-        makes zoom centred at (W/2, H/2).
+        makes zoom centred at (w/2, h/2).
       -->
-      <g transform="translate({W / 2 + panX} {H / 2 + panY}) scale({zoom}) translate({-W / 2} {-H / 2})">
+      <g transform="translate({w / 2 + panX} {h / 2 + panY}) scale({zoom}) translate({-w / 2} {-h / 2})">
 
         <!-- Edges -->
         {#each positionedEdges as e}
@@ -244,7 +248,7 @@
             {#if node.isCurrent}
               <text
                 x={pos.x}
-                y={pos.y + r + 9}
+                y={pos.y + r + 9 * $uiScale}
                 class="label label-current"
                 text-anchor="middle"
               >{node.label}</text>
@@ -331,19 +335,19 @@
 
   /* ── Edge icons ─────────────────────────────── */
   .edge-lock-icon {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     fill: #d35f5f;
     opacity: 0.7;
     cursor: default;
   }
   .edge-bypass-arrow {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     fill: #8a7a40;
     opacity: 0.8;
     cursor: default;
   }
   .edge-attempt-icon {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     font-weight: bold;
     fill: #c9a84c;
     opacity: 0.9;
@@ -421,7 +425,7 @@
 
   /* ── Labels ─────────────────────────────────── */
   .label {
-    font-size: 8.5px;
+    font-size: calc(var(--ui-scale) * 8.5px);
     font-family: var(--font-mono, monospace);
     fill: var(--text-secondary, #8aacbf);
     pointer-events: none;
@@ -432,7 +436,7 @@
   }
   .label-current {
     fill: var(--accent, #00c8e0);
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
   }
   .label-hidden {
     fill: #3a4a58;
@@ -445,7 +449,7 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    font-size: 8.5px;
+    font-size: calc(var(--ui-scale) * 8.5px);
     font-family: var(--font-mono, monospace);
     letter-spacing: 0.05em;
     max-width: 100%;
@@ -456,7 +460,7 @@
   .crumb-area { color: var(--text-secondary, #8aacbf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .empty {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     font-family: var(--font-mono, monospace);
     color: var(--text-dim, #445a68);
     opacity: 0.4;

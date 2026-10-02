@@ -127,7 +127,7 @@
                   getOutcomes()[i].id = val(e); data.outcomes = getOutcomes(); onChange();
                 }} />
               </div>
-              <div class="field" style="width:84px">
+              <div class="field" style="width:calc(var(--ui-scale) * 84px)">
                 <label class="field-label">權重</label>
                 <input class="field-input sm" type="number" value={n(outcome, 'weight', 1)} on:input={(e) => {
                   getOutcomes()[i].weight = parseFloat(val(e)) || 1; data.outcomes = getOutcomes(); onChange();

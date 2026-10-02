@@ -99,15 +99,15 @@
   }
 
   .avatar {
-    width: 52px;
-    height: 52px;
+    width: calc(var(--ui-scale) * 52px);
+    height: calc(var(--ui-scale) * 52px);
     border-radius: 2px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
+    font-size: calc(var(--ui-scale) * 22px);
     color: var(--text-secondary);
     font-weight: 300;
     letter-spacing: 0;
@@ -120,7 +120,7 @@
   }
 
   .npc-name {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     font-weight: 500;
     white-space: nowrap;
@@ -129,7 +129,7 @@
   }
 
   .npc-type {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.06em;
     margin-top: 1px;
@@ -138,12 +138,12 @@
   /* Description */
   .npc-desc {
     padding: 8px 10px;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     line-height: 1.55;
     border-bottom: 1px solid var(--border);
     overflow-y: auto;
-    max-height: 100px;
+    max-height: calc(var(--ui-scale) * 100px);
   }
 
   /* Relationship */
@@ -165,13 +165,13 @@
   }
 
   .rel-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.08em;
   }
 
   .rel-val {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
   }
@@ -184,7 +184,7 @@
     position: absolute;
     right: 0;
     top: calc(50% - var(--delta-stack, 0) * 14px - 14px);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     font-weight: 600;
     pointer-events: none;
@@ -217,7 +217,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.06em;
     cursor: pointer;
     border-radius: 2px;

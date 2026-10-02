@@ -25,21 +25,24 @@
   --scrollbar-track: #0d1017;
   --scrollbar-thumb: #252d3a;
 
+  /* UI 縮放：唯一的縮放來源，由 settingsStore 寫入 documentElement 的 inline style */
+  --ui-scale: 1;
+
   /* Typography */
   --font-mono: 'Courier New', 'Courier', monospace;
   --font-ui:   system-ui, -apple-system, sans-serif;
 
   /* Layout */
-  --top-bar-h:        36px;
-  --bottom-bar-h:     50px;
-  --left-sidebar-w:   175px;
-  --right-outer-w:    152px;
-  --right-inner-w:    148px;
+  --top-bar-h:        calc(var(--ui-scale) * 36px);
+  --bottom-bar-h:     calc(var(--ui-scale) * 50px);
+  --left-sidebar-w:   calc(var(--ui-scale) * 175px);
+  --right-outer-w:    calc(var(--ui-scale) * 152px);
+  --right-inner-w:    calc(var(--ui-scale) * 148px);
 
   /* Legacy (kept for any remaining references) */
-  --status-height:    48px;
-  --input-height:     50px;
-  --thought-height:   56px;
+  --status-height:    calc(var(--ui-scale) * 48px);
+  --input-height:     calc(var(--ui-scale) * 50px);
+  --thought-height:   calc(var(--ui-scale) * 56px);
 }
 
 *, *::before, *::after {
@@ -55,7 +58,7 @@ html, body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: calc(var(--ui-scale) * 14px);
   line-height: 1.7;
 }
 

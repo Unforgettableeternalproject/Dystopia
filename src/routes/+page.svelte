@@ -35,6 +35,8 @@
   import StatCheckOverlay     from '$lib/components/StatCheckOverlay.svelte';
   import LoreItemModal        from '$lib/components/LoreItemModal.svelte';
   import RestModal            from '$lib/components/RestModal.svelte';
+  import SettingsModal        from '$lib/components/SettingsModal.svelte';
+  import { settingsOpen }     from '$lib/stores/settingsStore';
   import RestResultOverlay    from '$lib/components/RestResultOverlay.svelte';
   import DangerOverlay        from '$lib/components/DangerOverlay.svelte';
   import TransitMapOverlay    from '$lib/components/TransitMapOverlay.svelte';
@@ -622,6 +624,11 @@
   />
 {/if}
 
+<!-- 設定面板 — 標題畫面與遊戲中皆可開啟 -->
+{#if $settingsOpen}
+  <SettingsModal />
+{/if}
+
 <!-- Close confirmation — shown regardless of game phase -->
 {#if showCloseConfirm}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -695,7 +702,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 22px;
+    height: calc(var(--ui-scale) * 22px);
     padding: 0 14px;
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-accent);
@@ -710,13 +717,13 @@
   }
 
   .enc-icon {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--accent);
     flex-shrink: 0;
   }
 
   .enc-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -724,13 +731,13 @@
   }
 
   .enc-sep {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     flex-shrink: 0;
   }
 
   .enc-name {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--accent);
     font-weight: 500;
     letter-spacing: 0.04em;
@@ -763,8 +770,8 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 360px;
-    max-height: 480px;
+    width: min(calc(var(--ui-scale) * 360px), 92vw);
+    max-height: min(calc(var(--ui-scale) * 480px), 90vh);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -781,7 +788,7 @@
   }
 
   .load-title {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.05em;
   }
@@ -790,7 +797,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
   }
@@ -803,20 +810,20 @@
   }
 
   .ls-label {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     font-family: var(--font-mono);
     flex: 1;
   }
 
   .ls-loc {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     flex: 1;
   }
 
   .ls-time {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
     flex-shrink: 0;
@@ -875,7 +882,7 @@
     background: none;
     border: none;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     padding: 4px 8px;
     cursor: pointer;
@@ -890,7 +897,7 @@
   .ls-action-btn.danger:hover { background: rgba(192, 57, 43, 0.12); }
 
   .ls-confirm-text {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     padding: 0 6px;
     font-family: var(--font-mono);
@@ -938,14 +945,14 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 300px;
+    width: min(calc(var(--ui-scale) * 300px), 92vw);
     display: flex;
     flex-direction: column;
   }
 
   .confirm-msg {
     padding: 18px 16px;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-secondary);
     line-height: 1.7;
     border-bottom: 1px solid var(--border);
@@ -960,7 +967,7 @@
 
   .confirm-btn {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     padding: 5px 14px;
     background: transparent;
     border: 1px solid var(--border-accent);
@@ -1007,12 +1014,12 @@
   }
 
   .quest-banner-icon {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--accent);
   }
 
   .quest-banner-text {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.04em;
     font-family: var(--font-mono);
@@ -1047,7 +1054,7 @@
     border: 1px solid var(--border-accent);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.06em;
     padding: 4px 10px;
     cursor: pointer;

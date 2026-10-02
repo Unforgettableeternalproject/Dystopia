@@ -149,7 +149,7 @@
 
   /* ── Card ── */
   .card {
-    width: 240px;
+    width: calc(var(--ui-scale) * 240px);
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
@@ -186,13 +186,13 @@
   }
 
   .header-line {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     color: var(--text-dim);
     opacity: 0.5;
   }
 
   .header-text {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     letter-spacing: 0.28em;
     font-family: var(--font-mono);
@@ -216,10 +216,10 @@
     transform: scale(1);
   }
 
-  .quality-icon { font-size: 9px; }
+  .quality-icon { font-size: calc(var(--ui-scale) * 9px); }
 
   .quality-label {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     letter-spacing: 0.18em;
     font-family: var(--font-mono);
     font-weight: 500;
@@ -246,26 +246,26 @@
     justify-content: space-between;
     align-items: baseline;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
   }
 
   .stat-label {
     color: var(--text-dim);
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     letter-spacing: 0.08em;
   }
 
   .stat-val {
     color: var(--text-primary);
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
   }
 
   .stat-val.gain { color: #7ec8a0; }
   .stat-val.loss { color: #d35f5f; }
-  .stat-val.muted { color: var(--text-dim); font-style: italic; font-size: 10px; }
+  .stat-val.muted { color: var(--text-dim); font-style: italic; font-size: calc(var(--ui-scale) * 10px); }
 
   .deviation {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     margin-left: 4px;
   }
@@ -279,7 +279,7 @@
 
   /* ── Dismiss hint ── */
   .dismiss-hint {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.06em;

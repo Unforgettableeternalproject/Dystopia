@@ -43,7 +43,7 @@
   }
 
   .label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { playerUI, isStreaming, isDebugMode } from '$lib/stores/gameStore';
+  import { settingsOpen } from '$lib/stores/settingsStore';
 
   export let onSave: (() => void) | undefined = undefined;
   export let onLoadMenu: (() => void) | undefined = undefined;
@@ -45,6 +46,13 @@
         title="返回標題畫面"
       >標題</button>
     {/if}
+    <button
+      class="topbar-btn"
+      class:active={$settingsOpen}
+      on:click={() => settingsOpen.set(true)}
+      title="設定"
+      aria-label="設定"
+    >設定</button>
   </div>
 </header>
 
@@ -62,7 +70,7 @@
   }
 
   .region {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: 0.06em;
@@ -87,18 +95,18 @@
   }
 
   .time {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
   }
 
   .sep {
     color: var(--text-dim);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
   }
 
   .period {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     letter-spacing: 0.04em;
   }
@@ -111,11 +119,11 @@
   }
 
   .turn {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.05em;
-    min-width: 28px;
+    min-width: calc(var(--ui-scale) * 28px);
     text-align: right;
   }
 
@@ -124,17 +132,22 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     letter-spacing: 0.06em;
     padding: 2px 7px;
     cursor: pointer;
     border-radius: 2px;
     transition: border-color 0.1s, color 0.1s;
-    height: 22px;
+    height: calc(var(--ui-scale) * 22px);
     flex-shrink: 0;
   }
 
   .topbar-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .topbar-btn.active {
     border-color: var(--accent);
     color: var(--accent);
   }

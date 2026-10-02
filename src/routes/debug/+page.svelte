@@ -120,7 +120,7 @@
     flex-direction: column;
     height: 100vh;
     font-family: var(--font-mono, 'Courier New', monospace);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: #c8c8c8;
     background: #0d0d0d;
   }
@@ -135,12 +135,12 @@
     flex-shrink: 0;
   }
   .dbg-title {
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     color: #e8e8e8;
     letter-spacing: 0.08em;
   }
   .dbg-subtitle {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: #555;
   }
 
@@ -158,7 +158,7 @@
     border: 1px solid #2a2a2a;
     color: #c8c8c8;
     font-family: inherit;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     padding: 5px 10px;
     border-radius: 2px;
     outline: none;
@@ -183,14 +183,14 @@
     align-items: center;
   }
   .meta-label {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: #555;
     letter-spacing: 0.06em;
   }
   .meta-val {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: #87a0c8;
-    max-width: 600px;
+    max-width: calc(var(--ui-scale) * 600px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -212,7 +212,7 @@
     border-bottom: 2px solid transparent;
     color: #555;
     font-family: inherit;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     padding: 8px 14px;
     cursor: pointer;
     letter-spacing: 0.04em;
@@ -225,7 +225,7 @@
   }
   .dbg-stats {
     margin-left: auto;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: #3a3a3a;
     padding: 0 8px;
   }
@@ -236,7 +236,7 @@
     border: 1px solid #2a2a2a;
     color: #888;
     font-family: inherit;
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     padding: 5px 12px;
     cursor: pointer;
     border-radius: 2px;
@@ -266,7 +266,7 @@
   .dbg-pre {
     margin: 0;
     font-family: inherit;
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     line-height: 1.65;
     color: #b8b8b8;
     white-space: pre-wrap;

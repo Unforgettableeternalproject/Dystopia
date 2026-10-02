@@ -88,10 +88,10 @@
     <div class="section-label">觸發條件 (Triggers) · {getTriggers().length}</div>
     {#each getTriggers() as trigger, ti}
       <div class="trigger-row">
-        <input class="field-input sm" style="width:140px" placeholder="nodeId" value={s(trigger, 'nodeId')} on:input={(e) => { trigger.nodeId = val(e); onChange(); }} />
+        <input class="field-input sm" style="width:calc(var(--ui-scale) * 140px)" placeholder="nodeId" value={s(trigger, 'nodeId')} on:input={(e) => { trigger.nodeId = val(e); onChange(); }} />
         <label class="field-label sm"><input type="checkbox" checked={!!trigger.firstMeetingOnly} on:change={() => { trigger.firstMeetingOnly = !trigger.firstMeetingOnly; onChange(); }} /> 首次</label>
         <label class="field-label sm" title="persistent：只在 NPC 預設 profile 有意義。切換到其他 profile 後仍繼承此 trigger 並優先評估（劇情優先於閒聊）"><input type="checkbox" checked={!!trigger.persistent} on:change={() => { if (trigger.persistent) delete trigger.persistent; else trigger.persistent = true; onChange(); }} /> 持續</label>
-        <input class="field-input sm" style="width:84px" type="number" step="0.1" placeholder="prob" value={s(trigger, 'probability') || '1'} on:input={(e) => { trigger.probability = parseFloat(val(e)) || 1; onChange(); }} />
+        <input class="field-input sm" style="width:calc(var(--ui-scale) * 84px)" type="number" step="0.1" placeholder="prob" value={s(trigger, 'probability') || '1'} on:input={(e) => { trigger.probability = parseFloat(val(e)) || 1; onChange(); }} />
         <button class="rm" on:click={() => { data.triggers = getTriggers().filter((_t, j) => j !== ti); onChange(); }}>✕</button>
       </div>
     {/each}
@@ -133,7 +133,7 @@
             <div class="sub-label">台詞</div>
             {#each getLines(node) as line, li}
               <div class="line-row">
-                <input class="field-input sm" style="width:112px" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
+                <input class="field-input sm" style="width:calc(var(--ui-scale) * 112px)" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
                 <input class="field-input sm" style="flex:1" placeholder="text" value={s(line, 'text')} on:input={(e) => { line.text = val(e); onChange(); }} />
                 <button class="rm" on:click={() => { node.lines = getLines(node).filter((_l, j) => j !== li); onChange(); }}>✕</button>
               </div>
@@ -156,9 +156,9 @@
                 {#if expandedChoices.has(choiceKey)}
                   <div class="choice-body">
                     <div class="field-row">
-                      <input class="field-input sm" style="width:84px" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
+                      <input class="field-input sm" style="width:calc(var(--ui-scale) * 84px)" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
                       <input class="field-input sm" style="flex:1" placeholder="text" value={s(choice, 'text')} on:input={(e) => { choice.text = val(e); onChange(); }} />
-                      <input class="field-input sm" style="width:140px" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
+                      <input class="field-input sm" style="width:calc(var(--ui-scale) * 140px)" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
                     </div>
                     {#if choice.condition !== undefined}
                       <div class="field">

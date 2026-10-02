@@ -282,13 +282,13 @@
   }
 
   .avatar {
-    width: 30px;
-    height: 30px;
+    width: calc(var(--ui-scale) * 30px);
+    height: calc(var(--ui-scale) * 30px);
     border-radius: 50%;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-accent);
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: calc(var(--ui-scale) * 13px);
     font-family: var(--font-mono);
     display: flex;
     align-items: center;
@@ -303,7 +303,7 @@
   }
 
   .player-name {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     font-weight: 500;
     letter-spacing: 0.03em;
@@ -313,7 +313,7 @@
   }
 
   .player-title {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--accent);
     letter-spacing: 0.04em;
     margin-top: 2px;
@@ -335,7 +335,7 @@
   }
 
   .section-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     letter-spacing: 0.1em;
     color: var(--text-dim);
     text-transform: uppercase;
@@ -357,10 +357,10 @@
   }
 
   .stat-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.08em;
-    width: 24px;
+    width: calc(var(--ui-scale) * 24px);
     flex-shrink: 0;
     text-align: right;
   }
@@ -426,7 +426,7 @@
     position: absolute;
     right: 36px;
     top: calc(50% - var(--delta-stack, 0) * 14px);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     font-weight: 600;
     pointer-events: none;
@@ -446,17 +446,17 @@
   }
 
   .stat-val {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    width: 32px;
+    width: calc(var(--ui-scale) * 32px);
     text-align: right;
     flex-shrink: 0;
   }
 
   .stat-max {
     color: var(--text-dim);
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
   }
 
   /* ── Melphin ──────────────────────────────────────── */
@@ -471,7 +471,7 @@
   }
 
   .melphin-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.08em;
   }
@@ -493,7 +493,7 @@
   }
 
   .melphin-val {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
     transition: color 0.1s;
@@ -523,7 +523,7 @@
     position: absolute;
     right: calc(100% + 4px);
     top: calc(50% - var(--delta-stack, 0) * 14px);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     font-weight: 600;
     pointer-events: none;
@@ -533,7 +533,7 @@
   }
 
   .melphin-unit {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
   }
 
@@ -545,7 +545,7 @@
   }
 
   .cond-tag {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     padding: 1px 6px;
     background: transparent;
     border: 1px solid var(--accent-red);
@@ -567,7 +567,7 @@
   }
 
   .cond-popup-cure-label {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     color: var(--text-dim);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -576,7 +576,7 @@
   }
 
   .cond-normal {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-style: italic;
     letter-spacing: 0.02em;
@@ -600,7 +600,7 @@
   }
 
   .quest-name {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -611,7 +611,7 @@
   }
 
   .quest-type-badge {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     padding: 0px 4px;
     border-radius: 2px;
     letter-spacing: 0.05em;
@@ -624,7 +624,7 @@
   .quest-type-hidden { color: #8b6a9a;           border-color: #8b6a9a;           opacity: 0.75; }
 
   .quest-stage {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     margin-top: 2px;
     line-height: 1.4;
@@ -635,7 +635,7 @@
 
   .quest-more {
     margin-top: 5px;
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.05em;
     cursor: pointer;
@@ -696,7 +696,7 @@
     z-index: 9999;
     pointer-events: auto;
     animation: popupIn 0.1s ease-out;
-    max-width: 200px;
+    max-width: calc(var(--ui-scale) * 200px);
   }
 
   @keyframes popupIn {
@@ -705,7 +705,7 @@
   }
 
   .stat-popup-name {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-primary, #eee);
     letter-spacing: 0.05em;
     margin-bottom: 5px;
@@ -713,7 +713,7 @@
   }
 
   .stat-popup-desc {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-secondary, #aaa);
     line-height: 1.7;
     white-space: pre-line;

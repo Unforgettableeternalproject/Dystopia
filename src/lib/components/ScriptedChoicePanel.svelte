@@ -47,7 +47,7 @@
   }
 
   .npc-name {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--accent);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -55,12 +55,12 @@
   }
 
   .sep {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
   }
 
   .hint {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.06em;
   }
@@ -76,7 +76,7 @@
     border: 1px solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     text-align: left;
     padding: 7px 12px;
     cursor: pointer;
@@ -92,7 +92,7 @@
   }
 
   .auto-end {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-dim);
     font-style: italic;
     padding: 4px 0;

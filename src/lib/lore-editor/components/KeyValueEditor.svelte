@@ -92,7 +92,7 @@
   }
   .kv-input:focus { border-color: var(--border-accent); }
 
-  .kv-val { width: 84px; flex: 0 0 84px; text-align: right; }
+  .kv-val { width: calc(var(--ui-scale) * 84px); flex: 0 0 calc(var(--ui-scale) * 84px); text-align: right; }
 
   .kv-rm {
     background: none; border: none; color: var(--text-dim); font-size: var(--le-font-xs);

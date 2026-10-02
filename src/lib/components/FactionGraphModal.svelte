@@ -342,7 +342,7 @@
                     <text
                       x={mx} y={my - 4}
                       text-anchor="middle"
-                      font-size="8"
+                      style="font-size: calc(var(--ui-scale) * 8px)"
                       fill={edgeColor(edge.weight)}
                       font-family="var(--font-mono)"
                       opacity="0.6"
@@ -358,7 +358,7 @@
                 <circle cx={playerPos.x} cy={playerPos.y} r="4" fill="#c9a96e" opacity="0.9" />
                 <text
                   x={playerPos.x + 8} y={playerPos.y - 5}
-                  font-size="8" fill="#c9a96e" font-family="var(--font-mono)"
+                  style="font-size: calc(var(--ui-scale) * 8px)" fill="#c9a96e" font-family="var(--font-mono)"
                   opacity="0.85" pointer-events="none"
                 >你</text>
               {/if}
@@ -379,7 +379,7 @@
                     <text
                       x={p.x} y={p.y - 12}
                       text-anchor="middle"
-                      font-size="9.5"
+                      style="font-size: calc(var(--ui-scale) * 9.5px)"
                       fill={node.revealed ? 'var(--text-secondary)' : '#666'}
                       font-family="var(--font-mono)"
                       pointer-events="none"
@@ -388,7 +388,7 @@
                       <text
                         x={p.x} y={p.y + 21}
                         text-anchor="middle"
-                        font-size="8"
+                        style="font-size: calc(var(--ui-scale) * 8px)"
                         fill={col}
                         opacity="0.75"
                         font-family="var(--font-mono)"
@@ -564,8 +564,8 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-accent);
     border-radius: 2px;
-    width: 460px;
-    max-height: 620px;
+    width: min(calc(var(--ui-scale) * 460px), 92vw);
+    max-height: min(calc(var(--ui-scale) * 620px), 90vh);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -583,7 +583,7 @@
   }
 
   .modal-title {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     letter-spacing: 0.22em;
     font-family: var(--font-mono);
@@ -593,7 +593,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     cursor: pointer;
     padding: 2px 4px;
     transition: color 0.1s;
@@ -620,8 +620,8 @@
     padding: 32px 0;
     flex: 1;
   }
-  .empty-icon { font-size: 24px; color: var(--text-dim); opacity: 0.3; }
-  .empty-text { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin: 0; letter-spacing: 0.04em; }
+  .empty-icon { font-size: calc(var(--ui-scale) * 24px); color: var(--text-dim); opacity: 0.3; }
+  .empty-text { font-size: calc(var(--ui-scale) * 11px); color: var(--text-dim); font-family: var(--font-mono); margin: 0; letter-spacing: 0.04em; }
 
   /* ── Graph section ──────────────────────── */
   .graph-section { display: flex; flex-direction: column; gap: 0; }
@@ -634,7 +634,7 @@
   }
 
   .section-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -644,7 +644,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 14px;
+    font-size: calc(var(--ui-scale) * 14px);
     cursor: pointer;
     padding: 0 2px;
     line-height: 1;
@@ -674,7 +674,7 @@
   }
 
   .legend-item {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     font-family: var(--font-mono);
     color: var(--text-dim);
     opacity: 0.7;
@@ -687,7 +687,7 @@
   .legend-item.player  { color: #c9a96e; }
 
   .zoom-hint {
-    font-size: 8.5px;
+    font-size: calc(var(--ui-scale) * 8.5px);
     color: var(--text-dim);
     opacity: 0.4;
     font-family: var(--font-mono);
@@ -707,7 +707,7 @@
   }
 
   .faction-name {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
     white-space: nowrap;
@@ -739,9 +739,9 @@
   }
 
   .rep-value {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
-    width: 36px;
+    width: calc(var(--ui-scale) * 36px);
     text-align: right;
     flex-shrink: 0;
   }
@@ -762,7 +762,7 @@
   }
 
   .tree-faction-name {
-    font-size: 12px;
+    font-size: calc(var(--ui-scale) * 12px);
     color: var(--text-primary);
     font-family: var(--font-mono);
     letter-spacing: 0.06em;
@@ -770,7 +770,7 @@
   }
 
   .tree-join-badge {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     font-family: var(--font-mono);
     padding: 1px 6px;
     border: 1px solid #555;
@@ -787,7 +787,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     cursor: pointer;
     padding: 2px 4px;
     opacity: 0.5;
@@ -798,13 +798,13 @@
   /* Credit bar */
   .credit-row {
     display: grid;
-    grid-template-columns: 32px 1fr 40px;
+    grid-template-columns: calc(var(--ui-scale) * 32px) 1fr calc(var(--ui-scale) * 40px);
     align-items: center;
     gap: 6px;
   }
 
   .credit-label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     font-family: var(--font-mono);
   }
@@ -839,13 +839,13 @@
   }
 
   .credit-value {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     text-align: right;
   }
 
   .breakpoint-warning {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: #d35f5f;
     font-family: var(--font-mono);
     opacity: 0.85;
@@ -860,7 +860,7 @@
   }
 
   .tree-sub-label {
-    font-size: 8.5px;
+    font-size: calc(var(--ui-scale) * 8.5px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -878,13 +878,13 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     color: var(--text-dim);
   }
   .checkpoint-row.completed { color: #7ec8a0; }
 
-  .cp-icon { font-size: 9px; width: 12px; text-align: center; }
+  .cp-icon { font-size: calc(var(--ui-scale) * 9px); width: calc(var(--ui-scale) * 12px); text-align: center; }
   .cp-label { flex: 1; }
 
   /* Quest line */
@@ -899,7 +899,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     padding: 3px 0;
     position: relative;
@@ -914,11 +914,11 @@
     background: #444;
   }
 
-  .quest-icon { font-size: 10px; width: 12px; text-align: center; flex-shrink: 0; }
+  .quest-icon { font-size: calc(var(--ui-scale) * 10px); width: calc(var(--ui-scale) * 12px); text-align: center; flex-shrink: 0; }
   .quest-name { flex: 1; }
 
   .coupling-badge {
-    font-size: 7.5px;
+    font-size: calc(var(--ui-scale) * 7.5px);
     padding: 0 4px;
     border-radius: 2px;
     letter-spacing: 0.04em;
@@ -936,7 +936,7 @@
   }
 
   .tree-empty {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     opacity: 0.5;

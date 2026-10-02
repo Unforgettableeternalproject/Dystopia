@@ -96,7 +96,7 @@
       <label class="field-label">名稱</label>
       <input class="field-input" bind:value={data.name} on:input={onChange} />
     </div>
-    <div class="field" style="width:112px">
+    <div class="field" style="width:calc(var(--ui-scale) * 112px)">
       <label class="field-label">類型</label>
       <select class="field-select" bind:value={data.type} on:change={onChange}>
         {#each ENC_TYPES as t}<option value={t}>{t}</option>{/each}
@@ -116,7 +116,7 @@
       {#each getScript() as line, li}
         <div class="script-line">
           <div class="line-head">
-            <input class="field-input sm" style="width:112px" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
+            <input class="field-input sm" style="width:calc(var(--ui-scale) * 112px)" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
             <label class="field-label sm"><input type="checkbox" checked={!!line.pause} on:change={() => { line.pause = !line.pause; onChange(); }} /> pause</label>
             <button class="rm" on:click={() => { data.script = getScript().filter((_l, j) => j !== li); onChange(); }}>✕</button>
           </div>
@@ -198,7 +198,7 @@
                   </div>
                   <div class="field-row">
                     <input class="field-input sm" style="flex:1" placeholder="stat path" value={s(asRec(node.statCheck), 'stat')} on:input={(e) => { asRec(node.statCheck).stat = val(e); onChange(); }} />
-                    <input class="field-input sm" style="width:70px" type="number" placeholder="DC" value={n(asRec(node.statCheck), 'dc')} on:input={(e) => { asRec(node.statCheck).dc = parseInt(val(e)) || 0; onChange(); }} />
+                    <input class="field-input sm" style="width:calc(var(--ui-scale) * 70px)" type="number" placeholder="DC" value={n(asRec(node.statCheck), 'dc')} on:input={(e) => { asRec(node.statCheck).dc = parseInt(val(e)) || 0; onChange(); }} />
                   </div>
                   <div class="field-row">
                     <input class="field-input sm" style="flex:1" placeholder="successNodeId" value={s(asRec(node.statCheck), 'successNodeId')} on:input={(e) => { asRec(node.statCheck).successNodeId = val(e); onChange(); }} />
@@ -233,9 +233,9 @@
                   {#if expandedChoices.has(ck)}
                     <div class="choice-body">
                       <div class="field-row">
-                        <input class="field-input sm" style="width:70px" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
+                        <input class="field-input sm" style="width:calc(var(--ui-scale) * 70px)" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
                         <input class="field-input sm" style="flex:1" placeholder="text" value={s(choice, 'text')} on:input={(e) => { choice.text = val(e); onChange(); }} />
-                        <input class="field-input sm" style="width:140px" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
+                        <input class="field-input sm" style="width:calc(var(--ui-scale) * 140px)" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
                       </div>
                       {#if choice.condition !== undefined}
                         <div class="field">

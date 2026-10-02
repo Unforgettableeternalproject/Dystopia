@@ -99,7 +99,7 @@
 
   /* ── Section header ────────────────────────────── */
   .section-header {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     letter-spacing: 0.12em;
     color: var(--text-dim);
     text-transform: uppercase;
@@ -130,14 +130,14 @@
   }
 
   .label {
-    font-size: 9px;
+    font-size: calc(var(--ui-scale) * 9px);
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
   .value {
-    font-size: 11px;
+    font-size: calc(var(--ui-scale) * 11px);
     color: var(--text-secondary);
     font-family: var(--font-mono);
     white-space: nowrap;
@@ -175,7 +175,7 @@
   }
 
   .section-hint {
-    font-size: 8px;
+    font-size: calc(var(--ui-scale) * 8px);
     opacity: 0.45;
     margin-left: 2px;
     vertical-align: middle;
@@ -190,7 +190,7 @@
   }
 
   .faction-name {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -198,7 +198,7 @@
   }
 
   .faction-rep {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     color: var(--text-dim);
     flex-shrink: 0;
@@ -212,7 +212,7 @@
     position: absolute;
     right: 0;
     top: calc(50% - var(--delta-stack, 0) * 14px - 14px);
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     font-family: var(--font-mono);
     font-weight: 600;
     pointer-events: none;
@@ -243,7 +243,7 @@
   }
 
   .phase-val {
-    font-size: 10px;
+    font-size: calc(var(--ui-scale) * 10px);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;

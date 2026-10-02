@@ -183,7 +183,7 @@
   .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
   .sub-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
 
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--ui-scale) * 140px), 1fr)); gap: 6px; }
   .stat-field { display: flex; flex-direction: column; gap: 2px; }
 
   .inv-row { display: flex; gap: 4px; align-items: center; }
