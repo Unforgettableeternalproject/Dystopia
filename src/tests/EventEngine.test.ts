@@ -140,6 +140,42 @@ describe('EventEngine', () => {
     expect(mgr.flags.has('location_event_fired')).toBe(true);
   });
 
+  it('triggerOn: rest_start events never fire via checkAndApply/checkGlobalEvents (only checkRestStartEvents)', () => {
+    const restStartEvent: GameEvent = {
+      id: 'rest_start_event',
+      description: 'Restless night',
+      condition: { triggerOn: 'rest_start', triggerChance: 1 },
+      outcomes: [{ id: 'outcome_a', description: 'Applied', flagsSet: ['rest_start_event_fired'] }],
+      isRepeatable: true,
+    };
+
+    // 位於地點 eventIds：一般逐動作輪詢（例如移動、一般行動）不應命中，即使 triggerChance = 1。
+    const locHarness = makeHarness({
+      locationEventIds: ['rest_start_event'],
+      events: [restStartEvent],
+    });
+    expect(locHarness.engine.checkAndApply('loc_a')).toHaveLength(0);
+    expect(locHarness.mgr.flags.has('rest_start_event_fired')).toBe(false);
+
+    // 位於全域 eventIds：同理。
+    const globalHarness = makeHarness({
+      globalEventIds: ['rest_start_event'],
+      events: [restStartEvent],
+    });
+    expect(globalHarness.engine.checkGlobalEvents('region_a')).toHaveLength(0);
+    expect(globalHarness.mgr.flags.has('rest_start_event_fired')).toBe(false);
+
+    // 只有開始休息（checkRestStartEvents）才可能觸發。
+    const restHarness = makeHarness({
+      locationEventIds: ['rest_start_event'],
+      events: [restStartEvent],
+    });
+    const triggered = restHarness.engine.checkRestStartEvents('region_a', 'loc_a');
+    expect(triggered).toHaveLength(1);
+    expect(triggered[0].event.id).toBe('rest_start_event');
+    expect(restHarness.mgr.flags.has('rest_start_event_fired')).toBe(true);
+  });
+
   it('triggers hour-bound global events only when the matching boundary is crossed', () => {
     const timedEvent: GameEvent = {
       id: 'timed_event',

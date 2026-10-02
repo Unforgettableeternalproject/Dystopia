@@ -54,6 +54,8 @@ export class EventEngine {
     crossedHours: number[];
     rangeTime?: { hour: number; minute: number };
     detectSkippedWindows?: boolean;
+    /** true 僅在 checkRestStartEvents() 呼叫期間：允許 condition.triggerOn === 'rest_start' 的事件通過 canTrigger。 */
+    allowRestStart?: boolean;
   } = {
     sceneNpcIds: [],
     crossedHours: [],
@@ -198,7 +200,7 @@ export class EventEngine {
    */
   checkRestStartEvents(regionId: string, locationId: string): TriggeredEvent[] {
     const resolved = this.lore.resolveLocation(locationId, this.state.flags);
-    this.checkCtx = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours: [] };
+    this.checkCtx = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours: [], allowRestStart: true };
 
     const region = this.lore.getRegion(regionId);
     const globalIds = region?.globalEventIds ?? [];
@@ -281,6 +283,10 @@ export class EventEngine {
     if (!event.isRepeatable && this.state.flags.has(event.id + ':fired')) return false;
 
     const { condition } = event;
+
+    // triggerOn: 'rest_start' 事件只能透過 checkRestStartEvents()（休息開始時）觸發，
+    // 不可在一般逐動作輪詢（checkAndApply / checkGlobalEvents 等）中被 timePeriods 等條件意外命中。
+    if (condition.triggerOn === 'rest_start' && !this.checkCtx.allowRestStart) return false;
 
     // Flag conditions
     if (condition.flags    && !this.state.flags.hasAll(condition.flags))   return false;
