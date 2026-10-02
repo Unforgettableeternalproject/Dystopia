@@ -169,6 +169,50 @@ describe('門禁雙向封鎖（真實 lore）', () => {
   });
 });
 
+describe('門禁期間宿舍內部移動不受影響（真實 lore）', () => {
+  it('門禁中：盥洗室/公共區→寢室等宿舍內部連結允許通行；宿舍→外部仍被引擎擋下', () => {
+    const { lore, state, setTime } = setup();
+    setTime(at(12, 23, 0));
+    expect(state.flags.has(FLAG)).toBe(true);
+
+    const dormitory = lore.getLocation('delth_dormitory');
+    const subIds = (dormitory?.sublocations ?? []).map(s => s.id);
+    expect(subIds).toEqual(expect.arrayContaining([
+      'delth_dormitory_common', 'delth_dormitory_room', 'delth_dormitory_public_bathroom',
+    ]));
+
+    const internalAccess = (from: string, to: string) => {
+      const loc  = lore.resolveLocation(from, state.flags)!;
+      const conn = loc.connections.find(c => c.targetLocationId === to)!;
+      const gs   = state.getState();
+      return lore.getConnectionAccessResult(
+        conn, state.flags, gs.timePeriod, [], [], gs.time, [], 0,
+        { attemptCooldowns: gs.attemptCooldowns, connectionKey: from + '→' + to },
+      );
+    };
+
+    expect(internalAccess('delth_dormitory_public_bathroom', 'delth_dormitory_common').allowed).toBe(true);
+    expect(internalAccess('delth_dormitory_common', 'delth_dormitory_room').allowed).toBe(true);
+    expect(internalAccess('delth_dormitory_room', 'delth_dormitory_common').allowed).toBe(true);
+    expect(internalAccess('delth_dormitory_common', 'delth_dormitory').allowed).toBe(true);
+
+    // 宿舍（大門）→外部：門禁仍然擋下，鐵門訊息不變。
+    const gateAccess = (from: string, to: string) => {
+      const loc  = lore.resolveLocation(from, state.flags)!;
+      const conn = loc.connections.find(c => c.targetLocationId === to)!;
+      const gs   = state.getState();
+      const result = lore.getConnectionAccessResult(
+        conn, state.flags, gs.timePeriod, [], [], gs.time, [], 0,
+        { attemptCooldowns: gs.attemptCooldowns, connectionKey: from + '→' + to },
+      );
+      return { ...result, lockedMessage: conn.access?.lockedMessage };
+    };
+    const blocked = gateAccess('delth_dormitory', 'delth_forest');
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.lockedMessage).toContain('鐵門');
+  });
+});
+
 describe('廣播提前門禁：實際改變門禁時間、次日回復', () => {
   it('觸發後當晚門禁提前到抽中的時刻，隔天回到 23:00', () => {
     const { state, events, setTime, access } = setup();

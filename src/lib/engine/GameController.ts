@@ -735,6 +735,12 @@ export class GameController {
       updateTraceLabel(traceId, `${finalAction.type}: ${input.slice(0, 60)}`);
     }
 
+    // 移動行動：出發地的全域／地點事件延後至移動完成、以目的地評估（4.55），
+    // 避免出發地事件（如地磚縫隙的梅分硬幣）在離開當下攔截移動本身。
+    // 已知限制：自由輸入由 Regulator 分類為 move 才視為移動；Regulator 誤判為 free
+    // 而由 Judge 事後解出 move 的情況，仍會以出發地評估（與原行為一致）。
+    const deferLocationEvents = finalAction.type === 'move';
+
     // Track active NPC panel — clear when moving
     if (finalAction.type === 'move') {
       activeNpcUI.set(null);
@@ -853,12 +859,14 @@ export class GameController {
       : [];
 
     // 3. Check global events (period transitions, broadcasts, hour-based triggers)
-    const globalTriggered = eventsEnabled
+    // 移動行動：延後至 4.55（見下方），以目的地評估。
+    const globalTriggered = eventsEnabled && !deferLocationEvents
       ? this.events.checkGlobalEvents(this.currentRegionId, crossedHours)
       : [];
 
     // 3.5. Check location events
-    const locationTriggered = eventsEnabled
+    // 移動行動：延後至 4.55（見下方），以目的地評估，不在出發地觸發。
+    const locationTriggered = eventsEnabled && !deferLocationEvents
       ? this.events.checkAndApply(this.state.getState().player.currentLocationId, crossedHours)
       : [];
     const triggered = [...questFailTriggered, ...globalTriggered, ...locationTriggered];
@@ -942,6 +950,9 @@ export class GameController {
       : resolution.timeMinutes != null
         ? Math.round(resolution.timeMinutes * timeCostMultiplier)
         : null;
+    // 由 4.55（deferred sweep）讀取：本回合（含延伸時間）實際跨越的小時與時段轉換旗標。
+    let extraCrossed: number[] = [];
+    let latePeriodChanged = false;
     if (effectiveResolutionTime != null && effectiveResolutionTime > defaultMinutes) {
       const extra       = effectiveResolutionTime - defaultMinutes;
       const gs1         = this.state.getState();
@@ -950,10 +961,10 @@ export class GameController {
       const laterPeriod = schedule
         ? this.timeMgr.getCurrentPeriod(laterTime, schedule, gs1.player.activeFlags)
         : gs1.timePeriod;
-      const latePeriodChanged = this.state.advanceTime(laterTime, laterPeriod);
+      latePeriodChanged = this.state.advanceTime(laterTime, laterPeriod);
       this.state.tickItemExpiry(id => this.lore.getItem(id)?.expiresAfterMinutes);
       // Fire time-based global events for any additional hours crossed during extended sleep
-      const extraCrossed = this.timeMgr.computeCrossedHours(lateStartTime, laterTime);
+      extraCrossed = this.timeMgr.computeCrossedHours(lateStartTime, laterTime);
       if (extraCrossed.length > 0) {
         // Also check for first midnight crossing during extended sleep
         if (!this.state.flags.has('game_day1_started') && extraCrossed.includes(0)) {
@@ -968,8 +979,11 @@ export class GameController {
         }
         const lateEventsEnabled = this.state.flags.has('game_day1_started');
         const lateQuestFail = lateEventsEnabled ? this.checkQuestFailConditions(extraCrossed) : [];
-        const lateGlobal    = lateEventsEnabled ? this.events.checkGlobalEvents(this.currentRegionId, extraCrossed) : [];
-        const lateLocation  = lateEventsEnabled ? this.events.checkAndApply(this.state.getState().player.currentLocationId, extraCrossed) : [];
+        // 移動行動：全域／地點事件延後至 4.55 以目的地合併評估，這裡只處理任務失敗條件。
+        const lateGlobal    = lateEventsEnabled && !deferLocationEvents
+          ? this.events.checkGlobalEvents(this.currentRegionId, extraCrossed) : [];
+        const lateLocation  = lateEventsEnabled && !deferLocationEvents
+          ? this.events.checkAndApply(this.state.getState().player.currentLocationId, extraCrossed) : [];
         const lateTriggered = [...lateQuestFail, ...lateGlobal, ...lateLocation];
         const { eventEncounters: lateEventEncounters, extraTriggered: lateExtra } =
           this.processTriggeredEvents(lateTriggered);
@@ -984,6 +998,38 @@ export class GameController {
 
         if (lateEventEncounters.length > 0 || this._npcDialogueQueue.length > 0) {
           for (const enc of lateEventEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
+          await this.startNextQueuedEncounter();
+          this.flushAcquisitions();
+          if (this.checkEndingConditions()) return;
+          this.releaseInput();
+          return;
+        }
+      }
+    }
+
+    // 4.55. 移動行動的延後事件掃描：3/3.5 為移動延後了全域與地點事件，
+    // 在此以「移動（與延伸時間）完成後的目的地」合併評估，取代出發地評估。
+    // 時序上必須在 4.5（時間校正）之後，否則多段路徑的旅行時間會在事件攔截
+    // 提前 return 時來不及補上。
+    if (deferLocationEvents && this.state.flags.has('game_day1_started')) {
+      const deferredCrossedHours  = [...crossedHours, ...extraCrossed];
+      const deferredPeriodChanged = periodChanged || latePeriodChanged;
+      const deferredGlobal   = this.events.checkGlobalEvents(this.currentRegionId, deferredCrossedHours);
+      const deferredLocation = this.events.checkAndApply(this.state.getState().player.currentLocationId, deferredCrossedHours);
+      const deferredTriggered = [...deferredGlobal, ...deferredLocation];
+
+      if (deferredTriggered.length > 0) {
+        const { eventEncounters: deferredEncounters, extraTriggered: deferredExtra } =
+          this.processTriggeredEvents(deferredTriggered);
+        const allDeferredTriggered = [...deferredTriggered, ...deferredExtra];
+
+        const deferredEventCtx = this.buildSceneCtx(allDeferredTriggered, deferredPeriodChanged);
+        const hasNotification  = allDeferredTriggered.some(t => t.notification);
+        await this.runEventDM(deferredEventCtx, hasNotification ? 'event' : 'narrative');
+        this.flushAcquisitions();
+
+        if (deferredEncounters.length > 0 || this._npcDialogueQueue.length > 0) {
+          for (const enc of deferredEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
           await this.startNextQueuedEncounter();
           this.flushAcquisitions();
           if (this.checkEndingConditions()) return;

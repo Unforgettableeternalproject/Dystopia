@@ -274,3 +274,25 @@ describe('Regulator.validate — 輸入分類', () => {
     expect(text).toContain('存檔');
   });
 });
+
+// ── 門禁不得由 Regulator 以門禁/時段為由拒絕移動（prompt 契約） ──────────────────
+// 通道可否通行由引擎的 ConnectionAccess 決定；見 Curfew.integration.test.ts。
+// Regulator 只能看到 buildClockContext() 餵入的 `clock`（含「門禁中：宿舍不能進出」字樣），
+// 這裡驗證 system prompt 有明確規則阻止 LLM 僅因此字樣就拒絕 move。
+describe('Regulator move 規則：不得因門禁/時段拒絕移動', () => {
+  it('system prompt 明確規定通行由引擎判定，不可因門禁/時段拒絕 move', async () => {
+    const client = makeClient(JSON.stringify({
+      category: 'action', allowed: true, reason: null, modifiedInput: null,
+      actionType: 'move', targetId: null, restMinutes: null,
+    }));
+    const reg = new Regulator(client);
+    await reg.validate(
+      action('返回房間', 'move'), makePlayer(), [], [], [],
+      'Curfew (門禁): 20:00–05:00 | now: ACTIVE（門禁中：宿舍不能進出）',
+    );
+    const systemPrompt = (client.complete as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(systemPrompt.toLowerCase()).toContain('curfew');
+    expect(systemPrompt).toMatch(/engine/i);
+    expect(systemPrompt).toMatch(/never reject|do not reject/i);
+  });
+});

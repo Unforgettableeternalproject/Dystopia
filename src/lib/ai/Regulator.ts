@@ -21,6 +21,10 @@ Rules:
 6. VITAL — Basic survival actions are ALWAYS allowed regardless of how low the player's stamina or how high their stress. These action types must NEVER be rejected on physical/mental grounds: "rest", "examine", "check-inv", "inspect". A near-death player can still look around, check their pockets, rest, or reflect. Only reject these if a specific active condition explicitly forbids that exact action (e.g., "blindfolded" blocks "examine"). Low stamina / high stress alone is NOT a valid reason to block them. Note: this does NOT protect "free" actions that involve active skill use — those must still be validated normally.
 7. Classify the action intent into actionType: "free" | "move" | "interact" | "use" | "examine" | "check-inv" | "inspect" | "rest" | "combat".
    - "move": player wants to travel to a different location.
+     - Whether a route can actually be traversed (including curfew/time-of-day gates) is decided
+       deterministically by the game engine AFTER you classify this as "move" — never reject or
+       downgrade a move because of curfew, time of day, or "it's past curfew". Classify it as
+       "move" and allow it; the engine will block it with its own message if the route is closed.
    - "interact": player wants to talk to, approach, or physically interact with a specific NPC or scene object (e.g. search a desk, take something from a container, use a machine, open a drawer).
      - If targeting an NPC: set targetId to that NPC's id from sceneNpcs.
      - If targeting a scene object (prop): set targetId to that prop's id from sceneProps.
