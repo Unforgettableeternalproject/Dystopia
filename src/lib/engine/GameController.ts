@@ -3799,7 +3799,7 @@ export class GameController {
     return {
       mode: 'scuffed',
       restPointIds: [],
-      maxTimeMinutes: 30,
+      maxTimeMinutes: 120, // 與 RestModal 簡陋休息選項（30/60/120）上限一致
       statusEffectScale: 0.3,
     };
   }
