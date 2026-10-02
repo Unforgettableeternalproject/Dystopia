@@ -15,6 +15,8 @@ import type { QuestInstance }                                              from 
 import type { NPCMemoryEntry, ActiveDialogueState, FactionRelationState }  from '../types/game';
 import type { WorldPhaseState }                                            from '../types/phase';
 import type { TimePeriod }                                                 from '../types/world';
+import type { JournalEntry }                                               from '../types/journal';
+import { JOURNAL_MAX_ENTRIES }                                             from '../types/journal';
 
 const SAVE_PREFIX  = 'DYS1:';
 const SAVE_VERSION = 1;
@@ -47,6 +49,8 @@ export interface SaveSnapshot {
   npcMeetingCounts?:    Record<string, number>;
   /** 當晚門禁開始時間覆寫；舊存檔或無覆寫時缺少 */
   curfewOverride?:      CurfewOverride;
+  /** 玩家日誌（最近 200 筆）；舊存檔缺少 */
+  journal?:             JournalEntry[];
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -89,6 +93,7 @@ function buildSnapshot(gs: Readonly<GameState>, flags: string[], ts: number): Sa
     factionRelations: gs.factionRelations ?? {},
     npcMeetingCounts: gs.npcMeetingCounts ?? {},
     curfewOverride:   gs.curfewOverride,
+    journal:          (gs.journal ?? []).slice(-JOURNAL_MAX_ENTRIES),
   };
 }
 
@@ -186,6 +191,8 @@ export async function decode(code: string): Promise<DecodeResult> {
     factionRelations: snapshot.factionRelations ?? {},
     npcMeetingCounts: snapshot.npcMeetingCounts ?? {},
     curfewOverride:   snapshot.curfewOverride,
+    // 舊存檔沒有日誌 → 空陣列
+    journal:          snapshot.journal ?? [],
   };
 
   return { snapshot, state, flags: snapshot.flags };

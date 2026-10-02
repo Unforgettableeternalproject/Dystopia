@@ -43,7 +43,7 @@ export class FactionTreeEngine {
         this.state.modifyCredit(factionId, initialVal, {
           negativeLimit: faction.credit.negativeLimit,
           positiveLimit: faction.credit.positiveLimit,
-        });
+        }, { initial: true });
       }
     }
 

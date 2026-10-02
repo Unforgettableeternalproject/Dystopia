@@ -11,7 +11,7 @@
   import { pushLine }         from '$lib/stores/gameStore';
   import { broadcastAppClose } from '$lib/utils/Logger';
   import { get } from 'svelte/store';
-  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType, loreItemOpen, restModalOpen, restResultOverlay } from '$lib/stores/gameStore';
+  import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType, loreItemOpen, restModalOpen, restResultOverlay, journalOpen, journalUnread } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
   import TopBar          from '$lib/components/TopBar.svelte';
@@ -25,6 +25,7 @@
   import InventoryModal    from '$lib/components/InventoryModal.svelte';
   import QuestDetailModal  from '$lib/components/QuestDetailModal.svelte';
   import QuestListModal    from '$lib/components/QuestListModal.svelte';
+  import JournalModal      from '$lib/components/JournalModal.svelte';
   import EndingScreen      from '$lib/components/EndingScreen.svelte';
   import TitleScreen          from '$lib/components/TitleScreen.svelte';
   import LoadingScreen        from '$lib/components/LoadingScreen.svelte';
@@ -462,6 +463,10 @@
   <QuestListModal />
 {/if}
 
+{#if $journalOpen}
+  <JournalModal />
+{/if}
+
 {#if $questDetailOpen}
   <QuestDetailModal {controller} />
 {/if}
@@ -501,20 +506,29 @@
   <DebugPanel {controller} onClose={() => { debugPanelOpen = false; }} />
 {/if}
 
-<!-- Dev-mode corner buttons -->
-{#if $gamePhase === 'playing' && $isDebugMode}
+<!-- Corner buttons (背包上方)：除錯模式按鈕 + 日誌 -->
+{#if $gamePhase === 'playing'}
   <div class="dev-corner">
+    {#if $isDebugMode}
+      <button
+        class="dev-corner-btn"
+        class:active={debugPanelOpen}
+        on:click={() => { debugPanelOpen = !debugPanelOpen; }}
+        title="除錯面板 (Ctrl+Shift+D)"
+      >除錯</button>
+      <button
+        class="dev-corner-btn lore-btn"
+        on:click={openLoreEditorWindow}
+        title="開啟 Lore Editor"
+      >編輯器</button>
+    {/if}
     <button
-      class="dev-corner-btn"
-      class:active={debugPanelOpen}
-      on:click={() => { debugPanelOpen = !debugPanelOpen; }}
-      title="除錯面板 (Ctrl+Shift+D)"
-    >除錯</button>
-    <button
-      class="dev-corner-btn lore-btn"
-      on:click={openLoreEditorWindow}
-      title="開啟 Lore Editor"
-    >編輯器</button>
+      class="dev-corner-btn journal-btn"
+      class:active={$journalOpen}
+      on:click={() => journalOpen.update(v => !v)}
+      title="日誌"
+      aria-label="日誌"
+    >日誌{#if $journalUnread && !$journalOpen}<span class="journal-dot" aria-label="有新紀錄"></span>{/if}</button>
   </div>
 {/if}
 
@@ -1057,5 +1071,21 @@
   .dev-corner-btn.lore-btn:hover {
     border-color: var(--accent-blue);
     color: var(--accent-blue);
+  }
+
+  .journal-btn {
+    position: relative;
+  }
+
+  /* 未讀小紅點 */
+  .journal-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-red, #c0392b);
+    box-shadow: 0 0 0 1px var(--bg-secondary);
   }
 </style>

@@ -20,8 +20,33 @@ import type { RollResult } from './DiceEngine';
 import { GameEvents } from './EventBus';
 import { createLogger } from '../utils/Logger';
 import { checkDateTimeConditions } from '../utils/dateTimeCondition';
+import { statLabel, formatDelta } from './Journal';
 
 const log = createLogger('EncounterEngine');
+
+const OUTCOME_LABEL: Record<'success' | 'failure' | 'neutral', string> = {
+  success: '成功',
+  failure: '失敗',
+  neutral: '結束',
+};
+
+/** 遭遇的日誌來源標籤 */
+export function encounterJournalSource(def: Pick<EncounterDefinition, 'name'>): string {
+  return `遭遇「${def.name}」`;
+}
+
+/** 選項效果是否會改變旗標、任務、聲望／好感或背棄任務（關鍵選擇） */
+function isKeyEncounterChoice(effects: EncounterChoiceEffects | undefined): boolean {
+  if (!effects) return false;
+  return !!(
+    effects.flagsSet?.length || effects.flagsUnset?.length
+    || (effects.npcFlagsSet && Object.keys(effects.npcFlagsSet).length)
+    || effects.grantQuestId || effects.failQuestId || effects.ditchQuestId
+    || effects.advanceQuestStage || effects.completeQuestObjective
+    || (effects.reputationChanges && Object.keys(effects.reputationChanges).length)
+    || (effects.affinityChanges && Object.keys(effects.affinityChanges).length)
+  );
+}
 
 /**
  * 節點解析結果：已決定下一步的節點狀態。
@@ -124,6 +149,7 @@ export class EncounterEngine {
         .map(l => l.speaker ? `${l.speaker}: ${l.text}` : l.text!)
         .join('\n');
 
+      this.state.journal.log('event', `遭遇：${def.name}`);
       this.state.setPhase('event');
       this.state.setActiveEncounter({ encounterId, currentLineIndex, collectedNarrative });
       log.info('Story encounter started', { encounterId, currentLineIndex });
@@ -139,6 +165,7 @@ export class EncounterEngine {
       return null;
     }
 
+    this.state.journal.log('event', `遭遇：${def.name}`);
     this.state.setPhase('event');
     this.state.setActiveEncounter({
       encounterId,
@@ -149,7 +176,8 @@ export class EncounterEngine {
     log.info('Encounter started', { encounterId, entryNodeId });
     this.state.emit(GameEvents.ENCOUNTER_STARTED, { encounterId });
 
-    return { kind: 'node', resolved: this.resolveNode(def, entryNode) };
+    // 進入節點本身若是判定節點，判定結果的日誌也歸在此遭遇
+    return { kind: 'node', resolved: this.state.journal.with(encounterJournalSource(def), () => this.resolveNode(def, entryNode)) };
   }
 
   /**
@@ -157,6 +185,13 @@ export class EncounterEngine {
    * @returns 下一個節點（或 null 如果遭遇結束）
    */
   selectChoice(choiceId: string): ResolvedNode | null {
+    const active = this.state.getState().activeEncounter;
+    const def = active ? this.lore.getEncounter(active.encounterId) : undefined;
+    // 一次選項造成的所有變化歸為同一批次（GameController 外層同來源時會合併）
+    return this.state.journal.with(def ? encounterJournalSource(def) : undefined, () => this.selectChoiceInner(choiceId));
+  }
+
+  private selectChoiceInner(choiceId: string): ResolvedNode | null {
     const active = this.state.getState().activeEncounter;
     if (!active) {
       log.warn('selectChoice called with no active encounter');
@@ -179,6 +214,10 @@ export class EncounterEngine {
     if (!choice) {
       log.warn('Unknown choice', { choiceId, nodeId: active.currentNodeId });
       return null;
+    }
+
+    if (isKeyEncounterChoice(choice.effects)) {
+      this.state.journal.logKeyChoice(choice.text);
     }
 
     // Apply choice effects
@@ -299,7 +338,7 @@ export class EncounterEngine {
     if (!active) return;
     const def = this.lore.getEncounter(active.encounterId);
     const effects = def?.script?.[lineIdx]?.effects;
-    if (effects) this.applyEffects(effects);
+    if (effects && def) this.state.journal.with(encounterJournalSource(def), () => this.applyEffects(effects));
   }
 
   /**
@@ -310,9 +349,13 @@ export class EncounterEngine {
     const active = this.state.getState().activeEncounter;
     if (!active) return;
     const def = this.lore.getEncounter(active.encounterId);
-    if (def?.result?.effects) this.applyEffects(def.result.effects);
-    const outcomeType = def?.result?.outcomeType ?? 'neutral';
-    this.endEncounter(active.collectedNarrative, outcomeType);
+    const finish = () => {
+      if (def?.result?.effects) this.applyEffects(def.result.effects);
+      const outcomeType = def?.result?.outcomeType ?? 'neutral';
+      this.endEncounter(active.collectedNarrative, outcomeType);
+    };
+    if (def) this.state.journal.with(encounterJournalSource(def), finish);
+    else finish();
   }
 
   /**
@@ -380,6 +423,7 @@ export class EncounterEngine {
       });
       const passed = DiceEngine.passes(rollResult, dc ?? 0);
       const nextId = passed ? successNodeId : failNodeId;
+      this.logStatCheck(stat, dc ?? 0, rollResult, passed, node.statCheck.advantage, node.statCheck.disadvantage);
 
       log.debug('Stat check (dice)', { stat, dc, rollResult, passed });
 
@@ -430,6 +474,29 @@ export class EncounterEngine {
       visibleChoices,
       isOutcome: node.isOutcome ?? false,
     };
+  }
+
+  /** 擲骰判定寫入日誌：骰值、修正、DC、成敗。 */
+  private logStatCheck(
+    stat: string | undefined,
+    dc: number,
+    r: RollResult,
+    passed: boolean,
+    advantage?: boolean,
+    disadvantage?: boolean,
+  ): void {
+    const label = stat ? statLabel(stat) : '判定';
+    const rollText = r.rolls.length > 1
+      ? `${r.chosenRoll}（${r.rolls.join('、')} 取${advantage ? '高' : disadvantage ? '低' : ''}）`
+      : `${r.chosenRoll}`;
+    const mods: string[] = [];
+    if (r.statModifier !== 0) mods.push(`${label}修正 ${formatDelta(r.statModifier)}`);
+    if (r.externalModifier !== 0) mods.push(`其他修正 ${formatDelta(r.externalModifier)}`);
+    const modText = mods.length > 0 ? `，${mods.join('、')}` : '';
+    this.state.journal.log(
+      'event',
+      `${label}判定：擲出 ${rollText}${modText}，合計 ${r.total} / DC ${dc} → ${passed ? '成功' : '失敗'}`,
+    );
   }
 
   private applyEffects(effects: EncounterChoiceEffects): void {
@@ -550,6 +617,11 @@ export class EncounterEngine {
     this.state.appendHistory(
       { type: 'free', input: `${encounterLabel}${outcomeLabel}` },
       collectedNarrative.slice(0, 400),
+    );
+    this.state.journal.log(
+      'event',
+      `遭遇結束：${def?.name ?? '遭遇'}${outcomeType ? `（${OUTCOME_LABEL[outcomeType]}）` : ''}`,
+      def ? encounterJournalSource(def) : undefined,
     );
 
     this.state.setPhase('exploring');

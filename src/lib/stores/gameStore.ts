@@ -8,6 +8,7 @@ import type { EncounterChoice, EncounterType, ScriptLine } from '../types/encoun
 import type { InventoryItem } from '../types/item';
 import type { QuestType } from '../types/quest';
 import type { RollResult } from '../engine/DiceEngine';
+import type { JournalEntry } from '../types/journal';
 
 // ── Faction Tree UI Data ──────────────────────────────────────
 
@@ -522,6 +523,13 @@ export const questDetailOpen = writable<QuestDetailEntry | null>(null);
 
 // Quest list modal — shows all active quests when sidebar is capped at 3
 export const questListOpen = writable(false);
+
+// ── Journal (玩家日誌) ──────────────────────────────────────────
+// 條目本體存在 GameState.journal；這裡只是 UI 鏡像。
+// 未讀狀態刻意不放進 GameState，開關日誌不影響存檔指紋。
+export const journalEntries = writable<JournalEntry[]>([]);
+export const journalOpen    = writable(false);
+export const journalUnread  = writable(false);
 
 // Quest banner — single queue; outcomes displayed one at a time, 3.5 s each
 export interface QuestBannerEntry {

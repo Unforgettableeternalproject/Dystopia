@@ -214,6 +214,29 @@ describe('GameController move resolution', () => {
     expect(miniMap?.nodes.find(node => node.id === 'delth_dormitory_room')?.isCurrent).toBe(false);
   });
 
+  it('經尋路移動到未到訪地點時，日誌記錄首次抵達（路徑節點標記不搶先吃掉終點）', async () => {
+    const client = new MoveResolutionClient();
+    const controller = new GameController({ dm: client, regulator: client });
+
+    controller.loadLore({
+      locations: { delth_dormitory: makeDormitory() },
+      regions: { crambell: makeRegion() },
+    });
+
+    await controller.start('Tester');
+    await controller.submitAction('Walk into the common area');
+
+    const arrivals = (controller.getState().journal ?? []).filter(e => e.text.startsWith('首次抵達'));
+    expect(arrivals.map(e => e.text)).toEqual(['首次抵達：Dorm Common']);
+    // 行動來源取輸入前 16 字
+    expect(arrivals[0].source).toBe('行動「Walk into the co…」');
+
+    // 第二次（stub 會帶往 Dorm Gate）：只新增 Gate，Common 不重複記
+    await controller.submitAction('Walk into the common area');
+    expect((controller.getState().journal ?? []).filter(e => e.text.startsWith('首次抵達')).map(e => e.text))
+      .toEqual(['首次抵達：Dorm Common', '首次抵達：Dorm Gate']);
+  });
+
   it('builds multi-hop navigation for a raw free-text move to a discovered distant location', async () => {
     const client = new MoveResolutionClient();
     const controller = new GameController({ dm: client, regulator: client });

@@ -27,6 +27,7 @@ import {
   makeDateKey,
   getCharExpBonuses,
 } from './ExperienceEngine';
+import { JournalRecorder, statLabel, formatDelta } from './Journal';
 
 export type AcquisitionRecord =
   | { type: 'item';         itemId: string; variantId?: string }
@@ -43,11 +44,16 @@ export class StateManager {
   private state: GameState;
   private bus: EventBus;
   readonly flags: FlagSystem;
+  /** 玩家日誌記錄器（寫入 state.journal） */
+  readonly journal: JournalRecorder;
   private _acquisitions: AcquisitionRecord[] = [];
+  /** 由玩家主動放棄而進入 failQuest 的任務（日誌區分「放棄」與「失敗」） */
+  private _abandoning = new Set<string>();
 
   constructor(initialState: GameState, bus: EventBus) {
     this.state = initialState;
     this.bus = bus;
+    this.journal = new JournalRecorder(() => this.state);
     const activeQuestFlags = Object.values(initialState.activeQuests)
       .filter(q => !q.isCompleted && !q.isFailed && !q.isDitched)
       .map(q => q.questId + ':active');
@@ -70,6 +76,9 @@ export class StateManager {
 
   movePlayer(locationId: string): void {
     const prev = this.state.player.currentLocationId;
+    if (!this.state.discoveredLocationIds.includes(locationId)) {
+      this.journal.log('location', `首次抵達：${this.journal.locationName(locationId)}`);
+    }
     this.state.player.currentLocationId = locationId;
     this.discoverLocation(locationId);
     this.bus.emit(GameEvents.LOCATION_CHANGED, { from: prev, to: locationId });
@@ -87,7 +96,9 @@ export class StateManager {
 
   /** Modify Melphin (currency). Clamps to minimum 0. */
   modifyMelphin(delta: number): void {
-    this.state.player.melphin = Math.max(0, this.state.player.melphin + delta);
+    const before = this.state.player.melphin;
+    this.state.player.melphin = Math.max(0, before + delta);
+    this.journal.stat('melphin', '梅分', this.state.player.melphin - before);
     this.notifyUpdate();
     if (delta !== 0) this._acquisitions.push({ type: 'melphin', delta });
   }
@@ -99,7 +110,9 @@ export class StateManager {
     if (stats && stat in stats) {
       const maxKey = `${stat}Max`;
       const max = group === 'statusStats' && maxKey in stats ? stats[maxKey] : Infinity;
+      const before = stats[stat];
       stats[stat] = Math.min(max, Math.max(0, stats[stat] + delta));
+      this.journal.stat(key, statLabel(key), stats[stat] - before);
       this.notifyUpdate();
       if (delta !== 0) this._acquisitions.push({ type: 'stat', key, delta });
     }
@@ -153,6 +166,10 @@ export class StateManager {
     player.primaryStats[statKey]    = newLevel;
     player.primaryStatsExp[statKey] = newExp;
 
+    const label = statLabel(`primaryStats.${statKey}`);
+    this.journal.stat(`skillExp.${statKey}`, `${label}經驗`, finalAmount);
+    if (levelUps > 0) this.journal.log('stats', `${label} 提升至 Lv ${newLevel}`);
+
     this.notifyUpdate();
     this._acquisitions.push({ type: 'skillExp', statKey, finalAmount, levelUps });
   }
@@ -164,6 +181,7 @@ export class StateManager {
   grantCharacterExp(amount: number): void {
     if (amount <= 0) return;
     this.state.player.statusStats.experience += amount;
+    this.journal.stat('characterExp', '角色經驗', amount);
     this.notifyUpdate();
     this._acquisitions.push({ type: 'characterExp', delta: amount });
   }
@@ -190,6 +208,7 @@ export class StateManager {
     factionId: string,
     delta: number,
     limits?: { negativeLimit: number; positiveLimit: number },
+    options?: { initial?: boolean },
   ): void {
     if (!this.state.player.externalStats.credit) {
       this.state.player.externalStats.credit = {};
@@ -200,6 +219,13 @@ export class StateManager {
       newValue = Math.max(limits.negativeLimit, Math.min(limits.positiveLimit, newValue));
     }
     this.state.player.externalStats.credit[factionId] = newValue;
+    const applied = newValue - current;
+    if (applied !== 0) {
+      const name = this.journal.factionName(factionId);
+      this.journal.log('quest', options?.initial
+        ? `${name}信用：初始 ${newValue}`
+        : `${name}信用 ${formatDelta(applied)}（目前 ${newValue}）`);
+    }
     this.notifyUpdate();
     if (delta !== 0) this._acquisitions.push({ type: 'credit', factionId, delta, newValue });
   }
@@ -234,6 +260,7 @@ export class StateManager {
     this.contactFaction(factionId);   // 聲望變動自動標記接觸
     const current = this.state.player.externalStats.reputation[factionId] ?? 0;
     this.state.player.externalStats.reputation[factionId] = current + delta;
+    this.logReputation(factionId, delta);
     this.notifyUpdate();
     if (delta !== 0) this._acquisitions.push({ type: 'reputation', factionId, delta });
   }
@@ -241,8 +268,21 @@ export class StateManager {
   modifyAffinity(npcId: string, delta: number): void {
     const current = this.state.player.externalStats.affinity[npcId] ?? 0;
     this.state.player.externalStats.affinity[npcId] = current + delta;
+    this.logAffinity(npcId, delta);
     this.notifyUpdate();
     if (delta !== 0) this._acquisitions.push({ type: 'affinity', npcId, delta });
+  }
+
+  private logReputation(factionId: string, delta: number): void {
+    if (delta) this.journal.log('social', `${this.journal.factionName(factionId)}聲望 ${formatDelta(delta)}`);
+  }
+
+  private logAffinity(npcId: string, delta: number): void {
+    if (delta) this.journal.log('social', `${this.journal.npcName(npcId)}好感 ${formatDelta(delta)}`);
+  }
+
+  private logItem(prefix: string, itemId: string, variantId?: string, overrideName?: string): void {
+    this.journal.log('item', `${prefix}：${overrideName ?? this.journal.itemName(itemId, variantId)}`);
   }
 
   addItem(
@@ -260,6 +300,7 @@ export class StateManager {
         const limit = opts.maxStack ?? Infinity;
         if (existing.quantity < limit) {
           existing.quantity += 1;
+          this.logItem('獲得', itemId, variantId);
           this.notifyUpdate();
           this._acquisitions.push({ type: 'item', itemId, variantId });
           return;
@@ -286,6 +327,7 @@ export class StateManager {
       newItem.usesRemaining = opts.maxUsesPerInstance;
     }
     this.state.player.inventory.push(newItem);
+    this.logItem('獲得', itemId, variantId);
     this.notifyUpdate();
     this._acquisitions.push({ type: 'item', itemId, variantId });
   }
@@ -310,6 +352,7 @@ export class StateManager {
       isExpired: false,
     };
     this.state.player.inventory.push(newItem);
+    this.logItem('獲得', baseItemId, undefined, overrides.name);
     this.notifyUpdate();
     this._acquisitions.push({ type: 'item', itemId: baseItemId });
   }
@@ -331,6 +374,7 @@ export class StateManager {
     } else {
       this.state.player.inventory.splice(idx, 1);
     }
+    this.logItem('失去', item.itemId, item.variantId, item.itemOverrides?.name);
     this.notifyUpdate();
   }
 
@@ -350,6 +394,7 @@ export class StateManager {
     if (idx === -1) return false;
 
     const item = this.state.player.inventory[idx];
+    this.logItem('使用', item.itemId, item.variantId, item.itemOverrides?.name);
 
     // Apply status changes
     if (effect.statusChanges) {
@@ -453,13 +498,22 @@ export class StateManager {
       this.state.player.conditions[idx] = instance;
     } else {
       this.state.player.conditions.push(instance);
+      const { label, hidden } = this.journal.condition(conditionId);
+      if (!hidden) this.journal.log('condition', `陷入狀態：${label}`);
     }
     this.notifyUpdate();
   }
 
   removeCondition(conditionId: string): void {
+    const existed = this.state.player.conditions.some(c => c.id === conditionId);
     this.state.player.conditions = this.state.player.conditions.filter(c => c.id !== conditionId);
+    if (existed) this.logConditionRemoved(conditionId);
     this.notifyUpdate();
+  }
+
+  private logConditionRemoved(conditionId: string): void {
+    const { label, hidden } = this.journal.condition(conditionId);
+    if (!hidden) this.journal.log('condition', `解除狀態：${label}`);
   }
 
   /**
@@ -472,31 +526,52 @@ export class StateManager {
     const currentTurn = this.state.turn;
     let changed = false;
 
-    for (const c of this.state.player.conditions) {
-      if (!c.tickState) continue;
-      const def = getCondition(c.id);
-      if (!def?.tickEffect) continue;
-      const te = def.tickEffect;
+    // 本次 tick 的數值變化合併成一筆日誌，來源為正在作用的（可見）狀態
+    const tickingLabels = this.state.player.conditions
+      .filter(c => {
+        const te = c.tickState ? getCondition(c.id)?.tickEffect : undefined;
+        return !!te && c.tickState!.nextTickTurn <= currentTurn && c.tickState!.ticksApplied < te.maxTicks;
+      })
+      .map(c => this.journal.condition(c.id))
+      .filter(c => !c.hidden)
+      .map(c => c.label);
+    const tickFrame = this.journal.begin(
+      tickingLabels.length > 0 ? `狀態「${tickingLabels.join('、')}」` : '身體狀況',
+    );
+    try {
+      for (const c of this.state.player.conditions) {
+        if (!c.tickState) continue;
+        const def = getCondition(c.id);
+        if (!def?.tickEffect) continue;
+        const te = def.tickEffect;
 
-      // Apply all overdue ticks in sequence (handles skipped turns)
-      while (c.tickState.nextTickTurn <= currentTurn && c.tickState.ticksApplied < te.maxTicks) {
-        for (const [key, delta] of Object.entries(te.statChanges)) {
-          if (delta !== undefined) this.modifyStat(key, delta);
+        // Apply all overdue ticks in sequence (handles skipped turns)
+        while (c.tickState.nextTickTurn <= currentTurn && c.tickState.ticksApplied < te.maxTicks) {
+          for (const [key, delta] of Object.entries(te.statChanges)) {
+            if (delta !== undefined) this.modifyStat(key, delta);
+          }
+          c.tickState.ticksApplied += 1;
+          c.tickState.nextTickTurn += te.everyNTurns;
+          changed = true;
         }
-        c.tickState.ticksApplied += 1;
-        c.tickState.nextTickTurn += te.everyNTurns;
-        changed = true;
       }
+    } finally {
+      this.journal.end(tickFrame);
     }
 
     const before = this.state.player.conditions.length;
+    const removed: string[] = [];
     this.state.player.conditions = this.state.player.conditions.filter(c => {
-      if (c.expiresOnTurn !== undefined && c.expiresOnTurn <= currentTurn) return false;
       const def = getCondition(c.id);
-      if (c.tickState && def?.tickEffect && c.tickState.ticksApplied >= def.tickEffect.maxTicks) return false;
-      if (def?.curedByFlags?.some(f => this.flags.has(f))) return false;
-      return true;
+      const keep = !(
+        (c.expiresOnTurn !== undefined && c.expiresOnTurn <= currentTurn)
+        || (c.tickState && def?.tickEffect && c.tickState.ticksApplied >= def.tickEffect.maxTicks)
+        || def?.curedByFlags?.some(f => this.flags.has(f))
+      );
+      if (!keep) removed.push(c.id);
+      return keep;
     });
+    removed.forEach(id => this.logConditionRemoved(id));
 
     if (changed || this.state.player.conditions.length !== before) this.notifyUpdate();
   }
@@ -518,7 +593,10 @@ export class StateManager {
     const isNew = !this.state.player.knownIntelIds.includes(intelId);
     this.addKnownIntel(intelId);
     this.flags.set('intel:' + intelId);
-    if (isNew) this._acquisitions.push({ type: 'intel', intelId });
+    if (isNew) {
+      this.journal.log('intel', `取得情報：${this.journal.intelName(intelId)}`);
+      this._acquisitions.push({ type: 'intel', intelId });
+    }
   }
 
   // ── NPC Memory ───────────────────────────────────────────────
@@ -708,6 +786,7 @@ export class StateManager {
       expiresAtMinutes:       options?.expiresAtMinutes,
     };
     this.flags.set(questId + ':active');
+    this.journal.log('quest', `接取任務：${this.journal.questName(questId)}`);
     this.bus.emit(GameEvents.QUEST_STARTED, { questId });
     this.notifyUpdate();
   }
@@ -716,6 +795,8 @@ export class StateManager {
     const instance = this.state.activeQuests[questId];
     if (instance && !instance.completedObjectiveIds.includes(objectiveId)) {
       instance.completedObjectiveIds.push(objectiveId);
+      const desc = this.journal.questObjective(questId, objectiveId);
+      this.journal.log('quest', `目標完成：${this.journal.questName(questId)}${desc ? ` — ${desc}` : ''}`);
       this.notifyUpdate();
     }
   }
@@ -733,6 +814,8 @@ export class StateManager {
     const instance = this.state.activeQuests[questId];
     if (instance) {
       instance.currentStageId = nextStageId;
+      const stageDesc = this.journal.questStage(questId, nextStageId);
+      this.journal.log('quest', `任務推進：${this.journal.questName(questId)}${stageDesc ? ` — ${stageDesc}` : ''}`);
       // completedObjectiveIds is intentionally NOT reset here so past-stage
       // objectives remain visible (with strikethrough) in the quest detail UI.
       // Repeatable quests use resetQuest() which does reset them.
@@ -748,6 +831,7 @@ export class StateManager {
   resetQuest(questId: string, entryStageId: string): void {
     const instance = this.state.activeQuests[questId];
     if (instance) {
+      this.journal.log('quest', `任務完成：${this.journal.questName(questId)}`);
       this.bus.emit(GameEvents.QUEST_COMPLETED, { questId });
       instance.currentStageId        = entryStageId;
       instance.completedObjectiveIds = [];
@@ -762,6 +846,7 @@ export class StateManager {
       instance.isCompleted    = true;
       instance.currentStageId = null;
       this.flags.unset(questId + ':active');
+      this.journal.log('quest', `任務完成：${this.journal.questName(questId)}`);
       if (!this.state.completedQuestIds.includes(questId)) {
         this.state.completedQuestIds.push(questId);
       }
@@ -772,16 +857,19 @@ export class StateManager {
           for (const [fid, delta] of Object.entries(reward.reputationChanges)) {
             const current = this.state.player.externalStats.reputation[fid] ?? 0;
             this.state.player.externalStats.reputation[fid] = current + delta;
+            this.logReputation(fid, delta);
           }
         }
         if (reward.affinityChanges) {
           for (const [nid, delta] of Object.entries(reward.affinityChanges)) {
             const current = this.state.player.externalStats.affinity[nid] ?? 0;
             this.state.player.externalStats.affinity[nid] = current + delta;
+            this.logAffinity(nid, delta);
           }
         }
         if (reward.experience) {
           this.state.player.statusStats.experience += reward.experience;
+          this.journal.stat('characterExp', '角色經驗', reward.experience);
         }
         if (reward.items) {
           const now = this.state.time.totalMinutes;
@@ -824,6 +912,9 @@ export class StateManager {
     instance.isFailed       = true;
     instance.currentStageId = null;
     this.flags.unset(questId + ':active');
+    this.journal.log('quest', consequences?.beneficiaryFactionId
+      ? `背棄任務：${this.journal.questName(questId)}（背叛）`
+      : `背棄任務：${this.journal.questName(questId)}`);
 
     if (consequences) {
       consequences.flagsSet?.forEach(f => this.flags.set(f));
@@ -831,7 +922,9 @@ export class StateManager {
       // Direct override (set to exact value, used for forcing faction to hostile)
       if (consequences.reputationOverrides) {
         for (const [fid, value] of Object.entries(consequences.reputationOverrides)) {
+          const prev = this.state.player.externalStats.reputation[fid] ?? 0;
           this.state.player.externalStats.reputation[fid] = value;
+          this.logReputation(fid, value - prev);
         }
       }
       // Delta changes (on top of any override)
@@ -839,12 +932,14 @@ export class StateManager {
         for (const [fid, delta] of Object.entries(consequences.reputationChanges)) {
           const current = this.state.player.externalStats.reputation[fid] ?? 0;
           this.state.player.externalStats.reputation[fid] = current + delta;
+          this.logReputation(fid, delta);
         }
       }
       if (consequences.affinityChanges) {
         for (const [nid, delta] of Object.entries(consequences.affinityChanges)) {
           const current = this.state.player.externalStats.affinity[nid] ?? 0;
           this.state.player.externalStats.affinity[nid] = current + delta;
+          this.logAffinity(nid, delta);
         }
       }
       if (consequences.statChanges) {
@@ -868,12 +963,25 @@ export class StateManager {
     this.notifyUpdate();
   }
 
+  /** 標記接下來對 questId 的 failQuest 是玩家主動放棄（只影響日誌文字）。 */
+  markAbandoning(questId: string): void {
+    this._abandoning.add(questId);
+  }
+
+  clearAbandoning(questId: string): void {
+    this._abandoning.delete(questId);
+  }
+
   failQuest(questId: string, options?: { recordAsCompleted?: boolean }): void {
     const instance = this.state.activeQuests[questId];
     if (instance) {
       instance.isFailed       = true;
       instance.currentStageId = null;
       this.flags.unset(questId + ':active');
+      this.journal.log('quest', this._abandoning.has(questId)
+        ? `放棄任務：${this.journal.questName(questId)}`
+        : `任務失敗：${this.journal.questName(questId)}`);
+      this._abandoning.delete(questId);
       const recordAsCompleted = options?.recordAsCompleted ?? true;
       if (recordAsCompleted && !this.state.completedQuestIds.includes(questId)) {
         this.state.completedQuestIds.push(questId);
@@ -931,6 +1039,9 @@ export class StateManager {
     const next = rollCurfewOverride(cfg, options, t, random);
     if (!next) return null;
     this.state.curfewOverride = next;
+    const hh = String(next.startHour).padStart(2, '0');
+    const mm = String(next.startMinute).padStart(2, '0');
+    this.journal.log('location', `門禁時間調整：今晚 ${hh}:${mm} 起`);
     this.syncCurfewFlag();
     this.notifyUpdate();
     return next;
@@ -962,6 +1073,7 @@ export class StateManager {
       if (now >= item.obtainedAtMinute + expiresAfter) {
         item.isExpired = true;
         changed = true;
+        this.logItem('過期', item.itemId, item.variantId, item.itemOverrides?.name);
         this.bus.emit(GameEvents.ITEM_EXPIRED, { itemId: item.itemId, instanceId: item.instanceId, variantId: item.variantId });
       }
     }

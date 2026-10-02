@@ -20,13 +20,14 @@ import type { ILLMClient }  from '../ai/ILLMClient';
 import { LoreVault, isSecretLayerRevealed } from '../lore/LoreVault';
 import { EventBus, GameEvents } from './EventBus';
 import { StateManager }     from './StateManager';
+import { STAT_LABELS }      from './Journal';
 import { EventEngine }      from './EventEngine';
 import { PhaseManager }     from './PhaseManager';
 import { QuestEngine }      from './QuestEngine';
 import { FactionTreeEngine } from './FactionTreeEngine';
 import { TimeManager }      from './TimeManager';
 import { DialogueManager }  from './DialogueManager';
-import { EncounterEngine }  from './EncounterEngine';
+import { EncounterEngine, encounterJournalSource }  from './EncounterEngine';
 import type { ResolvedNode, EncounterPendingEffects } from './EncounterEngine';
 import { RestResolver, QUALITY_LABEL } from './RestResolver';
 import { parseRestDurationMinutes, resolveRestPreset } from '../utils/restDurationParser';
@@ -72,7 +73,7 @@ import { interpolate, type InterpolationContext } from '../utils/textInterpolati
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
 import { stateFingerprint } from '../utils/SaveCodec';
-import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, triggerSelfCheckGlow, triggerInventoryGlow, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
+import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, triggerSelfCheckGlow, triggerInventoryGlow, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction, journalEntries, journalOpen, journalUnread } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
@@ -83,12 +84,6 @@ const log = createLogger('GameCtrl');
  * （handleThoughtSelect）辨識並改走 exitDialogue() 而非一般動作送出。
  */
 export const END_DIALOGUE_THOUGHT: Thought = { id: 'end_dialogue', text: '結束對話', actionType: 'free' };
-
-const STAT_LABELS: Record<string, Record<string, string>> = {
-  statusStats:   { stamina: '體力', staminaMax: '體力上限', stress: '壓力', stressMax: '壓力上限', endo: 'Endo', endoMax: 'Endo 上限', experience: '經驗', fatigue: '疲勞' },
-  primaryStats:  { strength: '力量', knowledge: '知識', talent: '才能', spirit: '靈性', luck: '運氣' },
-  secondaryStats: { consciousness: '意識', mysticism: '神秘', technology: '技術' },
-};
 
 export class GameController {
   private dm:          DMAgent;
@@ -199,6 +194,7 @@ export class GameController {
 
     const initialState = this.buildInitialState();
     this.state  = new StateManager(initialState, this.bus);
+    this.bindJournal();
     this.events      = new EventEngine(this.lore, this.state, this.timeMgr);
     this.phases      = new PhaseManager(this.lore, this.state);
     this.quests      = new QuestEngine(this.lore, this.state);
@@ -245,6 +241,60 @@ export class GameController {
 
     // Register rewind callback so UI can call rewindAndResubmit via the store
     rewindAction.set((input: string) => this.rewindAndResubmit(input));
+  }
+
+  /**
+   * 為目前的 StateManager 綁定日誌名稱解析與 UI 同步。
+   * StateManager 在 loadState 時會重建，因此建構子與 loadState 都要呼叫。
+   */
+  private bindJournal(): void {
+    const journal = this.state.journal;
+    journal.names = {
+      faction:  id => this.lore.getFaction(id)?.name,
+      npc:      id => this.lore.getNPC(id)?.name,
+      item: (id, variantId) => {
+        const def = this.lore.getItem(id);
+        if (!def) return undefined;
+        const variant = variantId ? def.variants?.find(v => v.id === variantId)?.label : undefined;
+        return variant ? `${def.name} - ${variant}` : def.name;
+      },
+      quest:      id => this.lore.getQuest(id)?.name,
+      questStage: (questId, stageId) => this.lore.getQuest(questId)?.stages[stageId]?.description,
+      questObjective: (questId, objectiveId) => {
+        const def = this.lore.getQuest(questId);
+        for (const stage of Object.values(def?.stages ?? {})) {
+          const obj = stage.objectives.find(o => o.id === objectiveId);
+          if (obj) return obj.description;
+        }
+        return undefined;
+      },
+      intel:    id => this.lore.getIntel(id)?.label,
+      // 找不到定義的狀態視為隱藏，避免把內部 id 顯示給玩家
+      condition: id => {
+        const def = this.lore.getCondition(id);
+        return def ? { label: def.label, hidden: !!def.isHidden } : { label: id, hidden: true };
+      },
+      location: id => this.lore.getLocation(id)?.name,
+    };
+    journal.onAppend = () => {
+      journalEntries.set([...(this.state.getState().journal ?? [])]);
+      if (!get(journalOpen)) journalUnread.set(true);
+    };
+    journalEntries.set([...(this.state.getState().journal ?? [])]);
+    journalUnread.set(false);
+  }
+
+  /** submitAction 的日誌來源：遭遇中用遭遇名、自由對話用 NPC 名（不記對話內容）、其餘用行動文字。 */
+  private actionJournalSource(input: string): string {
+    const gs = this.state.getState();
+    if (gs.phase === 'event' && gs.activeEncounter) {
+      const def = this.lore.getEncounter(gs.activeEncounter.encounterId);
+      if (def) return encounterJournalSource(def);
+    }
+    const npcUI = get(activeNpcUI);
+    if (npcUI && !get(activeScriptedDialogue)) return `與「${npcUI.name}」交談`;
+    const text = input.trim();
+    return `行動「${text.length > 16 ? text.slice(0, 16) + '…' : text}」`;
   }
 
   /** 將 StateManager 積累的獲取記錄轉成通知顯示。在每段敘事結束後呼叫。 */
@@ -449,8 +499,9 @@ export class GameController {
         return;
       }
 
-      // Apply effect immediately
-      this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id), id => this.lore.getItem(id));
+      // Apply effect immediately（同一次使用的數值變化合併為一筆日誌）
+      this.state.journal.with(`使用「${itemDef.name}」`, () =>
+        this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id), id => this.lore.getItem(id)));
       showAcquisitionNotif(`使用：${itemDef.name}`, false);
       this.flushAcquisitions();
       this.syncUIState(this.state.getState());
@@ -505,6 +556,9 @@ export class GameController {
       ? this.state.removeItem(instanceId)
       : this.state.removeItemQuantity(instanceId, n);
     if (removed) {
+      const variant = invItem.variantId ? itemDef.variants?.find(v => v.id === invItem.variantId)?.label : undefined;
+      const name = invItem.itemOverrides?.name ?? (variant ? `${itemDef.name} - ${variant}` : itemDef.name);
+      this.state.journal.log('item', `丟棄：${name}${n > 1 ? ` ×${n}` : ''}`);
       showAcquisitionNotif(`丟棄：${itemDef.name}`, false);
       this.syncUIState(this.state.getState());
       log.info('Item discarded', { instanceId, itemId: invItem.itemId, count: n });
@@ -536,6 +590,14 @@ export class GameController {
 
   async submitAction(input: string, actionType?: ActionType, targetId?: string, targetKind?: ActionTargetKind, silent?: boolean): Promise<void> {
     if (!input.trim()) return;
+    // 一次行動造成的數值變化合併為一筆日誌
+    await this.state.journal.withAsync(
+      this.actionJournalSource(input),
+      () => this.submitActionInner(input, actionType, targetId, targetKind, silent),
+    );
+  }
+
+  private async submitActionInner(input: string, actionType?: ActionType, targetId?: string, targetKind?: ActionTargetKind, silent?: boolean): Promise<void> {
 
     const action: PlayerAction = { type: actionType ?? 'free', input: input.trim(), targetId, targetKind };
     inputDisabled.set(true);
@@ -1048,6 +1110,10 @@ export class GameController {
    * @returns RestResult 結果資料
    */
   executeRest(plannedMinutes: number): RestResult {
+    return this.state.journal.with('休息', () => this.executeRestInner(plannedMinutes));
+  }
+
+  private executeRestInner(plannedMinutes: number): RestResult {
     const gs       = this.state.getState();
     const restCtx  = this.classifyRestContext();
     const s        = gs.player.statusStats;
@@ -1189,6 +1255,7 @@ export class GameController {
 
     // Show result overlay
     const wasInterrupted = interruptMinutes !== null || hasRestStartInterrupt;
+    this.logRestJournal(result, hasRestStartInterrupt, wasInterrupted, interruptTriggered);
     restResultOverlay.set({
       plannedMinutes,
       actualMinutes:    result.actualMinutes,
@@ -1206,6 +1273,24 @@ export class GameController {
     this.syncUIState(this.state.getState());
 
     return result;
+  }
+
+  /** 休息結果寫入日誌：實際時長、品質、是否被中斷（只揭露會通知玩家的事件名稱）。 */
+  private logRestJournal(
+    result: RestResult,
+    restStartInterrupt: boolean,
+    wasInterrupted: boolean,
+    triggered: TriggeredEvent[],
+  ): void {
+    const h = Math.floor(result.actualMinutes / 60);
+    const m = result.actualMinutes % 60;
+    const duration = h > 0 ? `${h} 小時${m > 0 ? ` ${m} 分` : ''}` : `${m} 分`;
+    const names = [...new Set(triggered.filter(t => t.notification === true && t.event.name).map(t => t.event.name!))];
+    const cause = names.length > 0 ? `被「${names.join('、')}」` : '';
+    let text = `休息 ${duration}（品質：${QUALITY_LABEL[result.quality] ?? result.quality}）`;
+    if (restStartInterrupt) text += `，${cause || ''}${cause ? '打擾而' : ''}未能入睡`;
+    else if (wasInterrupted) text += `，${cause ? `${cause}中斷` : '中途被打斷'}`;
+    this.state.journal.log('rest', text);
   }
 
   /**
@@ -1566,26 +1651,41 @@ export class GameController {
       pushLine('> ' + choice.text, 'player');
       appendEncounterLog('player', choice.text);
 
-      // Apply basic side effects (affinity, rep, flags, attitude, intel)
-      this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
+      // 選項效果同步套用，全部歸為同一筆日誌批次（來源為該 NPC 對話）
+      this.state.journal.with(`與「${current.npcName}」的對話`, () => {
+        const fx = choice.effects;
+        if (fx && (
+          fx.flagsSet?.length || fx.flagsUnset?.length
+          || (fx.npcFlagsSet && Object.keys(fx.npcFlagsSet).length)
+          || fx.grantQuest || fx.advanceQuestStage || fx.completeObjective || fx.ditchQuestId
+          || fx.affinity !== undefined
+          || (fx.affinityChanges && Object.keys(fx.affinityChanges).length)
+          || (fx.reputation && Object.keys(fx.reputation).length)
+        )) {
+          this.state.journal.logKeyChoice(choice.text);
+        }
 
-      // Apply quest effects
-      if (choice.effects?.grantQuest) {
-        this.quests.grantQuest(choice.effects.grantQuest);
-      }
-      if (choice.effects?.advanceQuestStage) {
-        const { questId, stageId } = choice.effects.advanceQuestStage;
-        this.state.advanceQuestStage(questId, stageId);
-      }
-      if (choice.effects?.completeObjective) {
-        const { questId, objectiveId } = choice.effects.completeObjective;
-        this.state.completeObjective(questId, objectiveId);
-      }
-      if (choice.effects?.ditchQuestId) {
-        this.quests.ditchQuest(choice.effects.ditchQuestId, {
-          skipConsequences: choice.effects.ditchSkipConsequences === true,
-        });
-      }
+        // Apply basic side effects (affinity, rep, flags, attitude, intel)
+        this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
+
+        // Apply quest effects
+        if (choice.effects?.grantQuest) {
+          this.quests.grantQuest(choice.effects.grantQuest);
+        }
+        if (choice.effects?.advanceQuestStage) {
+          const { questId, stageId } = choice.effects.advanceQuestStage;
+          this.state.advanceQuestStage(questId, stageId);
+        }
+        if (choice.effects?.completeObjective) {
+          const { questId, objectiveId } = choice.effects.completeObjective;
+          this.state.completeObjective(questId, objectiveId);
+        }
+        if (choice.effects?.ditchQuestId) {
+          this.quests.ditchQuest(choice.effects.ditchQuestId, {
+            skipConsequences: choice.effects.ditchSkipConsequences === true,
+          });
+        }
+      });
 
       const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
 
@@ -1703,6 +1803,8 @@ export class GameController {
     if (!gs.propFlags) gs.propFlags = {};
     // Rebuild StateManager with the restored state
     (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
+    if (!gs.journal) gs.journal = [];
+    this.bindJournal();
     flags.forEach(f => this.state.flags.set(f));
     const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
     this.state.setCurfewConfig(schedule?.curfew);
@@ -2560,7 +2662,10 @@ export class GameController {
       );
 
       if (pathResult) {
-        for (const nodeId of pathResult.path) this.state.discoverLocation(nodeId);
+        // 終點交給 movePlayer 標記，才能判斷是否為首次抵達（日誌）
+        for (const nodeId of pathResult.path) {
+          if (nodeId !== resolution.move) this.state.discoverLocation(nodeId);
+        }
         this.state.movePlayer(resolution.move);
         resolution.timeMinutes = pathResult.totalTime;
         log.info('Player moved', { to: resolution.move, hops: pathResult.path.length - 1, time: pathResult.totalTime, bypass: pathResult.usedBypass });
@@ -3100,6 +3205,14 @@ export class GameController {
    * Routes to EncounterEngine.selectChoice() and renders the resulting node.
    */
   async selectEncounterChoice(choiceId: string): Promise<void> {
+    const active = this.state.getState().activeEncounter;
+    const def    = active ? this.lore.getEncounter(active.encounterId) : undefined;
+    // 一次遭遇選項（含轉交的任務效果與時間推進）合併為一筆數值日誌
+    await this.state.journal.withAsync(def ? encounterJournalSource(def) : undefined,
+      () => this.selectEncounterChoiceInner(choiceId));
+  }
+
+  private async selectEncounterChoiceInner(choiceId: string): Promise<void> {
     inputDisabled.set(true);
 
     // Pre-capture encounter state and definition BEFORE selectChoice() may clear them.
@@ -3202,6 +3315,13 @@ export class GameController {
    * 純效果行自動跳過並套用；最後一行結束後套用 result，清除 UI，恢復探索。
    */
   async selectEncounterStoryAdvance(): Promise<void> {
+    const active = this.state.getState().activeEncounter;
+    const def    = active ? this.lore.getEncounter(active.encounterId) : undefined;
+    await this.state.journal.withAsync(def ? encounterJournalSource(def) : undefined,
+      () => this.selectEncounterStoryAdvanceInner());
+  }
+
+  private async selectEncounterStoryAdvanceInner(): Promise<void> {
     inputDisabled.set(true);
 
     const preState  = this.state.getState();
@@ -3549,8 +3669,10 @@ export class GameController {
       }
 
       // Apply this line's effects after it has been rendered (or immediately for effect-only lines)
-      this.encounterMgr.applyLineEffects(i);
-      this.applyStoryPendingEffects(this.encounterMgr.flushPendingEffects());
+      this.state.journal.with(effectiveDef ? encounterJournalSource(effectiveDef) : undefined, () => {
+        this.encounterMgr.applyLineEffects(i);
+        this.applyStoryPendingEffects(this.encounterMgr.flushPendingEffects());
+      });
       this.flushAcquisitions();
       this.syncUIState(this.state.getState());
 
@@ -3606,11 +3728,14 @@ export class GameController {
     const result = this.encounterMgr.start(encounterId);
     if (!result) return;
     const effectiveDef = def ?? this.lore.getEncounter(encounterId) ?? undefined;
-    if (result.kind === 'node') {
-      await this.renderEncounterNode(result.resolved, effectiveDef, isDebug);
-    } else {
-      await this.renderStoryScript(result.script, 0, result.currentLineIndex, effectiveDef);
-    }
+    // 開場渲染（含 story 首批行效果）歸在此遭遇來源下
+    await this.state.journal.withAsync(effectiveDef ? encounterJournalSource(effectiveDef) : undefined, async () => {
+      if (result.kind === 'node') {
+        await this.renderEncounterNode(result.resolved, effectiveDef, isDebug);
+      } else {
+        await this.renderStoryScript(result.script, 0, result.currentLineIndex, effectiveDef);
+      }
+    });
   }
 
   /**
@@ -5544,6 +5669,7 @@ export class GameController {
       eventCooldowns:   {},
       eventCounters:    {},
       attemptCooldowns: {},
+      journal:          [],
     };
   }
 }

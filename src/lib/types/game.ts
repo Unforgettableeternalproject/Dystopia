@@ -6,6 +6,7 @@ import type { WorldPhaseState } from "./phase";
 import type { TimePeriod } from "./world";
 import type { PlayerAttitude } from "./dialogue";
 import type { ActiveEncounter } from "./encounter";
+import type { JournalEntry } from "./journal";
 
 // ── Faction Relation ────────────────────────────────────────────
 
@@ -107,6 +108,11 @@ export interface GameState {
    * 省略 = 使用預設門禁時間。
    */
   curfewOverride?: CurfewOverride;
+  /**
+   * 玩家日誌（最近 JOURNAL_MAX_ENTRIES 筆，由舊到新）。
+   * 由 StateManager.journal 寫入；省略 = 舊存檔或尚無紀錄。
+   */
+  journal?: JournalEntry[];
 }
 
 export interface CurfewOverride {

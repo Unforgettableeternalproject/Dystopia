@@ -9,3 +9,4 @@ export type * from './phase';
 export type * from './encounter';
 export type * from './prop';
 export type * from './faction';
+export type * from './journal';

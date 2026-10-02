@@ -209,13 +209,19 @@ export class QuestEngine {
     // type = 'main' 預設不可放棄，除非作者顯式設 canAbandon = true
     if (def.type === 'main' && def.canAbandon !== true) return false;
 
-    this.applyQuestFail(questId, { isAbandoned: true });
+    // 日誌：此次 failQuest 記為「放棄任務」而非「任務失敗」
+    this.state.markAbandoning(questId);
+    try {
+      this.applyQuestFail(questId, { isAbandoned: true });
 
-    // Guarantee the quest is marked as failed even when no onFail handler is defined.
-    // applyQuestFail is a no-op when the quest stage lacks onFail/onFailDefault.
-    const current = this.state.getState().activeQuests[questId];
-    if (current && !current.isFailed) {
-      this.state.failQuest(questId, { recordAsCompleted: !def.isRepeatable });
+      // Guarantee the quest is marked as failed even when no onFail handler is defined.
+      // applyQuestFail is a no-op when the quest stage lacks onFail/onFailDefault.
+      const current = this.state.getState().activeQuests[questId];
+      if (current && !current.isFailed) {
+        this.state.failQuest(questId, { recordAsCompleted: !def.isRepeatable });
+      }
+    } finally {
+      this.state.clearAbandoning(questId);
     }
 
     return true;

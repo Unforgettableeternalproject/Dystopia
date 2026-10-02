@@ -239,12 +239,12 @@ export class EventEngine {
       const outcome = this.selectOutcome(ev);
       if (!outcome) continue;
 
-      this.applyOutcome(outcome);
-
       // Resolve effective notification and cooldown from matched variant (if any).
       const cache = this._matchedVariantCache;
       const notification        = cache.hasVariant ? cache.notification        : ev.notification;
       const notificationVariant = cache.hasVariant ? cache.notificationVariant : ev.notificationVariant;
+
+      this.applyOutcomeJournaled(ev, outcome, notification);
 
       triggered.push({
         event: ev,
@@ -551,7 +551,7 @@ export class EventEngine {
     const outcome = this.selectOutcome(event);
     if (!outcome) return null;
 
-    this.applyOutcome(outcome);
+    this.applyOutcomeJournaled(event, outcome, event.notification);
 
     if (!event.isRepeatable) {
       this.state.flags.set(event.id + ':fired');
@@ -591,7 +591,7 @@ export class EventEngine {
     const outcome = this.selectOutcome(event);
     if (!outcome) return null;
 
-    this.applyOutcome(outcome);
+    this.applyOutcomeJournaled(event, outcome, event.notification);
 
     if (!event.isRepeatable) {
       this.state.flags.set(event.id + ':fired');
@@ -658,6 +658,18 @@ export class EventEngine {
       .sort((a, b) => b.key - a.key)[0];
 
     return Math.max(0, nearestLower?.weight ?? baseWeight);
+  }
+
+  /**
+   * 套用結果並寫入玩家日誌。
+   * 只有有效 notification === true（會閃現提示）的事件記錄名稱並作為來源；
+   * 沉默事件（未設 notification 或 false）不洩漏名稱，其效果歸入外層來源。
+   */
+  private applyOutcomeJournaled(event: GameEvent, outcome: EventOutcome, notification: boolean | undefined): void {
+    const journal = this.state.journal;
+    const visibleName = notification === true ? event.name : undefined;
+    if (visibleName) journal.log('event', `事件：${visibleName}`);
+    journal.with(visibleName ? `事件「${visibleName}」` : undefined, () => this.applyOutcome(outcome));
   }
 
   private applyOutcome(outcome: EventOutcome): void {
