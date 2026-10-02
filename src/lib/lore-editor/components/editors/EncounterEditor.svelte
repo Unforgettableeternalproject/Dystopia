@@ -96,7 +96,7 @@
       <label class="field-label">名稱</label>
       <input class="field-input" bind:value={data.name} on:input={onChange} />
     </div>
-    <div class="field" style="width:80px">
+    <div class="field" style="width:112px">
       <label class="field-label">類型</label>
       <select class="field-select" bind:value={data.type} on:change={onChange}>
         {#each ENC_TYPES as t}<option value={t}>{t}</option>{/each}
@@ -116,7 +116,7 @@
       {#each getScript() as line, li}
         <div class="script-line">
           <div class="line-head">
-            <input class="field-input sm" style="width:80px" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
+            <input class="field-input sm" style="width:112px" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
             <label class="field-label sm"><input type="checkbox" checked={!!line.pause} on:change={() => { line.pause = !line.pause; onChange(); }} /> pause</label>
             <button class="rm" on:click={() => { data.script = getScript().filter((_l, j) => j !== li); onChange(); }}>✕</button>
           </div>
@@ -198,7 +198,7 @@
                   </div>
                   <div class="field-row">
                     <input class="field-input sm" style="flex:1" placeholder="stat path" value={s(asRec(node.statCheck), 'stat')} on:input={(e) => { asRec(node.statCheck).stat = val(e); onChange(); }} />
-                    <input class="field-input sm" style="width:50px" type="number" placeholder="DC" value={n(asRec(node.statCheck), 'dc')} on:input={(e) => { asRec(node.statCheck).dc = parseInt(val(e)) || 0; onChange(); }} />
+                    <input class="field-input sm" style="width:70px" type="number" placeholder="DC" value={n(asRec(node.statCheck), 'dc')} on:input={(e) => { asRec(node.statCheck).dc = parseInt(val(e)) || 0; onChange(); }} />
                   </div>
                   <div class="field-row">
                     <input class="field-input sm" style="flex:1" placeholder="successNodeId" value={s(asRec(node.statCheck), 'successNodeId')} on:input={(e) => { asRec(node.statCheck).successNodeId = val(e); onChange(); }} />
@@ -233,9 +233,9 @@
                   {#if expandedChoices.has(ck)}
                     <div class="choice-body">
                       <div class="field-row">
-                        <input class="field-input sm" style="width:50px" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
+                        <input class="field-input sm" style="width:70px" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
                         <input class="field-input sm" style="flex:1" placeholder="text" value={s(choice, 'text')} on:input={(e) => { choice.text = val(e); onChange(); }} />
-                        <input class="field-input sm" style="width:100px" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
+                        <input class="field-input sm" style="width:140px" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
                       </div>
                       {#if choice.condition !== undefined}
                         <div class="field">
@@ -286,21 +286,21 @@
   .form { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-row { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
-  .field-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
-  .field-label.sm { font-size: 8px; }
+  .field-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .field-label.sm { font-size: var(--le-font-xs); }
   .field-label input[type="checkbox"] { accent-color: var(--accent); }
-  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
   .field-input:focus { border-color: var(--border-accent); }
-  .field-input.sm { font-size: 10px; padding: 3px 6px; }
-  .field-select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
-  .field-select.sm { font-size: 10px; padding: 3px 6px; }
-  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
+  .field-input.sm { font-size: var(--le-font-md); padding: 3px 6px; }
+  .field-select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-select.sm { font-size: var(--le-font-md); padding: 3px 6px; }
+  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
   .field-textarea:focus { border-color: var(--border-accent); }
-  .field-textarea.sm { font-size: 10px; padding: 4px 6px; }
+  .field-textarea.sm { font-size: var(--le-font-md); padding: 4px 6px; }
 
   .section { display: flex; flex-direction: column; gap: 6px; }
-  .section-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
-  .sub-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+  .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
+  .sub-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; display: flex; gap: 8px; align-items: center; }
   .sub-section { border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
 
   .script-line { border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
@@ -309,29 +309,29 @@
   .card { border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
   .card-header { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-tertiary); cursor: pointer; transition: background 0.08s; }
   .card-header:hover { background: var(--bg-secondary); }
-  .card-arrow { font-size: 8px; color: var(--text-dim); flex-shrink: 0; }
-  .card-title { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); flex-shrink: 0; }
-  .card-meta { font-size: 8px; color: var(--text-dim); font-family: var(--font-mono); flex: 1; text-align: right; }
+  .card-arrow { font-size: var(--le-font-xs); color: var(--text-dim); flex-shrink: 0; }
+  .card-title { font-size: var(--le-font-md); color: var(--text-secondary); font-family: var(--font-mono); flex-shrink: 0; }
+  .card-meta { font-size: var(--le-font-xs); color: var(--text-dim); font-family: var(--font-mono); flex: 1; text-align: right; }
   .card-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 
-  .badge { font-size: 7px; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; flex-shrink: 0; }
+  .badge { font-size: var(--le-font-xs); padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; flex-shrink: 0; }
   .badge.outcome { color: var(--accent); border: 1px solid var(--accent-dim); }
   .badge.check { color: var(--accent-blue); border: 1px solid var(--accent-blue); }
 
   .choice-card { border: 1px solid var(--border); border-radius: 2px; margin-left: 8px; overflow: hidden; }
   .choice-header { display: flex; align-items: center; gap: 6px; padding: 3px 6px; background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent); cursor: pointer; }
   .choice-header:hover { background: var(--bg-tertiary); }
-  .choice-text { font-size: 9px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .choice-next { font-size: 8px; color: var(--text-dim); font-family: var(--font-mono); flex-shrink: 0; }
+  .choice-text { font-size: var(--le-font-sm); color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .choice-next { font-size: var(--le-font-xs); color: var(--text-dim); font-family: var(--font-mono); flex-shrink: 0; }
   .choice-body { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
 
-  .rm { background: none; border: none; color: var(--text-dim); font-size: 9px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .rm { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-sm); cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
   .rm:hover { color: var(--accent-red); }
-  .rm.sm { font-size: 8px; padding: 1px 3px; }
+  .rm.sm { font-size: var(--le-font-xs); padding: 1px 3px; }
 
-  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
+  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
   .add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
-  .add-btn.sm { padding: 2px 6px; font-size: 8px; }
+  .add-btn.sm { padding: 2px 6px; font-size: var(--le-font-xs); }
 
-  .hint { font-size: 10px; color: var(--text-dim); font-style: italic; padding: 20px; text-align: center; }
+  .hint { font-size: var(--le-font-md); color: var(--text-dim); font-style: italic; padding: 20px; text-align: center; }
 </style>

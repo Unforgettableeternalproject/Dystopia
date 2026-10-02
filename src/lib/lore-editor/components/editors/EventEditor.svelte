@@ -127,7 +127,7 @@
                   getOutcomes()[i].id = val(e); data.outcomes = getOutcomes(); onChange();
                 }} />
               </div>
-              <div class="field" style="width:60px">
+              <div class="field" style="width:84px">
                 <label class="field-label">權重</label>
                 <input class="field-input sm" type="number" value={n(outcome, 'weight', 1)} on:input={(e) => {
                   getOutcomes()[i].weight = parseFloat(val(e)) || 1; data.outcomes = getOutcomes(); onChange();
@@ -172,27 +172,27 @@
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-row { display: flex; gap: 12px; align-items: flex-start; }
   .field-label {
-    font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
     display: flex; align-items: center; gap: 4px;
   }
   .field-label input[type="checkbox"] { accent-color: var(--accent); }
   .field-input {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none;
+    font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none;
   }
   .field-input:focus { border-color: var(--border-accent); }
-  .field-input.sm { font-size: 10px; padding: 3px 6px; }
+  .field-input.sm { font-size: var(--le-font-md); padding: 3px 6px; }
   .field-textarea {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 2px;
+    font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 6px 8px; border-radius: 2px;
     outline: none; resize: vertical; line-height: 1.6;
   }
   .field-textarea:focus { border-color: var(--border-accent); }
-  .field-textarea.sm { font-size: 10px; padding: 4px 6px; }
+  .field-textarea.sm { font-size: var(--le-font-md); padding: 4px 6px; }
 
   .section { display: flex; flex-direction: column; gap: 8px; }
-  .section-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
-  .sub-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
+  .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
+  .sub-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
 
   .loc-list { display: flex; flex-direction: column; gap: 4px; }
   .loc-item { display: flex; gap: 4px; align-items: center; }
@@ -205,20 +205,20 @@
     background: var(--bg-tertiary); cursor: pointer; transition: background 0.08s;
   }
   .outcome-header:hover { background: var(--bg-secondary); }
-  .outcome-arrow { font-size: 8px; color: var(--text-dim); flex-shrink: 0; }
-  .outcome-id { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .outcome-weight { font-size: 8px; color: var(--text-dim); font-family: var(--font-mono); flex-shrink: 0; }
+  .outcome-arrow { font-size: var(--le-font-xs); color: var(--text-dim); flex-shrink: 0; }
+  .outcome-id { font-size: var(--le-font-md); color: var(--text-secondary); font-family: var(--font-mono); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .outcome-weight { font-size: var(--le-font-xs); color: var(--text-dim); font-family: var(--font-mono); flex-shrink: 0; }
   .outcome-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 
   .rm-btn {
-    background: none; border: none; color: var(--text-dim); font-size: 9px; cursor: pointer; padding: 2px 4px; flex-shrink: 0;
+    background: none; border: none; color: var(--text-dim); font-size: var(--le-font-sm); cursor: pointer; padding: 2px 4px; flex-shrink: 0;
   }
   .rm-btn:hover { color: var(--accent-red); }
-  .rm-btn.sm { font-size: 8px; padding: 1px 3px; }
+  .rm-btn.sm { font-size: var(--le-font-xs); padding: 1px 3px; }
 
   .add-btn {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 9px; padding: 4px 10px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 4px 10px; cursor: pointer;
     border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center;
   }
   .add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }

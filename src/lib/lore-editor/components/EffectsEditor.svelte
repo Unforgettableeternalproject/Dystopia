@@ -8,10 +8,12 @@
 
   export let data: Record<string, unknown> = {};
   export let onChange: () => void = () => {};
+  /** 對話選項專用欄位（ditchQuestId / ditchSkipConsequences）；遭遇、事件不顯示 */
+  export let dialogueFields = false;
 
   const val = (e: Event) => (e.target as HTMLInputElement).value;
 
-  const FIELD_GROUPS = [
+  const BASE_FIELD_GROUPS = [
     { group: '旗標', fields: ['flagsSet', 'flagsUnset', 'npcFlagsSet'] },
     { group: '數值', fields: ['statChanges', 'melphinChange', 'skillExpChanges', 'characterExpGrant'] },
     { group: '物品', fields: ['grantItems'] },
@@ -21,6 +23,8 @@
     { group: '狀態', fields: ['applyConditionId', 'removeConditionIds'] },
     { group: '其他', fields: ['grantIntelId', 'startEncounterId', 'eventCounterSet', 'eventCounterChanges', 'eventCounterReset'] },
   ];
+  const DIALOGUE_FIELD_GROUP = { group: '出賣/放棄任務', fields: ['ditchQuestId', 'ditchSkipConsequences'] };
+  $: FIELD_GROUPS = dialogueFields ? [...BASE_FIELD_GROUPS, DIALOGUE_FIELD_GROUP] : BASE_FIELD_GROUPS;
 
   const FIELD_LABELS: Record<string, string> = {
     flagsSet: '設置旗標', flagsUnset: '取消旗標', npcFlagsSet: 'NPC 旗標 (JSON)',
@@ -32,11 +36,12 @@
     applyConditionId: '施加狀態', removeConditionIds: '解除狀態',
     grantIntelId: '給予情報', startEncounterId: '啟動遭遇',
     eventCounterSet: '事件計數設置', eventCounterChanges: '事件計數變更', eventCounterReset: '事件計數重置',
+    ditchQuestId: '出賣/放棄任務', ditchSkipConsequences: '略過任務出賣後果',
   };
 
   const STRING_ARRAY_FIELDS = ['flagsSet', 'flagsUnset', 'removeConditionIds', 'eventCounterReset'];
   const NUMBER_FIELDS = ['melphinChange', 'characterExpGrant', 'timeAdvance'];
-  const STRING_FIELDS = ['grantQuestId', 'failQuestId', 'movePlayer', 'applyConditionId', 'grantIntelId', 'startEncounterId'];
+  const STRING_FIELDS = ['grantQuestId', 'failQuestId', 'ditchQuestId', 'movePlayer', 'applyConditionId', 'grantIntelId', 'startEncounterId'];
   // Key-value fields with proper editors
   const STAT_KV_FIELDS = ['statChanges', 'skillExpChanges'];
   const FACTION_KV_FIELDS = ['reputationChanges'];
@@ -44,6 +49,7 @@
   const COUNTER_KV_FIELDS = ['eventCounterSet', 'eventCounterChanges'];
   // Structured object fields
   const QUEST_STAGE_FIELDS = ['advanceQuestStage', 'completeQuestObjective'];
+  const BOOL_FIELDS = ['ditchSkipConsequences'];
   // Remaining raw JSON
   const JSON_FIELDS = ['npcFlagsSet'];
 
@@ -83,6 +89,7 @@
     else if (STRING_FIELDS.includes(field)) data[field] = '';
     else if (KV_FIELDS.includes(field) || JSON_FIELDS.includes(field)) data[field] = {};
     else if (QUEST_STAGE_FIELDS.includes(field)) data[field] = { questId: '', stageId: '' };
+    else if (BOOL_FIELDS.includes(field)) data[field] = true;
     else if (field === 'grantItems') data[field] = [];
     data = data;
     showAddMenu = false;
@@ -127,11 +134,16 @@
           <EntityPicker type="location" value={String(data[field] ?? '')} placeholder="地點 ID..." onSelect={(id) => { data[field] = id; onChange(); }} />
         {:else if field === 'startEncounterId'}
           <EntityPicker type="encounter" value={String(data[field] ?? '')} placeholder="遭遇 ID..." onSelect={(id) => { data[field] = id; onChange(); }} />
-        {:else if field === 'grantQuestId' || field === 'failQuestId'}
+        {:else if field === 'grantQuestId' || field === 'failQuestId' || field === 'ditchQuestId'}
           <EntityPicker type="quest" value={String(data[field] ?? '')} placeholder="任務 ID..." onSelect={(id) => { data[field] = id; onChange(); }} />
         {:else}
           <input class="eff-input" value={data[field] ?? ''} on:input={(e) => { data[field] = val(e); onChange(); }} />
         {/if}
+
+      {:else if BOOL_FIELDS.includes(field)}
+        <label class="eff-check"><input type="checkbox" checked={data[field] === true}
+          on:change={() => { if (data[field] === true) delete data[field]; else data[field] = true; data = data; onChange(); }} />
+          只做任務層處理（移除、標記 ditched、信用照扣），不套用 ditchConsequences 與階段 onDitch</label>
 
       {:else if STAT_KV_FIELDS.includes(field)}
         <KeyValueEditor data={getKv(field)} keyPlaceholder="statusStats.stamina" valuePlaceholder="delta"
@@ -212,39 +224,41 @@
   }
 
   .eff-field { display: flex; flex-direction: column; gap: 4px; }
+  .eff-check { display: flex; align-items: center; gap: 6px; font-size: var(--le-font-sm); color: var(--text-secondary); cursor: pointer; }
+  .eff-check input[type="checkbox"] { accent-color: var(--accent); }
   .eff-field-header { display: flex; align-items: center; justify-content: space-between; }
-  .eff-field-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; }
-  .eff-remove { background: none; border: none; color: var(--text-dim); font-size: 8px; cursor: pointer; padding: 1px 3px; }
+  .eff-field-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; }
+  .eff-remove { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-xs); cursor: pointer; padding: 1px 3px; }
   .eff-remove:hover { color: var(--accent-red); }
 
   .eff-input {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 10px; padding: 3px 6px; border-radius: 2px; outline: none; width: 100%;
+    font-family: var(--font-mono); font-size: var(--le-font-md); padding: 3px 6px; border-radius: 2px; outline: none; width: 100%;
   }
   .eff-input:focus { border-color: var(--border-accent); }
   .eff-input.sm { flex: 1; }
 
   .eff-textarea {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 10px; padding: 4px 6px; border-radius: 2px;
+    font-family: var(--font-mono); font-size: var(--le-font-md); padding: 4px 6px; border-radius: 2px;
     outline: none; resize: vertical; line-height: 1.5; width: 100%;
   }
   .eff-textarea:focus { border-color: var(--border-accent); }
 
   .tag-list { display: flex; flex-direction: column; gap: 3px; }
   .tag-item { display: flex; gap: 4px; align-items: center; }
-  .tag-rm { background: none; border: none; color: var(--text-dim); font-size: 8px; cursor: pointer; padding: 1px 3px; flex-shrink: 0; }
+  .tag-rm { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-xs); cursor: pointer; padding: 1px 3px; flex-shrink: 0; }
   .tag-rm:hover { color: var(--accent-red); }
   .tag-add {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 9px; padding: 2px 6px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 2px 6px; cursor: pointer;
     border-radius: 2px; align-self: flex-start; transition: color 0.1s, border-color 0.1s;
   }
   .tag-add:hover { border-color: var(--accent-dim); color: var(--accent); }
 
   .eff-add-btn {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 9px; padding: 3px 10px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 10px; cursor: pointer;
     border-radius: 2px; width: 100%; transition: color 0.1s, border-color 0.1s;
   }
   .eff-add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
@@ -257,14 +271,14 @@
     border-radius: 2px; padding: 4px 0; max-height: 200px; overflow-y: auto;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
-  .add-group-label { font-size: 8px; color: var(--text-dim); padding: 4px 8px 1px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .add-group-label { font-size: var(--le-font-xs); color: var(--text-dim); padding: 4px 8px 1px; letter-spacing: 0.08em; text-transform: uppercase; }
   .add-field-btn {
     display: block; width: 100%; background: none; border: none; color: var(--text-secondary);
-    font-family: var(--font-mono); font-size: 9px; padding: 3px 12px; cursor: pointer; text-align: left; transition: background 0.06s;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 12px; cursor: pointer; text-align: left; transition: background 0.06s;
   }
   .add-field-btn:hover { background: var(--bg-tertiary); }
 
-  .eff-empty { font-size: 9px; color: var(--text-dim); font-style: italic; text-align: center; padding: 4px; }
+  .eff-empty { font-size: var(--le-font-sm); color: var(--text-dim); font-style: italic; text-align: center; padding: 4px; }
   .qs-row { display: flex; gap: 6px; align-items: center; }
   .eff-add-menu::-webkit-scrollbar { width: 4px; }
   .eff-add-menu::-webkit-scrollbar-track { background: var(--scrollbar-track); }

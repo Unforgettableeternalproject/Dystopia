@@ -87,22 +87,22 @@
 
   .kv-input {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 10px; padding: 3px 6px; border-radius: 2px; outline: none;
+    font-family: var(--font-mono); font-size: var(--le-font-md); padding: 3px 6px; border-radius: 2px; outline: none;
     width: 100%;
   }
   .kv-input:focus { border-color: var(--border-accent); }
 
-  .kv-val { width: 60px; flex: 0 0 60px; text-align: right; }
+  .kv-val { width: 84px; flex: 0 0 84px; text-align: right; }
 
   .kv-rm {
-    background: none; border: none; color: var(--text-dim); font-size: 8px;
+    background: none; border: none; color: var(--text-dim); font-size: var(--le-font-xs);
     cursor: pointer; padding: 1px 3px; flex-shrink: 0;
   }
   .kv-rm:hover { color: var(--accent-red); }
 
   .kv-add {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 9px; padding: 2px 6px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 2px 6px; cursor: pointer;
     border-radius: 2px; align-self: flex-start; transition: color 0.1s, border-color 0.1s;
   }
   .kv-add:hover { border-color: var(--accent-dim); color: var(--accent); }

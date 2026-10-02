@@ -1,10 +1,13 @@
 /**
  * Lore Editor — File I/O utilities.
- * Abstracts Tauri fs plugin vs SvelteKit API (web mode).
+ *
+ * 一律經由 SvelteKit dev server 的 `/api/lore/*` 讀寫原始碼目錄下的 lore/。
+ * `npm run dev` 與 `npm run tauri dev` 都由 Vite dev server 提供這些端點，
+ * 因此不需要為原始碼目錄開放 Tauri fs 權限。
+ * 打包版（adapter-static）沒有 server 端點，編輯器僅支援開發模式。
  */
 
 const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const LORE_BASE = 'lore';
 
 export interface LoreFileEntry {
   id: string;
@@ -12,66 +15,47 @@ export interface LoreFileEntry {
   path: string;
 }
 
+function assertApiAvailable(): void {
+  if (!import.meta.env.DEV && IS_TAURI) {
+    throw new Error('Lore Editor 僅支援開發模式（npm run tauri dev 或 npm run dev）');
+  }
+}
+
 /** List JSON files in a lore subdirectory (relative to lore root). */
 export async function listLoreDir(subDir: string): Promise<LoreFileEntry[]> {
-  const dir = `${LORE_BASE}/${subDir}`;
-  if (IS_TAURI) {
-    const { readDir } = await import('@tauri-apps/plugin-fs');
-    const entries = await readDir(dir);
-    return entries
-      .filter((e: { name?: string }) => e.name?.endsWith('.json') && !e.name?.startsWith('_'))
-      .map((e: { name?: string }) => ({
-        id: e.name!.replace('.json', ''),
-        name: e.name!.replace('.json', ''),
-        path: `${dir}/${e.name}`,
-      }))
-      .sort((a: LoreFileEntry, b: LoreFileEntry) => a.id.localeCompare(b.id));
-  } else {
-    const res = await fetch(`/api/lore/list?dir=${encodeURIComponent(subDir)}`);
-    if (!res.ok) return [];
-    return res.json();
-  }
+  assertApiAvailable();
+  const res = await fetch(`/api/lore/list?dir=${encodeURIComponent(subDir)}`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
 /** Read a lore file and return its text content. */
 export async function readLoreFile(path: string): Promise<string> {
-  if (IS_TAURI) {
-    const { readTextFile } = await import('@tauri-apps/plugin-fs');
-    return readTextFile(path);
-  } else {
-    const res = await fetch(`/api/lore/read?path=${encodeURIComponent(path)}`);
-    if (!res.ok) throw new Error(`Read failed: ${res.status}`);
-    return res.text();
-  }
+  assertApiAvailable();
+  const res = await fetch(`/api/lore/read?path=${encodeURIComponent(path)}`);
+  if (!res.ok) throw new Error(`Read failed: ${res.status}`);
+  return res.text();
 }
 
 /** Delete a lore file. */
 export async function deleteLoreFile(path: string): Promise<void> {
-  if (IS_TAURI) {
-    const { remove } = await import('@tauri-apps/plugin-fs');
-    await remove(path);
-  } else {
-    const res = await fetch('/api/lore/write', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
-    });
-    if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-  }
+  assertApiAvailable();
+  const res = await fetch('/api/lore/write', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
 /** Write text content to a lore file. Validates JSON before writing. */
 export async function writeLoreFile(path: string, content: string): Promise<void> {
   JSON.parse(content); // validate
-  if (IS_TAURI) {
-    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-    await writeTextFile(path, content);
-  } else {
-    const res = await fetch('/api/lore/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, content }),
-    });
-    if (!res.ok) throw new Error(`Write failed: ${res.status}`);
-  }
+  assertApiAvailable();
+  const res = await fetch('/api/lore/write', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, content }),
+  });
+  if (!res.ok) throw new Error(`Write failed: ${res.status}`);
 }

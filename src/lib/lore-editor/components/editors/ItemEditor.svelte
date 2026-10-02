@@ -224,7 +224,7 @@
   }
 
   .field-label {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -242,7 +242,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     padding: 4px 8px;
     border-radius: 2px;
     outline: none;
@@ -251,7 +251,7 @@
   .field-input:focus { border-color: var(--border-accent); }
 
   .field-input.sm {
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 2px 6px;
   }
 
@@ -260,7 +260,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     padding: 4px 8px;
     border-radius: 2px;
     outline: none;
@@ -271,7 +271,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     padding: 6px 8px;
     border-radius: 2px;
     outline: none;
@@ -280,7 +280,7 @@
   }
 
   .field-textarea:focus { border-color: var(--border-accent); }
-  .field-textarea.mono { font-size: 10px; }
+  .field-textarea.mono { font-size: var(--le-font-md); }
 
   .chip-row {
     display: flex;
@@ -289,7 +289,7 @@
   }
 
   .chip {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     font-family: var(--font-mono);
     padding: 2px 8px;
     border: 1px solid var(--border);
@@ -318,7 +318,7 @@
   }
 
   .sub-label {
-    font-size: 10px;
+    font-size: var(--le-font-md);
     color: var(--text-secondary);
     letter-spacing: 0.06em;
     font-weight: 500;

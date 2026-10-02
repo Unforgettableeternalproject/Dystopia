@@ -233,6 +233,7 @@ function extractEffectsRefs(
   };
   add(e.grantQuestId as string, 'quest', `${prefix}.grantQuestId`);
   add(e.failQuestId as string, 'quest', `${prefix}.failQuestId`);
+  add(e.ditchQuestId as string, 'quest', `${prefix}.ditchQuestId`);
   add(e.movePlayer as string, 'location', `${prefix}.movePlayer`);
   add(e.startEncounterId as string, 'encounter', `${prefix}.startEncounterId`);
   extractItemGrants(e.grantItems, refs, sourceId, sourceType, `${prefix}.grantItems`);

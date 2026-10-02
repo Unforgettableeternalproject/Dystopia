@@ -566,11 +566,24 @@
 {/if}
 
 <style>
+  /* ── Font scale（編輯器專用，子元件經 DOM 繼承）──── */
+  .editor-layout,
+  .status-bar,
+  .dialog-backdrop {
+    --le-font-xs: 12px;
+    --le-font-sm: 13px;
+    --le-font-md: 14px;
+    --le-font-lg: 15px;
+    --le-font-xl: 16px;
+    --le-font-display: 32px;
+    --le-status-h: 28px;
+  }
+
   /* ── Layout ─────────────────────────────────────── */
   .editor-layout {
     display: grid;
-    grid-template-columns: 240px 1fr;
-    height: calc(100vh - 22px);
+    grid-template-columns: 300px 1fr;
+    height: calc(100vh - var(--le-status-h));
     overflow: hidden;
   }
 
@@ -593,14 +606,14 @@
   }
 
   .editor-title {
-    font-size: 12px;
+    font-size: var(--le-font-xl);
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: 0.08em;
   }
 
   .region-tag {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--accent);
     border: 1px solid var(--accent-dim);
     padding: 1px 6px;
@@ -623,8 +636,8 @@
     border: 1px solid transparent;
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 9px;
-    padding: 2px 5px;
+    font-size: var(--le-font-sm);
+    padding: 3px 7px;
     cursor: pointer;
     border-radius: 2px;
     display: flex;
@@ -637,9 +650,9 @@
   .type-tab:hover { color: var(--text-secondary); border-color: var(--border); }
   .type-tab.active { color: var(--accent); border-color: var(--accent-dim); background: var(--bg-tertiary); }
 
-  .tab-icon { font-size: 8px; }
-  .tab-label { font-size: 9px; }
-  .tab-sep { color: var(--border); font-size: 10px; padding: 0 2px; align-self: center; }
+  .tab-icon { font-size: var(--le-font-xs); }
+  .tab-label { font-size: var(--le-font-sm); }
+  .tab-sep { color: var(--border); font-size: var(--le-font-md); padding: 0 2px; align-self: center; }
 
   .filter-wrap {
     padding: 6px 8px;
@@ -653,7 +666,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 4px 8px;
     border-radius: 2px;
     outline: none;
@@ -675,7 +688,7 @@
     border: none;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 4px 12px;
     cursor: pointer;
     text-align: left;
@@ -692,7 +705,7 @@
 
   .entity-name {
     display: block;
-    font-size: 10px;
+    font-size: var(--le-font-md);
     color: var(--text-secondary);
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -704,7 +717,7 @@
 
   .entity-id {
     display: block;
-    font-size: 8px;
+    font-size: var(--le-font-xs);
     color: var(--text-dim);
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -716,7 +729,7 @@
   .entity-item.selected .entity-id { color: var(--text-secondary); }
 
   .empty-msg {
-    font-size: 10px;
+    font-size: var(--le-font-md);
     color: var(--text-dim);
     text-align: center;
     padding: 20px 12px;
@@ -751,7 +764,7 @@
   }
 
   .toolbar-id {
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     color: var(--text-primary);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
@@ -761,7 +774,7 @@
   }
 
   .dirty-badge {
-    font-size: 8px;
+    font-size: var(--le-font-xs);
     color: #c9a96e;
     border: 1px solid #c9a96e44;
     padding: 0px 5px;
@@ -782,7 +795,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     padding: 2px 8px;
     cursor: pointer;
     border-radius: 2px;
@@ -794,7 +807,7 @@
   .mode-tab.active { color: var(--accent); border-color: var(--accent-dim); background: var(--bg-tertiary); }
 
   .mode-hint {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.06em;
   }
@@ -811,7 +824,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 3px 10px;
     cursor: pointer;
     border-radius: 2px;
@@ -841,7 +854,7 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     line-height: 1.6;
     border: none;
     outline: none;
@@ -865,19 +878,19 @@
   }
 
   .empty-icon {
-    font-size: 24px;
+    font-size: var(--le-font-display);
     color: var(--text-dim);
     opacity: 0.3;
   }
 
   .empty-text {
-    font-size: 12px;
+    font-size: var(--le-font-xl);
     color: var(--text-dim);
     letter-spacing: 0.04em;
   }
 
   .empty-hint {
-    font-size: 10px;
+    font-size: var(--le-font-md);
     color: var(--text-dim);
     opacity: 0.5;
   }
@@ -887,7 +900,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 22px;
+    height: var(--le-status-h);
     padding: 0 12px;
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
@@ -895,14 +908,14 @@
   }
 
   .status-text {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     font-family: var(--font-mono);
     letter-spacing: 0.03em;
   }
 
   .status-env {
-    font-size: 8px;
+    font-size: var(--le-font-xs);
     color: var(--text-dim);
     opacity: 0.5;
     letter-spacing: 0.06em;
@@ -943,9 +956,9 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 12px;
-    width: 24px;
-    height: 22px;
+    font-size: var(--le-font-xl);
+    width: 30px;
+    height: 30px;
     cursor: pointer;
     border-radius: 2px;
     transition: border-color 0.1s, color 0.1s;
@@ -971,7 +984,7 @@
   }
 
   .used-by-label {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -981,7 +994,7 @@
   .used-by-item {
     display: flex;
     gap: 8px;
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     font-family: var(--font-mono);
     padding: 2px 0;
     border-bottom: 1px solid var(--border);
@@ -1000,7 +1013,7 @@
   }
 
   .broken-badge {
-    font-size: 8px;
+    font-size: var(--le-font-xs);
     color: var(--accent-red);
     border: 1px solid var(--accent-red);
     padding: 1px 5px;
@@ -1013,7 +1026,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 8px;
+    font-size: var(--le-font-xs);
     padding: 1px 6px;
     cursor: pointer;
     border-radius: 2px;
@@ -1047,7 +1060,7 @@
   }
 
   .dialog-title {
-    font-size: 12px;
+    font-size: var(--le-font-xl);
     color: var(--text-primary);
     letter-spacing: 0.06em;
     font-weight: 500;
@@ -1056,7 +1069,7 @@
   .dialog-field { display: flex; flex-direction: column; gap: 4px; }
 
   .dialog-label {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1067,7 +1080,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     padding: 6px 10px;
     border-radius: 2px;
     outline: none;
@@ -1076,19 +1089,19 @@
   .dialog-input:focus { border-color: var(--border-accent); }
 
   .dialog-hint {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     font-family: var(--font-mono);
   }
 
   .dialog-msg {
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     color: var(--text-secondary);
     line-height: 1.6;
   }
 
   .dialog-warn {
-    font-size: 10px;
+    font-size: var(--le-font-md);
     color: var(--accent-red);
     padding: 6px 8px;
     border: 1px solid var(--accent-red);
@@ -1097,7 +1110,7 @@
   }
 
   .ref-list-compact {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     font-family: var(--font-mono);
     margin-top: 4px;
     color: var(--text-dim);
@@ -1114,7 +1127,7 @@
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 4px 14px;
     cursor: pointer;
     border-radius: 2px;

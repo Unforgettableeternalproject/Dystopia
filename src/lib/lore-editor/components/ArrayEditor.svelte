@@ -67,7 +67,7 @@
   }
 
   .ae-label {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -92,10 +92,10 @@
   }
 
   .ae-index {
-    font-size: 8px;
+    font-size: var(--le-font-xs);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    width: 14px;
+    width: 20px;
     text-align: center;
   }
 
@@ -103,7 +103,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 7px;
+    font-size: var(--le-font-xs);
     cursor: pointer;
     padding: 1px 3px;
     border-radius: 2px;
@@ -125,7 +125,7 @@
     border: 1px dashed var(--border);
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     padding: 4px 8px;
     cursor: pointer;
     border-radius: 2px;

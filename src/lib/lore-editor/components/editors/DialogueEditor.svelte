@@ -88,9 +88,10 @@
     <div class="section-label">觸發條件 (Triggers) · {getTriggers().length}</div>
     {#each getTriggers() as trigger, ti}
       <div class="trigger-row">
-        <input class="field-input sm" style="width:100px" placeholder="nodeId" value={s(trigger, 'nodeId')} on:input={(e) => { trigger.nodeId = val(e); onChange(); }} />
+        <input class="field-input sm" style="width:140px" placeholder="nodeId" value={s(trigger, 'nodeId')} on:input={(e) => { trigger.nodeId = val(e); onChange(); }} />
         <label class="field-label sm"><input type="checkbox" checked={!!trigger.firstMeetingOnly} on:change={() => { trigger.firstMeetingOnly = !trigger.firstMeetingOnly; onChange(); }} /> 首次</label>
-        <input class="field-input sm" style="width:60px" type="number" step="0.1" placeholder="prob" value={s(trigger, 'probability') || '1'} on:input={(e) => { trigger.probability = parseFloat(val(e)) || 1; onChange(); }} />
+        <label class="field-label sm" title="persistent：只在 NPC 預設 profile 有意義。切換到其他 profile 後仍繼承此 trigger 並優先評估（劇情優先於閒聊）"><input type="checkbox" checked={!!trigger.persistent} on:change={() => { if (trigger.persistent) delete trigger.persistent; else trigger.persistent = true; onChange(); }} /> 持續</label>
+        <input class="field-input sm" style="width:84px" type="number" step="0.1" placeholder="prob" value={s(trigger, 'probability') || '1'} on:input={(e) => { trigger.probability = parseFloat(val(e)) || 1; onChange(); }} />
         <button class="rm" on:click={() => { data.triggers = getTriggers().filter((_t, j) => j !== ti); onChange(); }}>✕</button>
       </div>
     {/each}
@@ -132,7 +133,7 @@
             <div class="sub-label">台詞</div>
             {#each getLines(node) as line, li}
               <div class="line-row">
-                <input class="field-input sm" style="width:80px" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
+                <input class="field-input sm" style="width:112px" placeholder="speaker" value={s(line, 'speaker')} on:input={(e) => { line.speaker = val(e); onChange(); }} />
                 <input class="field-input sm" style="flex:1" placeholder="text" value={s(line, 'text')} on:input={(e) => { line.text = val(e); onChange(); }} />
                 <button class="rm" on:click={() => { node.lines = getLines(node).filter((_l, j) => j !== li); onChange(); }}>✕</button>
               </div>
@@ -155,9 +156,9 @@
                 {#if expandedChoices.has(choiceKey)}
                   <div class="choice-body">
                     <div class="field-row">
-                      <input class="field-input sm" style="width:60px" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
+                      <input class="field-input sm" style="width:84px" placeholder="id" value={s(choice, 'id')} on:input={(e) => { choice.id = val(e); onChange(); }} />
                       <input class="field-input sm" style="flex:1" placeholder="text" value={s(choice, 'text')} on:input={(e) => { choice.text = val(e); onChange(); }} />
-                      <input class="field-input sm" style="width:100px" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
+                      <input class="field-input sm" style="width:140px" placeholder="nextNodeId" value={s(choice, 'nextNodeId')} on:input={(e) => { choice.nextNodeId = val(e); onChange(); }} />
                     </div>
                     {#if choice.condition !== undefined}
                       <div class="field">
@@ -173,7 +174,7 @@
                       <div class="sub-label">效果
                         <button class="rm sm" on:click={() => { delete choice.effects; onChange(); }}>移除</button>
                       </div>
-                      <EffectsEditor data={asRec(choice.effects)} onChange={onChange} />
+                      <EffectsEditor data={asRec(choice.effects)} onChange={onChange} dialogueFields />
                     {:else}
                       <button class="add-btn sm" on:click={() => { choice.effects = {}; onChange(); }}>+ 效果</button>
                     {/if}
@@ -194,19 +195,19 @@
   .form { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-row { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
-  .field-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
-  .field-label.sm { font-size: 8px; }
+  .field-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .field-label.sm { font-size: var(--le-font-xs); }
   .field-label input[type="checkbox"] { accent-color: var(--accent); }
-  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
   .field-input:focus { border-color: var(--border-accent); }
-  .field-input.sm { font-size: 10px; padding: 3px 6px; }
-  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
+  .field-input.sm { font-size: var(--le-font-md); padding: 3px 6px; }
+  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
   .field-textarea:focus { border-color: var(--border-accent); }
-  .field-textarea.sm { font-size: 10px; padding: 4px 6px; }
+  .field-textarea.sm { font-size: var(--le-font-md); padding: 4px 6px; }
 
   .section { display: flex; flex-direction: column; gap: 6px; }
-  .section-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
-  .sub-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
+  .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
+  .sub-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
 
   .trigger-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .snip-card { display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 2px; }
@@ -214,9 +215,9 @@
   .card { border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
   .card-header { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-tertiary); cursor: pointer; transition: background 0.08s; }
   .card-header:hover { background: var(--bg-secondary); }
-  .card-arrow { font-size: 8px; color: var(--text-dim); flex-shrink: 0; }
-  .card-title { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); flex-shrink: 0; }
-  .card-meta { font-size: 8px; color: var(--text-dim); font-family: var(--font-mono); flex: 1; }
+  .card-arrow { font-size: var(--le-font-xs); color: var(--text-dim); flex-shrink: 0; }
+  .card-title { font-size: var(--le-font-md); color: var(--text-secondary); font-family: var(--font-mono); flex-shrink: 0; }
+  .card-meta { font-size: var(--le-font-xs); color: var(--text-dim); font-family: var(--font-mono); flex: 1; }
   .card-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 
   .line-row { display: flex; gap: 4px; align-items: center; }
@@ -224,15 +225,15 @@
   .choice-card { border: 1px solid var(--border); border-radius: 2px; margin-left: 8px; overflow: hidden; }
   .choice-header { display: flex; align-items: center; gap: 6px; padding: 3px 6px; background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent); cursor: pointer; }
   .choice-header:hover { background: var(--bg-tertiary); }
-  .choice-text { font-size: 9px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .choice-next { font-size: 8px; color: var(--text-dim); font-family: var(--font-mono); flex-shrink: 0; }
+  .choice-text { font-size: var(--le-font-sm); color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .choice-next { font-size: var(--le-font-xs); color: var(--text-dim); font-family: var(--font-mono); flex-shrink: 0; }
   .choice-body { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
 
-  .rm { background: none; border: none; color: var(--text-dim); font-size: 9px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .rm { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-sm); cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
   .rm:hover { color: var(--accent-red); }
-  .rm.sm { font-size: 8px; padding: 1px 3px; }
+  .rm.sm { font-size: var(--le-font-xs); padding: 1px 3px; }
 
-  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
+  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
   .add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
-  .add-btn.sm { padding: 2px 6px; font-size: 8px; }
+  .add-btn.sm { padding: 2px 6px; font-size: var(--le-font-xs); }
 </style>

@@ -133,7 +133,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 3px 6px;
     border-radius: 2px;
     outline: none;
@@ -146,7 +146,7 @@
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     cursor: pointer;
     padding: 2px 4px;
   }
@@ -167,7 +167,7 @@
   .ep-option {
     padding: 3px 8px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--le-font-md);
     color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.06s;
@@ -178,7 +178,7 @@
 
   .ep-empty, .ep-more {
     padding: 4px 8px;
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     font-style: italic;
   }

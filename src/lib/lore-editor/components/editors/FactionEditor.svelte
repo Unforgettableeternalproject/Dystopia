@@ -113,7 +113,7 @@
   }
 
   .field-label {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -124,7 +124,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     padding: 4px 8px;
     border-radius: 2px;
     outline: none;
@@ -137,7 +137,7 @@
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--le-font-lg);
     padding: 6px 8px;
     border-radius: 2px;
     outline: none;
@@ -156,9 +156,9 @@
   .relation-picker { flex: 1; }
 
   .weight-input {
-    width: 60px;
+    width: 84px;
     flex-shrink: 0;
-    font-size: 10px;
+    font-size: var(--le-font-md);
     padding: 3px 6px;
   }
 </style>

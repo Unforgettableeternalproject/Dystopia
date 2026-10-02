@@ -95,20 +95,20 @@
   .form { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-row { display: flex; gap: 12px; align-items: flex-start; }
-  .field-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .field-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
   .field-label input[type="checkbox"] { accent-color: var(--accent); }
-  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
   .field-input:focus { border-color: var(--border-accent); }
-  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
+  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
   .field-textarea:focus { border-color: var(--border-accent); }
 
   .section { display: flex; flex-direction: column; gap: 6px; }
-  .section-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
+  .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
 
   .ref-item { display: flex; gap: 4px; align-items: center; }
-  .rm { background: none; border: none; color: var(--text-dim); font-size: 9px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .rm { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-sm); cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
   .rm:hover { color: var(--accent-red); }
 
-  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
+  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
   .add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
 </style>

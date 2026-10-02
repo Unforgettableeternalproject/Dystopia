@@ -162,31 +162,31 @@
   .form { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-row { display: flex; gap: 12px; align-items: flex-start; }
-  .field-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
-  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
   .field-input:focus { border-color: var(--border-accent); }
-  .field-input.sm { font-size: 10px; padding: 3px 6px; }
-  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
+  .field-input.sm { font-size: var(--le-font-md); padding: 3px 6px; }
+  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
   .field-textarea:focus { border-color: var(--border-accent); }
-  .field-textarea.sm { font-size: 10px; padding: 4px 6px; }
+  .field-textarea.sm { font-size: var(--le-font-md); padding: 4px 6px; }
 
-  .section-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
-  .sub-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; display: flex; gap: 8px; align-items: center; }
+  .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
+  .sub-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; display: flex; gap: 8px; align-items: center; }
   .sub-section { border: 1px solid var(--border); border-radius: 2px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 
   .card { border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
   .card-header { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--bg-tertiary); cursor: pointer; transition: background 0.08s; }
   .card-header:hover { background: var(--bg-secondary); }
-  .card-arrow { font-size: 8px; color: var(--text-dim); flex-shrink: 0; }
-  .card-id { font-size: 10px; color: var(--accent); font-family: var(--font-mono); flex-shrink: 0; }
-  .card-label { font-size: 10px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-arrow { font-size: var(--le-font-xs); color: var(--text-dim); flex-shrink: 0; }
+  .card-id { font-size: var(--le-font-md); color: var(--accent); font-family: var(--font-mono); flex-shrink: 0; }
+  .card-label { font-size: var(--le-font-md); color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 
-  .rm { background: none; border: none; color: var(--text-dim); font-size: 9px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .rm { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-sm); cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
   .rm:hover { color: var(--accent-red); }
-  .rm.sm { font-size: 8px; padding: 1px 3px; }
+  .rm.sm { font-size: var(--le-font-xs); padding: 1px 3px; }
 
-  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; padding: 4px 10px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
+  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 4px 10px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
   .add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
-  .add-btn.sm { padding: 2px 6px; font-size: 8px; }
+  .add-btn.sm { padding: 2px 6px; font-size: var(--le-font-xs); }
 </style>

@@ -266,49 +266,49 @@
   }
 
   .cond-field-label {
-    font-size: 9px;
+    font-size: var(--le-font-sm);
     color: var(--text-dim);
     letter-spacing: 0.06em;
   }
 
   .cond-remove {
-    background: none; border: none; color: var(--text-dim); font-size: 8px; cursor: pointer; padding: 1px 3px;
+    background: none; border: none; color: var(--text-dim); font-size: var(--le-font-xs); cursor: pointer; padding: 1px 3px;
   }
   .cond-remove:hover { color: var(--accent-red); }
 
   .cond-input {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 10px; padding: 3px 6px; border-radius: 2px; outline: none; width: 100%;
+    font-family: var(--font-mono); font-size: var(--le-font-md); padding: 3px 6px; border-radius: 2px; outline: none; width: 100%;
   }
   .cond-input:focus { border-color: var(--border-accent); }
   .cond-input.sm { flex: 1; }
 
   .cond-select {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 10px; padding: 3px 6px; border-radius: 2px; outline: none;
+    font-family: var(--font-mono); font-size: var(--le-font-md); padding: 3px 6px; border-radius: 2px; outline: none;
   }
 
   .cond-textarea {
     background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
-    font-family: var(--font-mono); font-size: 10px; padding: 4px 6px; border-radius: 2px; outline: none;
+    font-family: var(--font-mono); font-size: var(--le-font-md); padding: 4px 6px; border-radius: 2px; outline: none;
     resize: vertical; line-height: 1.5; width: 100%;
   }
   .cond-textarea:focus { border-color: var(--border-accent); }
 
   .tag-list { display: flex; flex-direction: column; gap: 3px; }
   .tag-item { display: flex; gap: 4px; align-items: center; }
-  .tag-remove { background: none; border: none; color: var(--text-dim); font-size: 8px; cursor: pointer; padding: 1px 3px; flex-shrink: 0; }
+  .tag-remove { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-xs); cursor: pointer; padding: 1px 3px; flex-shrink: 0; }
   .tag-remove:hover { color: var(--accent-red); }
   .tag-add {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 9px; padding: 2px 6px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 2px 6px; cursor: pointer;
     border-radius: 2px; align-self: flex-start; transition: color 0.1s, border-color 0.1s;
   }
   .tag-add:hover { border-color: var(--accent-dim); color: var(--accent); }
 
   .cond-add-btn {
     background: none; border: 1px dashed var(--border); color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 9px; padding: 3px 10px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 10px; cursor: pointer;
     border-radius: 2px; width: 100%; transition: color 0.1s, border-color 0.1s;
   }
   .cond-add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
@@ -325,18 +325,18 @@
   }
 
   .add-group-label {
-    font-size: 8px; color: var(--text-dim); padding: 4px 8px 1px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: var(--le-font-xs); color: var(--text-dim); padding: 4px 8px 1px; letter-spacing: 0.08em; text-transform: uppercase;
   }
 
   .add-field-btn {
     display: block; width: 100%; background: none; border: none; color: var(--text-secondary);
-    font-family: var(--font-mono); font-size: 9px; padding: 3px 12px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 12px; cursor: pointer;
     text-align: left; transition: background 0.06s;
   }
   .add-field-btn:hover { background: var(--bg-tertiary); }
 
   .cond-empty {
-    font-size: 9px; color: var(--text-dim); font-style: italic; text-align: center; padding: 4px;
+    font-size: var(--le-font-sm); color: var(--text-dim); font-style: italic; text-align: center; padding: 4px;
   }
 
   .cond-add-menu::-webkit-scrollbar { width: 4px; }

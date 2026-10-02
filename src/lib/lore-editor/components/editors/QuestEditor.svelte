@@ -81,7 +81,7 @@
       <label class="field-label">名稱</label>
       <input class="field-input" bind:value={data.name} on:input={onChange} />
     </div>
-    <div class="field" style="width:80px">
+    <div class="field" style="width:112px">
       <label class="field-label">類型</label>
       <select class="field-select" bind:value={data.type} on:change={onChange}>
         {#each QUEST_TYPES as t}<option value={t}>{t}</option>{/each}
@@ -130,9 +130,9 @@
             <div class="sub-label">目標</div>
             {#each getObjectives(stage) as obj, oi}
               <div class="obj-row">
-                <input class="field-input sm" style="width:80px" placeholder="type" value={s(obj, 'type')} on:input={(e) => { obj.type = val(e); onChange(); }} />
+                <input class="field-input sm" style="width:112px" placeholder="type" value={s(obj, 'type')} on:input={(e) => { obj.type = val(e); onChange(); }} />
                 <input class="field-input sm" style="flex:1" placeholder="description" value={s(obj, 'description')} on:input={(e) => { obj.description = val(e); onChange(); }} />
-                <input class="field-input sm" style="width:120px" placeholder="flag" value={s(obj, 'flag')} on:input={(e) => { obj.flag = val(e); onChange(); }} />
+                <input class="field-input sm" style="width:168px" placeholder="flag" value={s(obj, 'flag')} on:input={(e) => { obj.flag = val(e); onChange(); }} />
                 <button class="rm" on:click={() => { stage.objectives = getObjectives(stage).filter((_o, j) => j !== oi); onChange(); }}>✕</button>
               </div>
             {/each}
@@ -177,35 +177,35 @@
   .form { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-  .field-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .field-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
   .field-label input[type="checkbox"] { accent-color: var(--accent); }
-  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-input { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
   .field-input:focus { border-color: var(--border-accent); }
-  .field-input.sm { font-size: 10px; padding: 3px 6px; }
-  .field-select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none; }
-  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
+  .field-input.sm { font-size: var(--le-font-md); padding: 3px 6px; }
+  .field-select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 4px 8px; border-radius: 2px; outline: none; }
+  .field-textarea { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--le-font-lg); padding: 6px 8px; border-radius: 2px; outline: none; resize: vertical; line-height: 1.6; }
   .field-textarea:focus { border-color: var(--border-accent); }
-  .field-textarea.sm { font-size: 10px; padding: 4px 6px; }
+  .field-textarea.sm { font-size: var(--le-font-md); padding: 4px 6px; }
 
   .section { display: flex; flex-direction: column; gap: 6px; }
-  .section-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
-  .sub-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
+  .section-label { font-size: var(--le-font-md); color: var(--text-secondary); letter-spacing: 0.06em; font-weight: 500; }
+  .sub-label { font-size: var(--le-font-sm); color: var(--text-dim); letter-spacing: 0.06em; margin-top: 4px; }
 
   .card { border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
   .card-header { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-tertiary); cursor: pointer; transition: background 0.08s; }
   .card-header:hover { background: var(--bg-secondary); }
-  .card-arrow { font-size: 8px; color: var(--text-dim); flex-shrink: 0; }
-  .card-title { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); flex-shrink: 0; }
-  .card-desc { font-size: 9px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-arrow { font-size: var(--le-font-xs); color: var(--text-dim); flex-shrink: 0; }
+  .card-title { font-size: var(--le-font-md); color: var(--text-secondary); font-family: var(--font-mono); flex-shrink: 0; }
+  .card-desc { font-size: var(--le-font-sm); color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 
   .obj-row { display: flex; gap: 4px; align-items: center; }
 
-  .rm { background: none; border: none; color: var(--text-dim); font-size: 9px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .rm { background: none; border: none; color: var(--text-dim); font-size: var(--le-font-sm); cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
   .rm:hover { color: var(--accent-red); }
-  .rm.sm { font-size: 8px; padding: 1px 3px; }
+  .rm.sm { font-size: var(--le-font-xs); padding: 1px 3px; }
 
-  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
+  .add-btn { background: none; border: 1px dashed var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: var(--le-font-sm); padding: 3px 8px; cursor: pointer; border-radius: 2px; transition: color 0.1s, border-color 0.1s; text-align: center; }
   .add-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
-  .add-btn.sm { padding: 2px 6px; font-size: 8px; }
+  .add-btn.sm { padding: 2px 6px; font-size: var(--le-font-xs); }
 </style>
