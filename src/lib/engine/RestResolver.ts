@@ -52,6 +52,14 @@ export interface RestInput {
   fatigue?: number;
   /** 預留：未來身體狀態 conditions 影響 */
   conditions?: string[];
+  /**
+   * 強制實際休息分鐘數（休息被事件中斷時使用）。
+   * 設定時跳過 bias/noise 與最短時間 clamp，actualMinutes 直接等於此值；
+   * 品質分級改用 forcedQuality（通常取自未中斷的預估結果），回復量仍依實際時長按比例計算。
+   */
+  forcedActualMinutes?: number;
+  /** 搭配 forcedActualMinutes 使用的品質分級；省略時視為 'full'（scuffed 時上限仍為 'partial'）。 */
+  forcedQuality?: RestQuality;
 }
 
 export interface RestResult {
@@ -86,13 +94,32 @@ export class RestResolver {
    */
   static resolve(input: RestInput): RestResult {
     const { plannedMinutes, restCtx, stamina, staminaMax, stress, stressMax } = input;
-    const fatigue   = input.fatigue ?? 0;
     const isScuffed = restCtx.mode === 'scuffed';
     const noiseRange = isScuffed ? RestResolver.SCUFFED_NOISE_RANGE : RestResolver.FULL_NOISE_RANGE;
 
     // ── 1. 計算偏移傾向 ──────────────────────────────────────
     const stressRatio         = stressMax > 0 ? Math.min(stress / stressMax, 1) : 0;
     const staminaDeficitRatio = staminaMax > 0 ? Math.max(1 - stamina / staminaMax, 0) : 0;
+
+    // 中斷路徑：實際時長已由引擎精確決定（停在觸發點），不再疊加隨機偏移
+    if (input.forcedActualMinutes !== undefined) {
+      const actualMinutes    = input.forcedActualMinutes;
+      const deviationMinutes = actualMinutes - plannedMinutes;
+      const rawQuality       = input.forcedQuality ?? 'full';
+      const quality: RestQuality = (isScuffed && rawQuality === 'full') ? 'partial' : rawQuality;
+      const tags: string[] = [quality];
+      if (isScuffed)                 tags.push('scuffed');
+      if (deviationMinutes < -60)    tags.push('undersleep');
+      if (stressRatio > 0.7)         tags.push('high_stress');
+      if (staminaDeficitRatio > 0.7) tags.push('low_stamina');
+      return {
+        actualMinutes,
+        deviationMinutes,
+        quality,
+        ...RestResolver.computeEffects(input, actualMinutes, quality),
+        resultTags: tags,
+      };
+    }
 
     // Stress → 睡不夠（負偏移最多 -180 分）；低體力 → 睡過頭（正偏移最多 +180 分）
     const biasMins = staminaDeficitRatio * 180 - stressRatio * 180;
@@ -125,6 +152,39 @@ export class RestResolver {
                             'disoriented';
     // Scuffed 環境不可能達成「成功休息」—— 不完整休息為上限
     const quality: RestQuality = (isScuffed && rawQuality === 'full') ? 'partial' : rawQuality;
+
+    const { staminaDelta, stressDelta, fatigueDelta } =
+      RestResolver.computeEffects(input, actualMinutes, quality);
+
+    // ── 6. 語意標記 ───────────────────────────────────────────
+    const resultTags: string[] = [quality];
+
+    if (isScuffed)              resultTags.push('scuffed');
+    if (deviationMinutes > 60)  resultTags.push('oversleep');
+    if (deviationMinutes < -60) resultTags.push('undersleep');
+    if (stressRatio > 0.7)      resultTags.push('high_stress');
+    if (staminaDeficitRatio > 0.7) resultTags.push('low_stamina');
+
+    return {
+      actualMinutes,
+      deviationMinutes,
+      quality,
+      staminaDelta,
+      stressDelta,
+      fatigueDelta,
+      resultTags,
+    };
+  }
+
+  /** 依實際時長與品質計算體力／壓力／疲勞變化（resolve 與中斷路徑共用）。 */
+  private static computeEffects(
+    input: RestInput,
+    actualMinutes: number,
+    quality: RestQuality,
+  ): { staminaDelta: number; stressDelta: number; fatigueDelta: number } {
+    const { restCtx, stamina, staminaMax, stress, stressMax } = input;
+    const fatigue   = input.fatigue ?? 0;
+    const isScuffed = restCtx.mode === 'scuffed';
 
     // ── 4. 回復量計算 ─────────────────────────────────────────
     const baseRecoveryRatio = Math.min(actualMinutes / 480, 1);
@@ -159,23 +219,6 @@ export class RestResolver {
       }
     }
 
-    // ── 6. 語意標記 ───────────────────────────────────────────
-    const resultTags: string[] = [quality];
-
-    if (isScuffed)              resultTags.push('scuffed');
-    if (deviationMinutes > 60)  resultTags.push('oversleep');
-    if (deviationMinutes < -60) resultTags.push('undersleep');
-    if (stressRatio > 0.7)      resultTags.push('high_stress');
-    if (staminaDeficitRatio > 0.7) resultTags.push('low_stamina');
-
-    return {
-      actualMinutes,
-      deviationMinutes,
-      quality,
-      staminaDelta,
-      stressDelta,
-      fatigueDelta,
-      resultTags,
-    };
+    return { staminaDelta, stressDelta, fatigueDelta };
   }
 }

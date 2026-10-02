@@ -334,6 +334,8 @@ export class StateManager {
     instanceId: string,
     effect: import('../types/item').ConsumableEffect,
     getCondition: (id: string) => import('../types/condition').ConditionDefinition | undefined,
+    /** 查詢物品定義；用於產物（yieldsItemId）的堆疊設定。省略時產物以非堆疊方式加入。 */
+    getItemDef?: (id: string) => import('../types/item').ItemNode | undefined,
   ): boolean {
     const idx = this.state.player.inventory.findIndex(i => i.instanceId === instanceId);
     if (idx === -1) return false;
@@ -375,8 +377,14 @@ export class StateManager {
     }
 
     // Yield a replacement item if defined (e.g. water_bottle → empty_bottle)
+    // 依產物定義傳入堆疊設定，否則已持有同物品時新產物會被 addItem 靜默丟棄
     if (effect.yieldsItemId) {
-      this.addItem(effect.yieldsItemId, this.state.time.totalMinutes);
+      const def = getItemDef?.(effect.yieldsItemId);
+      this.addItem(effect.yieldsItemId, this.state.time.totalMinutes, undefined, {
+        stackable:          def?.stackable,
+        maxStack:           def?.maxStack,
+        maxUsesPerInstance: def?.maxUsesPerInstance,
+      });
     }
 
     this.notifyUpdate();
@@ -526,6 +534,17 @@ export class StateManager {
       existing.interactionCount  += 1;
     }
     this.notifyUpdate();
+  }
+
+  /** 記錄一次與 NPC 的會面（開啟一段新對話時呼叫）。 */
+  recordNPCMeeting(npcId: string): void {
+    if (!this.state.npcMeetingCounts) this.state.npcMeetingCounts = {};
+    this.state.npcMeetingCounts[npcId] = (this.state.npcMeetingCounts[npcId] ?? 0) + 1;
+    this.notifyUpdate();
+  }
+
+  getNPCMeetingCount(npcId: string): number {
+    return this.state.npcMeetingCounts?.[npcId] ?? 0;
   }
 
   /**

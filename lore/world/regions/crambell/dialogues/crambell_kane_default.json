@@ -148,11 +148,44 @@
         {
           "id": "confirm",
           "text": "（接過紙條，點頭離開）",
+          "condition": "crambell_kach_test1:active",
           "nextNodeId": null,
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
             "affinity": 2,
             "ditchQuestId": "crambell_kach_test1"
+          }
+        },
+        {
+          "id": "confirm_ditch_test2",
+          "text": "（接過紙條，點頭離開）",
+          "condition": "crambell_kach_test2:active",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
+            "affinity": 2,
+            "ditchQuestId": "crambell_kach_test2"
+          }
+        },
+        {
+          "id": "confirm_ditch_test3",
+          "text": "（接過紙條，點頭離開）",
+          "condition": "crambell_kach_test3:active",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
+            "affinity": 2,
+            "ditchQuestId": "crambell_kach_test3"
+          }
+        },
+        {
+          "id": "confirm_no_kach_test",
+          "text": "（接過紙條，點頭離開）",
+          "condition": "!crambell_kach_test1:active & !crambell_kach_test2:active & !crambell_kach_test3:active",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
+            "affinity": 2
           }
         }
       ]
@@ -167,6 +200,43 @@
         {
           "id": "confirm",
           "text": "（接過紙條，點頭離開）",
+          "condition": "crambell_kach_test1:active",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
+            "reputation": { "crambell_peoples_alliance": -20 },
+            "affinity": 2,
+            "ditchQuestId": "crambell_kach_test1"
+          }
+        },
+        {
+          "id": "confirm_ditch_test2",
+          "text": "（接過紙條，點頭離開）",
+          "condition": "crambell_kach_test2:active",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
+            "reputation": { "crambell_peoples_alliance": -20 },
+            "affinity": 2,
+            "ditchQuestId": "crambell_kach_test2"
+          }
+        },
+        {
+          "id": "confirm_ditch_test3",
+          "text": "（接過紙條，點頭離開）",
+          "condition": "crambell_kach_test3:active",
+          "nextNodeId": null,
+          "effects": {
+            "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
+            "reputation": { "crambell_peoples_alliance": -20 },
+            "affinity": 2,
+            "ditchQuestId": "crambell_kach_test3"
+          }
+        },
+        {
+          "id": "confirm_no_kach_test",
+          "text": "（接過紙條，點頭離開）",
+          "condition": "!crambell_kach_test1:active & !crambell_kach_test2:active & !crambell_kach_test3:active",
           "nextNodeId": null,
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],

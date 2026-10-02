@@ -5,7 +5,7 @@
   "condition": {
     "timePeriods": ["work"],
     "flags": ["crambell_kach_test1_briefed"],
-    "notFlags": ["kach_hangout_accepted", "crambell_kach_test1_invited"]
+    "notFlags": ["kach_hangout_accepted", "crambell_kach_test1_invited", "crambell_peoples_alliance_betrayed", "crambell_player_allied_government"]
   },
   "isRepeatable": false,
   "notification": false,

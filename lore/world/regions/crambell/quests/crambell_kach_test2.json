@@ -5,7 +5,7 @@
   "source": "npc",
   "giverNpcId": "crambell_kach",
   "regionId": "crambell",
-  "canDitch": false,
+  "canDitch": true,
   "autoAccept": true,
 
   "questLineId": "kach_test_line",

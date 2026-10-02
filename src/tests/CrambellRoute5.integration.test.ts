@@ -166,6 +166,7 @@ describe('Crambell route5 integration — Kach/Treffen trust path', () => {
     // Simulate test1 cover_for_kach completed
     quests.grantQuest('crambell_kach_test1');
     state.flags.set('crambell_kach_cover_held');
+    state.flags.set('crambell_kach_double_quota_done');
     state.flags.set('crambell_kach_test1_completed');
     state.flags.set('crambell_treffen_lead_known');
     state.flags.set('crambell_kach_test1_started');

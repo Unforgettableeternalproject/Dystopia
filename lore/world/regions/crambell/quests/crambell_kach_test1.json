@@ -39,6 +39,12 @@
           "type": "flag_check",
           "description": "在勘查中為凱奇提供掩護",
           "flag": "crambell_kach_cover_held"
+        },
+        {
+          "id": "kach_double_quota",
+          "type": "flag_check",
+          "description": "在凱奇指定的工作日完成兩倍配額",
+          "flag": "crambell_kach_double_quota_done"
         }
       ],
       "onComplete": {

@@ -174,9 +174,21 @@
                 <input class="field-input sm" value={s(secret, 'label')} on:input={(e) => { getSecrets()[i].label = val(e); data = data; onChange(); }} />
               </div>
             </div>
-            <div class="field">
-              <label class="field-label">揭露條件（旗標）</label>
-              <input class="field-input sm" value={s(secret, 'condition')} on:input={(e) => { getSecrets()[i].condition = val(e); data = data; onChange(); }} />
+            <div class="field-row">
+              <div class="field" style="flex:2">
+                <label class="field-label">揭露條件（NPC 本地旗標，選填）</label>
+                <input class="field-input sm" value={s(secret, 'condition')} on:input={(e) => { getSecrets()[i].condition = val(e); data = data; onChange(); }} />
+              </div>
+              <div class="field" style="flex:1">
+                <label class="field-label">最少會面次數（選填）</label>
+                <input class="field-input sm" type="number" min="0" value={s(secret, 'minMeetings')} on:input={(e) => {
+                  const v = parseInt(val(e));
+                  // 空值或非正數 → 移除欄位（不限制會面次數）
+                  if (Number.isNaN(v) || v <= 0) delete getSecrets()[i].minMeetings;
+                  else getSecrets()[i].minMeetings = v;
+                  data = data; onChange();
+                }} />
+              </div>
             </div>
             <div class="field">
               <label class="field-label">Context（LLM 用）</label>

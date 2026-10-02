@@ -293,6 +293,8 @@ describe('Crambell route4 integration — Kane/Government path', () => {
 
       resolveChoice(encounters, quests, 'answer_straight_kach_absent');
       resolveChoice(encounters, quests, 'cover_inside');
+      // cover_for_kach also requires the double-quota objective (DM-set flag)
+      state.flags.set('crambell_kach_double_quota_done');
 
       quests.checkObjectives();
       expect(state.getState().activeQuests['crambell_kach_test1']?.currentStageId).toBe('report_back');

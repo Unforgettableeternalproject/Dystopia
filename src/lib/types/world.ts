@@ -19,8 +19,13 @@ export interface NPCSecretLayer {
   id: string;
   /** 設計備注：這層代表什麼資訊（不出現在 prompt 中） */
   label: string;
-  /** 旗標運算式；為 true 時此層 context 被加入 DM prompt */
-  condition: string;
+  /** 旗標運算式（對照 NPC 本地旗標）；為 true 時此層 context 被加入 DM prompt。省略 = 不檢查旗標 */
+  condition?: string;
+  /**
+   * 最少會面次數（GameState.npcMeetingCounts）。與 condition 為 AND。
+   * 會面 = 開啟一次與此 NPC 的對話（同一段對話中的多輪輸入只算一次）。
+   */
+  minMeetings?: number;
   /** 此層解鎖後 DM 額外獲得的角色 context */
   context: string;
 }

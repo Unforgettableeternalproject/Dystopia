@@ -36,5 +36,5 @@
     }
   ],
   "questIds": [],
-  "visibleWhen": "crambell_carin_deployed || crambell_player_allied_government_high"
+  "visibleWhen": "crambell_carin_deployed | crambell_player_allied_government_high"
 }

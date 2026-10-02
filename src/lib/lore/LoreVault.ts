@@ -46,6 +46,18 @@ interface LoreData {
   intels:        Record<string, IntelEntry>;
 }
 
+/**
+ * NPC 秘密層是否揭露：condition（NPC 本地旗標運算式）與 minMeetings（會面次數下限）皆須成立。
+ */
+export function isSecretLayerRevealed(
+  layer: { condition?: string; minMeetings?: number },
+  npcLocalFlags: Set<string>,
+  meetingCount: number,
+): boolean {
+  if (layer.minMeetings !== undefined && meetingCount < layer.minMeetings) return false;
+  return FlagSystem.evaluateAgainst(layer.condition, npcLocalFlags);
+}
+
 export class LoreVault {
   private data: LoreData = {
     locations: {}, npcs: {}, events: {}, factions: {}, factionGraphs: {},
@@ -900,7 +912,7 @@ export class LoreVault {
     flags: FlagSystem,
     npcMemory?: Record<string, NPCMemoryEntry>,
     accessCtx?: { timePeriod: TimePeriod; gameTime?: GameTime; knownIntelIds: string[]; activeQuests?: QuestInstance[]; inventory?: InventoryItem[]; melphin?: number; reputation?: Record<string, number>; affinity?: Record<string, number> },
-    options?: { includeNpcs?: boolean; includeProps?: boolean; propFlags?: Record<string, string[]> },
+    options?: { includeNpcs?: boolean; includeProps?: boolean; propFlags?: Record<string, string[]>; npcMeetingCounts?: Record<string, number> },
   ): string {
     const resolved = this.resolveLocation(locationId, flags, accessCtx?.timePeriod);
     if (!resolved) return '[Unknown location]';
@@ -950,8 +962,9 @@ export class LoreVault {
       .map(n => {
         // 公開描述永遠包含，秘密層依 NPC 本地旗標條件追加
         const npcLocalFlags = new Set(npcMemory?.[n.id]?.flags ?? []);
+        const meetings      = options?.npcMeetingCounts?.[n.id] ?? 0;
         const revealedSecrets = (n.secretLayers ?? [])
-          .filter(s => FlagSystem.evaluateAgainst(s.condition, npcLocalFlags))
+          .filter(s => isSecretLayerRevealed(s, npcLocalFlags, meetings))
           .map(s => s.context)
           .join(' ');
         const desc = n.publicDescription + (revealedSecrets ? ' | ' + revealedSecrets : '');

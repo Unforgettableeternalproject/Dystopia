@@ -45,7 +45,16 @@ export class EventEngine {
 
   // Temporary context populated before each processEventIds pass.
   // Avoids threading extra params through every internal method.
-  private checkCtx: { sceneNpcIds: string[]; crossedHours: number[] } = {
+  //
+  // rangeTime：僅供 timeRanges 判斷使用的時間覆寫（休息中斷探測時以「窗口起點」評估）。
+  // detectSkippedWindows：正常事件掃描時為 true，允許非重複事件在時間推進「跨越窗口起點」
+  //   但結束時已離開窗口的情況下仍觸發（避免一次長時間推進跨過整個窗口而永久錯過）。
+  private checkCtx: {
+    sceneNpcIds: string[];
+    crossedHours: number[];
+    rangeTime?: { hour: number; minute: number };
+    detectSkippedWindows?: boolean;
+  } = {
     sceneNpcIds: [],
     crossedHours: [],
   };
@@ -80,7 +89,7 @@ export class EventEngine {
       parentId = parent.parentId;
     }
 
-    this.checkCtx = { sceneNpcIds: resolved.npcIds, crossedHours };
+    this.checkCtx = { sceneNpcIds: resolved.npcIds, crossedHours, detectSkippedWindows: true };
     return this.processEventIds(eventIds);
   }
 
@@ -94,7 +103,7 @@ export class EventEngine {
     // Global events may also specify npcIds — check against current scene
     const gs       = this.state.getState();
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
-    this.checkCtx  = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours };
+    this.checkCtx  = { sceneNpcIds: resolved?.npcIds ?? [], crossedHours, detectSkippedWindows: true };
     return this.processEventIds(region.globalEventIds);
   }
 
@@ -130,6 +139,56 @@ export class EventEngine {
       ev.condition.triggerHours?.length &&
       this.canTrigger(ev, /* skipChance */ true),
     );
+  }
+
+  /**
+   * 休息中斷探測（timeRanges 版，與 peekHourlyInterrupts 平行）。
+   * 在接下來 durationMinutes 內，找出最早「進入時間窗起點」且其餘條件成立的非重複事件，
+   * 回傳距今的分鐘偏移；無則回傳 null。不套用任何效果。
+   *
+   * - 僅考慮 isRepeatable = false 的事件：可重複事件錯過一次不會永久遺失，且多半帶 triggerChance，
+   *   不應每次睡覺都把玩家叫醒。
+   * - 同時帶 triggerHours 的事件交給 peekHourlyInterrupts 處理。
+   * - 已知限制：timePeriods / dateTimeConditions 仍以休息前時間評估。
+   */
+  peekTimeRangeInterrupt(regionId: string, locationId: string, durationMinutes: number): number | null {
+    const gs       = this.state.getState();
+    const resolved = this.lore.resolveLocation(locationId, this.state.flags);
+    const sceneNpcIds = resolved?.npcIds ?? [];
+
+    const region = this.lore.getRegion(regionId);
+    const ids: string[] = [...(region?.globalEventIds ?? [])];
+    if (resolved) {
+      ids.push(...resolved.eventIds);
+      let parentId = resolved.parentId;
+      while (parentId) {
+        const parent = this.lore.resolveLocation(parentId, this.state.flags);
+        if (!parent) break;
+        ids.push(...parent.eventIds);
+        parentId = parent.parentId;
+      }
+    }
+
+    const nowMins = gs.time.hour * 60 + gs.time.minute;
+    let best: number | null = null;
+    for (const ev of this.lore.getEventsByIds(ids)) {
+      const ranges = ev.condition.timeRanges;
+      if (ev.isRepeatable || !ranges?.length || ev.condition.triggerHours?.length) continue;
+      for (const r of ranges) {
+        let offset = r.startHour * 60 + r.startMinute - nowMins;
+        if (offset <= 0) offset += 1440;   // 已在窗口內或已過 → 下一次起點在隔天
+        if (offset > durationMinutes) continue;
+        if (best !== null && offset >= best) continue;
+        this.checkCtx = {
+          sceneNpcIds,
+          crossedHours: [],
+          rangeTime: { hour: r.startHour, minute: r.startMinute },
+        };
+        if (this.canTrigger(ev, /* skipChance */ true)) best = offset;
+      }
+    }
+    this.checkCtx = { sceneNpcIds, crossedHours: [] };
+    return best;
   }
 
   /**
@@ -263,7 +322,14 @@ export class EventEngine {
     }
 
     // Time range condition (daily recurring, OR within array)
-    if (!checkTimeRanges(condition.timeRanges, gs.time)) return false;
+    // 非重複事件若本次時間推進跨越了窗口起點（結束時已離開窗口），仍視為符合，避免永久錯過。
+    const rangeTime = this.checkCtx.rangeTime ?? gs.time;
+    if (!checkTimeRanges(condition.timeRanges, rangeTime)) {
+      const skipped = !event.isRepeatable
+        && !!this.checkCtx.detectSkippedWindows
+        && this.isTimeWindowSkipped(condition.timeRanges!, gs.time);
+      if (!skipped) return false;
+    }
 
     // Cooldown condition (repeatable events only).
     // Skipped when triggerVariants is present — each variant manages its own cooldown.
@@ -393,6 +459,25 @@ export class EventEngine {
     }
 
     return true;
+  }
+
+  /**
+   * 本次時間推進（checkCtx.crossedHours）是否跨越了任一窗口的起點，且目前已不在窗口內。
+   * 只在 checkTimeRanges 失敗時呼叫：若跨入起點整點但尚未到達起點分鐘，視為尚未進入窗口。
+   */
+  private isTimeWindowSkipped(
+    ranges: NonNullable<GameEvent['condition']['timeRanges']>,
+    now: { hour: number; minute: number },
+  ): boolean {
+    const crossed = this.checkCtx.crossedHours;
+    if (!crossed.length) return false;
+    const nowMins = now.hour * 60 + now.minute;
+    return ranges.some(r => {
+      if (!crossed.includes(r.startHour)) return false;
+      const start = r.startHour * 60 + r.startMinute;
+      if (now.hour === r.startHour && nowMins < start) return false;
+      return true;
+    });
   }
 
   /** Evaluate whether a triggerVariant's condition matches the current game state. */

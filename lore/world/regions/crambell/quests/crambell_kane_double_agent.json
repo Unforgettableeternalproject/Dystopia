@@ -17,7 +17,7 @@
     "路線四：政府合作路線。",
     "玩家同意凱恩的提議後持有此任務；在凱恩的對話節點中選擇交付情報（凱奇或聯盟），",
     "觸發 crambell_kane_intel_delivered，任務自動推進到 meet_for_handoff。",
-    "此任務不可放棄，只有完成（領取通行證）一途。"
+    "此任務不可放棄；在林間交易中拒絕（crambell_kane_deal_abandoned）則任務失敗。"
   ],
 
   "entryStageId": "pending_intel",
@@ -48,6 +48,13 @@
           "flag": "crambell_kane_pass_received"
         }
       ],
+      "failCondition": {
+        "flags": ["crambell_kane_deal_abandoned"],
+        "_comment": "玩家在林間交易 back_out 後設置此旗標；交付事件以 notFlags 排除它，不失敗會永久卡在此階段。"
+      },
+      "onFail": {
+        "nextStageId": null
+      },
       "onComplete": {
         "nextStageId": null,
         "flagsSet": ["crambell_kane_deal_completed"]

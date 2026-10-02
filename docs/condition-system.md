@@ -243,6 +243,19 @@
 
 **引擎實作：** `EncounterEngine.advanceTo()` (`src/lib/engine/EncounterEngine.ts`)
 
+### 6. NPC 秘密層（`NPCSecretLayer`）
+
+`NPCNode.secretLayers[]` 每層獨立判斷，下列欄位皆為 AND：
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `condition` | `string` | 旗標運算式，只對照 NPC 本地旗標（`npcMemory[npcId].flags`）；省略 = 不檢查 |
+| `minMeetings` | `number` | 與該 NPC 的會面次數下限（`GameState.npcMeetingCounts[npcId]`） |
+
+**會面次數語意：** 每開啟一次與該 NPC 的新對話 +1（`GameController.updateActiveNpcUI` 的新對話分支）；同一段對話內的多輪輸入不重複計算。與 `NPCMemoryEntry.interactionCount`（每次 NPC 狀態更新、劇本對話結束皆 +1）不同。隨存檔保存，舊存檔視為 0。
+
+**引擎實作：** `isSecretLayerRevealed()` (`src/lib/lore/LoreVault.ts`)
+
 ---
 
 ## 命名統一紀錄

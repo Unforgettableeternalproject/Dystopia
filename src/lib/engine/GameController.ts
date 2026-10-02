@@ -17,9 +17,8 @@ import { JudgeAgent }       from '../ai/JudgeAgent';
 import { Regulator }        from '../ai/Regulator';
 import { autoClients }      from '../ai/LLMClientFactory';
 import type { ILLMClient }  from '../ai/ILLMClient';
-import { LoreVault }        from '../lore/LoreVault';
+import { LoreVault, isSecretLayerRevealed } from '../lore/LoreVault';
 import { EventBus, GameEvents } from './EventBus';
-import { FlagSystem }       from './FlagSystem';
 import { StateManager }     from './StateManager';
 import { EventEngine }      from './EventEngine';
 import { PhaseManager }     from './PhaseManager';
@@ -131,6 +130,8 @@ export class GameController {
 
   /** Guard against double-firing endScriptedDialogue via setTimeout race. */
   private _pendingAutoEnd: ReturnType<typeof setTimeout> | null = null;
+  /** selectDialogueChoice 重入鎖（防止同一選項在串流期間被重複套用） */
+  private _dialogueChoiceBusy = false;
 
   /**
    * Once a scripted node has fired in the current encounter session,
@@ -198,6 +199,17 @@ export class GameController {
         enqueueQuestBanner(def.name, 'failed');
         showQuestOutcomeFlash(questId, def.name, def.type, 'failed');
         this._pendingQuestOutcomes.push({ name: def.name, outcome: 'failed' });
+      }
+    });
+    // 放棄（ditch）與失敗走相同的 UI 回饋；出賣型放棄標示為背叛。
+    // 注意：陣營信用扣減已由 QuestEngine.ditchQuest → FactionTreeEngine.onQuestDitch 直接處理，此處不可再觸發。
+    this.bus.on(GameEvents.QUEST_DITCHED, ({ questId, isBetrayalDitch }: { questId: string; isBetrayalDitch?: boolean }) => {
+      const def = this.lore.getQuest(questId);
+      if (def) {
+        const label = isBetrayalDitch ? `${def.name}（背叛）` : def.name;
+        enqueueQuestBanner(label, 'failed');
+        showQuestOutcomeFlash(questId, def.name, def.type, 'failed');
+        this._pendingQuestOutcomes.push({ name: label, outcome: 'failed' });
       }
     });
 
@@ -407,7 +419,7 @@ export class GameController {
       }
 
       // Apply effect immediately
-      this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
+      this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id), id => this.lore.getItem(id));
       showAcquisitionNotif(`使用：${itemDef.name}`, false);
       this.flushAcquisitions();
       this.syncUIState(this.state.getState());
@@ -1002,6 +1014,17 @@ export class GameController {
           break;
         }
       }
+
+      // timeRanges 型非重複事件：睡眠跨越其時間窗起點時同樣中斷，停在窗口起點，
+      // 避免一次睡眠跨過整個窗口而永久錯過（例：02:00 睡到 09:00 跨過 06:00–06:59）。
+      const rangeOffset = this.events.peekTimeRangeInterrupt(
+        this.currentRegionId,
+        gs.player.currentLocationId,
+        fullResult.actualMinutes,
+      );
+      if (rangeOffset !== null && (interruptMinutes === null || rangeOffset < interruptMinutes)) {
+        interruptMinutes = rangeOffset;
+      }
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1012,7 +1035,13 @@ export class GameController {
     const result = hasRestStartInterrupt
       ? GameController.buildRestStartInterruptResult(plannedMinutes, s.staminaMax)
       : interruptMinutes !== null
-        ? RestResolver.resolve({ plannedMinutes: interruptMinutes, ...resolveArgs })
+        // 中斷：停點必須精確落在觸發點，不可再疊加 bias/noise；品質沿用預估結果
+        ? RestResolver.resolve({
+            plannedMinutes,
+            ...resolveArgs,
+            forcedActualMinutes: interruptMinutes,
+            forcedQuality:       fullResult.quality,
+          })
         : fullResult;
 
     // Apply stat changes (stamina recovery + stress reduction)
@@ -1050,7 +1079,8 @@ export class GameController {
     // If sleep was interrupted, these are the events that caused the wake-up.
     let interruptTriggered: TriggeredEvent[] = [...restStartTriggered, ...restStartExtra];
     const crossedHours = this.timeMgr.computeCrossedHours(beforeTime, newTime);
-    if (crossedHours.length > 0) {
+    // 中斷點可能不在整點上（例：窗口起點 06:30），此時 crossedHours 可能為空，仍需檢查事件
+    if (crossedHours.length > 0 || interruptMinutes !== null) {
       if (!this.state.flags.has('game_day1_started') && crossedHours.includes(0)) {
         this.state.flags.set('game_day1_started');
       }
@@ -1434,92 +1464,104 @@ export class GameController {
    * Applies effects, advances to the next node (or ends the dialogue).
    */
   async selectDialogueChoice(choiceId: string): Promise<void> {
-    const current = get(activeScriptedDialogue);
-    if (!current) return;
+    // 重入鎖：效果同步套用後要等串流結束才更新節點，期間重複點擊會重複推進任務/旗標/物品。
+    // 必須在第一個 await 之前同步檢查並設定。
+    if (this._dialogueChoiceBusy) return;
+    this._dialogueChoiceBusy = true;
+    try {
+      const current = get(activeScriptedDialogue);
+      if (!current) return;
 
-    const choice = current.currentChoices.find(c => c.id === choiceId);
-    if (!choice) return;
+      const choice = current.currentChoices.find(c => c.id === choiceId);
+      if (!choice) return;
 
-    // Show the player's choice in the narrative and log to session
-    pushLine('> ' + choice.text, 'player');
-    appendEncounterLog('player', choice.text);
+      // Show the player's choice in the narrative and log to session
+      pushLine('> ' + choice.text, 'player');
+      appendEncounterLog('player', choice.text);
 
-    // Apply basic side effects (affinity, rep, flags, attitude, intel)
-    this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
+      // Apply basic side effects (affinity, rep, flags, attitude, intel)
+      this.dialogueMgr.applyChoiceEffects(current.npcId, choice.effects);
 
-    // Apply quest effects
-    if (choice.effects?.grantQuest) {
-      this.quests.grantQuest(choice.effects.grantQuest);
-    }
-    if (choice.effects?.advanceQuestStage) {
-      const { questId, stageId } = choice.effects.advanceQuestStage;
-      this.state.advanceQuestStage(questId, stageId);
-    }
-    if (choice.effects?.completeObjective) {
-      const { questId, objectiveId } = choice.effects.completeObjective;
-      this.state.completeObjective(questId, objectiveId);
-    }
-    if (choice.effects?.ditchQuestId) {
-      this.quests.ditchQuest(choice.effects.ditchQuestId);
-    }
+      // Apply quest effects
+      if (choice.effects?.grantQuest) {
+        this.quests.grantQuest(choice.effects.grantQuest);
+      }
+      if (choice.effects?.advanceQuestStage) {
+        const { questId, stageId } = choice.effects.advanceQuestStage;
+        this.state.advanceQuestStage(questId, stageId);
+      }
+      if (choice.effects?.completeObjective) {
+        const { questId, objectiveId } = choice.effects.completeObjective;
+        this.state.completeObjective(questId, objectiveId);
+      }
+      if (choice.effects?.ditchQuestId) {
+        this.quests.ditchQuest(choice.effects.ditchQuestId);
+      }
 
-    const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
+      const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
 
-    // Post-condition branching: evaluate branches after effects are applied
-    let targetNodeId = choice.nextNodeId;
-    if (choice.branches) {
-      for (const branch of choice.branches) {
-        if (this.state.flags.evaluate(branch.condition)) {
-          targetNodeId = branch.nodeId;
-          break;
+      // Post-condition branching: evaluate branches after effects are applied
+      let targetNodeId = choice.nextNodeId;
+      if (choice.branches) {
+        for (const branch of choice.branches) {
+          if (this.state.flags.evaluate(branch.condition)) {
+            targetNodeId = branch.nodeId;
+            break;
+          }
         }
       }
-    }
 
-    if (targetNodeId === null) {
-      activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
-      await this.endScriptedDialogue();
-      return;
-    }
+      if (targetNodeId === null) {
+        activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
+        // 本次選擇已套用完畢；提前釋放鎖，避免吞掉結束後鏈式啟動的下一段對話選擇
+        this._dialogueChoiceBusy = false;
+        await this.endScriptedDialogue();
+        return;
+      }
 
-    const nextNode = this.dialogueMgr.getNode(current.npcId, current.dialogueId, targetNodeId);
-    if (!nextNode) {
-      activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
-      await this.endScriptedDialogue();
-      return;
-    }
+      const nextNode = this.dialogueMgr.getNode(current.npcId, current.dialogueId, targetNodeId);
+      if (!nextNode) {
+        activeScriptedDialogue.set({ ...current, collectedNarrative: updatedNarrative });
+        // 本次選擇已套用完畢；提前釋放鎖，避免吞掉結束後鏈式啟動的下一段對話選擇
+        this._dialogueChoiceBusy = false;
+        await this.endScriptedDialogue();
+        return;
+      }
 
-    const ctx = this.buildInterpolationCtx();
-    const filteredChoices = this.dialogueMgr.filterChoices(nextNode.choices, this.state.flags);
+      const ctx = this.buildInterpolationCtx();
+      const filteredChoices = this.dialogueMgr.filterChoices(nextNode.choices, this.state.flags);
 
-    // transitionLines: show these instead of target node's lines (return/back pattern)
-    let addedNarrative: string;
-    isStreaming.set(true);
-    if (choice.transitionLines && choice.transitionLines.length > 0) {
-      const transLines = this.renderNodeLines(choice.transitionLines, current.npcName, ctx);
-      await this.streamScriptedLines(transLines, choice.transitionLines);
-      addedNarrative = transLines.join('\n');
-    } else {
-      const nextLines = this.renderNodeLines(nextNode.lines, current.npcName, ctx);
-      await this.streamScriptedLines(nextLines, nextNode.lines);
-      addedNarrative = nextLines.join('\n');
-    }
-    isStreaming.set(false);
+      // transitionLines: show these instead of target node's lines (return/back pattern)
+      let addedNarrative: string;
+      isStreaming.set(true);
+      if (choice.transitionLines && choice.transitionLines.length > 0) {
+        const transLines = this.renderNodeLines(choice.transitionLines, current.npcName, ctx);
+        await this.streamScriptedLines(transLines, choice.transitionLines);
+        addedNarrative = transLines.join('\n');
+      } else {
+        const nextLines = this.renderNodeLines(nextNode.lines, current.npcName, ctx);
+        await this.streamScriptedLines(nextLines, nextNode.lines);
+        addedNarrative = nextLines.join('\n');
+      }
+      isStreaming.set(false);
 
-    activeScriptedDialogue.set({
-      ...current,
-      currentNodeId:      targetNodeId,
-      currentChoices:     filteredChoices,
-      collectedNarrative: updatedNarrative + '\n' + addedNarrative,
-    });
+      activeScriptedDialogue.set({
+        ...current,
+        currentNodeId:      targetNodeId,
+        currentChoices:     filteredChoices,
+        collectedNarrative: updatedNarrative + '\n' + addedNarrative,
+      });
 
-    // Auto-end if the node has no choices (guarded to prevent double-fire)
-    if (filteredChoices.length === 0) {
-      if (this._pendingAutoEnd) clearTimeout(this._pendingAutoEnd);
-      this._pendingAutoEnd = setTimeout(() => {
-        this._pendingAutoEnd = null;
-        this.endScriptedDialogue().catch(err => log.warn('endScriptedDialogue error', err));
-      }, 600);
+      // Auto-end if the node has no choices (guarded to prevent double-fire)
+      if (filteredChoices.length === 0) {
+        if (this._pendingAutoEnd) clearTimeout(this._pendingAutoEnd);
+        this._pendingAutoEnd = setTimeout(() => {
+          this._pendingAutoEnd = null;
+          this.endScriptedDialogue().catch(err => log.warn('endScriptedDialogue error', err));
+        }, 600);
+      }
+    } finally {
+      this._dialogueChoiceBusy = false;
     }
   }
 
@@ -1740,7 +1782,7 @@ export class GameController {
         this.state.flags,
         includeNpcs ? gs.npcMemory : undefined,
         { timePeriod: gs.timePeriod, gameTime: gs.time, knownIntelIds: gs.player.knownIntelIds, activeQuests: Object.values(gs.activeQuests), inventory: gs.player.inventory, melphin: gs.player.melphin },
-        { includeNpcs, includeProps, propFlags: gs.propFlags },
+        { includeNpcs, includeProps, propFlags: gs.propFlags, npcMeetingCounts: gs.npcMeetingCounts },
       )
     );
 
@@ -1897,7 +1939,7 @@ export class GameController {
         if (npc) {
           const npcLocalFlags = this.state.getNPCFlags(npc.id);
           const revealedSecrets = (npc.secretLayers ?? [])
-            .filter(s => FlagSystem.evaluateAgainst(s.condition, npcLocalFlags))
+            .filter(s => isSecretLayerRevealed(s, npcLocalFlags, this.state.getNPCMeetingCount(npc.id)))
             .map(s => s.context);
           const mem = gs.npcMemory[npc.id];
           const focusedLines = [
@@ -2305,7 +2347,7 @@ export class GameController {
       const invItem    = this.state.getState().player.inventory.find(i => i.instanceId === instanceId);
       const itemDef    = invItem ? this.lore.getItem(invItem.itemId) : undefined;
       if (itemDef?.type === 'consumable') {
-        const consumed = this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id));
+        const consumed = this.state.consumeItem(instanceId, itemDef.effect ?? {}, id => this.lore.getCondition(id), id => this.lore.getItem(id));
         if (consumed) log.info('Item consumed', { instanceId, itemId: invItem!.itemId });
       }
     }
@@ -4573,6 +4615,8 @@ export class GameController {
     if (!current || current.npcId !== npcId) {
       encounterSessionLog.set([]);
       this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
+      // 新的一段對話 = 一次會面（同段對話後續輪次走 else 路徑，不重複計數）
+      this.state.recordNPCMeeting(npcId);
     }
     const gs  = this.state.getState();
     const mem = gs.npcMemory[npcId];

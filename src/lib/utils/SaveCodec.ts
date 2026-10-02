@@ -12,7 +12,7 @@
 import type { GameState, HistoryEntry, PlayerAction, GameTime, GamePhase } from '../types';
 import type { PlayerState, PlayerCondition }                               from '../types/player';
 import type { QuestInstance }                                              from '../types/quest';
-import type { NPCMemoryEntry, ActiveDialogueState }                        from '../types/game';
+import type { NPCMemoryEntry, ActiveDialogueState, FactionRelationState }  from '../types/game';
 import type { WorldPhaseState }                                            from '../types/phase';
 import type { TimePeriod }                                                 from '../types/world';
 
@@ -41,6 +41,10 @@ export interface SaveSnapshot {
   eventCounters:        Record<string, number>;
   attemptCooldowns?:    Record<string, number>;
   propFlags?:           Record<string, string[]>;
+  /** 陣營樹關係狀態（GameState 頂層欄位）；舊存檔可能缺少 */
+  factionRelations?:    Record<string, FactionRelationState>;
+  /** NPC 會面次數；舊存檔可能缺少 */
+  npcMeetingCounts?:    Record<string, number>;
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -80,6 +84,8 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     eventCounters:    gs.eventCounters,
     attemptCooldowns: gs.attemptCooldowns,
     propFlags:        gs.propFlags,
+    factionRelations: gs.factionRelations ?? {},
+    npcMeetingCounts: gs.npcMeetingCounts ?? {},
   };
 
   const json       = JSON.stringify(snapshot);
@@ -162,6 +168,9 @@ export async function decode(code: string): Promise<DecodeResult> {
     eventCounters:    snapshot.eventCounters    ?? {},
     attemptCooldowns: snapshot.attemptCooldowns ?? {},
     propFlags:        snapshot.propFlags        ?? {},
+    // 舊存檔沒有陣營樹資料 → 空物件（陣營於首次接觸時重新初始化）
+    factionRelations: snapshot.factionRelations ?? {},
+    npcMeetingCounts: snapshot.npcMeetingCounts ?? {},
   };
 
   return { snapshot, state, flags: snapshot.flags };

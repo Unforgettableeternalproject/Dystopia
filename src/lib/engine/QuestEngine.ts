@@ -111,6 +111,8 @@ export class QuestEngine {
     const def      = this.lore.getQuest(questId);
     const instance = this.state.getState().activeQuests[questId];
     if (!def || !instance || !def.canDitch) return false;
+    // 已完成／已失敗（含已放棄）的實例可能仍留在 activeQuests，拒絕再次 ditch，避免重複套用後果與信用扣減
+    if (instance.isCompleted || instance.isFailed || instance.isDitched) return false;
 
     // Stage-level ditch outcomes first
     const stage = instance.currentStageId ? def.stages[instance.currentStageId] : undefined;

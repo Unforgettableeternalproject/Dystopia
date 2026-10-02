@@ -86,6 +86,13 @@ export interface GameState {
    * 省略 = 尚未啟用陣營樹系統（向後相容）。
    */
   factionRelations?: Record<string, FactionRelationState>;
+  /**
+   * 與各 NPC 的會面次數 Record<npcId, count>。
+   * 每開啟一次與該 NPC 的對話 +1（同一段對話的多輪輸入不重複計算），
+   * 與 NPCMemoryEntry.interactionCount（每次 NPC 狀態更新即 +1）語意不同。
+   * 省略 = 尚無紀錄（舊存檔相容）。
+   */
+  npcMeetingCounts?: Record<string, number>;
   eventCooldowns: Record<string, number>;
   eventCounters: Record<string, number>;
   /**
