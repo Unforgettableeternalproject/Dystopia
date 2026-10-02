@@ -137,7 +137,8 @@
     {
       "nodeId": "orland_final_confirm",
       "condition": "crambell_mysterious_message_known & crambell_kach_test3_completed & !crambell_route5_departed",
-      "endAfterScript": true
+      "endAfterScript": true,
+      "persistent": true
     }
   ],
 

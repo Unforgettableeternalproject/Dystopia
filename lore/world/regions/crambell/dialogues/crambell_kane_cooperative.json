@@ -1,0 +1,73 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_kane_cooperative",
+  "npcId": "crambell_kane",
+
+  "defaultContext": "交易已經完成，凱恩把{user}當成一筆已經結清、但仍可能再用得上的投資。在公開場合他維持一貫的冷淡與職業性的評估語氣，絕不提林間空地的事，也不容許{user}在旁人面前提起。私下時話依然簡短，帶著居高臨下的公事公辦，偶爾流露一點「你很識相」的滿意。他不談自己的人脈或把柄，不承諾任何額外的好處；若{user}想要更多，他會先問對方能拿出什麼。叼著菸，說話時習慣把菸夾在指間。",
+
+  "nodes": {
+    "kane_coop_greeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "凱恩看到你，目光只停了半秒，便若無其事地轉向別處。等身邊的巡邏員走遠，他才開口，語氣和對任何一個工人說話時沒有兩樣。" },
+        { "speaker": "npc", "text": "有事就說。沒事別在這裡晃。" }
+      ],
+      "choices": [
+        {
+          "id": "about_pass",
+          "text": "「關於那張通行證——」",
+          "condition": "crambell_kane_pass_received",
+          "nextNodeId": "kane_coop_hush"
+        },
+        {
+          "id": "just_passing",
+          "text": "「只是路過。」",
+          "nextNodeId": "kane_coop_dismiss"
+        }
+      ]
+    },
+    "kane_coop_hush": {
+      "lines": [
+        { "speaker": "narrator", "text": "他把菸從嘴邊拿下，菸灰抖落在地上。" },
+        { "speaker": "npc", "text": "那件事沒發生過。*聲音壓得很低* 凌晨四點到六點，傳送點。別遲到，也別讓我再從任何人嘴裡聽到它。" }
+      ],
+      "choices": [
+        { "id": "understood", "text": "「明白。」", "nextNodeId": null }
+      ]
+    },
+    "kane_coop_dismiss": {
+      "lines": [
+        { "speaker": "npc", "text": "那就繼續路過。" },
+        { "speaker": "narrator", "text": "他重新叼上菸，已經不再看你。" }
+      ],
+      "choices": [
+        { "id": "leave", "text": "（離開）", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "kane_coop_greeting",
+      "endAfterScript": true,
+      "probability": 50
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家交出的是凱奇的情報",
+      "condition": "crambell_kach_betrayed_kane",
+      "context": "凱恩知道{user}出賣了自己的室友凱奇。他對此毫無評價，但心裡把{user}歸類為「為了出路什麼都肯給的人」——好用，但同樣不可全信。"
+    },
+    {
+      "label": "玩家交出的是人民互助聯盟的情報",
+      "condition": "crambell_peoples_alliance_betrayed",
+      "context": "凱恩知道{user}交出了人民互助聯盟的行程與聯絡方式。他會以一種近乎讚許的冷淡提起「那些人最近安分多了」，並暗示{user}最好別再跟他們扯上關係。"
+    },
+    {
+      "label": "玩家曾賄賂凱恩",
+      "condition": "crambell_kane_bribed",
+      "context": "凱恩與{user}之間早有利益往來的默契，對{user}說話時帶著投資者的語氣，比對其他工人多幾分注意。"
+    }
+  ]
+}

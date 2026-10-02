@@ -196,6 +196,23 @@ describe('Crambell route4/5 exclusion — selling intel to Kane ditches active K
     expect(env.state.flags.has('crambell_peoples_alliance_betrayed')).toBe(true);
   });
 
+  it('give_kach while test2 active: treffen -30 from dialogue, test1 ditch consequences not reapplied', () => {
+    const env = setup();
+    completeTest1(env);
+    const rep = () => env.state.getState().player.externalStats.reputation;
+    const treffenBefore = rep()['crambell_treffen'] ?? 0;
+    const govBefore = rep()['crambell_government'] ?? 0;
+
+    const choice = visibleConfirm(env, 'kane_deliver_kach');
+    expect(choice.id).toBe('confirm_ditch_test2');
+    applyChoice(env, choice);
+
+    expectDitched(env, 'crambell_kach_test2');
+    expect(rep()['crambell_treffen'] ?? 0).toBe(treffenBefore - 30);
+    expect(rep()['crambell_government'] ?? 0).toBe(govBefore);
+    expect(env.state.flags.has('crambell_kach_betrayed')).toBe(false);
+  });
+
   it('give_alliance while test3 active ditches test3', () => {
     const env = setup();
     completeTest1(env);

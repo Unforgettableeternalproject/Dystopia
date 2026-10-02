@@ -148,5 +148,7 @@
       }
     }
   },
-  "rewards": {}
+  "rewards": {
+    "reputationChanges": { "crambell_government": 5 }
+  }
 }

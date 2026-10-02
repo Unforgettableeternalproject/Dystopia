@@ -17,7 +17,9 @@
 
 import type { LoreVault }         from '../lore/LoreVault';
 import type { StateManager }      from './StateManager';
-import type { PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects } from '../types/dialogue';
+import type {
+  PlayerAttitude, ScriptedNode, ScriptedChoice, ChoiceEffects, DialogueTrigger, DialogueProfile,
+} from '../types/dialogue';
 import type { FlagSystem }        from './FlagSystem';
 import type { InventoryItem }     from '../types/item';
 import { checkDateTimeConditions, checkTimeRanges } from '../utils/dateTimeCondition';
@@ -42,6 +44,11 @@ export interface ScriptedTriggerResult {
   nodeId:         string;
   node:           ScriptedNode;
   endAfterScript: boolean;
+  /**
+   * 擁有此 node 的 profile ID。繼承自預設 profile 的 persistent trigger 會回傳預設 profile ID，
+   * 呼叫端須以此 ID 啟動劇本對話，讓後續 nodes 在同一份 profile 內解析。
+   */
+  dialogueId:     string;
 }
 
 export class DialogueManager {
@@ -65,9 +72,25 @@ export class DialogueManager {
     firedNodes?:      ReadonlySet<string>,
   ): ScriptedTriggerResult | null {
     const profile = this.lore.getDialogueProfile(npcId, dialogueId);
-    if (!profile || !profile.triggers?.length) return null;
+    if (!profile) return null;
 
-    for (const trigger of profile.triggers) {
+    // 預設 profile 中 persistent 的（劇情關鍵）triggers 先評估，再接 active profile 自身的 triggers，
+    // 讓劇情推進優先於機率閒聊。trigger 沒有 id，以 nodeId 為身分；與 active 重複者以 active 為準。
+    const activeCandidates = (profile.triggers ?? []).map(trigger => ({ trigger, owner: profile }));
+    const inherited: Array<{ trigger: DialogueTrigger; owner: DialogueProfile }> = [];
+    const defaultId = this.lore.getDefaultDialogueId(npcId);
+    if (defaultId && defaultId !== profile.id) {
+      const defaultProfile = this.lore.getDialogue(defaultId);
+      for (const trigger of defaultProfile?.triggers ?? []) {
+        if (!trigger.persistent) continue;
+        if (activeCandidates.some(c => c.trigger.nodeId === trigger.nodeId)) continue;
+        inherited.push({ trigger, owner: defaultProfile! });
+      }
+    }
+    const candidates = [...inherited, ...activeCandidates];
+    if (candidates.length === 0) return null;
+
+    for (const { trigger, owner } of candidates) {
       // Skip nodes already fired this session
       if (firedNodes?.has(trigger.nodeId)) continue;
 
@@ -88,10 +111,15 @@ export class DialogueManager {
       if (prob < 100 && Math.random() * 100 > prob) continue;
 
       // All conditions passed — find the node
-      const node = profile.nodes?.[trigger.nodeId];
+      const node = owner.nodes?.[trigger.nodeId];
       if (!node) continue;
 
-      return { nodeId: trigger.nodeId, node, endAfterScript: trigger.endAfterScript ?? false };
+      return {
+        nodeId: trigger.nodeId,
+        node,
+        endAfterScript: trigger.endAfterScript ?? false,
+        dialogueId: owner.id,
+      };
     }
     return null;
   }
@@ -166,6 +194,12 @@ export class DialogueManager {
 
     if (effects.affinity !== undefined) {
       this.state.modifyAffinity(npcId, effects.affinity);
+    }
+
+    if (effects.affinityChanges) {
+      for (const [targetNpcId, delta] of Object.entries(effects.affinityChanges)) {
+        this.state.modifyAffinity(targetNpcId, delta);
+      }
     }
 
     if (effects.reputation) {

@@ -128,6 +128,10 @@ describe('Crambell route4 — Kane forest handoff back_out', () => {
     quests.checkObjectives();
 
     expect(state.flags.has('crambell_kane_deal_abandoned')).toBe(true);
+    // 臨陣毀約：凱恩好感 -10、政府聲望 -5（僅由遭遇套用，onFail 不重複扣）
+    const repBefore = state.getState().player.externalStats.reputation['crambell_government'] ?? 0;
+    expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(-10);
+    expect(repBefore).toBe(-5);
     // failCondition 掃描前，任務仍停在 meet_for_handoff
     expect(state.getState().activeQuests[QUEST_ID]?.isFailed).toBeFalsy();
 
@@ -137,6 +141,8 @@ describe('Crambell route4 — Kane forest handoff back_out', () => {
     expect(inst?.isFailed).toBe(true);
     expect(inst?.isCompleted).toBeFalsy();
     expect(state.getState().completedQuestIds).toContain(QUEST_ID);
+    expect(state.getState().player.externalStats.reputation['crambell_government']).toBe(repBefore);
+    expect(state.getState().player.externalStats.affinity['crambell_kane']).toBe(-10);
     expect(state.flags.has('crambell_kane_deal_completed')).toBe(false);
 
     // 交付事件不再觸發；凱恩休息時段回到排水溝

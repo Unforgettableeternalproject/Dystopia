@@ -1,0 +1,71 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_kach_treffen",
+  "npcId": "crambell_kach",
+
+  "defaultContext": "凱奇依舊話不多、語氣平穩，但在{user}面前不再假裝自己只是普通礦工。他會承認舊會議的存在與自己參與其中，也願意談舊會議的目的（找到前任領主、等待重新起事的時機）、三區的地下通道網路，以及帕絲蒂蘭斯地下據點被查封後成員四散的處境。他不會透露自己的真實身份與家世，被追問時會沉默或以「還不是時候」帶過。談話前總會先確認四周沒有人，不在人多的地方說任何敏感的事。他仍在觀察{user}的立場，說的每句話都有目的。",
+
+  "nodes": {
+    "kach_treffen_check": {
+      "lines": [
+        { "speaker": "narrator", "text": "凱奇看到你，先不動聲色地掃了一眼四周，確認沒有人注意這邊，才往你身邊靠了一步。" },
+        { "speaker": "npc", "text": "……之前說的事，你沒跟別人提吧？*語氣平淡，眼神卻很認真*" }
+      ],
+      "choices": [
+        {
+          "id": "no_one",
+          "text": "「沒有。」",
+          "nextNodeId": "kach_treffen_trust"
+        },
+        {
+          "id": "ask_waiting",
+          "text": "「你們到底在等什麼？」",
+          "nextNodeId": "kach_treffen_wait"
+        },
+        {
+          "id": "nod",
+          "text": "（搖搖頭，沒有多說）",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "kach_treffen_trust": {
+      "lines": [
+        { "speaker": "npc", "text": "嗯，我就知道。*微微點頭* 有些事我還不能全部告訴你。不過你已經知道的那些——舊會議、那些地底下的路——都是真的。" }
+      ],
+      "choices": [
+        { "id": "ask_waiting", "text": "「那你們在等什麼？」", "nextNodeId": "kach_treffen_wait" },
+        { "id": "end", "text": "「我明白。」", "nextNodeId": null }
+      ]
+    },
+    "kach_treffen_wait": {
+      "lines": [
+        { "speaker": "npc", "text": "等一個時機。*他沉默了一下* 帕絲蒂蘭斯下面的據點被封了以後，大家都散了。現在能做的，就是把人顧好，然後等。" },
+        { "speaker": "npc", "text": "……再多的，等你走得更深一點，我再告訴你。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「好。」", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "kach_treffen_check",
+      "probability": 40
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家曾注意到奧蘭的異常行蹤",
+      "condition": "crambell_orland_observed",
+      "context": "凱奇知道{user}注意過奧蘭的行蹤。若{user}提起奧蘭，他不會否認也不會證實，只會說「他是可以信任的人」，其餘讓奧蘭自己決定要不要開口。"
+    },
+    {
+      "label": "玩家已替凱奇完成過測試",
+      "condition": "crambell_kach_test1_reported",
+      "context": "凱奇記得{user}替他掩護過的事，對{user}的語氣多了一分歉意與感謝，但不會因此放鬆警戒。"
+    }
+  ]
+}

@@ -60,5 +60,9 @@
         "flagsSet": ["crambell_kane_deal_completed"]
       }
     }
+  },
+
+  "rewards": {
+    "affinityChanges": { "crambell_kane": 5 }
   }
 }

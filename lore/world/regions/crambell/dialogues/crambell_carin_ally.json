@@ -1,0 +1,19 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂（MVP 預計不會出現此 NPC，僅留最簡版本）",
+  "id": "crambell_carin_ally",
+  "npcId": "crambell_carin",
+
+  "defaultContext": "卡林把{user}視為可以共事的人，但說話方式沒有因此變得熱絡：依然克制、字句精確，不多說一個字，習慣先聽再說。他會直接交代事情的重點與要求，不解釋自己的理由，也不閒聊。對{user}的認可只表現在願意把話說完、願意多停留片刻。不談政變、不談舊會議的過去，被問起時以沉默或一句「與現在無關」結束話題。",
+
+  "nodes": {},
+
+  "triggers": [],
+
+  "contextSnippets": [
+    {
+      "label": "玩家得知卡林刺殺前任領主",
+      "condition": "crambell_carin_truth_known",
+      "context": "卡林知道{user}已經知道他親手刺殺了厄羅·斯洛。在盟友關係下他不會因此敵視{user}，但會明確劃出界線：這件事不在可以討論的範圍內。"
+    }
+  ]
+}

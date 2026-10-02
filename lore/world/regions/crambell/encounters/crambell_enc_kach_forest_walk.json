@@ -16,6 +16,7 @@
         },
         {
           "id": "accept_no_question",
+          "condition": "!crambell_peoples_alliance_betrayed & !crambell_player_allied_government",
           "text": "「好，我幫你。」",
           "nextNodeId": "kach_grateful"
         },
@@ -32,6 +33,7 @@
       "choices": [
         {
           "id": "accept",
+          "condition": "!crambell_peoples_alliance_betrayed & !crambell_player_allied_government",
           "text": "「好吧。我幫你。」",
           "nextNodeId": "kach_grateful"
         },

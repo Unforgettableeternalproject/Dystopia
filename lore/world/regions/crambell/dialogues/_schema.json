@@ -76,7 +76,14 @@
             "completeObjective": { "questId": "quest_id", "objectiveId": "objective_id" },
 
             "_npc_knowledge": "Set NPC-local knowledge flags. key = npcId, value = flag ID array. Flags are scoped to npcMemory[npcId].flags, NOT global FlagSystem. Used for 'player learns about another NPC from this NPC' scenarios.",
-            "npcFlagsSet": { "target_npc_id": ["flag_id_to_set_on_target_npc"] }
+            "npcFlagsSet": { "target_npc_id": ["flag_id_to_set_on_target_npc"] },
+
+            "_other_npc_affinity": "對任意 NPC 的好感變化（key = npcId）。與 affinity（只作用於當前對話 NPC）獨立累加。",
+            "affinityChanges": { "other_npc_id": -15 },
+
+            "_ditch": "ditchQuestId：出賣／放棄指定任務並套用其 ditchConsequences 與階段 onDitch。ditchSkipConsequences: true 時只做任務層處理（移除、標記、陣營樹信用照扣），不套用任務後果——用於因別的理由放棄任務、而非出賣任務本身。",
+            "ditchQuestId": "quest_id",
+            "ditchSkipConsequences": true
           }
         },
         {
@@ -106,6 +113,12 @@
       "nodeId": "day_blocked_node",
       "endAfterScript": true,
       "timeRanges": [{ "startHour": 6, "startMinute": 0, "endHour": 21, "endMinute": 59 }]
+    },
+    {
+      "_note": "persistent: true（只在 NPC 預設 profile 中有意義）— NPC 因 dialogueRules 切換到其他 profile 後仍繼承此 trigger，排在 active profile 自身 triggers 之前評估（劇情優先於機率閒聊）（相同 nodeId 以 active 為準）。觸發後整段對話以預設 profile 執行。用於任務／旗標推進等劇情關鍵 trigger。",
+      "nodeId": "plot_critical_node",
+      "condition": "quest_id:active & progress_flag",
+      "persistent": true
     }
   ],
 

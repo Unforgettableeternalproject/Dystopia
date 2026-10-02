@@ -163,7 +163,9 @@
           "nextNodeId": null,
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
+            "reputation": { "crambell_treffen": -30 },
             "affinity": 2,
+            "affinityChanges": { "crambell_kach": -15 },
             "ditchQuestId": "crambell_kach_test2"
           }
         },
@@ -174,7 +176,9 @@
           "nextNodeId": null,
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
+            "reputation": { "crambell_treffen": -30 },
             "affinity": 2,
+            "affinityChanges": { "crambell_kach": -15 },
             "ditchQuestId": "crambell_kach_test3"
           }
         },
@@ -185,7 +189,9 @@
           "nextNodeId": null,
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_kach_betrayed_kane"],
-            "affinity": 2
+            "reputation": { "crambell_treffen": -30 },
+            "affinity": 2,
+            "affinityChanges": { "crambell_kach": -15 }
           }
         }
       ]
@@ -206,7 +212,9 @@
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
             "reputation": { "crambell_peoples_alliance": -20 },
             "affinity": 2,
-            "ditchQuestId": "crambell_kach_test1"
+            "affinityChanges": { "crambell_mildore": -15 },
+            "ditchQuestId": "crambell_kach_test1",
+            "ditchSkipConsequences": true
           }
         },
         {
@@ -218,7 +226,9 @@
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
             "reputation": { "crambell_peoples_alliance": -20 },
             "affinity": 2,
-            "ditchQuestId": "crambell_kach_test2"
+            "affinityChanges": { "crambell_mildore": -15 },
+            "ditchQuestId": "crambell_kach_test2",
+            "ditchSkipConsequences": true
           }
         },
         {
@@ -230,7 +240,9 @@
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
             "reputation": { "crambell_peoples_alliance": -20 },
             "affinity": 2,
-            "ditchQuestId": "crambell_kach_test3"
+            "affinityChanges": { "crambell_mildore": -15 },
+            "ditchQuestId": "crambell_kach_test3",
+            "ditchSkipConsequences": true
           }
         },
         {
@@ -241,7 +253,8 @@
           "effects": {
             "flagsSet": ["crambell_kane_intel_delivered", "crambell_peoples_alliance_betrayed"],
             "reputation": { "crambell_peoples_alliance": -20 },
-            "affinity": 2
+            "affinity": 2,
+            "affinityChanges": { "crambell_mildore": -15 }
           }
         }
       ]
@@ -256,7 +269,8 @@
     },
     {
       "nodeId": "kane_intel_offer",
-      "condition": "crambell_kane_approached & crambell_kane_intel_ready & !crambell_kane_intel_delivered"
+      "condition": "crambell_kane_approached & crambell_kane_intel_ready & !crambell_kane_intel_delivered",
+      "persistent": true
     }
   ],
 

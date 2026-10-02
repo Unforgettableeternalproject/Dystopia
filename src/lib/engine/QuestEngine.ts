@@ -106,8 +106,10 @@ export class QuestEngine {
   /**
    * Player abandons a ditch-able quest.
    * Applies ditchConsequences from current stage (if defined), then definition level.
+   * options.skipConsequences = true：只做任務層處理（移除、標記、陣營樹信用），
+   * 不套用階段 onDitch 與 ditchConsequences。
    */
-  ditchQuest(questId: string): boolean {
+  ditchQuest(questId: string, options?: { skipConsequences?: boolean }): boolean {
     const def      = this.lore.getQuest(questId);
     const instance = this.state.getState().activeQuests[questId];
     if (!def || !instance || !def.canDitch) return false;
@@ -115,8 +117,9 @@ export class QuestEngine {
     if (instance.isCompleted || instance.isFailed || instance.isDitched) return false;
 
     // Stage-level ditch outcomes first
+    const skip  = options?.skipConsequences === true;
     const stage = instance.currentStageId ? def.stages[instance.currentStageId] : undefined;
-    if (stage?.onDitch) {
+    if (!skip && stage?.onDitch) {
       const od = stage.onDitch;
       od.flagsSet?.forEach(f => this.state.flags.set(f));
       od.flagsUnset?.forEach(f => this.state.flags.unset(f));
@@ -132,7 +135,7 @@ export class QuestEngine {
       }
     }
 
-    this.state.ditchQuest(questId, def.ditchConsequences);
+    this.state.ditchQuest(questId, skip ? undefined : def.ditchConsequences);
 
     // Faction tree: apply credit penalty
     this.factionTree?.onQuestDitch(questId);

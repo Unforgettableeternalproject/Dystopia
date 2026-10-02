@@ -65,7 +65,9 @@
       "outcomeType": "failure",
       "effects": {
         "flagsSet": ["crambell_kane_deal_abandoned"],
-        "statChanges": { "statusStats.stress": 3 }
+        "statChanges": { "statusStats.stress": 3 },
+        "reputationChanges": { "crambell_government": -5 },
+        "affinityChanges": { "crambell_kane": -10 }
       }
     }
   }

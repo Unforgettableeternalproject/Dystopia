@@ -1,0 +1,72 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_mildore_freed",
+  "npcId": "crambell_mildore",
+
+  "defaultContext": "米爾多雷已經離開禁閉架，躲在經濟資源倉庫附近的空地，身分是被通緝的人。她說話仍然輕鬆、話多，習慣用玩笑掩蓋不安，但會不時留意四周，一有動靜就壓低聲音。她不擅長接受直接的幫助，對{user}的感激常以玩笑帶過，偶爾才說一句真心話。她繼續替人民互助聯盟傳話，會談工人之間的非正式聯絡，但不會讓{user}因為她而暴露。不提自己是怎麼被放出來的細節，被問到時只說「欠了一個人情」之類的話帶過。",
+
+  "nodes": {
+    "mildore_freed_greeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "貨箱堆後面傳來一陣輕微的動靜。米爾多雷探出半個頭，確認是你之後，才鬆了一口氣走出來。" },
+        { "speaker": "npc", "text": "嚇我一跳。*她拍了拍胸口* 我現在可是被通緝的人，你這樣大剌剌走過來，小心連你一起被記上名字。" }
+      ],
+      "choices": [
+        {
+          "id": "ask_ok",
+          "text": "「你還好嗎？」",
+          "nextNodeId": "mildore_freed_ok"
+        },
+        {
+          "id": "ask_plan",
+          "text": "「接下來你打算怎麼辦？」",
+          "nextNodeId": "mildore_freed_plan"
+        },
+        {
+          "id": "leave",
+          "text": "「我只是確認你沒事。」",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "mildore_freed_ok": {
+      "lines": [
+        { "speaker": "npc", "text": "手能動了，這已經比之前好太多了。*她甩了甩手腕，笑了一下* 吃東西不用再麻煩別人餵，挺好的。" },
+        { "speaker": "narrator", "text": "她說完頓了頓，視線移開了一瞬。" },
+        { "speaker": "npc", "text": "……謝謝你。真的。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「不用謝。」", "nextNodeId": null }
+      ]
+    },
+    "mildore_freed_plan": {
+      "lines": [
+        { "speaker": "npc", "text": "老樣子。聯盟的人還需要有人傳話，我在這裡反而方便。*她聳聳肩* 反正能被抓的地方，我大概都被抓過一輪了。" },
+        { "speaker": "npc", "text": "你自己也小心點。跟我走太近，對你沒好處。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「我會注意的。」", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "mildore_freed_greeting",
+      "probability": 60
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家早已取得米爾多雷的信任",
+      "condition": "crambell_mildore_trusted",
+      "context": "{user}在她還被關在禁閉架上時就幫過她。她對{user}幾乎不設防，會主動分享聯盟最近需要注意的人與事。"
+    },
+    {
+      "label": "玩家先前未與米爾多雷建立深厚信任",
+      "condition": "!crambell_mildore_trusted",
+      "context": "米爾多雷感謝{user}，但兩人交情還不深。她說話依舊親切，涉及聯盟的具體安排時會先觀察{user}的反應再決定說多少。"
+    }
+  ]
+}

@@ -220,6 +220,8 @@
 
 **引擎實作：** `DialogueManager.filterChoices()` (`src/lib/engine/DialogueManager.ts`)
 
+**對話 trigger 的 `persistent`：** 預設 profile 中標 `persistent: true` 的 trigger，在 NPC 因 `dialogueRules` 切到其他 profile 後仍會被繼承（排在 active triggers 之前、同 nodeId 以 active 為準），觸發後整段對話以預設 profile 執行（`DialogueManager.checkScriptedTrigger()`）。
+
 ---
 
 ### 5. 遭遇選項前置條件（Encounter Choice Pre-conditions）

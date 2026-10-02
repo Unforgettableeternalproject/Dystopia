@@ -1,0 +1,71 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_kach_deep",
+  "npcId": "crambell_kach",
+
+  "defaultContext": "凱奇在{user}面前已幾乎不設防，說話比以往直接，偶爾會流露出平時藏起來的疲憊與執念。他會坦白談舊會議的現況、地下通道網路與成員之間的安排。若{user}直接問起他的身份，他會承認自己本名凱爾斯·斯洛，是前任領主厄羅·斯洛之子，隱姓埋名是為了等待時機；他的目標是找到父親、推翻現任政府。他不知道父親的下落，不會編造任何線索。提到政變或奇萊兄弟時語氣會變冷，但不會失控。在人前仍維持那個話不多的礦工凱奇，只有確認四下無人時才會這樣說話。",
+
+  "nodes": {
+    "kach_deep_night": {
+      "lines": [
+        { "speaker": "narrator", "text": "四周很安靜。凱奇坐在一旁，目光落在遠處，過了一會兒才開口，聲音很輕。" },
+        { "speaker": "npc", "text": "……{user}，你有沒有想過，這裡換一個樣子會是什麼感覺？" }
+      ],
+      "choices": [
+        {
+          "id": "ask_after",
+          "text": "「你是說舊會議成功之後？」",
+          "nextNodeId": "kach_deep_hope"
+        },
+        {
+          "id": "ask_him",
+          "text": "「你呢？你想要的是什麼？」",
+          "nextNodeId": "kach_deep_goal"
+        },
+        {
+          "id": "rest",
+          "text": "「別想太多了。」",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "kach_deep_hope": {
+      "lines": [
+        { "speaker": "npc", "text": "如果能找到他的話。*停頓了一下，像是意識到自己說多了* ……不，現在說這些還太早。" }
+      ],
+      "choices": [
+        { "id": "ask_who", "text": "「『他』是誰？」", "nextNodeId": null },
+        { "id": "let_go", "text": "（不追問）", "nextNodeId": null }
+      ]
+    },
+    "kach_deep_goal": {
+      "lines": [
+        { "speaker": "npc", "text": "*他沉默了很久* ……把被拿走的東西拿回來。就這樣。" },
+        { "speaker": "narrator", "text": "他說得很平靜，但你聽得出那句話底下壓著很重的東西。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "（點頭）", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "kach_deep_night",
+      "probability": 30
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "奧蘭已向玩家表明身份",
+      "condition": "crambell_orland_treffen_confirmed",
+      "context": "凱奇知道奧蘭已經親自向{user}表明身份。他會自然地把奧蘭當成三人之間的共同話題，談到物資與人員的轉移時不再迴避。"
+    },
+    {
+      "label": "玩家已正式加入舊會議",
+      "condition": "player_joined_crambell_treffen",
+      "context": "{user}已正式成為舊會議的一員。凱奇把{user}視為同伴而非受測者，會主動分享計畫的方向，但仍不讓{user}承擔不必要的風險。"
+    }
+  ]
+}

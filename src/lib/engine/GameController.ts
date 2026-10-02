@@ -652,7 +652,7 @@ export class GameController {
           this._sessionFiredTriggers.add(scripted.nodeId);
           this.updateActiveNpcUI(finalAction.targetId);
           await this.activateScriptedNode(
-            finalAction.targetId, npc.activeDialogueId, npc.name,
+            finalAction.targetId, scripted.dialogueId, npc.name,
             scripted.nodeId, scripted.node, scripted.endAfterScript,
           );
           inputDisabled.set(false);
@@ -879,7 +879,7 @@ export class GameController {
           if (encScripted) {
             this._sessionFiredTriggers.add(encScripted.nodeId);
             await this.activateScriptedNode(
-              enc.npcId, encNpc.activeDialogueId, encNpc.name,
+              enc.npcId, encScripted.dialogueId, encNpc.name,
               encScripted.nodeId, encScripted.node, encScripted.endAfterScript,
             );
             inputDisabled.set(false);
@@ -1495,7 +1495,9 @@ export class GameController {
         this.state.completeObjective(questId, objectiveId);
       }
       if (choice.effects?.ditchQuestId) {
-        this.quests.ditchQuest(choice.effects.ditchQuestId);
+        this.quests.ditchQuest(choice.effects.ditchQuestId, {
+          skipConsequences: choice.effects.ditchSkipConsequences === true,
+        });
       }
 
       const updatedNarrative = current.collectedNarrative + '\n[玩家]: ' + choice.text;
@@ -2579,7 +2581,7 @@ export class GameController {
       );
       if (scripted) {
         this._sessionFiredTriggers.add(scripted.nodeId);
-        await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node, scripted.endAfterScript);
+        await this.activateScriptedNode(npcId, scripted.dialogueId, npc.name, scripted.nodeId, scripted.node, scripted.endAfterScript);
         return;
       }
     }
@@ -4727,7 +4729,7 @@ export class GameController {
     );
     if (scripted) {
       this._sessionFiredTriggers.add(scripted.nodeId);
-      await this.activateScriptedNode(npcId, npc.activeDialogueId, npc.name, scripted.nodeId, scripted.node, scripted.endAfterScript);
+      await this.activateScriptedNode(npcId, scripted.dialogueId, npc.name, scripted.nodeId, scripted.node, scripted.endAfterScript);
     } else {
       // No scripted trigger — NPC opens the conversation via LLM
       await this.handleDialogueInput('(opener)', npcId, true);

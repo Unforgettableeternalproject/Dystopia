@@ -310,6 +310,7 @@
     {
       "nodeId": "bread_intro",
       "condition": "crambell_task_shackles_started & !crambell_task_shackles_completed",
+      "persistent": true,
       "timeRanges": [
         { "startHour": 22, "startMinute": 0, "endHour": 5, "endMinute": 59 }
       ]

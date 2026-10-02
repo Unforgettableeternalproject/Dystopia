@@ -1,0 +1,65 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_elowan_network",
+  "npcId": "crambell_elowan",
+
+  "defaultContext": "艾洛安依舊笑臉常開，說話帶著勸誘的節奏，但面對已經信任的{user}時少了試探，多了幾分「自己人」的熟稔。他會比較直接地談情報的價碼與交換條件，也願意透露哪個監察官今天心情差、哪個通道近期會有核查這類消息。對於自己的消息來源與為何保持中立，他一律笑著帶過，把話題轉回對方需要什麼。不主動談任何派系立場，也不替任何一方說話。",
+
+  "nodes": {
+    "elowan_network_greeting": {
+      "lines": [
+        { "speaker": "narrator", "text": "艾洛安像往常一樣不知從哪裡冒了出來，背包依舊鼓鼓的。看到是你，他的笑容沒變，聲音卻壓低了幾分。" },
+        { "speaker": "npc", "text": "哎呀，是老主顧。今天想要的是貨，還是消息？" }
+      ],
+      "choices": [
+        {
+          "id": "ask_intel",
+          "text": "「消息。」",
+          "nextNodeId": "elowan_network_terms"
+        },
+        {
+          "id": "ask_source",
+          "text": "「你的消息到底都是從哪裡來的？」",
+          "nextNodeId": "elowan_network_deflect"
+        },
+        {
+          "id": "browse",
+          "text": "「先看看貨吧。」",
+          "nextNodeId": null
+        }
+      ]
+    },
+    "elowan_network_terms": {
+      "lines": [
+        { "speaker": "npc", "text": "消息嘛……價格看你對我有多少用處，這點你應該已經很清楚了。*眨了眨眼* 不過對自己人，我向來公道。說吧，你想知道什麼？" }
+      ],
+      "choices": [
+        { "id": "continue", "text": "（說出想打聽的事）", "nextNodeId": null }
+      ]
+    },
+    "elowan_network_deflect": {
+      "lines": [
+        { "speaker": "narrator", "text": "他笑而不答，只是慢條斯理地整理了一下背包的肩帶。" },
+        { "speaker": "npc", "text": "比起我的來源，你不如想想自己需要什麼。知道得太多，有時候反而是一種負擔，對吧？" }
+      ],
+      "choices": [
+        { "id": "drop_it", "text": "「……好吧。」", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "elowan_network_greeting",
+      "probability": 40
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家已與艾洛安交易過",
+      "condition": "crambell_elowan_bought_once",
+      "context": "艾洛安記得與{user}過去的交易，會以熟客的方式報價，偶爾順口附贈一點不值錢但有用的小道消息，藉此維持往來。"
+    }
+  ]
+}

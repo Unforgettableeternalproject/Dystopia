@@ -65,6 +65,19 @@ export interface ChoiceEffects {
    * 套用任務定義中的 ditchConsequences（聲望、好感、旗標等）。
    */
   ditchQuestId?: string;
+
+  /**
+   * 搭配 ditchQuestId：為 true 時只做任務層處理（移除任務、標記 ditched、陣營樹信用照常扣），
+   * 不套用任務的 ditchConsequences 與階段 onDitch。
+   * 用於「為了別的理由放棄此任務」而非出賣任務本身的情境。
+   */
+  ditchSkipConsequences?: boolean;
+
+  /**
+   * 對任意 NPC 的好感變化。key = npcId，value = delta。
+   * 與 `affinity`（只作用於當前對話 NPC）獨立累加。
+   */
+  affinityChanges?: Record<string, number>;
 }
 
 /**
@@ -206,6 +219,13 @@ export interface DialogueTrigger {
    * Default: false (LLM opener fires after scripted segment, current behaviour).
    */
   endAfterScript?: boolean;
+  /**
+   * 劇情關鍵 trigger 標記（只在 NPC 預設 profile 中有意義）。
+   * true 時，NPC 因 dialogueRules 切換到其他 profile 後仍繼承此 trigger，
+   * 排在 active profile 自身 triggers 之前評估（劇情優先於閒聊）；active profile 有相同 nodeId 的 trigger 時以 active 為準。
+   * 觸發後整段劇本對話以預設 profile 執行，後續 nodes 從預設 profile 解析。
+   */
+  persistent?: boolean;
 }
 
 // ── Context Snippets ──────────────────────────────────────────

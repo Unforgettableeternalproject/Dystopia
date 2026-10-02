@@ -51,6 +51,14 @@
         "flagsSet": ["crambell_kach_test1_completed", "crambell_treffen_lead_known", "crambell_kane_intel_ready"],
         "nextStageId": "report_back"
       },
+      "failCondition": {
+        "flags": ["crambell_kach_cover_blown"],
+        "_comment": "勘查中向工頭揭發凱奇（crambell_enc_survey → kach_exposed）後掩護目標無法達成，直接失敗。"
+      },
+      "onFail": {
+        "nextStageId": null,
+        "_comment": "kach_exposed 已套用 kach −10、government +2；onFail 只做結構結果，不重複套用聲望。"
+      },
       "onDitch": {
         "reputationChanges": { "crambell_government": 10 }
       }

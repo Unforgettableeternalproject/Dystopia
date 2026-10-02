@@ -1,0 +1,97 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_orland_revealed",
+  "npcId": "crambell_orland",
+
+  "defaultContext": "奧蘭（本名奧克利·尼可羅）已主動向{user}表明自己是舊會議成員。他依然隨和開朗、講話自然，但在{user}面前不再把敏感話題輕輕帶過：他會直接談自己負責在三區內部運送物資與消息、轉移路線與人員安排的大致方式，以及與凱奇之間長年的信任。在旁人面前，他仍然是那個哼著歌、跟誰都聊得來的物流司機，會用玩笑把{user}的問題岔開，等四下無人再說。他不會透露其他成員的名字，也不會替凱奇說他自己還沒說出口的事。",
+
+  "nodes": {
+    "orland_reveal_open": {
+      "lines": [
+        { "speaker": "narrator", "text": "奧蘭朝你走過來，這次沒有哼歌。他臉上的笑容還在，聲音卻壓低了。" },
+        { "speaker": "npc", "text": "嘿，{user}。找個沒人的地方聊聊？*他朝貨架後面偏了偏頭* ……我想你大概已經猜到一些了。" }
+      ],
+      "choices": [
+        {
+          "id": "say_it",
+          "text": "「你是舊會議的人。」",
+          "nextNodeId": "orland_reveal_confirm"
+        },
+        {
+          "id": "ask_what",
+          "text": "「猜到什麼？」",
+          "nextNodeId": "orland_reveal_confirm"
+        }
+      ]
+    },
+    "orland_reveal_confirm": {
+      "lines": [
+        { "speaker": "npc", "text": "*他笑了，像是鬆了一口氣* 奧克利·尼可羅。這才是我的名字。不過大家都叫我奧蘭，叫久了我自己也習慣了。" },
+        { "speaker": "npc", "text": "我在三區裡頭跑的不只是貨——消息也是，有時候是人。凱奇信得過的事，大多會經過我的手。" },
+        { "speaker": "npc", "text": "這次是我自己決定來找你的，不是誰叫我來的。*他看著你* 你已經走得夠深了，再瞞著你，不太公平。" }
+      ],
+      "choices": [
+        {
+          "id": "thanks",
+          "text": "「謝謝你告訴我。」",
+          "nextNodeId": "orland_reveal_end",
+          "effects": { "flagsSet": ["crambell_orland_treffen_confirmed"] }
+        },
+        {
+          "id": "ask_why_now",
+          "text": "「為什麼現在才說？」",
+          "nextNodeId": "orland_reveal_why"
+        },
+        {
+          "id": "reserve",
+          "text": "「……我需要時間想想。」",
+          "nextNodeId": "orland_reveal_end",
+          "effects": { "flagsSet": ["crambell_orland_treffen_confirmed"] }
+        }
+      ]
+    },
+    "orland_reveal_why": {
+      "lines": [
+        { "speaker": "npc", "text": "因為之前你知道得越少越安全啊。*聳聳肩* 現在情況不一樣了，再裝傻下去，反而會害到你。" }
+      ],
+      "choices": [
+        {
+          "id": "accept",
+          "text": "「我明白了。」",
+          "nextNodeId": "orland_reveal_end",
+          "effects": { "flagsSet": ["crambell_orland_treffen_confirmed"] }
+        },
+        {
+          "id": "reserve",
+          "text": "「……我需要時間想想。」",
+          "nextNodeId": "orland_reveal_end",
+          "effects": { "flagsSet": ["crambell_orland_treffen_confirmed"] }
+        }
+      ]
+    },
+    "orland_reveal_end": {
+      "lines": [
+        { "speaker": "npc", "text": "嗯，不急。*拍拍你的肩，笑容又恢復成平常的樣子* 在別人面前，我還是那個跑車的奧蘭，你也照舊就好。有事就來倉庫找我。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "（點頭）", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "orland_reveal_open",
+      "condition": "crambell_treffen_trust_high & !crambell_orland_treffen_confirmed",
+      "endAfterScript": true
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "奧蘭已向玩家完成身份說明",
+      "condition": "crambell_orland_treffen_confirmed",
+      "context": "奧蘭已經親口向{user}說明自己的身份。他會更直接地分享內部安排與轉移路線的細節，把{user}當成自己人，但在公開場合仍維持物流司機的樣子。"
+    }
+  ]
+}

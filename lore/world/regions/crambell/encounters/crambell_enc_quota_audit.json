@@ -46,6 +46,9 @@
         "melphinChange": -10,
         "statChanges": {
           "statusStats.stress": 2
+        },
+        "reputationChanges": {
+          "crambell_government": -2
         }
       }
     }

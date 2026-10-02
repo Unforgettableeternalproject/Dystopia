@@ -329,13 +329,15 @@
     },
     {
       "nodeId": "second_meeting",
-      "condition": "crambell_kach_second_meeting_ready & !crambell_kach_test1_invited & !crambell_kach_betrayed",
-      "endAfterScript": true
+      "condition": "crambell_kach_second_meeting_ready & !crambell_kach_test1_invited & !crambell_kach_betrayed & !crambell_peoples_alliance_betrayed & !crambell_player_allied_government",
+      "endAfterScript": true,
+      "persistent": true
     },
     {
       "nodeId": "test2_report",
-      "condition": "crambell_kach_test2_document_obtained & !crambell_kach_test2_reported & !crambell_kach_betrayed",
-      "endAfterScript": true
+      "condition": "crambell_kach_test2:active & crambell_kach_test2_document_obtained & !crambell_kach_test2_reported & !crambell_kach_betrayed",
+      "endAfterScript": true,
+      "persistent": true
     }
   ],
 

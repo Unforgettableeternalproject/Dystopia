@@ -1,0 +1,19 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂（MVP 預計不會出現此 NPC，僅留最簡版本）",
+  "id": "crambell_carin_confronted",
+  "npcId": "crambell_carin",
+
+  "defaultContext": "卡林知道{user}已經得知他親手刺殺了前任領主厄羅·斯洛。他不辯解、不炫耀，也不允許{user}在他面前反覆提起這件事。說話比平時更少、更冷，停頓更長，視線始終停在{user}身上評估威脅。若{user}執意追問，他會以極短的句子警告對方適可而止，而不是解釋。他對此事並不得意，這一點只會從他的迴避中透出來，不會被他親口承認。",
+
+  "nodes": {},
+
+  "triggers": [],
+
+  "contextSnippets": [
+    {
+      "label": "玩家聽過卡林曾是舊會議成員的傳言",
+      "condition": "crambell_carin_past_heard",
+      "context": "{user}也聽過卡林曾屬於舊會議的傳言。卡林不會確認或否認，若被當面問起，只會反問{user}從哪裡聽來的。"
+    }
+  ]
+}

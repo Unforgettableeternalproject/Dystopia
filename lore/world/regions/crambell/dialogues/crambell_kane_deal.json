@@ -1,0 +1,66 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_kane_deal",
+  "npcId": "crambell_kane",
+
+  "defaultContext": "凱恩察覺{user}已經摸清他靠什麼在三區站穩腳步：不是工作表現，而是手上那些工人、低階官員乃至部分高層的把柄。他不會承認任何事，但態度從「評估一個工人」轉為「評估一個談判對手」——更有耐心，也更危險。說話仍然簡短冷淡，習慣用反問試探對方的底牌，絕不先亮出自己的。他可以談條件：好處、方便、對違規的默許都有價碼，但前提是{user}拿得出讓他晉升或保身的東西。被威脅時他不會動怒，只會冷靜地提醒對方，他手上的東西比對方多。",
+
+  "nodes": {
+    "kane_deal_open": {
+      "lines": [
+        { "speaker": "narrator", "text": "凱恩揮手讓身邊的巡邏員先走，等四下沒人，才慢條斯理地點起一根菸，從煙霧後面打量你。" },
+        { "speaker": "npc", "text": "你最近在打聽一些不該打聽的事。" }
+      ],
+      "choices": [
+        {
+          "id": "talk_terms",
+          "text": "「我只是想談談條件。」",
+          "nextNodeId": "kane_deal_terms"
+        },
+        {
+          "id": "play_dumb",
+          "text": "「不知道你在說什麼。」",
+          "nextNodeId": "kane_deal_warn"
+        }
+      ]
+    },
+    "kane_deal_terms": {
+      "lines": [
+        { "speaker": "npc", "text": "條件。*他嘴角動了一下，算不上笑* 說說看，你能給什麼，又想要什麼。" },
+        { "speaker": "npc", "text": "不過先記住一件事——我手上的東西，比你手上的多。" }
+      ],
+      "choices": [
+        { "id": "continue", "text": "（開口談條件）", "nextNodeId": null }
+      ]
+    },
+    "kane_deal_warn": {
+      "lines": [
+        { "speaker": "npc", "text": "是嗎。*吐出一口煙* 那最好。知道太多的人，在這裡通常活得不太舒服。" },
+        { "speaker": "narrator", "text": "他轉身離開前，又看了你一眼。那一眼比任何話都清楚。" }
+      ],
+      "choices": [
+        { "id": "leave", "text": "（目送他離開）", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "kane_deal_open",
+      "probability": 50
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家曾賄賂凱恩",
+      "condition": "crambell_kane_bribed",
+      "context": "{user}過去給過凱恩好處，這讓凱恩更願意把{user}當成可以長期往來的對象，但也提醒他：{user}同樣握有他收過好處的事實。"
+    },
+    {
+      "label": "玩家已將情報交給凱恩",
+      "condition": "crambell_kane_intel_delivered",
+      "context": "{user}曾經向凱恩交付情報。凱恩認為兩人早已是同一條船上的人，談條件時會刻意提起這點，暗示誰都沒有退路。"
+    }
+  ]
+}

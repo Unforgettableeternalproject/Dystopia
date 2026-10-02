@@ -614,8 +614,27 @@ export class LoreVault {
     return this.data.dialogues[id];
   }
 
+  /**
+   * 取得對話 profile。找不到 dialogueId 時退回該 NPC 的預設 profile（NPCNode.dialogueId），
+   * 對話檔以自身 id 為 key，不能用 npcId 查。
+   */
   getDialogueProfile(npcId: string, dialogueId: string): DialogueProfile | undefined {
-    return this.data.dialogues[dialogueId] ?? this.data.dialogues[npcId];
+    const direct = this.data.dialogues[dialogueId];
+    if (direct) return direct;
+
+    const defaultId = this.data.npcs[npcId]?.dialogueId;
+    const fallback  = defaultId ? this.data.dialogues[defaultId] : undefined;
+    if (fallback) {
+      console.warn(`[LoreVault] 找不到對話 profile「${dialogueId}」（NPC ${npcId}），退回預設 profile「${defaultId}」`);
+      return fallback;
+    }
+    console.warn(`[LoreVault] 找不到對話 profile「${dialogueId}」，NPC ${npcId} 也沒有可用的預設 profile`);
+    return undefined;
+  }
+
+  /** NPC 的預設對話 profile ID（NPC 檔中的 dialogueId，不套用 dialogueRules）。 */
+  getDefaultDialogueId(npcId: string): string | undefined {
+    return this.data.npcs[npcId]?.dialogueId;
   }
 
   // -- Events ----------------------------------------------------------

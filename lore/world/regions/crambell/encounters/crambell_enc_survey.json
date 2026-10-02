@@ -88,7 +88,9 @@
       "isOutcome": true,
       "outcomeType": "failure",
       "effects": {
-        "flagsSet": ["crambell_kach_cover_blown"]
+        "flagsSet": ["crambell_kach_cover_blown"],
+        "reputationChanges": { "crambell_government": 2 },
+        "affinityChanges": { "crambell_kach": -10 }
       }
     }
   }

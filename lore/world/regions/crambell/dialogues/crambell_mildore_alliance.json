@@ -1,0 +1,96 @@
+{
+  "_comment": "草稿：由 Claude 依既有 lore 撰寫，待 Bernie 修訂",
+  "id": "crambell_mildore_alliance",
+  "npcId": "crambell_mildore",
+
+  "defaultContext": "米爾多雷仍被固定在廣場的禁閉架上，手臂無法動，只能轉頭與說話。{user}替她送過吃的與水，她已把{user}當成可以信任的人：說話依舊輕鬆、愛開玩笑，但會比較直接地談人民互助聯盟——誰在哪裡、什麼時候方便傳話、哪些人最近需要被照顧。她不把聯盟說成反政府組織，只說是一群不想獨自扛著的人。她不會開口求{user}救她，被問到時會用玩笑帶過，例如等他們覺得示眾夠了自然會放她下來。不在有守衛的時候談任何敏感話題。",
+
+  "nodes": {
+    "mildore_alliance_day_guard": {
+      "lines": [
+        { "speaker": "narrator", "text": "禁閉架旁站著一名執勤人員，他的眼神掃了你一眼。「無事不要靠近。」他說，語氣不容置疑。" }
+      ],
+      "choices": [
+        { "id": "leave", "text": "（退開）", "nextNodeId": null }
+      ]
+    },
+    "mildore_alliance_night": {
+      "lines": [
+        { "speaker": "narrator", "text": "深夜的廣場只剩風聲。聽到熟悉的腳步聲，她把頭轉了過來，笑得比從前自然。" },
+        { "speaker": "npc", "text": "你來了。*她動了動被扣住的手腕，金屬發出輕響* 今晚也很安靜，適合聊天。" }
+      ],
+      "choices": [
+        {
+          "id": "ask_alliance",
+          "text": "「聯盟那邊最近怎麼樣？」",
+          "nextNodeId": "mildore_alliance_news"
+        },
+        {
+          "id": "ask_stay",
+          "text": "「你打算一直待在這裡嗎？」",
+          "nextNodeId": "mildore_alliance_joke"
+        },
+        {
+          "id": "just_visit",
+          "text": "「只是來看看你。」",
+          "nextNodeId": "mildore_alliance_thanks"
+        }
+      ]
+    },
+    "mildore_alliance_news": {
+      "lines": [
+        { "speaker": "npc", "text": "被綁在這裡，我能做的不多。*她壓低聲音* 不過話還是傳得出去——白天路過的人那麼多，總有人會多看我一眼。" },
+        { "speaker": "npc", "text": "你在礦場那邊碰到他們，就照常打招呼。不用刻意，刻意反而顯眼。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「我知道了。」", "nextNodeId": null }
+      ]
+    },
+    "mildore_alliance_joke": {
+      "lines": [
+        { "speaker": "npc", "text": "架子又不是我說了算。*她輕笑* 等他們覺得示眾夠了，就會放我下來——然後過一陣子，再把我抓回來。" },
+        { "speaker": "narrator", "text": "她說得像在開玩笑，眼神卻在那一瞬間沉了下去。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "「……保重。」", "nextNodeId": null }
+      ]
+    },
+    "mildore_alliance_thanks": {
+      "lines": [
+        { "speaker": "npc", "text": "……嗯。*她偏過頭，像是不太習慣這種話* 這裡會專程來看人的，不多。謝了。" }
+      ],
+      "choices": [
+        { "id": "end", "text": "（陪她待一會兒）", "nextNodeId": null }
+      ]
+    }
+  },
+
+  "triggers": [
+    {
+      "nodeId": "mildore_alliance_day_guard",
+      "endAfterScript": true,
+      "timeRanges": [
+        { "startHour": 6, "startMinute": 0, "endHour": 21, "endMinute": 59 }
+      ]
+    },
+    {
+      "nodeId": "mildore_alliance_night",
+      "timeRanges": [
+        { "startHour": 22, "startMinute": 0, "endHour": 5, "endMinute": 59 }
+      ]
+    }
+  ],
+
+  "contextSnippets": [
+    {
+      "label": "玩家已得知巡邏空窗",
+      "condition": "crambell_patrol_schedule_known",
+      "context": "米爾多雷曾把凱恩巡邏路線的空窗告訴{user}，請{user}轉交給礦場那邊的聯盟成員。她會關心消息是否已經送到，但不會追問細節。"
+    },
+    {
+      "label": "玩家出賣了人民互助聯盟",
+      "condition": "crambell_peoples_alliance_betrayed",
+      "context": "聯盟的行程與聯絡方式被交到了凱恩手上。米爾多雷不確定是誰說出去的，語氣變得謹慎，不再主動談聯盟的任何安排。"
+    }
+  ]
+}
