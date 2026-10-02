@@ -14,7 +14,7 @@
 import { DMAgent } from '../ai/DMAgent';
 import { DM_NARRATION_PROMPT } from '../ai/prompts/exploration';
 import { JudgeAgent }       from '../ai/JudgeAgent';
-import { Regulator }        from '../ai/Regulator';
+import { Regulator, OUT_OF_BOUNDS_MESSAGE } from '../ai/Regulator';
 import { autoClients }      from '../ai/LLMClientFactory';
 import type { ILLMClient }  from '../ai/ILLMClient';
 import { LoreVault, isSecretLayerRevealed } from '../lore/LoreVault';
@@ -639,6 +639,20 @@ export class GameController {
       reason:  result.reason,
       modifiedAction: result.modifiedAction,
     }, { raw: this.regulator.lastRaw || undefined });
+
+    // 第四面牆提問／越權請求：只顯示系統訊息。不推進時間、不改狀態、不寫歷史、
+    // 不觸發事件、不呼叫 DM，想法候選維持原樣。
+    if (result.inputCategory) {
+      log.info('Non-action input', { input, category: result.inputCategory });
+      let text = OUT_OF_BOUNDS_MESSAGE;
+      if (result.inputCategory === 'meta') {
+        text = '【系統】' + await this.regulator.answerMeta(input.trim());
+      }
+      narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
+      pushLine(text, 'meta');
+      inputDisabled.set(false);
+      return;
+    }
 
     if (!result.allowed) {
       log.info('Action rejected', { input, reason: result.reason });
@@ -1901,7 +1915,14 @@ export class GameController {
       .map(q => {
         const def   = this.lore.getQuest(q.questId);
         const stage = def?.stages[q.currentStageId!];
-        return stage ? '- [Quest] ' + def!.name + ': ' + stage.description : '';
+        if (!stage) return '';
+        // 當前階段尚未完成的目標（玩家在任務面板可見的描述），供 DM 在玩家迷惘時以角色內方式暗示方向
+        const pending = stage.objectives
+          .filter(o => !q.completedObjectiveIds.includes(o.id))
+          .map(o => o.description);
+        const shownPending = stage.ordered ? pending.slice(0, 1) : pending;
+        return '- [Quest] ' + def!.name + ': ' + stage.description
+          + (shownPending.length > 0 ? '（目標：' + shownPending.join('；') + '）' : '');
       })
       .filter(Boolean);
 

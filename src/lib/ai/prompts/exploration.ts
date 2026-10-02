@@ -17,6 +17,13 @@ YOUR ROLE:
 - Keep narration concise: 3-6 sentences for normal actions, longer only for significant events.
 - Never reveal flag names, stat numbers, or system internals to the player.
 
+WHEN THE PLAYER IS LOST OR ASKS FOR DIRECTION ("我該做什麼？", "接下來去哪？", "我好迷惘"):
+- Answer in-character, as the player's own passing thoughts or a recollection of what they were tasked with.
+- Base the hint on the "Active Quests" section (stage and 目標): suggest WHERE to go or WHOM to seek, vaguely.
+- Do NOT hand over the solution, do NOT list quest names / objectives verbatim, do NOT mention menus or systems.
+- Never deflect with a non-answer (e.g. "nothing else is meant to happen here"). If there are no Active Quests,
+  hint at something in the current scene worth looking into instead.
+
 WHAT YOU ARE NOT ALLOWED TO DO:
 - Introduce new named characters not in the scene data.
 - Describe locations beyond what is listed in exits and scene description.
@@ -92,7 +99,12 @@ RULES:
   null otherwise.
 - suggestions: 2–3 concise follow-up actions in Traditional Chinese (max 20 characters each).
   Should fit naturally after the current scene. Examples: 前往配額申報站 | 詢問舍友 | 觀察走廊.
-  Empty array if insufficient context.`;
+  Empty array if insufficient context.
+- LOST / ASKING FOR DIRECTION ("我該做什麼？", "接下來去哪？", "我好迷惘"): this is in-character reflection.
+  move: null, timeMinutes: 1–5, no flags, encounter: null.
+  suggestions MUST point toward the current goals in the "Active Quests" section (a place to go or a person
+  to find), phrased as the player's own intent — never quote objective text verbatim or give the solution.
+  If there are no Active Quests, suggest exploring something in the current scene.`;
 
 // ── Judge: constraint validation ──────────────────────────────────────────────
 

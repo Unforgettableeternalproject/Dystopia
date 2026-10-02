@@ -288,6 +288,15 @@
     color: var(--text-dim);
   }
 
+  /* 遊戲外的系統回應（操作說明／越權婉拒）：等寬、左框線，與敘事明顯區隔 */
+  .line--meta {
+    font-family: ui-monospace, 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-left: 2px solid var(--accent-blue);
+    padding: 4px 0 4px 10px;
+  }
+
   .line--rejected {
     color: var(--accent-red);
     font-size: 13px;

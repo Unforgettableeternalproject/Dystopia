@@ -59,8 +59,9 @@ export interface NarrativeLine {
    *  player-dialogue = player speech inside NPC encounter (rendered with 「」)
    *  system = info message | rejected = regulator rejection | event = game event trigger
    *  scene = story encounter description (gray, stage-direction style)
-   *  interact = prop interaction encounter */
-  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'player-dialogue' | 'rejected' | 'event' | 'scene' | 'interact';
+   *  interact = prop interaction encounter
+   *  meta = 遊戲外的系統回應（操作說明／越權婉拒），不屬於敘事 */
+  type: 'narrative' | 'dialogue' | 'system' | 'player' | 'player-dialogue' | 'rejected' | 'event' | 'scene' | 'interact' | 'meta';
   isStreaming: boolean;
 }
 

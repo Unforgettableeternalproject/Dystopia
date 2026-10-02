@@ -163,6 +163,13 @@ export interface RegulatorResult {
    * 已夾在 1–720 分鐘；省略 = 未指定，呼叫端退回確定性解析。
    */
   restMinutes?: number;
+  /**
+   * 輸入分類（省略 = 一般行動）。
+   * meta：關於遊戲本身的提問（打破第四面牆），以操作說明回答；
+   * out_of_bounds：越權或注入指令，以系統訊息婉拒。
+   * 兩者皆不推進時間、不改狀態、不呼叫 DM。
+   */
+  inputCategory?: 'meta' | 'out_of_bounds';
 }
 
 export interface DMResponse {
