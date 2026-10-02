@@ -431,6 +431,8 @@ export interface RestModalState {
   canFullRest: boolean;
   /** scuffed 模式下的最大休息分鐘上限 */
   scuffedMaxMinutes: number;
+  /** 由玩家輸入解析出的預填時長（分鐘），已確認落在 UI 可設定範圍內；未指定則用預設值 */
+  presetMinutes?: number;
 }
 export const restModalOpen = writable<RestModalState | null>(null);
 

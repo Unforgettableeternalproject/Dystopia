@@ -18,9 +18,13 @@
     { label: '長 120分', minutes: 120 },
   ];
 
+  // 玩家輸入中指定的時長（GameController 已確認落在 UI 範圍內），開啟時預填
+  const preset = $restModalOpen?.presetMinutes;
+  const presetFull = $restModalOpen?.canFullRest && preset !== undefined ? preset : undefined;
+
   // ── Full rest 時間 spinner
-  let fullHours   = 8;   // 0–12
-  let fullMinutes = 0;   // 0 / 10 / 20 / 30 / 40 / 50
+  let fullHours   = presetFull !== undefined ? Math.floor(presetFull / 60) : 8;   // 0–12
+  let fullMinutes = presetFull !== undefined ? presetFull % 60 : 0;               // 0 / 10 / 20 / 30 / 40 / 50
 
   function stepHours(delta: number) {
     fullHours = Math.max(0, Math.min(12, fullHours + delta));
@@ -44,7 +48,7 @@
   $: fullSelectedMinutes = fullHours * 60 + fullMinutes;
 
   // ── Scuffed 選擇
-  let scuffedSelected = 30;
+  let scuffedSelected = !$restModalOpen?.canFullRest && preset !== undefined ? preset : 30;
 
   $: state = $restModalOpen;
 

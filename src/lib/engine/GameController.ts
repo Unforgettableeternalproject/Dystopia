@@ -29,6 +29,7 @@ import { DialogueManager }  from './DialogueManager';
 import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode, EncounterPendingEffects } from './EncounterEngine';
 import { RestResolver, QUALITY_LABEL } from './RestResolver';
+import { parseRestDurationMinutes, resolveRestPreset } from '../utils/restDurationParser';
 import type { RestResult }             from './RestResolver';
 import type { EncounterDefinition, ScriptLine } from '../types/encounter';
 import type { PlayerAction, ActionType, ActionTargetKind, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
@@ -626,7 +627,7 @@ export class GameController {
     // Applies regardless of whether the action came from a Thought or manual text input.
     if (finalAction.type === 'rest') {
       narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
-      this.openRestModal();
+      this.openRestModal(input);
       inputDisabled.set(false);
       return;
     }
@@ -933,18 +934,28 @@ export class GameController {
   /**
    * 開啟休息 Modal。分類當前休息情境並設定 store。
    * 由 UI 在玩家選擇休息動作時呼叫。
+   * @param playerInput 玩家原始輸入；若其中指定了時長（「睡五個小時」「睡到早上六點」），預填至 Modal
    * @returns false 表示疲勞不足（< 3），無法休息
    */
-  openRestModal(): boolean {
-    const fatigue = this.state.getState().player.statusStats.fatigue ?? 0;
+  openRestModal(playerInput?: string): boolean {
+    const gs = this.state.getState();
+    const fatigue = gs.player.statusStats.fatigue ?? 0;
     if (fatigue < 3) {
       pushLine('你還不夠疲勞，無法入睡。', 'system');
       return false;
     }
     const restCtx = this.classifyRestContext();
+    const canFullRest = restCtx.mode === 'full_available';
+    const presetMinutes = playerInput
+      ? resolveRestPreset(
+          parseRestDurationMinutes(playerInput, gs.time),
+          { canFullRest, scuffedMaxMinutes: restCtx.maxTimeMinutes },
+        )
+      : null;
     restModalOpen.set({
-      canFullRest:        restCtx.mode === 'full_available',
+      canFullRest,
       scuffedMaxMinutes:  restCtx.maxTimeMinutes,
+      ...(presetMinutes !== null ? { presetMinutes } : {}),
     });
     return true;
   }
@@ -1292,7 +1303,7 @@ export class GameController {
     }
 
     const action: PlayerAction = { type: 'rest', input: '（休息）' };
-    this.state.appendHistory(action, fullText.slice(0, 200));
+    this.state.appendHistory(action, this.sanitizeDMOutput(fullText).slice(0, 200));
 
     // Launch encounters triggered by rest_start event (e.g. restless night), sequentially.
     if (ctx.restEncounterIds?.length || this._npcDialogueQueue.length > 0) {
@@ -1302,7 +1313,8 @@ export class GameController {
       this.releaseInput();
       // Thoughts will be refreshed when the encounter ends via selectEncounterChoice.
     } else {
-      await this.refreshThoughts();
+      // 休息敘述末尾的 <<THOUGHTS>> 訊號即為 LLM 候選；缺漏時 refreshThoughts 走中文 fallback
+      await this.refreshThoughts(extractEncounterThoughts(fullText));
     }
   }
 
@@ -1357,7 +1369,7 @@ export class GameController {
       isStreaming.set(false);
     }
 
-    await this.refreshThoughts();
+    await this.refreshThoughts(extractEncounterThoughts(fullText));
   }
 
   // -- Save / load -------------------------------------------------------
@@ -3536,7 +3548,8 @@ export class GameController {
 
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
 
-    result.push({ id: id('examine'), text: 'Observe surroundings', actionType: 'examine' });
+    // 無 LLM 候選時的 fallback：以玩家口吻的繁體中文呈現
+    result.push({ id: id('examine'), text: '觀察四周', actionType: 'examine' });
 
     if (resolved) {
       const exits = resolved.connections
@@ -3551,19 +3564,19 @@ export class GameController {
         })
         .slice(0, 3);
       for (const exit of exits) {
-        result.push({ id: id('move'), text: 'Go to ' + exit.description, actionType: 'move' });
+        result.push({ id: id('move'), text: '前往：' + exit.description, actionType: 'move' });
       }
 
       const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod).slice(0, 2);
       for (const npc of npcs) {
-        result.push({ id: id('talk'), text: 'Talk to ' + npc.name, actionType: 'interact', targetId: npc.id });
+        result.push({ id: id('talk'), text: '和' + npc.name + '交談', actionType: 'interact', targetId: npc.id });
       }
     }
 
     const staminaLow  = gs.player.statusStats.stamina < gs.player.statusStats.staminaMax * 0.4;
     const stressHigh  = gs.player.statusStats.stress  > gs.player.statusStats.stressMax  * 0.75;
     if (staminaLow || stressHigh) {
-      result.push({ id: id('rest'), text: 'Find somewhere to rest', actionType: 'rest' });
+      result.push({ id: id('rest'), text: '找個地方休息', actionType: 'rest' });
     }
 
     return result;

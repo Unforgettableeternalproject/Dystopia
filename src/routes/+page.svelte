@@ -234,7 +234,7 @@
     if (!controller) return;
     // Rest thoughts open RestModal instead of going to DM
     if (thought.actionType === 'rest') {
-      controller.openRestModal();
+      controller.openRestModal(thought.text);
       return;
     }
     controller.submitAction(thought.text, thought.actionType, thought.targetId).catch(err => {

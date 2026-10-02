@@ -12,7 +12,7 @@
 import type { PlayerAction, HistoryEntry } from '../types';
 import type { ILLMClient } from './ILLMClient';
 import type { TurnResolution, DialogueResolution } from '../types/game';
-import { DM_NARRATION_PROMPT, DM_INTENT_PROMPT } from './prompts/exploration';
+import { DM_NARRATION_PROMPT, DM_INTENT_PROMPT, DM_REST_NARRATION_PROMPT } from './prompts/exploration';
 import { DIALOGUE_INTENT_PROMPT, DIALOGUE_NARRATION_PROMPT } from './prompts/dialogue';
 import { EVENT_NARRATION_PROMPT, EVENT_OUTCOME_PROMPT, EVENT_CLOSE_PROMPT } from './prompts/event';
 import { createLogger } from '../utils/Logger';
@@ -239,7 +239,8 @@ export class DMAgent {
       historyText || '(game start)',
     ].join('\n');
 
-    yield* this.client.stream(DM_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
+    // 休息沒有 Phase 1 JSON，候選行動由敘述末尾的 <<THOUGHTS>> 訊號提供
+    yield* this.client.stream(DM_REST_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
   }
 
   /**
@@ -265,7 +266,7 @@ export class DMAgent {
       '（玩家考慮休息後決定放棄，繼續行動。）',
     ].join('\n');
 
-    yield* this.client.stream(DM_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
+    yield* this.client.stream(DM_REST_NARRATION_PROMPT, [{ role: 'user', content: userMessage }]);
   }
 
   // ── Structured event encounter ────────────────────────────────────────

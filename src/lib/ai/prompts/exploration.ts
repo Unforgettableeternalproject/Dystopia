@@ -31,6 +31,22 @@ Simply narrate what happened naturally — the engine has already decided the ou
 The structured scene data, player status, and triggered events are provided in each message.
 Respond with narration ONLY — no OOC commentary, no markdown headers, no meta-tokens.`;
 
+// ── Rest narration (single-phase; appends THOUGHTS signal) ───────────────────
+// 休息結果／取消休息沒有 Phase 1 JSON，候選行動改由敘述末尾的 <<THOUGHTS>> 訊號提供。
+
+export const DM_REST_NARRATION_PROMPT = DM_NARRATION_PROMPT.replace(
+  'Respond with narration ONLY — no OOC commentary, no markdown headers, no meta-tokens.',
+  `Respond with narration — no OOC commentary, no markdown headers.
+
+After the narration, on a NEW LINE, append exactly one signal in this format:
+<<THOUGHTS: 建議行動1 | 建議行動2 | 建議行動3>>
+Rules for the signal:
+- 2–3 follow-up action suggestions in Traditional Chinese, phrased as the player's own intent, max 20 characters each.
+- Must reflect what the player can realistically do next in the current scene after this rest.
+- Pipe-separated, no extra spaces around pipes.
+- This is the ONLY signal you may emit. Do NOT skip this line.`,
+);
+
 // ── DM Phase 1: intent JSON ───────────────────────────────────────────────────
 
 export const DM_INTENT_PROMPT = `You are the DM's planning layer in a theatrical RPG engine.
