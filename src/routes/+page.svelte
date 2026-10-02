@@ -10,6 +10,7 @@
   import { loadCrambellLore } from '$lib/utils/LoreLoader';
   import { pushLine }         from '$lib/stores/gameStore';
   import { broadcastAppClose } from '$lib/utils/Logger';
+  import { get } from 'svelte/store';
   import { gamePhase, isDebugMode, activeNpcUI, selfCheckOpen, inventoryOpen, activeScriptedDialogue, activeEncounterUI, narrativeLines, encounterSessionLog, inputDisabled, questDetailOpen, questListOpen, currentQuestBanner, statCheckOverlay, endingType, loreItemOpen, restModalOpen, restResultOverlay } from '$lib/stores/gameStore';
   import type { SlotMeta }    from '$lib/utils/SaveManager';
 
@@ -109,6 +110,7 @@
     getCurrentWindow()
       .onCloseRequested((event) => {
         if (_closeGuard.bypass) return;   // confirmed — let Tauri proceed with close
+        if (get(gamePhase) !== 'playing') return;   // 不在遊戲中（標題、結局畫面）沒有可遺失的進度，直接關閉
         event.preventDefault();
         showCloseConfirm = true;
       })
