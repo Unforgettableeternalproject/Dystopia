@@ -101,6 +101,19 @@ export interface GameState {
    * evaluateAccessCondition 用此判斷嘗試遭遇冷卻是否結束。
    */
   attemptCooldowns: Record<string, number>;
+  /**
+   * 當晚門禁開始時間的臨時覆寫（由事件 outcome.curfewStartOverride 設定）。
+   * expiresAtTotalMinutes 之後失效，回到 RegionSchedule.curfew 預設值。
+   * 省略 = 使用預設門禁時間。
+   */
+  curfewOverride?: CurfewOverride;
+}
+
+export interface CurfewOverride {
+  startHour: number;
+  startMinute: number;
+  /** 失效時刻（totalMinutes）；通常為該晚門禁結束的時刻 */
+  expiresAtTotalMinutes: number;
 }
 
 export type GamePhase =
@@ -145,6 +158,11 @@ export interface RegulatorResult {
   allowed: boolean;
   reason?: string;
   modifiedAction?: PlayerAction;
+  /**
+   * 休息意圖時 LLM 換算的預計休息分鐘數（玩家指定時長或起床時刻時才有），供休息 Modal 預填。
+   * 已夾在 1–720 分鐘；省略 = 未指定，呼叫端退回確定性解析。
+   */
+  restMinutes?: number;
 }
 
 export interface DMResponse {

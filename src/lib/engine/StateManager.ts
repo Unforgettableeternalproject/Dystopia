@@ -6,11 +6,20 @@ import type { PlayerCondition } from '../types/condition';
 import type { ConditionDefinition } from '../types/condition';
 import type { WorldPhaseId } from '../types/phase';
 import type { QuestInstance, QuestSource, QuestDitchConsequences, QuestReward } from '../types/quest';
-import type { TimePeriod } from '../types/world';
+import type { TimePeriod, CurfewConfig } from '../types/world';
+import type { CurfewOverride } from '../types/game';
 import type { PlayerAttitude } from '../types/dialogue';
 import type { PrimaryStatKey } from '../types/player';
 import { EventBus, GameEvents } from './EventBus';
 import { FlagSystem } from './FlagSystem';
+import {
+  computeOverrideExpiry,
+  getEffectiveCurfew,
+  isCurfewActive,
+  isOverrideActive,
+  rollCurfewOverride,
+  type CurfewWindow,
+} from '../utils/curfew';
 import {
   computeFinalSkillXP,
   resolveLevelUps,
@@ -880,8 +889,63 @@ export class StateManager {
     const periodChanged = newPeriod !== this.state.timePeriod;
     this.state.time       = newTime;
     this.state.timePeriod = newPeriod;
+    this.syncCurfewFlag();
     this.notifyUpdate();
     return periodChanged;
+  }
+
+  // ── Curfew ───────────────────────────────────────────────────
+  // 門禁的唯一來源：curfewConfig（區域預設）+ state.curfewOverride（當晚覆寫）。
+  // 每次時間推進後同步 activeFlag；通道（access.flag）、事件（condition.flags）與地圖都只讀這個旗標。
+
+  private curfewConfig?: CurfewConfig;
+
+  /** 設定目前區域的門禁設定（區域切換、讀檔後呼叫），並立即同步旗標。 */
+  setCurfewConfig(cfg: CurfewConfig | undefined): void {
+    this.curfewConfig = cfg;
+    this.syncCurfewFlag();
+  }
+
+  getCurfewConfig(): CurfewConfig | undefined {
+    return this.curfewConfig;
+  }
+
+  /** 目前有效的門禁時間窗（含覆寫）；無門禁設定回傳 null。 */
+  getEffectiveCurfew(): CurfewWindow | null {
+    return getEffectiveCurfew(this.curfewConfig, this.state.curfewOverride, this.state.time.totalMinutes);
+  }
+
+  /**
+   * 由事件效果呼叫：從候選時刻隨機選出當晚門禁開始時間。
+   * 同一晚已有覆寫時不重抽（廣播冷卻較短，一天可能播多次），保持敘述與實際時間一致。
+   */
+  rollCurfewOverride(options: { hour: number; minute: number }[], random: () => number = Math.random): CurfewOverride | null {
+    const cfg = this.curfewConfig;
+    if (!cfg) return null;
+    const t = this.state.time;
+    const current = this.state.curfewOverride;
+    if (current && isOverrideActive(current, t.totalMinutes)
+        && current.expiresAtTotalMinutes === computeOverrideExpiry(cfg, t)) {
+      return current;
+    }
+    const next = rollCurfewOverride(cfg, options, t, random);
+    if (!next) return null;
+    this.state.curfewOverride = next;
+    this.syncCurfewFlag();
+    this.notifyUpdate();
+    return next;
+  }
+
+  /** 依目前時間與覆寫同步門禁旗標；過期的覆寫在此清除。 */
+  private syncCurfewFlag(): void {
+    const cfg = this.curfewConfig;
+    if (!cfg) return;
+    const t = this.state.time;
+    if (this.state.curfewOverride && !isOverrideActive(this.state.curfewOverride, t.totalMinutes)) {
+      delete this.state.curfewOverride;
+    }
+    if (isCurfewActive(cfg, this.state.curfewOverride, t)) this.flags.set(cfg.activeFlag);
+    else this.flags.unset(cfg.activeFlag);
   }
 
   /**

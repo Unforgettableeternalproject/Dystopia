@@ -69,9 +69,23 @@ RULES:
 - move: set only if the player physically relocates. Use exact targetLocationId from Exits,
   OR the Destination ID shown in a "Navigation Route (engine-resolved)" block if present.
   null if player is not moving.
-- timeMinutes: REQUIRED. Realistic in-game minutes for the activity (1–480).
+- timeMinutes: REQUIRED. In-game minutes for the activity (1–720), counted from "Action started at"
+  in the Current Time section (if absent, from the current time).
   Base on the actual activity: brief exchange 2–5 min, washing/eating 20–40 min,
   sleeping 6–8 hours (360–480 min), travelling varies. Do NOT default to 10 for everything.
+  WAITING / PASSING TIME — the player decides how long, not you:
+  - Explicit duration or target clock time ("等兩小時", "等到六點", "待到天亮", "消磨時間到下午三點",
+    "跳過到 X 點") → you MUST comply. Convert it to minutes from the action start using the
+    Schedule / Curfew / Upcoming lines (e.g. "等到工作廣播" = the next 作業時段開始). Never shorten it.
+  - Vague waiting ("等一下", "發呆", "消磨時間", "隨便晃晃") → a reasonable, not overly conservative
+    value, typically 30–60 min.
+  - Cap: 720 min (12 hours). If the request exceeds it, use 720.
+  Examples:
+  - Action started at 04:00, "等到六點的工作廣播" → 120
+  - Action started at 21:30, "等到門禁前" with curfew 22:30–04:00 → 60
+  - Action started at 13:10, "等兩個小時" → 120
+  - Action started at 09:00, "等十分鐘" → 10
+  - "坐著發呆一陣子" → 30
 - flagsSet: only IDs from "Flag Actions Available". Only if genuinely triggered.
 - flagsUnset: only IDs from "Flag Actions Available". Only if genuinely cleared.
 - encounter: only if the player directly initiates contact with an NPC or an event triggers.

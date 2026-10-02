@@ -232,6 +232,11 @@
 
   function handleThoughtSelect(thought: Thought) {
     if (!controller) return;
+    // 對話中固定附加的「結束對話」候選——直接走退出路徑，不當成一般動作送出
+    if (thought.id === 'end_dialogue') {
+      controller.exitDialogue();
+      return;
+    }
     // Rest thoughts open RestModal instead of going to DM
     if (thought.actionType === 'rest') {
       controller.openRestModal(thought.text);

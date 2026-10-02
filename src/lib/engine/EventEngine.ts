@@ -697,6 +697,9 @@ export class EventEngine {
     if (outcome.melphinChange) {
       this.state.modifyMelphin(outcome.melphinChange);
     }
+    if (outcome.curfewStartOverride?.options?.length) {
+      this.state.rollCurfewOverride(outcome.curfewStartOverride.options);
+    }
     if (outcome.applyConditionId) {
       this.state.addCondition(outcome.applyConditionId, id => this.lore.getCondition(id));
     }

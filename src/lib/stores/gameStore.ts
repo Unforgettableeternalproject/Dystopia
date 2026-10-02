@@ -113,6 +113,38 @@ export function finishLastLine(): void {
   });
 }
 
+/**
+ * Append a chunk to the line matching `id` (not necessarily the last line).
+ * Used by dialogue streaming so a concurrent/stale call can never corrupt
+ * a different, newer line that happens to be last.
+ */
+export function appendToLine(id: string, chunk: string): void {
+  narrativeLines.update((lines) =>
+    lines.map(l => (l.id === id ? { ...l, text: l.text + chunk } : l)),
+  );
+}
+
+/**
+ * Finalize the line matching `id`: mark it no longer streaming, optionally
+ * replace its text. If the final text is empty, remove the line entirely
+ * (guards against an orphaned empty bubble from an aborted/raced stream).
+ */
+export function finalizeLine(id: string, text?: string): void {
+  narrativeLines.update((lines) => {
+    const idx = lines.findIndex(l => l.id === id);
+    if (idx === -1) return lines;
+    const finalText = text ?? lines[idx].text;
+    if (finalText.trim().length === 0) {
+      return [...lines.slice(0, idx), ...lines.slice(idx + 1)];
+    }
+    return [
+      ...lines.slice(0, idx),
+      { ...lines[idx], text: finalText, isStreaming: false },
+      ...lines.slice(idx + 1),
+    ];
+  });
+}
+
 /** Rebuild narrativeLines from saved history (called on load). */
 export function restoreHistoryLines(history: HistoryEntry[]): void {
   const lines: NarrativeLine[] = [];

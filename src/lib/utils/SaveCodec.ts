@@ -9,7 +9,7 @@
 //   const code = await SaveCodec.encode(gameState, flagArray);
 //   const { state, flags } = await SaveCodec.decode(code);
 
-import type { GameState, HistoryEntry, PlayerAction, GameTime, GamePhase } from '../types';
+import type { GameState, HistoryEntry, PlayerAction, GameTime, GamePhase, CurfewOverride } from '../types';
 import type { PlayerState, PlayerCondition }                               from '../types/player';
 import type { QuestInstance }                                              from '../types/quest';
 import type { NPCMemoryEntry, ActiveDialogueState, FactionRelationState }  from '../types/game';
@@ -45,6 +45,8 @@ export interface SaveSnapshot {
   factionRelations?:    Record<string, FactionRelationState>;
   /** NPC 會面次數；舊存檔可能缺少 */
   npcMeetingCounts?:    Record<string, number>;
+  /** 當晚門禁開始時間覆寫；舊存檔或無覆寫時缺少 */
+  curfewOverride?:      CurfewOverride;
 }
 
 // PlayerState with activeFlags serialised as string[] instead of Set
@@ -86,6 +88,7 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     propFlags:        gs.propFlags,
     factionRelations: gs.factionRelations ?? {},
     npcMeetingCounts: gs.npcMeetingCounts ?? {},
+    curfewOverride:   gs.curfewOverride,
   };
 
   const json       = JSON.stringify(snapshot);
@@ -171,6 +174,7 @@ export async function decode(code: string): Promise<DecodeResult> {
     // 舊存檔沒有陣營樹資料 → 空物件（陣營於首次接觸時重新初始化）
     factionRelations: snapshot.factionRelations ?? {},
     npcMeetingCounts: snapshot.npcMeetingCounts ?? {},
+    curfewOverride:   snapshot.curfewOverride,
   };
 
   return { snapshot, state, flags: snapshot.flags };

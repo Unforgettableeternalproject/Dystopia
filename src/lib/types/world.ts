@@ -464,6 +464,24 @@ export interface RegionSchedule {
   periods: PeriodDefinition[];
   /** 若此旗標存在，強制將當前時段設為 'special' */
   specialPeriodFlag?: string;
+  /**
+   * 門禁（宵禁）設定。省略 = 此區域無門禁。
+   * 實際門禁開始時間 = GameState.curfewOverride（未過期時）或此處的預設開始時間；
+   * 引擎在每次時間推進後依此同步 activeFlag，所有門禁判斷（通道、事件、地圖）都讀該旗標。
+   */
+  curfew?: CurfewConfig;
+}
+
+/** 區域門禁設定（每日循環，支援跨午夜） */
+export interface CurfewConfig {
+  /** 預設門禁開始時刻 */
+  startHour: number;
+  startMinute: number;
+  /** 門禁結束時刻（不含） */
+  endHour: number;
+  endMinute: number;
+  /** 門禁期間由引擎維持存在的旗標，例如 'crambell_curfew_active' */
+  activeFlag: string;
 }
 
 // ── Event ────────────────────────────────────────────────────────
@@ -618,6 +636,12 @@ export interface EventOutcome {
    * 由 StateManager.modifyMelphin 處理，不走 statChanges 的 dot-path。
    */
   melphinChange?: number;
+  /**
+   * 調整當晚門禁開始時間：從 options 中隨機選一個時刻寫入 GameState.curfewOverride，
+   * 於下一次門禁結束時自動失效（回到 RegionSchedule.curfew 預設值）。
+   * 敘述可用 {curfewStart} 佔位符插入實際門禁時間。
+   */
+  curfewStartOverride?: { options: { hour: number; minute: number }[] };
   /**
    * 觸發指定任務的 onFail 效果並推進/失敗該任務（由 GameController 轉交 QuestEngine）。
    */

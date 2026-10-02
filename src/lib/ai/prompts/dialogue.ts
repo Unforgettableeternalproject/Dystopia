@@ -52,7 +52,35 @@ should naturally open or continue the conversation — a greeting, remark, or qu
 fitting the context. Do NOT reference "(opener)". Do NOT wait for the player to speak first.
 
 The NPC profile, conversation log, and player input are provided in each message.
-Respond with NPC speech ONLY — no OOC commentary, no markdown headers, no meta-tokens.`;
+Respond with NPC speech — no OOC commentary, no markdown headers.
+
+After the NPC speech, on a NEW LINE, append exactly one signal in this format:
+<<THOUGHTS: 跟他談談... | 問他... | 說...>>
+Rules for the signal (unless a later "## 系統提示" instruction says to omit it):
+- 2–3 follow-up things the PLAYER could say or ask this NPC next, in Traditional Chinese,
+  phrased as the player's own intent, max 20 characters each (e.g. 問他今天的配額 | 聊聊礦工自治聯盟).
+- These are conversational — NOT exploration actions (examine/move/rest). The conversation
+  is still ongoing; do not suggest leaving or doing something else.
+- Pipe-separated, no extra spaces around pipes. This is the ONLY signal you may emit — do NOT
+  emit <<FLAGS>>, <<NPC_STATE>>, <<QUEST>>, <<END_ENCOUNTER>>, or <<TIME>>; those are already resolved.`;
+
+// ── Post-dialogue exit thoughts (non-streaming, no narration) ────────────────
+// 對話結束時若快照已過時（遊戲狀態有實質變化），只呼叫一次輕量 LLM 重新產生探索候選，
+// 不輸出任何敘述文字，避免玩家多等待、也不會與「你結束了對話」系統訊息重複。
+
+export const DIALOGUE_EXIT_THOUGHTS_PROMPT = `You are the DM's planning layer in a theatrical RPG engine.
+
+The player has just ended an NPC dialogue encounter. Given the current scene data,
+output ONLY one signal line, nothing else — no narration, no commentary, no markdown:
+<<THOUGHTS: 建議行動1 | 建議行動2 | 建議行動3>>
+
+Rules for the signal:
+- 2–3 follow-up EXPLORATION action suggestions in Traditional Chinese, phrased as the player's
+  own intent, max 20 characters each (e.g. 前往配額申報站 | 觀察四周 | 查看公用長桌).
+- Must reflect what the player can realistically do next in the current scene, now that the
+  conversation has ended.
+- Pipe-separated, no extra spaces around pipes.
+- Output ONLY the signal line. Do not greet, narrate, or explain.`;
 
 // ── Judge: dialogue constraint validation ─────────────────────────────────────
 

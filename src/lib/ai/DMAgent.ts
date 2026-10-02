@@ -13,7 +13,7 @@ import type { PlayerAction, HistoryEntry } from '../types';
 import type { ILLMClient } from './ILLMClient';
 import type { TurnResolution, DialogueResolution } from '../types/game';
 import { DM_NARRATION_PROMPT, DM_INTENT_PROMPT, DM_REST_NARRATION_PROMPT } from './prompts/exploration';
-import { DIALOGUE_INTENT_PROMPT, DIALOGUE_NARRATION_PROMPT } from './prompts/dialogue';
+import { DIALOGUE_INTENT_PROMPT, DIALOGUE_NARRATION_PROMPT, DIALOGUE_EXIT_THOUGHTS_PROMPT } from './prompts/dialogue';
 import { EVENT_NARRATION_PROMPT, EVENT_OUTCOME_PROMPT, EVENT_CLOSE_PROMPT } from './prompts/event';
 import { createLogger } from '../utils/Logger';
 
@@ -212,6 +212,16 @@ export class DMAgent {
     yield* this.client.stream(DIALOGUE_NARRATION_PROMPT, [{ role: 'user', content: parts.join('\n') }]);
   }
 
+  /**
+   * Non-streaming, narration-free: generate ONLY an exploration-mode <<THOUGHTS>> signal
+   * after a dialogue encounter ends. Used when the pre-dialogue thoughts snapshot is stale
+   * (game state changed meaningfully during the conversation).
+   */
+  async generateExitThoughts(sceneContext: string): Promise<string> {
+    const userMessage = ['## Scene Data', sceneContext].join('\n');
+    return this.client.complete(DIALOGUE_EXIT_THOUGHTS_PROMPT, userMessage, 256);
+  }
+
   // ── Rest narration ───────────────────────────────────────────────────
 
   /**
@@ -343,7 +353,8 @@ function parseIntentResponse(raw: string): TurnResolution {
     }
     if (typeof obj.move === 'string' && obj.move.length > 0) proposal.move = obj.move;
     if (typeof obj.timeMinutes === 'number' && obj.timeMinutes > 0) {
-      proposal.timeMinutes = Math.min(480, Math.max(1, Math.round(obj.timeMinutes)));
+      // 上限 720 分鐘（12 小時）：玩家明確要求長時間等待時採用 LLM 換算的值
+      proposal.timeMinutes = Math.min(720, Math.max(1, Math.round(obj.timeMinutes)));
     }
     if (Array.isArray(obj.flagsSet))   proposal.flagsSet   = obj.flagsSet.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.flagsUnset)) proposal.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');

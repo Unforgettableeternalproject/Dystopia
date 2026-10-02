@@ -18,5 +18,13 @@
       "endMinute": 0
     }
   ],
-  "specialPeriodFlag": "crambell_special_period_active"
+  "specialPeriodFlag": "crambell_special_period_active",
+  "curfew": {
+    "_comment": "門禁預設 23:00–04:00。實際開始時間可被事件 outcome.curfewStartOverride 當晚覆寫；引擎依此維持 activeFlag，宿舍進出通道以 flag \"!crambell_curfew_active\" 判斷。",
+    "startHour": 23,
+    "startMinute": 0,
+    "endHour": 4,
+    "endMinute": 0,
+    "activeFlag": "crambell_curfew_active"
+  }
 }

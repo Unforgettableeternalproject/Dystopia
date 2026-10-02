@@ -30,6 +30,9 @@ import { EncounterEngine }  from './EncounterEngine';
 import type { ResolvedNode, EncounterPendingEffects } from './EncounterEngine';
 import { RestResolver, QUALITY_LABEL } from './RestResolver';
 import { parseRestDurationMinutes, resolveRestPreset } from '../utils/restDurationParser';
+import { formatClock, interpolateCurfew } from '../utils/curfew';
+import { buildClockBlock, curfewLine, upcomingLine, MAX_ACTION_MINUTES } from '../utils/timeContext';
+import type { GameTime } from '../types/game';
 import type { RestResult }             from './RestResolver';
 import type { EncounterDefinition, ScriptLine } from '../types/encounter';
 import type { PlayerAction, ActionType, ActionTargetKind, GameState, StarterConfig, ExplorationShadowComparison, DialogueShadowComparison, TurnResolution, DialogueResolution } from '../types';
@@ -43,6 +46,8 @@ import {
   pushLine,
   appendToLastLine,
   finishLastLine,
+  appendToLine,
+  finalizeLine,
   restoreHistoryLines,
   encounterSessionLog,
   appendEncounterLog,
@@ -71,6 +76,12 @@ import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
 
 const log = createLogger('GameCtrl');
+
+/**
+ * 固定附加在對話中 thoughts 候選末尾的「結束對話」選項。id 固定，供 UI 層
+ * （handleThoughtSelect）辨識並改走 exitDialogue() 而非一般動作送出。
+ */
+export const END_DIALOGUE_THOUGHT: Thought = { id: 'end_dialogue', text: '結束對話', actionType: 'free' };
 
 const STAT_LABELS: Record<string, Record<string, string>> = {
   statusStats:   { stamina: '體力', staminaMax: '體力上限', stress: '壓力', stressMax: '壓力上限', endo: 'Endo', endoMax: 'Endo 上限', experience: '經驗', fatigue: '疲勞' },
@@ -112,6 +123,8 @@ export class GameController {
 
   /** 每累積 N 分鐘遊戲時間，疲勞 +1（6 小時） */
   private static readonly FATIGUE_PERIOD_MINUTES = 360;
+  /** 行動時長（含狀態乘數）達此分鐘數才做定時事件中斷探測；短行動維持原行為 */
+  private static readonly LONG_ACTION_INTERRUPT_MINUTES = 60;
 
   /** 暫存休息敘述上下文，在 overlay 關閉後由 narrateRestResult() 使用 */
   private _pendingRestNarration: {
@@ -133,6 +146,12 @@ export class GameController {
   private _pendingAutoEnd: ReturnType<typeof setTimeout> | null = null;
   /** selectDialogueChoice 重入鎖（防止同一選項在串流期間被重複套用） */
   private _dialogueChoiceBusy = false;
+  /** handleDialogueInput 重入鎖（防止自由輸入/想法點選在串流期間被重複觸發，產生兩個 NPC 發言框） */
+  private _dialogueInputBusy = false;
+
+  /** 進入對話前的探索想法快照 + 當下狀態指紋（供對話結束時還原，見 exitDialogueThoughts） */
+  private _thoughtsSnapshot: Thought[] | null = null;
+  private _thoughtsSnapshotFingerprint: string | null = null;
 
   /**
    * Once a scripted node has fired in the current encounter session,
@@ -282,6 +301,8 @@ export class GameController {
     this.lore.load(data);
     // Refresh schedule for current region after lore load
     this.events.setSchedule(this.lore.getSchedule(this.currentRegionId) ?? null);
+    // 門禁設定（同步門禁旗標的唯一來源）
+    this.state.setCurfewConfig(this.lore.getSchedule(this.currentRegionId)?.curfew);
   }
 
   loadStarter(config: StarterConfig): void {
@@ -509,6 +530,19 @@ export class GameController {
 
     const action: PlayerAction = { type: actionType ?? 'free', input: input.trim(), targetId, targetKind };
     inputDisabled.set(true);
+
+    // Bug A 分流保險：對話進行中，若送出的是非對話類動作（examine/move/rest 等 —
+    // 例如點了一個殘留的探索想法候選），先結束對話再當作一般行動處理，
+    // 而不是把它當成對 NPC 說的話塞進對話 LLM（來源修正見 snapshotThoughtsBeforeDialogue）。
+    const dialogueBeforeAction = get(activeNpcUI);
+    if (dialogueBeforeAction && !get(activeScriptedDialogue)) {
+      const isConversational = !actionType || actionType === 'free'
+        || (actionType === 'interact' && targetId === dialogueBeforeAction.npcId);
+      if (!isConversational) {
+        await this.forceCloseDialogue(dialogueBeforeAction.npcId);
+      }
+    }
+
     const inDialogue = !!get(activeNpcUI) && !get(activeScriptedDialogue);
     if (!silent) {
       previousSnapshot.set({
@@ -588,7 +622,7 @@ export class GameController {
         ...(itemNames.length > 0 ? { items: itemNames } : {}),
       };
     });
-    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg, invNamesForReg, scenePropsForReg);
+    const result = await this.regulator.validate(action, gs0reg.player, sceneNpcsForReg, invNamesForReg, scenePropsForReg, this.buildClockContext());
 
     // ── Trace: regulator result ──────────────────────────────────────────
     addTracePhase(traceId, 'regulator', {
@@ -627,7 +661,8 @@ export class GameController {
     // Applies regardless of whether the action came from a Thought or manual text input.
     if (finalAction.type === 'rest') {
       narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
-      this.openRestModal(input);
+      // 休息時長預填：優先採用 Regulator（LLM）換算的 restMinutes，否則退回確定性解析
+      this.openRestModal(input, result.restMinutes);
       inputDisabled.set(false);
       return;
     }
@@ -767,13 +802,13 @@ export class GameController {
     }
 
     // 4.2. Player action DM — events already narrated above, so triggered is empty here.
-    const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction) + propCtx;
+    const sceneCtx = this.buildSceneCtx([], periodChanged, finalAction, initialTime) + propCtx;
     const navHint  = this.buildNavHint(finalAction);
 
     // ── Trace: scene context ─────────────────────────────────────────────
     addTracePhase(traceId, 'context', sceneCtx + navHint);
 
-    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId, thinkingLineId);
+    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId, thinkingLineId, initialTime);
     this.flushAcquisitions();
 
     // 4.4a. Attempt encounter interception: runDM may have detected an attempt encounter
@@ -796,10 +831,14 @@ export class GameController {
     // 4.5. Apply extra time if resolution exceeds the default advance (e.g., sleeping 8 h).
     // Downward correction (resolution < default) is deferred — TimeManager.advance() only
     // supports positive values. Over-advance by a few minutes is acceptable for now.
+    // runDM 1c 若因定時事件截斷了長時間行動，直接採用截斷後的總時長（已含狀態乘數）。
     const timeCostMultiplier = this.getActionTimeCostMultiplier();
-    const effectiveResolutionTime = resolution.timeMinutes != null
-      ? Math.round(resolution.timeMinutes * timeCostMultiplier)
-      : null;
+    const forcedEffective = (resolution as TurnResolution & { _forcedEffectiveMinutes?: number })._forcedEffectiveMinutes;
+    const effectiveResolutionTime = forcedEffective != null
+      ? forcedEffective
+      : resolution.timeMinutes != null
+        ? Math.round(resolution.timeMinutes * timeCostMultiplier)
+        : null;
     if (effectiveResolutionTime != null && effectiveResolutionTime > defaultMinutes) {
       const extra       = effectiveResolutionTime - defaultMinutes;
       const gs1         = this.state.getState();
@@ -935,9 +974,10 @@ export class GameController {
    * 開啟休息 Modal。分類當前休息情境並設定 store。
    * 由 UI 在玩家選擇休息動作時呼叫。
    * @param playerInput 玩家原始輸入；若其中指定了時長（「睡五個小時」「睡到早上六點」），預填至 Modal
+   * @param llmMinutes Regulator（LLM）依時刻表換算的預計休息分鐘數；優先於 playerInput 的確定性解析
    * @returns false 表示疲勞不足（< 3），無法休息
    */
-  openRestModal(playerInput?: string): boolean {
+  openRestModal(playerInput?: string, llmMinutes?: number): boolean {
     const gs = this.state.getState();
     const fatigue = gs.player.statusStats.fatigue ?? 0;
     if (fatigue < 3) {
@@ -946,12 +986,12 @@ export class GameController {
     }
     const restCtx = this.classifyRestContext();
     const canFullRest = restCtx.mode === 'full_available';
-    const presetMinutes = playerInput
-      ? resolveRestPreset(
-          parseRestDurationMinutes(playerInput, gs.time),
-          { canFullRest, scuffedMaxMinutes: restCtx.maxTimeMinutes },
-        )
-      : null;
+    const presetOpts = { canFullRest, scuffedMaxMinutes: restCtx.maxTimeMinutes };
+    // LLM 換算值優先；超出 UI 範圍或未提供時退回確定性解析（Thought 點選路徑不經 LLM）
+    const llmPreset = llmMinutes != null ? resolveRestPreset(llmMinutes, presetOpts) : null;
+    const presetMinutes = llmPreset ?? (playerInput
+      ? resolveRestPreset(parseRestDurationMinutes(playerInput, gs.time), presetOpts)
+      : null);
     restModalOpen.set({
       canFullRest,
       scuffedMaxMinutes:  restCtx.maxTimeMinutes,
@@ -1007,35 +1047,7 @@ export class GameController {
     // Skipped when rest_start already interrupted (player never fell asleep).
     let interruptMinutes: number | null = null;
     if (!hasRestStartInterrupt) {
-      const projectedEnd = this.timeMgr.advance(gs.time, fullResult.actualMinutes);
-      const allCrossed   = this.timeMgr.computeCrossedHours(gs.time, projectedEnd);
-
-      for (const h of allCrossed) {
-        const wouldFire = this.events.peekHourlyInterrupts(
-          this.currentRegionId,
-          gs.player.currentLocationId,
-          [h],
-        );
-        if (wouldFire.length > 0) {
-          const startMins  = gs.time.hour * 60 + gs.time.minute;
-          const targetMins = h * 60;
-          let diff = targetMins - startMins;
-          if (diff <= 0) diff += 1440;   // overnight wrap
-          interruptMinutes = diff;
-          break;
-        }
-      }
-
-      // timeRanges 型非重複事件：睡眠跨越其時間窗起點時同樣中斷，停在窗口起點，
-      // 避免一次睡眠跨過整個窗口而永久錯過（例：02:00 睡到 09:00 跨過 06:00–06:59）。
-      const rangeOffset = this.events.peekTimeRangeInterrupt(
-        this.currentRegionId,
-        gs.player.currentLocationId,
-        fullResult.actualMinutes,
-      );
-      if (rangeOffset !== null && (interruptMinutes === null || rangeOffset < interruptMinutes)) {
-        interruptMinutes = rangeOffset;
-      }
+      interruptMinutes = this.peekTimedInterruptOffset(fullResult.actualMinutes);
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1630,6 +1642,7 @@ export class GameController {
     (this as unknown as { state: StateManager }).state = new StateManager(gs, this.bus);
     flags.forEach(f => this.state.flags.set(f));
     const schedule = this.lore.getSchedule(this.currentRegionId) ?? null;
+    this.state.setCurfewConfig(schedule?.curfew);
     this.events       = new EventEngine(this.lore, this.state, this.timeMgr, schedule);
     this.phases       = new PhaseManager(this.lore, this.state);
     this.quests       = new QuestEngine(this.lore, this.state);
@@ -1757,6 +1770,8 @@ export class GameController {
     triggered: TriggeredEvent[],
     periodChanged = false,
     action?: PlayerAction,
+    /** 本回合行動開始時刻（預設時間推進之前）；提供時 timeMinutes 與接下來的時間點都以此為起點 */
+    turnStartTime?: GameTime,
   ): string {
     const gs    = this.state.getState();
     const parts: string[] = [];
@@ -1777,10 +1792,27 @@ export class GameController {
           .join(' | ')
       : null;
 
+    // 門禁與接下來的公開時間點（只取時間表／門禁設定，不列舉事件）
+    const curfewCfg = this.state.getCurfewConfig();
+    const timeInput = {
+      time:     turnStartTime ?? gs.time,
+      schedule: schedule ?? null,
+      curfew:   this.state.getEffectiveCurfew(),
+      curfewDefaultStart: curfewCfg ? { hour: curfewCfg.startHour, minute: curfewCfg.startMinute } : undefined,
+    };
+    const startLine = turnStartTime
+      ? `Action started at: ${formatClock(turnStartTime.hour, turnStartTime.minute)} — timeMinutes counts from this moment `
+        + `(the clock above already includes a provisional ${gs.time.totalMinutes - turnStartTime.totalMinutes} min). `
+        + `Max ${MAX_ACTION_MINUTES} min per action.`
+      : '';
+
     parts.push([
       '## Current Time',
       'Time: ' + timeStr + ' | ' + periodStr + periodNote,
       schedLine ? 'Schedule: ' + schedLine : '',
+      curfewLine({ ...timeInput, time: gs.time }) ?? '',   // 門禁狀態以目前時鐘判斷，與下方出口的封鎖一致
+      startLine,
+      upcomingLine(timeInput) ?? '',
     ].filter(Boolean).join('\n'));
 
     // ── Location context ───────────────────────────────────────────────────
@@ -1839,9 +1871,11 @@ export class GameController {
     }
 
     if (triggered.length > 0) {
+      // {curfewStart} 等結構化佔位符以引擎實際值替換（outcome 效果已套用，讀到的是覆寫後的門禁時間）
+      const curfewWindow = this.state.getEffectiveCurfew();
       const evLines = triggered.map(({ event, outcome }) => [
-        '- [觸發] ' + event.description,
-        '  [結果] ' + outcome.description,
+        '- [觸發] ' + interpolateCurfew(event.description, curfewWindow),
+        '  [結果] ' + interpolateCurfew(outcome.description, curfewWindow),
       ].join('\n'));
       parts.push('\n### Events This Turn\n' + evLines.join('\n'));
     }
@@ -2218,6 +2252,8 @@ export class GameController {
     sceneCtx: string,
     traceId?: number,
     thinkingLineId?: string,
+    /** 本回合行動開始時刻；提供時啟用長時間行動的中斷探測，並把實際起訖時刻交給 Phase 2 敘述 */
+    turnStartTime?: GameTime,
   ): Promise<{ resolution: TurnResolution; suggestions: string[] }> {
     // Capture scalar values before any awaits — getState() returns a live reference.
     const gs = this.state.getState();
@@ -2304,6 +2340,26 @@ export class GameController {
     // 1b. Non-move time: DM's decided time is authoritative.
     if (!resolution.move && proposal.timeMinutes) {
       resolution.timeMinutes = proposal.timeMinutes;
+    }
+
+    // 1c. 長時間行動（等待、消磨時間）：時長仍由 LLM 決定，但夾在上限內；
+    //     與休息相同，若途中會跨越定時事件（triggerHours 整點／timeRanges 窗口起點），
+    //     在觸發點截斷，事件於 4.5 的時間推進後觸發並另行敘述。
+    let forcedEffectiveMinutes: number | undefined;
+    if (!resolution.move && resolution.timeMinutes && turnStartTime) {
+      resolution.timeMinutes = Math.min(MAX_ACTION_MINUTES, resolution.timeMinutes);
+      const effective   = Math.round(resolution.timeMinutes * this.getActionTimeCostMultiplier());
+      const provisional = gs.time.totalMinutes - turnStartTime.totalMinutes;
+      const remaining   = effective - provisional;
+      if (effective >= GameController.LONG_ACTION_INTERRUPT_MINUTES && remaining > 0) {
+        const offset = this.peekTimedInterruptOffset(remaining);
+        if (offset !== null && offset < remaining) {
+          forcedEffectiveMinutes = provisional + offset;
+          (resolution as TurnResolution & { _forcedEffectiveMinutes?: number })._forcedEffectiveMinutes = forcedEffectiveMinutes;
+          resolution.reasoning = (resolution.reasoning ? resolution.reasoning + '; ' : '') +
+            `long action truncated at scheduled event: ${effective} → ${forcedEffectiveMinutes} min`;
+        }
+      }
     }
 
     // 2. Flag validation: only allow flags that pass proximity + manifest check.
@@ -2465,6 +2521,21 @@ export class GameController {
     }
 
     // ── Phase 2: Stream DM narration ─────────────────────────────────────
+    // 引擎已決定的實際起訖時刻（結構化插值），避免敘述與實際時間矛盾
+    let resolvedTimeCtx = '';
+    if (turnStartTime && resolution.timeMinutes) {
+      // 與 4.5 的時間推進同一算法：forced（中斷）優先，否則 timeMinutes × 狀態乘數
+      const totalMinutes = forcedEffectiveMinutes
+        ?? Math.round(resolution.timeMinutes * this.getActionTimeCostMultiplier());
+      const end = this.timeMgr.advance(turnStartTime, Math.max(totalMinutes, gs.time.totalMinutes - turnStartTime.totalMinutes));
+      resolvedTimeCtx = '\n\n## Resolved Time (engine)\n'
+        + `This action lasts ${end.totalMinutes - turnStartTime.totalMinutes} min: `
+        + `${formatClock(turnStartTime.hour, turnStartTime.minute)} → ${formatClock(end.hour, end.minute)}. `
+        + 'Narrate consistently with this end time; do not state a different duration or clock time.'
+        + (forcedEffectiveMinutes !== undefined
+          ? ' The wait is cut short at this time by a scheduled happening, which will be narrated separately — do not describe it.'
+          : '');
+    }
     isStreaming.set(true);
     // Use pre-existing thinking line (pushed before Regulator) if available, else push a new one
     const effectiveThinkingId = thinkingLineId ?? pushLine('···', 'system');
@@ -2473,7 +2544,7 @@ export class GameController {
     let fullText = '';
     let signalCutoff = -1;
     try {
-      for await (const chunk of this.dm.narrate(sceneCtx, action, this.state.getState().history)) {
+      for await (const chunk of this.dm.narrate(sceneCtx + resolvedTimeCtx, action, this.state.getState().history)) {
         // Replace thinking indicator with narrative line on first chunk
         if (!thinkingCleared) {
           narrativeLines.update(lines => lines.filter(l => l.id !== effectiveThinkingId));
@@ -2562,7 +2633,7 @@ export class GameController {
     encounterSessionLog.set([]);
     this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
     this.syncUIState(this.state.getState());
-    await this.refreshThoughts([]);
+    await this.exitDialogueThoughts();
   }
 
   /** Public alias for the UI exit button in NPCPanel. */
@@ -2573,6 +2644,25 @@ export class GameController {
   }
 
   private async handleDialogueInput(text: string, npcId: string, opener = false): Promise<void> {
+    // 重入鎖：必須在第一個 await 之前同步檢查並設定，否則自由輸入/想法點選的
+    // 連續觸發（例如 opener 期間又送出一次輸入）會並發跑兩次，產生兩個 NPC 發言框，
+    // 第一個因 "last line" 位置被第二個蓋過而永遠空白（即 to-do 的殘留 bug）。
+    if (this._dialogueInputBusy) {
+      log.warn('handleDialogueInput re-entrant call ignored', { npcId, opener });
+      return;
+    }
+    this._dialogueInputBusy = true;
+    try {
+      await this.handleDialogueInputInner(text, npcId, opener);
+    } finally {
+      this._dialogueInputBusy = false;
+      // 集中在此釋放 input——被重入鎖擋下的呼叫不會執行到這裡，避免它提前把
+      // 仍在進行中的第一個呼叫的 inputDisabled 重新打開。
+      inputDisabled.set(false);
+    }
+  }
+
+  private async handleDialogueInputInner(text: string, npcId: string, opener = false): Promise<void> {
     const npc = this.lore.resolveNPC(npcId, this.state.flags, this.state.getState().timePeriod);
     if (!npc) {
       // NPC gone — exit encounter silently
@@ -2700,30 +2790,36 @@ export class GameController {
 
     // ── Phase 2: stream narration ──────────────────────────────────────
     isStreaming.set(true);
-    pushLine(npc.name + '：', 'dialogue', true);
+    // 以回傳的 line id 定位，而非「最後一行」——避免與併發/被打斷的呼叫互相覆蓋，
+    // 也讓串流中途被強制結束對話時能正確收尾（見下方 aborted 分支）。
+    const npcLineId = pushLine(npc.name + '：', 'dialogue', true);
 
     let fullText     = '';
     let signalCutoff = -1;
     let streamError  = false;
+    let aborted      = false;
     try {
       for await (const chunk of this.dm.narrateDialogue(npcContext, sessionLog, text, { endEncounter: shouldEnd })) {
+        // 對話在串流期間被強制結束（玩家點退出／偵測到離開意圖）——立刻停止，
+        // 不再把後續 chunk 誤寫到別的行（修正 to-do：結束對話後仍有一次 LLM 輸出殘留）。
+        if (get(activeNpcUI) === null) { aborted = true; break; }
         const prevLen = fullText.length;
         fullText += chunk;
         if (signalCutoff === -1) {
           const idx = fullText.indexOf('<<');
           if (idx !== -1) {
-            if (idx > prevLen) appendToLastLine(fullText.slice(prevLen, idx));
+            if (idx > prevLen) appendToLine(npcLineId, fullText.slice(prevLen, idx));
             signalCutoff = idx;
           } else {
-            appendToLastLine(chunk);
+            appendToLine(npcLineId, chunk);
           }
         }
       }
     } catch (err) {
       streamError = true;
       log.error('Dialogue DM narration failed', err);
-      appendToLastLine('\n[narration error -- please retry]');
-      finishLastLine();
+      appendToLine(npcLineId, '\n[narration error -- please retry]');
+      finalizeLine(npcLineId);
     } finally {
       isStreaming.set(false);
     }
@@ -2731,26 +2827,25 @@ export class GameController {
     if (streamError) return;
 
     // Guard: if the encounter was force-closed during streaming (e.g. player clicked exit),
-    // discard the in-flight response and do not reopen the NPC panel.
-    if (get(activeNpcUI) === null) return;
+    // discard the in-flight response and do not reopen the NPC panel. Finalize (or remove,
+    // if empty) the placeholder line first so it never lingers as a blank cursor.
+    if (aborted || get(activeNpcUI) === null) {
+      finalizeLine(npcLineId);
+      return;
+    }
 
-    // Suggestions come from Judge resolution, not DM narrative stream
-    const suggestions: string[] = resolution.suggestions ?? [];
+    // 對話中的候選改由敘述串流末尾的 <<THOUGHTS>> 訊號提供（比照休息流程），而非 Phase 1
+    // JSON 的 suggestions 欄位——同一來源即顯示文字，較不會混入探索類候選。
+    // LLM 未給訊號時維持空陣列；refreshThoughts 會補上固定的「結束對話」選項。
+    const suggestions: string[] = extractEncounterThoughts(fullText);
 
     // Clean narration: strip signal markers
     const cleanNarrative = this.sanitizeDMOutput(fullText);
 
-    // Patch displayed line with NPC name prefix, finalized as dialogue type
-    narrativeLines.update(lines => {
-      if (lines.length === 0) return lines;
-      const last = lines[lines.length - 1];
-      return [...lines.slice(0, -1), {
-        ...last,
-        text: npc.name + '：' + cleanNarrative,
-        type: 'dialogue' as const,
-        isStreaming: false,
-      }];
-    });
+    // Patch displayed line with NPC name prefix, finalized as dialogue type.
+    // Empty narration (e.g. parse/stream edge case) removes the line instead of
+    // leaving an empty bubble behind.
+    finalizeLine(npcLineId, npc.name + '：' + cleanNarrative);
 
     // ── Apply NPC state from resolution ────────────────────────────────
     if (resolution.npcState) {
@@ -2856,6 +2951,10 @@ export class GameController {
         );
         this.syncUIState(this.state.getState());
       }
+      // 對話被事件打斷結束——不還原快照（接下來立刻啟動另一個遭遇，由它自己的流程
+      // 決定結束後的想法；快照留著會在未來某次不相關的對話結束時被誤用）。
+      this._thoughtsSnapshot = null;
+      this._thoughtsSnapshotFingerprint = null;
       for (const enc of timeTriggeredEncounters) this.enqueueEncounter(enc.id, enc.def ?? undefined);
       await this.startNextQueuedEncounter();
       this.flushAcquisitions();
@@ -2864,8 +2963,14 @@ export class GameController {
       return;
     }
 
-    // Refresh thoughts (dialogue mode suggestions or post-encounter exploration)
-    await this.refreshThoughts(suggestions);
+    if (shouldEnd) {
+      // 對話已結束——還原進入對話前的探索想法快照（或視狀態變化改呼叫輕量 LLM），
+      // 不再沿用 LLM 的 dialogue suggestions（endEncounter 時給的探索建議品質不穩定）。
+      await this.exitDialogueThoughts();
+    } else {
+      // Refresh thoughts with dialogue-mode suggestions (still mid-conversation)
+      await this.refreshThoughts(suggestions);
+    }
   }
 
   // -- Structured encounter ---------------------------------------------
@@ -3022,6 +3127,52 @@ export class GameController {
    * 計算玩家當前所有 condition 的行動時間乘數（相乘疊加）。
    * 供各個 timeMinutes 應用點呼叫。
    */
+  /**
+   * 長時間推進（休息、等待）的定時事件中斷探測：從目前時刻起 durationMinutes 內，
+   * 找出最早會觸發的 triggerHours 事件整點，或 timeRanges 型非重複事件的窗口起點，
+   * 回傳距今的分鐘偏移；無則回傳 null。不套用任何效果。
+   */
+  private peekTimedInterruptOffset(durationMinutes: number): number | null {
+    const gs = this.state.getState();
+    let best: number | null = null;
+
+    const projectedEnd = this.timeMgr.advance(gs.time, durationMinutes);
+    const startMins    = gs.time.hour * 60 + gs.time.minute;
+    for (const h of this.timeMgr.computeCrossedHours(gs.time, projectedEnd)) {
+      let diff = h * 60 - startMins;
+      if (diff <= 0) diff += 1440;   // overnight wrap
+      if (best !== null && diff >= best) continue;
+      const wouldFire = this.events.peekHourlyInterrupts(
+        this.currentRegionId,
+        gs.player.currentLocationId,
+        [h],
+      );
+      if (wouldFire.length > 0) best = diff;
+    }
+
+    // timeRanges 型非重複事件：跨越其時間窗起點時同樣中斷，停在窗口起點，
+    // 避免一次推進跨過整個窗口而永久錯過（例：02:00 睡到 09:00 跨過 06:00–06:59）。
+    const rangeOffset = this.events.peekTimeRangeInterrupt(
+      this.currentRegionId,
+      gs.player.currentLocationId,
+      durationMinutes,
+    );
+    if (rangeOffset !== null && (best === null || rangeOffset < best)) best = rangeOffset;
+    return best;
+  }
+
+  /** 目前時刻、時段表、門禁與接下來的公開時間點（供 Regulator 換算休息時長）。 */
+  private buildClockContext(): string {
+    const gs  = this.state.getState();
+    const cfg = this.state.getCurfewConfig();
+    return buildClockBlock({
+      time:     gs.time,
+      schedule: this.lore.getSchedule(this.currentRegionId) ?? null,
+      curfew:   this.state.getEffectiveCurfew(),
+      curfewDefaultStart: cfg ? { hour: cfg.startHour, minute: cfg.startMinute } : undefined,
+    });
+  }
+
   private getActionTimeCostMultiplier(): number {
     const conditions = this.state.getState().player.conditions;
     let multiplier = 1;
@@ -3519,20 +3670,105 @@ export class GameController {
 
   // -- Thought generation -----------------------------------------------
 
+  /**
+   * 粗略的遊戲狀態指紋，供 exitDialogueThoughts 判斷對話期間狀態是否有「實質變化」。
+   * 只取會影響探索候選內容的欄位；時間以 30 分鐘為粒度，避免對話本身消耗的少量時間
+   * 被誤判為「有變化」。
+   */
+  private computeThoughtsFingerprint(): string {
+    const gs = this.state.getState();
+    const flagsPart = this.state.flags.toArray().sort().join(',');
+    const questsPart = Object.values(gs.activeQuests)
+      .map(q => `${q.questId}:${q.currentStageId ?? ''}:${q.completedObjectiveIds.length}`)
+      .sort()
+      .join(',');
+    const invPart = gs.player.inventory
+      .map(i => `${i.itemId}:${i.variantId ?? ''}:${i.isExpired ? 'x' : 'o'}`)
+      .sort()
+      .join(',');
+    const repPart = Object.entries(gs.player.externalStats.reputation).sort().map(([k, v]) => `${k}=${v}`).join(',');
+    const affPart = Object.entries(gs.player.externalStats.affinity).sort().map(([k, v]) => `${k}=${v}`).join(',');
+    const timeBucket = Math.floor(gs.time.totalMinutes / 30);
+    return [
+      gs.player.currentLocationId, timeBucket, flagsPart, questsPart, invPart, repPart, affPart,
+    ].join('|');
+  }
+
+  /**
+   * 進入對話前呼叫：快照當下探索想法與狀態指紋，清空 thoughts（對話中改由
+   * resolution.suggestions 驅動），供 exitDialogueThoughts 在對話結束時還原。
+   */
+  private snapshotThoughtsBeforeDialogue(): void {
+    this._thoughtsSnapshot = get(thoughts);
+    this._thoughtsSnapshotFingerprint = this.computeThoughtsFingerprint();
+    thoughts.set([]);
+    this.state.setThoughts([]);
+  }
+
+  /**
+   * 對話結束時呼叫（所有結束路徑：強制離開、自然結束、劇本 endAfterScript、事件打斷）。
+   * 快照存在且狀態指紋未變 → 直接還原快照，不呼叫 LLM。
+   * 狀態有變化 → 呼叫一次輕量、無敘述的 THOUGHTS-only LLM；失敗則退回快照。
+   * 無快照 → 退回一般 fallback（refreshThoughts 的中文 fallback）。
+   */
+  private async exitDialogueThoughts(): Promise<void> {
+    const snapshot    = this._thoughtsSnapshot;
+    const snapshotFp   = this._thoughtsSnapshotFingerprint;
+    this._thoughtsSnapshot = null;
+    this._thoughtsSnapshotFingerprint = null;
+
+    if (snapshot && snapshotFp !== null && snapshotFp === this.computeThoughtsFingerprint()) {
+      const final = this.regulator.processThoughts(snapshot, this.state.getState().player);
+      thoughts.set(final);
+      this.state.setThoughts(final);
+      return;
+    }
+
+    if (!snapshot || this.mockMode) {
+      await this.refreshThoughts([]);
+      return;
+    }
+
+    try {
+      const sceneCtx = this.buildSceneCtx([]);
+      const raw      = await this.dm.generateExitThoughts(sceneCtx);
+      const sugg     = extractEncounterThoughts(raw);
+      if (sugg.length > 0) {
+        await this.refreshThoughts(sugg);
+      } else {
+        const final = this.regulator.processThoughts(snapshot, this.state.getState().player);
+        thoughts.set(final);
+        this.state.setThoughts(final);
+      }
+    } catch (err) {
+      log.warn('exitDialogueThoughts LLM failed, falling back to snapshot', err);
+      const final = this.regulator.processThoughts(snapshot, this.state.getState().player);
+      thoughts.set(final);
+      this.state.setThoughts(final);
+    }
+  }
+
   private async refreshThoughts(dmSuggestions: string[] = []): Promise<void> {
     const gs = this.state.getState();
-    const inDialogue = !!get(activeNpcUI);
+    // Scripted dialogue nodes show their own choice panel, not thoughts — don't attach
+    // the "結束對話" sentinel while one is active (free-form dialogue only).
+    const inFreeDialogue = !!get(activeNpcUI) && !get(activeScriptedDialogue);
     let base: Thought[];
-    if (dmSuggestions.length > 0) {
+    if (inFreeDialogue) {
+      // 對話進行中：候選一律是「對這位 NPC 可說的話／問的事」（來自敘述串流的
+      // <<THOUGHTS>> 訊號），固定附加一個「結束對話」選項；LLM 沒給訊號時只顯示它。
+      let n = 0;
+      base = [
+        ...dmSuggestions.map(text => ({ id: 'dm_' + (n++), text, actionType: 'free' as const })),
+        END_DIALOGUE_THOUGHT,
+      ];
+    } else if (dmSuggestions.length > 0) {
       let n = 0;
       base = dmSuggestions.map(text => ({
         id: 'dm_' + (n++),
         text,
         actionType: 'free' as const,
       }));
-    } else if (inDialogue) {
-      // During dialogue, don't fall back to exploration thoughts
-      base = [];
     } else {
       base = this.buildBaseThoughts(gs);
     }
@@ -4600,7 +4836,15 @@ export class GameController {
     // If endAfterScript is set, close the NPC panel instead of launching LLM opener.
     const npc = this.lore.getNPC(npcId);
     if (npc && get(activeNpcUI) && !current.endAfterScript) {
-      await this.handleDialogueInput('(opener)', npcId, true);
+      // 這段可能由 600ms 自動結束計時器觸發（非玩家點擊），input 當時已被重新啟用。
+      // 在呼叫 LLM opener 期間重新鎖住，避免玩家此刻點擊舊的探索想法/輸入文字，
+      // 與這次 opener 併發送進對話（handleDialogueInput 的重入鎖是第二層保險）。
+      inputDisabled.set(true);
+      try {
+        await this.handleDialogueInput('(opener)', npcId, true);
+      } finally {
+        inputDisabled.set(false);
+      }
       return;
     }
 
@@ -4618,7 +4862,8 @@ export class GameController {
       return;
     }
 
-    await this.refreshThoughts();
+    // endAfterScript（劇本結束即關閉對話）——還原進入對話前的探索想法快照
+    await this.exitDialogueThoughts();
     this.autoSave().catch(err => log.warn('Auto-save after scripted dialogue failed', err));
   }
 
@@ -4632,6 +4877,8 @@ export class GameController {
       this._sessionFiredTriggers.clear(); this._scriptedFiredThisSession = false;
       // 新的一段對話 = 一次會面（同段對話後續輪次走 else 路徑，不重複計數）
       this.state.recordNPCMeeting(npcId);
+      // 快照進入對話前的探索想法，清空 thoughts（Bug A 來源修正：對話中不應殘留探索候選）
+      this.snapshotThoughtsBeforeDialogue();
     }
     const gs  = this.state.getState();
     const mem = gs.npcMemory[npcId];

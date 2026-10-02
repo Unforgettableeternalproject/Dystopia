@@ -130,7 +130,8 @@ function parseExplorationJudgeResponse(raw: string): TurnResolution {
 
     if (typeof obj.move === 'string' && obj.move.length > 0) resolution.move = obj.move;
     if (typeof obj.timeMinutes === 'number' && obj.timeMinutes > 0) {
-      resolution.timeMinutes = Math.min(480, Math.max(1, Math.round(obj.timeMinutes)));
+      // 與 DM Phase 1 一致，上限 720 分鐘（12 小時）
+      resolution.timeMinutes = Math.min(720, Math.max(1, Math.round(obj.timeMinutes)));
     }
     if (Array.isArray(obj.flagsSet))   resolution.flagsSet   = obj.flagsSet.filter((f: unknown) => typeof f === 'string');
     if (Array.isArray(obj.flagsUnset)) resolution.flagsUnset = obj.flagsUnset.filter((f: unknown) => typeof f === 'string');

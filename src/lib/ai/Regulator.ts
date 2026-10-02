@@ -40,7 +40,11 @@ Rules:
    - questions about own status/condition → "inspect"
    - asking to go somewhere → "move"
    Do NOT classify an information-seeking input as "free" just because it is phrased as a question or self-talk.
-10. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null }`;
+10. restMinutes: ONLY when actionType is "rest" AND the player states a duration or a wake-up time
+    ("睡五個小時", "睡到早上六點", "休息到工作廣播"), convert it to minutes from the current time in "clock"
+    (use its Schedule / Curfew / Upcoming lines), max 720. Otherwise null. Never invent a duration.
+    Example: clock time 04:00, "睡到六點的工作廣播" → 120.
+11. Respond ONLY with JSON: { "allowed": boolean, "reason": string | null, "modifiedInput": string | null, "actionType": string | null, "targetId": string | null, "restMinutes": number | null }`;
 
 // Patterns that indicate prompt injection attempts.
 // Checked case-insensitively; order does not matter.
@@ -76,6 +80,8 @@ export class Regulator {
     sceneNpcs: { id: string; name: string }[] = [],
     inventoryNames: string[] = [],
     sceneProps: { id: string; name: string; action?: string; items?: string[] }[] = [],
+    /** 目前時刻與時刻表（供休息時長換算）；省略 = 不提供 */
+    clock?: string,
   ): Promise<RegulatorResult> {
     this.lastRaw = '';
 
@@ -122,6 +128,7 @@ export class Regulator {
         consciousness: this.describeDomain(d.consciousness),
       },
       conditions: conditionSummary || 'none',
+      clock,
     });
 
     try {
@@ -137,6 +144,7 @@ export class Regulator {
         modifiedInput: string | null;
         actionType: string | null;
         targetId: string | null;
+        restMinutes?: number | null;
       };
 
       log.info('Validate result', { allowed: parsed.allowed, actionType: parsed.actionType, reason: parsed.reason });
@@ -153,9 +161,16 @@ export class Regulator {
         resolvedType !== action.type ||
         resolvedTargetId !== action.targetId;
 
+      // 休息時長：只在休息意圖時採用，夾在 1–720 分鐘；格式錯誤則忽略（退回確定性解析）
+      const restMinutes = resolvedType === 'rest'
+        && typeof parsed.restMinutes === 'number' && Number.isFinite(parsed.restMinutes) && parsed.restMinutes > 0
+        ? Math.min(720, Math.max(1, Math.round(parsed.restMinutes)))
+        : undefined;
+
       return {
         allowed: parsed.allowed,
         reason: parsed.reason ?? undefined,
+        ...(restMinutes !== undefined ? { restMinutes } : {}),
         modifiedAction: needsModifiedAction
           ? {
               ...action,

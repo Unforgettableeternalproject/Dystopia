@@ -13,9 +13,7 @@
         "targetLocationId": "delth_dormitory",
         "description": "前往宿舍區的路",
         "access": {
-          "timeRanges": [
-            { "startHour": 4, "startMinute": 0, "endHour": 22, "endMinute": 59 }
-          ],
+          "flag": "!crambell_curfew_active",
           "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。",
           "attemptEncounterId": "crambell_enc_dormitory_curfew",
           "attemptLabel": "門禁中（可嘗試闖入）",

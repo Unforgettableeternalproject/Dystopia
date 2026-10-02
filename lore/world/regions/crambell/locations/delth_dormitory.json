@@ -11,11 +11,19 @@
     "connections": [
       {
         "targetLocationId": "delth_patrol_zone",
-        "description": "從宿舍往管制區的道路"
+        "description": "從宿舍往管制區的道路",
+        "access": {
+          "flag": "!crambell_curfew_active",
+          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。"
+        }
       },
       {
         "targetLocationId": "delth_forest",
-        "description": "前往象限邊緣森林的小徑"
+        "description": "前往象限邊緣森林的小徑",
+        "access": {
+          "flag": "!crambell_curfew_active",
+          "lockedMessage": "已經進入了門禁時間，宿舍的鐵門已經關上了。"
+        }
       },
       {
         "targetLocationId": "delth_mine_path",

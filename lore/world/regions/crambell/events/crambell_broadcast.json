@@ -16,7 +16,16 @@
     },
     {
       "id": "broadcast_curfew_warning",
-      "description": "「本日宵禁時間提前至午夜零時，違反者將接受處置。理由：第一象限近日有不明人員移動記錄。」廣播完畢。走廊裡幾個礦工互相交換了眼神，沒有人說話。",
+      "description": "「本日宵禁時間提前至{curfewStart}，違反者將接受處置。理由：第一象限近日有不明人員移動記錄。」廣播完畢。走廊裡幾個礦工互相交換了眼神，沒有人說話。",
+      "_comment_curfew": "curfewStartOverride 從 options 隨機選出當晚門禁開始時間（均早於預設 23:00），次日門禁結束後回復預設；{curfewStart} 由引擎替換為實際時間。同一晚重播不重抽。",
+      "curfewStartOverride": {
+        "options": [
+          { "hour": 22, "minute": 0 },
+          { "hour": 22, "minute": 15 },
+          { "hour": 22, "minute": 30 },
+          { "hour": 22, "minute": 45 }
+        ]
+      },
       "flagsSet": ["crambell_broadcast_curfew_heard"],
       "statChanges": { "statusStats.stress": 1 }
     }
