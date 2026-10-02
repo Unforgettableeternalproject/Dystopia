@@ -71,6 +71,7 @@ import { warmUpModel }  from '../utils/ModelWarmup';
 import { interpolate, type InterpolationContext } from '../utils/textInterpolation';
 import * as SaveManager from '../utils/SaveManager';
 import type { SlotMeta } from '../utils/SaveManager';
+import { stateFingerprint } from '../utils/SaveCodec';
 import { activeNpcUI, detailedPlayer, activeScriptedDialogue, activeEncounterUI, storyTypingActive, isSaving, enqueueQuestBanner, showQuestOutcomeFlash, showEventToast, showAcquisitionNotif, triggerBarFlash, showStatDelta, triggerMelphinFlash, triggerSelfCheckGlow, triggerInventoryGlow, gamePhase, endingType, shadowModeActive, pushShadowComparison, restModalOpen, restResultOverlay, previousSnapshot, rewindAction } from '../stores/gameStore';
 import type { EndingType } from '../stores/gameStore';
 import { ACTION_MINUTES } from './TimeManager';
@@ -117,6 +118,11 @@ export class GameController {
    */
   private _pendingQuestOutcomes: Array<{ name: string; outcome: 'completed' | 'failed' }> = [];
   private _stagedQuestOutcomes:  Array<{ name: string; outcome: 'completed' | 'failed' }> = [];
+  /** 「已儲存」基準的狀態指紋；null = 尚無基準（視為有未儲存變更）。 */
+  private _savedFingerprint: string | null = null;
+  /** 存檔序號：避免較早開始、較晚完成的存檔把基準蓋回舊狀態。 */
+  private _saveSeq = 0;
+  private _savedSeq = 0;
 
   /** Maximum NPC dialogue turns before controller forces a wrap-up. */
   private static readonly MAX_DIALOGUE_TURNS = 8;
@@ -375,6 +381,7 @@ export class GameController {
     if (this.mockMode) {
       log.warn('Running in mock mode -- no LLM client configured');
       this.runMockIntro();
+      this.markSaved();
       return;
     }
 
@@ -384,6 +391,8 @@ export class GameController {
     const sceneCtx = this.buildSceneCtx([]);
     const { suggestions } = await this.runDM({ type: 'examine', input: '(game start)' }, sceneCtx);
     await this.refreshThoughts(suggestions);
+    // 新遊戲開場完成即為基準：玩家未做任何行動就關閉不需提示
+    this.markSaved();
   }
 
   /**
@@ -1426,15 +1435,35 @@ export class GameController {
   async save(slotId: number, label?: string): Promise<void> {
     const gs       = this.state.getState();
     const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags);
+    const flags    = this.state.flags.toArray();
+    // 指紋與存檔內容在同一時刻取得；寫入期間若狀態再變動，關閉時仍會判為未儲存
+    const fingerprint = stateFingerprint(gs, flags);
+    const seq         = ++this._saveSeq;
     await SaveManager.saveSlot(
       slotId,
       gs,
-      this.state.flags.toArray(),
+      flags,
       resolved?.name ?? gs.player.currentLocationId,
       this.timeMgr.formatTime(gs.time),
       label,
     );
+    if (seq > this._savedSeq) {
+      this._savedSeq         = seq;
+      this._savedFingerprint = fingerprint;
+    }
     log.info('Game saved', { slotId });
+  }
+
+  /** 以目前狀態作為「已儲存」基準（讀檔完成、新遊戲開場後呼叫）。 */
+  markSaved(): void {
+    this._savedFingerprint = stateFingerprint(this.state.getState(), this.state.flags.toArray());
+    this._savedSeq         = this._saveSeq;
+  }
+
+  /** 上次存檔（或讀檔／新遊戲基準）之後遊戲狀態是否有變更。 */
+  hasUnsavedChanges(): boolean {
+    if (this._savedFingerprint === null) return true;
+    return stateFingerprint(this.state.getState(), this.state.flags.toArray()) !== this._savedFingerprint;
   }
 
   /** Auto-save to slot 0. Silently skips if canSave() is false. */
@@ -1468,6 +1497,8 @@ export class GameController {
     }
 
     await this.refreshThoughts(loadSuggestions);
+    // 讀檔（含讀檔開場敘述）完成即為基準
+    this.markSaved();
     log.info('Game loaded', { slotId, turn: state.turn });
   }
 

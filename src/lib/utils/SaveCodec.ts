@@ -54,10 +54,10 @@ type SerializedPlayer = Omit<PlayerState, 'activeFlags'> & { activeFlags: string
 
 // ── Encode ───────────────────────────────────────────────────────────────
 
-export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<string> {
-  const snapshot: SaveSnapshot = {
+function buildSnapshot(gs: Readonly<GameState>, flags: string[], ts: number): SaveSnapshot {
+  return {
     v:                    SAVE_VERSION,
-    ts:                   Date.now(),
+    ts,
     turn:                 gs.turn,
     phase:                gs.phase,
     lastNarrative:        gs.lastNarrative,
@@ -90,10 +90,21 @@ export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<
     npcMeetingCounts: gs.npcMeetingCounts ?? {},
     curfewOverride:   gs.curfewOverride,
   };
+}
 
-  const json       = JSON.stringify(snapshot);
+export async function encode(gs: Readonly<GameState>, flags: string[]): Promise<string> {
+  const json       = JSON.stringify(buildSnapshot(gs, flags, Date.now()));
   const compressed = await gzip(json);
   return SAVE_PREFIX + toBase64url(compressed);
+}
+
+/**
+ * 狀態指紋：與存檔內容相同的序列化結果，但排除時間戳等中繼資料，且不壓縮（同步）。
+ * 用於判斷「上次存檔後是否有變更」——兩次指紋相同即代表存檔內容不會有差異。
+ */
+export function stateFingerprint(gs: Readonly<GameState>, flags: string[]): string {
+  // 旗標排序：同一組旗標不因設定順序不同而判為變更
+  return JSON.stringify(buildSnapshot(gs, [...flags].sort(), 0));
 }
 
 // ── Decode ───────────────────────────────────────────────────────────────

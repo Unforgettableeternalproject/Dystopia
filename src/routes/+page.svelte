@@ -111,6 +111,9 @@
       .onCloseRequested((event) => {
         if (_closeGuard.bypass) return;   // confirmed — let Tauri proceed with close
         if (get(gamePhase) !== 'playing') return;   // 不在遊戲中（標題、結局畫面）沒有可遺失的進度，直接關閉
+        // 上次存檔（含自動存檔、讀檔、新遊戲開場）後狀態未變更 → 直接關閉
+        // 讀 controller 方法而非 Svelte reactive 變數，理由同 _closeGuard
+        if (controller && !controller.hasUnsavedChanges()) return;
         event.preventDefault();
         showCloseConfirm = true;
       })
