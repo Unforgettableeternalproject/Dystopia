@@ -667,6 +667,24 @@ export class GameController {
       return;
     }
 
+    // 想法候選點選的移動：目的地 id 由引擎產生（buildBaseThoughts），不再交 DM Phase 1 從描述猜。
+    // 只採用呼叫端原本帶入的 targetId（不採 Regulator 改寫後的 targetId）；自由輸入的移動仍走 LLM 路徑。
+    const directMoveTargetId = actionType === 'move' && targetId && finalAction.type === 'move'
+      ? targetId
+      : undefined;
+    if (directMoveTargetId) {
+      const blockedMessage = this.getDirectMoveBlockedMessage(directMoveTargetId);
+      if (blockedMessage) {
+        log.info('Direct move blocked', { targetId: directMoveTargetId, reason: blockedMessage });
+        addTracePhase(traceId, 'resolution', { move: undefined, reasoning: `direct move blocked: ${blockedMessage}` });
+        narrativeLines.update(lines => lines.filter(l => l.id !== thinkingLineId));
+        pushLine(blockedMessage, 'rejected');
+        if (this.checkEndingConditions()) return;
+        inputDisabled.set(false);
+        return;
+      }
+    }
+
     // 1.5. Check for scripted dialogue trigger when player interacts with a scene NPC.
     // Regulator sets type="interact" + targetId when player names a specific NPC.
     const resolvedSceneNpcIds = this.lore.getNPCsByIds(
@@ -808,7 +826,7 @@ export class GameController {
     // ── Trace: scene context ─────────────────────────────────────────────
     addTracePhase(traceId, 'context', sceneCtx + navHint);
 
-    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId, thinkingLineId, initialTime);
+    const { resolution, suggestions } = await this.runDM(finalAction, sceneCtx + navHint, traceId, thinkingLineId, initialTime, directMoveTargetId);
     this.flushAcquisitions();
 
     // 4.4a. Attempt encounter interception: runDM may have detected an attempt encounter
@@ -2100,6 +2118,27 @@ export class GameController {
     return best ? { inv: best.inv, def: best.def, variant: best.variant } : null;
   }
 
+  // -- Direct move (thought candidate) ----------------------------------
+
+  /**
+   * 想法候選移動的前置檢查：目的地必須是目前地點的出口，且門禁允許（或可嘗試通行）。
+   * 回傳被擋時顯示給玩家的訊息；可通行時回傳 null。
+   */
+  private getDirectMoveBlockedMessage(targetId: string): string | null {
+    const gs = this.state.getState();
+    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
+    const conn = resolved?.connections.find(c => c.targetLocationId === targetId);
+    if (!conn || !this.lore.getLocation(targetId)) return '那條路已經不在眼前了。';
+    const access = this.lore.getConnectionAccessResult(
+      conn, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
+      Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
+      { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity,
+        attemptCooldowns: gs.attemptCooldowns, connectionKey: gs.player.currentLocationId + '→' + targetId },
+    );
+    if (access.allowed || access.attemptEncounterId) return null;
+    return conn.access?.lockedMessage ?? '此通道目前無法通行';
+  }
+
   // -- Multi-hop navigation hint ----------------------------------------
 
   /**
@@ -2117,14 +2156,22 @@ export class GameController {
 
     const adjacentIds = new Set(resolved.connections.map(c => c.targetLocationId));
 
-    let bestMatch: { id: string; name: string } | null = null;
+    // 名稱一律用有效顯示名（base.name 覆寫，例：delth_dormitory 顯示為「宿舍大門」），與玩家看到的一致
+    const displayName = (locId: string) => this.lore.resolveLocation(locId, this.state.flags)?.name ?? locId;
+
+    let bestMatch: { id: string; name: string; matchLen: number } | null = null;
     for (const locId of gs.discoveredLocationIds) {
       if (locId === gs.player.currentLocationId || adjacentIds.has(locId)) continue;
-      const loc = this.lore.getLocation(locId);
-      if (loc && action.input.includes(loc.name)) {
-        if (!bestMatch || loc.name.length > bestMatch.name.length) {
-          bestMatch = { id: locId, name: loc.name };
-        }
+      const node = this.lore.getLocation(locId);
+      if (!node) continue;
+      const name = displayName(locId);
+      // 比對有效顯示名；原始區域名（如「綜合宿舍區」）仍視為同一地點的別稱
+      const matchLen = Math.max(
+        action.input.includes(name) ? name.length : 0,
+        action.input.includes(node.name) ? node.name.length : 0,
+      );
+      if (matchLen > 0 && (!bestMatch || matchLen > bestMatch.matchLen)) {
+        bestMatch = { id: locId, name, matchLen };
       }
     }
     if (!bestMatch) return '';
@@ -2146,7 +2193,7 @@ export class GameController {
     );
     if (!pathResult) return '';
 
-    const routeNames = pathResult.path.map(id => this.lore.getLocation(id)?.name ?? id);
+    const routeNames = pathResult.path.map(displayName);
     const bypassNote = pathResult.usedBypass ? ' [partial bypass]' : '';
 
     return [
@@ -2254,46 +2301,55 @@ export class GameController {
     thinkingLineId?: string,
     /** 本回合行動開始時刻；提供時啟用長時間行動的中斷探測，並把實際起訖時刻交給 Phase 2 敘述 */
     turnStartTime?: GameTime,
+    /** 想法候選點選的移動目的地（引擎已決定）；提供時略過 Phase 1 與 Judge 的 LLM 猜測，直接交給下方確定性驗證 */
+    directMoveTargetId?: string,
   ): Promise<{ resolution: TurnResolution; suggestions: string[] }> {
     // Capture scalar values before any awaits — getState() returns a live reference.
     const gs = this.state.getState();
     const sourceLocationId = gs.player.currentLocationId;
     const sourcePeriod     = gs.timePeriod;
 
-    // ── Phase 1: DM decides all signals as structured JSON ────────────────
     let proposal: TurnResolution;
-    let dmPhase1Error: string | undefined;
-    try {
-      proposal = await this.dm.narrateIntent(sceneCtx, action, gs.history);
-    } catch (err) {
-      log.warn('DM proposal failed', err);
-      dmPhase1Error = String(err);
-      proposal = { narrativeSummary: '[proposal error]', timeMinutes: 10 };
-    }
-    // ── Trace: DM Phase 1 ────────────────────────────────────────────────
-    if (traceId != null) {
-      addTracePhase(traceId, 'dm-phase1', proposal, {
-        raw: this.dm.lastRaw || undefined,
-        error: dmPhase1Error ?? (proposal.narrativeSummary === '[intent parse error]' ? 'JSON parse failed' : undefined),
-      });
-    }
-
-    // ── Judge validates constraints; accepts DM values by default ─────────
     let resolution: TurnResolution;
-    let judgeError: string | undefined;
-    try {
-      resolution = await this.judge.resolve(proposal, action, sceneCtx);
-    } catch (err) {
-      log.warn('Judge resolve failed', err);
-      judgeError = String(err);
-      resolution = { timeMinutes: proposal.timeMinutes ?? 10, suggestions: proposal.suggestions, reasoning: '[judge error]' };
-    }
-    // ── Trace: Judge ─────────────────────────────────────────────────────
-    if (traceId != null) {
-      addTracePhase(traceId, 'judge', resolution, {
-        raw: this.judge.lastRaw || undefined,
-        error: judgeError ?? (resolution.reasoning === '[judge parse error]' ? 'JSON parse failed' : undefined),
-      });
+    if (directMoveTargetId) {
+      // 確定的移動意圖：等效於 Phase 1 + Judge 輸出 move=targetId；時間由下方 findPath 覆寫
+      proposal   = { narrativeSummary: '(engine-resolved move)', move: directMoveTargetId, timeMinutes: 10 };
+      resolution = { ...proposal, reasoning: 'direct move from thought candidate — LLM phase 1/judge skipped' };
+      if (traceId != null) addTracePhase(traceId, 'dm-phase1', proposal);
+    } else {
+      // ── Phase 1: DM decides all signals as structured JSON ────────────────
+      let dmPhase1Error: string | undefined;
+      try {
+        proposal = await this.dm.narrateIntent(sceneCtx, action, gs.history);
+      } catch (err) {
+        log.warn('DM proposal failed', err);
+        dmPhase1Error = String(err);
+        proposal = { narrativeSummary: '[proposal error]', timeMinutes: 10 };
+      }
+      // ── Trace: DM Phase 1 ────────────────────────────────────────────────
+      if (traceId != null) {
+        addTracePhase(traceId, 'dm-phase1', proposal, {
+          raw: this.dm.lastRaw || undefined,
+          error: dmPhase1Error ?? (proposal.narrativeSummary === '[intent parse error]' ? 'JSON parse failed' : undefined),
+        });
+      }
+
+      // ── Judge validates constraints; accepts DM values by default ─────────
+      let judgeError: string | undefined;
+      try {
+        resolution = await this.judge.resolve(proposal, action, sceneCtx);
+      } catch (err) {
+        log.warn('Judge resolve failed', err);
+        judgeError = String(err);
+        resolution = { timeMinutes: proposal.timeMinutes ?? 10, suggestions: proposal.suggestions, reasoning: '[judge error]' };
+      }
+      // ── Trace: Judge ─────────────────────────────────────────────────────
+      if (traceId != null) {
+        addTracePhase(traceId, 'judge', resolution, {
+          raw: this.judge.lastRaw || undefined,
+          error: judgeError ?? (resolution.reasoning === '[judge parse error]' ? 'JSON parse failed' : undefined),
+        });
+      }
     }
 
     // ── Deterministic post-validation (engine-side) ───────────────────────
@@ -2535,6 +2591,15 @@ export class GameController {
         + (forcedEffectiveMinutes !== undefined
           ? ' The wait is cut short at this time by a scheduled happening, which will be narrated separately — do not describe it.'
           : '');
+    }
+    // 確定移動：Phase 2 沒有 Phase 1 JSON 可依，明確告知引擎的移動結果，避免敘述成走到別處
+    if (directMoveTargetId) {
+      const dest = this.lore.resolveLocation(directMoveTargetId, this.state.flags, sourcePeriod);
+      const destName = dest?.name ?? directMoveTargetId;
+      resolvedTimeCtx += '\n\n## Resolved Move (engine)\n' + (resolution.move
+        ? `The player moves to [${directMoveTargetId}] ${destName}. Destination: ${dest?.description ?? ''}\n`
+          + 'Narrate the departure and arrival at this destination only; do not send the player anywhere else.'
+        : `The player tries to go to ${destName} but cannot get through. Narrate the failed attempt; the player stays here.`);
     }
     isStreaming.set(true);
     // Use pre-existing thinking line (pushed before Regulator) if available, else push a new one
@@ -3777,30 +3842,53 @@ export class GameController {
     this.state.setThoughts(final);
   }
 
+  /** 預設移動候選上限（想法列為橫向捲動，可容納 4 個） */
+  private static readonly MAX_MOVE_THOUGHTS = 4;
+
   private buildBaseThoughts(gs: Readonly<GameState>): Thought[] {
     const result: Thought[] = [];
     let   n = 0;
     const id = (prefix: string) => prefix + '_' + (n++);
 
-    const resolved = this.lore.resolveLocation(gs.player.currentLocationId, this.state.flags, gs.timePeriod);
+    const currentLocId = gs.player.currentLocationId;
+    const resolved = this.lore.resolveLocation(currentLocId, this.state.flags, gs.timePeriod);
 
     // 無 LLM 候選時的 fallback：以玩家口吻的繁體中文呈現
     result.push({ id: id('examine'), text: '觀察四周', actionType: 'examine' });
 
     if (resolved) {
+      const isVisited = (locId: string) => gs.discoveredLocationIds.includes(locId);
+      const isHiddenOnMap = (c: (typeof resolved.connections)[number]) => {
+        // 與地圖相同的可見條件：未到訪且 mapVisible 條件未滿足的出口不提示
+        if (!c.mapVisible || isVisited(c.targetLocationId)) return false;
+        const knowledgeOk = !c.mapVisible.intelIds?.length
+          || c.mapVisible.intelIds.every(k => gs.player.knownIntelIds.includes(k));
+        const flagsOk = !c.mapVisible.flags || this.state.flags.evaluate(c.mapVisible.flags);
+        return !(knowledgeOk && flagsOk);
+      };
+      // 排序：目前節點的子地點入口 → 尚未到訪的出口 → 其餘（同級維持原順序）
+      const rank = (targetId: string) => {
+        if (this.lore.getLocation(targetId)?.parentId === currentLocId) return 0;
+        return isVisited(targetId) ? 2 : 1;
+      };
       const exits = resolved.connections
         .filter(c => {
+          if (isHiddenOnMap(c)) return false;
           const r = this.lore.getConnectionAccessResult(
             c, this.state.flags, gs.timePeriod, gs.player.knownIntelIds,
             Object.values(gs.activeQuests), gs.time, gs.player.inventory, gs.player.melphin,
             { reputation: gs.player.externalStats.reputation, affinity: gs.player.externalStats.affinity,
-              attemptCooldowns: gs.attemptCooldowns, connectionKey: gs.player.currentLocationId + '→' + c.targetLocationId },
+              attemptCooldowns: gs.attemptCooldowns, connectionKey: currentLocId + '→' + c.targetLocationId },
           );
           return r.allowed || !!r.attemptEncounterId;
         })
-        .slice(0, 3);
+        .map((c, i) => ({ c, i, r: rank(c.targetLocationId) }))
+        .sort((a, b) => a.r - b.r || a.i - b.i)
+        .slice(0, GameController.MAX_MOVE_THOUGHTS)
+        .map(x => x.c);
       for (const exit of exits) {
-        result.push({ id: id('move'), text: '前往：' + exit.description, actionType: 'move' });
+        // 帶 targetId：點選後由引擎直接以此 id 移動，不再讓 LLM 從描述猜目的地
+        result.push({ id: id('move'), text: '前往：' + exit.description, actionType: 'move', targetId: exit.targetLocationId });
       }
 
       const npcs = this.lore.getNPCsByIds(resolved.npcIds, this.state.flags, gs.timePeriod).slice(0, 2);
@@ -4897,9 +4985,9 @@ export class GameController {
 
   private async runMockIntro(): Promise<void> {
     thoughts.set([
-      { id: 'look',  text: 'Observe surroundings',   actionType: 'examine'  },
-      { id: 'move',  text: 'Look for an exit',       actionType: 'move'     },
-      { id: 'talk',  text: 'Try talking to someone', actionType: 'examine'  },
+      { id: 'look',  text: '觀察四周',     actionType: 'examine'  },
+      { id: 'move',  text: '尋找出口',     actionType: 'move'     },
+      { id: 'talk',  text: '找個人說話',   actionType: 'examine'  },
     ]);
 
     const lines = [

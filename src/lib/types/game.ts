@@ -127,7 +127,7 @@ export interface Thought {
   id: string;
   text: string;
   actionType: ActionType;
-  /** Pre-resolved NPC id for interact-type thoughts — bypasses LLM targetId inference. */
+  /** 預先決定的目標 id：interact 為 NPC id，move 為目的地 location id（引擎直接移動，不經 LLM 推測）。 */
   targetId?: string;
   /** true 表示此 Thought 可能被污染（高壓、虛空、心靈控制等情況下） */
   isManipulated?: boolean;
