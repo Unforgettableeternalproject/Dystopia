@@ -188,10 +188,11 @@ describe('Crambell route4 integration — Kane/Government path', () => {
         'crambell_kach', 'crambell_kach_default', state.flags, 0,
       );
       expect(kachFirst).not.toBeNull();
-      expect(kachFirst!.nodeId).toBe('first_meeting');
+      expect(kachFirst!.nodeId).toBe('first_meeting_work');
 
-      // friendly_agree → kach_intro_follow_up (affinity +1)
-      const agreeChoice = dialogueMgr.filterChoices(kachFirst!.node.choices, state.flags)
+      // 時段問候 → 共用森林提問節點；friendly_agree → kach_intro_follow_up (affinity +1)
+      const forestAskNode = dialogueMgr.getNode('crambell_kach', 'crambell_kach_default', 'kach_forest_ask')!;
+      const agreeChoice = dialogueMgr.filterChoices(forestAskNode.choices, state.flags)
         .find(c => c.id === 'friendly_agree')!;
       dialogueMgr.applyChoiceEffects('crambell_kach', agreeChoice.effects);
 

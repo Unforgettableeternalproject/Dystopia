@@ -5,10 +5,36 @@
   "defaultContext": "一個相當耿直的男人，比較少說話，但是對人都很和善，光是處於他身邊就能夠感覺到安心，似乎對當前坎貝爾正在發生的事情很有興趣。",
 
   "nodes": {
+    "first_meeting_work": {
+      "lines": [
+        { "speaker": "narrator", "text": "在你面前的是一位熟悉的面孔，其名為凱奇·巴頓，你與他已經認識了好一段時間了，也曾一起度過各式各樣的時光。" },
+        { "speaker": "npc", "text": "啊...又該開始工作了，對吧，{user}? *整理著地板上的幾件雜物*" }
+      ],
+      "choices": [
+        { "id": "listen", "text": "（點點頭）", "nextNodeId": "kach_forest_ask" }
+      ]
+    },
+    "first_meeting_rest": {
+      "lines": [
+        { "speaker": "narrator", "text": "在你面前的是一位熟悉的面孔，其名為凱奇·巴頓，你與他已經認識了好一段時間了，也曾一起度過各式各樣的時光。" },
+        { "speaker": "npc", "text": "啊...今天總算是結束了，對吧，{user}? *整理著地板上的幾件雜物*" }
+      ],
+      "choices": [
+        { "id": "listen", "text": "（點點頭）", "nextNodeId": "kach_forest_ask" }
+      ]
+    },
     "first_meeting": {
       "lines": [
         { "speaker": "narrator", "text": "在你面前的是一位熟悉的面孔，其名為凱奇·巴頓，你與他已經認識了好一段時間了，也曾一起度過各式各樣的時光。" },
-        { "speaker": "npc", "text": "啊...又該開始工作了，對吧，{user}? *整理著地板上的幾件雜物* 最近想去附近的森林走走，不然每天悶在這裡挺難受的...哈哈。" }
+        { "speaker": "npc", "text": "啊...是你啊，{user}。 *整理著地板上的幾件雜物*" }
+      ],
+      "choices": [
+        { "id": "listen", "text": "（點點頭）", "nextNodeId": "kach_forest_ask" }
+      ]
+    },
+    "kach_forest_ask": {
+      "lines": [
+        { "speaker": "npc", "text": "最近想去附近的森林走走，不然每天悶在這裡挺難受的...哈哈。" }
       ],
       "choices": [
         {
@@ -323,6 +349,16 @@
   },
 
   "triggers": [
+    {
+      "nodeId": "first_meeting_work",
+      "firstMeetingOnly": true,
+      "timeRanges": [{ "startHour": 6, "startMinute": 0, "endHour": 17, "endMinute": 59 }]
+    },
+    {
+      "nodeId": "first_meeting_rest",
+      "firstMeetingOnly": true,
+      "timeRanges": [{ "startHour": 18, "startMinute": 0, "endHour": 5, "endMinute": 59 }]
+    },
     {
       "nodeId": "first_meeting",
       "firstMeetingOnly": true
