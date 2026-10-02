@@ -1043,7 +1043,7 @@
     position: fixed;
     bottom: calc(var(--bottom-bar-h) + 8px);
     right: 8px;
-    z-index: 100;
+    z-index: 90;   /* 低於所有 modal（≥100），避免浮在背包等視窗上 */
     display: flex;
     flex-direction: column;
     gap: 4px;
