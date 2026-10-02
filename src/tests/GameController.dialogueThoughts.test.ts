@@ -135,11 +135,16 @@ class DialogueTestClient implements ILLMClient {
 
   /** 對話敘述串流末尾附加的 <<THOUGHTS>> 訊號；null 代表 LLM 這輪沒給。 */
   dialogueNarrateThoughtsLine: string | null = '<<THOUGHTS: 跟他談談礦工自治聯盟 | 問他今天的配額>>';
+  /** true 時整段敘述只有訊號、沒有實際 NPC 發言內容（清洗後敘述會是空字串）。 */
+  dialogueNarrateEmptyBody = false;
+  /** 設定時，串流在送出第一個 chunk 前先 await 這個 promise（供測試在期間強制結束對話）。 */
+  gateDialogueNarration: { promise: Promise<void>; resolve: () => void } | null = null;
 
   async *stream(systemPrompt: string): AsyncGenerator<string> {
     if (systemPrompt.includes('voicing a single NPC')) {
       this.dialogueNarrateCalled++;
-      yield '聽起來不錯啊。';
+      if (this.gateDialogueNarration) await this.gateDialogueNarration.promise;
+      if (!this.dialogueNarrateEmptyBody) yield '聽起來不錯啊。';
       if (this.dialogueNarrateThoughtsLine !== null) yield '\n' + this.dialogueNarrateThoughtsLine;
       return;
     }
@@ -262,6 +267,50 @@ describe('對話中的想法候選與結束後還原', () => {
     expect(dialogueLines.length).toBe(1);
     expect(dialogueLines[0].text.trim().length).toBeGreaterThan(0);
     expect(dialogueLines[0].isStreaming).toBe(false);
+  });
+
+  it('空白發言框安全網：串流中途被強制結束對話時，移除空的 NPC 發言行（而非留下「NPC名：」）', async () => {
+    const client     = new DialogueTestClient();
+    const controller = await makeController(client);
+    await openDialogue(controller);
+    narrativeLines.set([]); // clear opener's line
+
+    const gate = deferred<void>();
+    client.gateDialogueNarration = { promise: gate.promise, resolve: gate.resolve };
+
+    const turn = controller.submitAction('聊聊礦工自治聯盟');
+    // 在第一個 chunk 送出前，模擬玩家點退出（forceCloseDialogue 的效果）強制結束對話。
+    activeNpcUI.set(null);
+    gate.resolve();
+    await turn;
+
+    const dialogueLines = get(narrativeLines).filter(l => l.type === 'dialogue');
+    expect(dialogueLines.length).toBe(0);
+  });
+
+  it('空白發言框安全網：清洗後敘述為空時（只有訊號、沒有實際發言），移除該行', async () => {
+    const client = new DialogueTestClient();
+    client.dialogueNarrateEmptyBody = true;
+    const controller = await makeController(client);
+    await openDialogue(controller); // opener turn produces the empty-body narration
+
+    const dialogueLines = get(narrativeLines).filter(l => l.type === 'dialogue');
+    expect(dialogueLines.length).toBe(0);
+  });
+
+  it('指紋時間比對改用 timePeriod：對話累積推進分鐘數跨越舊的 30 分桶也不應誤判為有變化', async () => {
+    const client     = new DialogueTestClient();
+    const controller = await makeController(client);
+    await openDialogue(controller);
+
+    // 每輪 timeMinutes=2，連續對話多輪累積超過 30 分鐘；沒有排班表（schedule）時 timePeriod
+    // 不會因此改變，指紋應維持穩定——驗證舊版「30 分鐘桶」已移除，不再誤判為有變化。
+    for (let i = 0; i < 20; i++) {
+      await controller.submitAction('聊聊今天天氣如何');
+    }
+
+    await controller.forceCloseDialogue(NPC_ID);
+    expect(client.exitThoughtsCalled).toBe(0);
   });
 
   it('Bug C 無變化：結束對話還原進入前的快照，不呼叫 LLM', async () => {

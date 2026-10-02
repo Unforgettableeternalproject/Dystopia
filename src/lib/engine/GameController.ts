@@ -2884,7 +2884,7 @@ export class GameController {
       streamError = true;
       log.error('Dialogue DM narration failed', err);
       appendToLine(npcLineId, '\n[narration error -- please retry]');
-      finalizeLine(npcLineId);
+      finalizeLine(npcLineId, undefined, npc.name + '：');
     } finally {
       isStreaming.set(false);
     }
@@ -2893,9 +2893,11 @@ export class GameController {
 
     // Guard: if the encounter was force-closed during streaming (e.g. player clicked exit),
     // discard the in-flight response and do not reopen the NPC panel. Finalize (or remove,
-    // if empty) the placeholder line first so it never lingers as a blank cursor.
+    // if empty) the placeholder line first so it never lingers as a blank cursor — the line
+    // starts life as just "NPC名：" (pushLine's seed text), so blank-ness must be judged on
+    // what comes AFTER that prefix, not the raw (always non-empty) text.
     if (aborted || get(activeNpcUI) === null) {
-      finalizeLine(npcLineId);
+      finalizeLine(npcLineId, undefined, npc.name + '：');
       return;
     }
 
@@ -2909,8 +2911,9 @@ export class GameController {
 
     // Patch displayed line with NPC name prefix, finalized as dialogue type.
     // Empty narration (e.g. parse/stream edge case) removes the line instead of
-    // leaving an empty bubble behind.
-    finalizeLine(npcLineId, npc.name + '：' + cleanNarrative);
+    // leaving an empty bubble behind — blank-check is on cleanNarrative, not the
+    // (always non-empty once prefixed) full text.
+    finalizeLine(npcLineId, npc.name + '：' + cleanNarrative, npc.name + '：');
 
     // ── Apply NPC state from resolution ────────────────────────────────
     if (resolution.npcState) {
@@ -3737,8 +3740,9 @@ export class GameController {
 
   /**
    * 粗略的遊戲狀態指紋，供 exitDialogueThoughts 判斷對話期間狀態是否有「實質變化」。
-   * 只取會影響探索候選內容的欄位；時間以 30 分鐘為粒度，避免對話本身消耗的少量時間
-   * 被誤判為「有變化」。
+   * 只取會影響探索候選內容的欄位；時間以 timePeriod（時段）比對而非分鐘——對話本身推進
+   * 的少量時間幾乎每次都會跨過細粒度的分鐘桶，導致幾乎每次結束都誤判為「有變化」而重新
+   * 呼叫 LLM；時段變動才代表場景候選（如「找個地方休息」）可能真的需要更新。
    */
   private computeThoughtsFingerprint(): string {
     const gs = this.state.getState();
@@ -3753,9 +3757,8 @@ export class GameController {
       .join(',');
     const repPart = Object.entries(gs.player.externalStats.reputation).sort().map(([k, v]) => `${k}=${v}`).join(',');
     const affPart = Object.entries(gs.player.externalStats.affinity).sort().map(([k, v]) => `${k}=${v}`).join(',');
-    const timeBucket = Math.floor(gs.time.totalMinutes / 30);
     return [
-      gs.player.currentLocationId, timeBucket, flagsPart, questsPart, invPart, repPart, affPart,
+      gs.player.currentLocationId, gs.timePeriod, flagsPart, questsPart, invPart, repPart, affPart,
     ].join('|');
   }
 

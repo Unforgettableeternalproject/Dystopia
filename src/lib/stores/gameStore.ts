@@ -128,13 +128,21 @@ export function appendToLine(id: string, chunk: string): void {
  * Finalize the line matching `id`: mark it no longer streaming, optionally
  * replace its text. If the final text is empty, remove the line entirely
  * (guards against an orphaned empty bubble from an aborted/raced stream).
+ *
+ * `prefix` (e.g. the "NPC名：" speaker label pushLine seeded the line with) is
+ * stripped before the blank check — a line that is only ever its prefix (no
+ * actual body appended) is still "empty" and must be removed, not kept as a
+ * speaker label with nothing after it.
  */
-export function finalizeLine(id: string, text?: string): void {
+export function finalizeLine(id: string, text?: string, prefix?: string): void {
   narrativeLines.update((lines) => {
     const idx = lines.findIndex(l => l.id === id);
     if (idx === -1) return lines;
     const finalText = text ?? lines[idx].text;
-    if (finalText.trim().length === 0) {
+    const contentForBlankCheck = prefix && finalText.startsWith(prefix)
+      ? finalText.slice(prefix.length)
+      : finalText;
+    if (contentForBlankCheck.trim().length === 0) {
       return [...lines.slice(0, idx), ...lines.slice(idx + 1)];
     }
     return [
