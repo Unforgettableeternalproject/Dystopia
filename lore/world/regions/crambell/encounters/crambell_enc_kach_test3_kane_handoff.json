@@ -55,7 +55,6 @@
       "outcomeType": "success",
       "effects": {
         "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
-        "grantIntelId": "crambell_old_meeting_intel",
         "characterExpGrant": 15
       }
     },
@@ -66,7 +65,6 @@
       "outcomeType": "success",
       "effects": {
         "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
-        "grantIntelId": "crambell_old_meeting_intel",
         "characterExpGrant": 10
       }
     }

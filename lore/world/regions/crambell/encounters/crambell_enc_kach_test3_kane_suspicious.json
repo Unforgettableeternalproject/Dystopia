@@ -55,7 +55,6 @@
       "effects": {
         "flagsSet": ["crambell_kach_test3_failed"],
         "statChanges": { "statusStats.stress": 2 },
-        "reputationChanges": { "crambell_government": -3 },
         "failQuestId": "crambell_kach_test3"
       }
     },
@@ -104,7 +103,6 @@
       "outcomeType": "success",
       "effects": {
         "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
-        "grantIntelId": "crambell_old_meeting_intel",
         "characterExpGrant": 15
       }
     },
@@ -115,7 +113,6 @@
       "outcomeType": "success",
       "effects": {
         "flagsSet": ["crambell_kach_test3_kane_handoff_done", "crambell_old_meeting_name_known"],
-        "grantIntelId": "crambell_old_meeting_intel",
         "characterExpGrant": 10
       }
     }
